@@ -349,13 +349,13 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     } else {
 
       // the last command is usable
-      state_x   = cmd->position.x;
-      state_y   = cmd->position.y;
-      state_z   = cmd->position.z;
-      state_yaw = cmd->yaw;
+      state_x   = odometry.pose.pose.position.x;
+      state_y   = odometry.pose.pose.position.y;
+      state_z   = odometry.pose.pose.position.z;
+      state_yaw = odometry_yaw;
 
-      speed_x         = cmd->velocity.x;
-      speed_y         = cmd->velocity.y;
+      speed_x         = odometry.twist.twist.linear.x;
+      speed_y         = odometry.twist.twist.linear.y;
       current_heading = atan2(speed_y, speed_x);
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
@@ -363,8 +363,8 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = cmd->yaw;
 
-      ROS_INFO("[LandoffTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-               cmd->yaw);
+      ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z,
+               state_yaw);
     }
   }
   mutex_odometry.unlock();
