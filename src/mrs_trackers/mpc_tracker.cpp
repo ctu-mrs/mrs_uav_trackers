@@ -18,10 +18,8 @@
 #include <cmath>
 #include <math.h>
 #include <mavros_msgs/RCIn.h>
-#include <dynamic_reconfigure/server.h>
-#include <mbzirc_trackers/gains_drsConfig.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
-#include <mbzirc_estimation/convex_polygon.h>
+#include <mrs_estimation/convex_polygon.h>
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
 #include <std_srvs/SetBool.h>
@@ -91,14 +89,6 @@ class MpcTracker : public trackers_manager::Tracker {
     // safety area
     ConvexPolygon * safety_area;
     bool use_safety_area;
-
-    // dynamic reconfigure for gains
-    boost::recursive_mutex config_mutex_;
-    typedef mbzirc_trackers::gains_drsConfig Config;
-    typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
-    boost::shared_ptr<ReconfigureServer> reconfigure_server_;
-    void drs_callback(mbzirc_trackers::gains_drsConfig &config, uint32_t level);
-    mbzirc_trackers::gains_drsConfig last_drs_config;
 
     // variables regarding the MPC controller
     int n; 															// number of states
@@ -178,17 +168,17 @@ class MpcTracker : public trackers_manager::Tracker {
     std::vector<ros::Subscriber> other_drones_subscribers;
     ros::Publisher predicted_trajectory_publisher;
     ros::Publisher debug_predicted_trajectory_publisher;
-    bool mbzirc_collision_avoidance;
+    bool mrs_collision_avoidance;
     double predicted_trajectory_publish_rate;
-    double mbzirc_collision_avoidance_radius;
-    double mbzirc_collision_avoidance_correction;
+    double mrs_collision_avoidance_radius;
+    double mrs_collision_avoidance_correction;
     std::thread predicted_trajectory_thread;
     std::mutex mutex_predicted_trajectory;
     void futureTrajectoryThread(void);
     std::string predicted_trajectory_topic;
     void otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr& msg);
     bool future_was_predicted;
-    double mbzirc_collision_avoidance_altitude_threshold;
+    double mrs_collision_avoidance_altitude_threshold;
     double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
     int uav_num_name;
     double collision_altitude_offeset; 
@@ -277,7 +267,7 @@ void MpcTracker::futureTrajectoryThread(void) {
       newTrajectory.stamp = ros::Time::now();
       newTrajectory.uav_name = uav_name_;
 
-      newTrajectory.collision_avoidance = mbzirc_collision_avoidance;
+      newTrajectory.collision_avoidance = mrs_collision_avoidance;
 
       geometry_msgs::PoseArray debugTrajectory;
       debugTrajectory.header.stamp = ros::Time::now();
@@ -728,19 +718,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   // publisher for the current setpoint
   pub_setpoint_pose_ = priv_nh.advertise<nav_msgs::Odometry>("setpoint_pose", 1);
 
-  // set up dynamically reconfigure server
-  last_drs_config.kpx = kx_[0];
-  last_drs_config.kpy = kx_[1];
-  last_drs_config.kpz = kx_[2];
-  last_drs_config.kdx = kv_[0];
-  last_drs_config.kdy = kv_[1];
-  last_drs_config.kdz = kv_[2];
-
-  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, priv_nh));
-  reconfigure_server_->updateConfig(last_drs_config);
-  ReconfigureServer::CallbackType f = boost::bind(&MpcTracker::drs_callback, this, _1, _2);
-  reconfigure_server_->setCallback(f);
-
   // collision avoidance
   nh.param("uav_name", uav_name_, std::string());
 
@@ -753,7 +730,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   sscanf(uav_name_.c_str(), "uav%d", &uav_num_name);
   ROS_INFO("Numerical ID of this UAV is %d", uav_num_name);
 
-  nh.getParam("mbzirc_collision_avoidance/drone_names", other_drone_names_);
+  nh.getParam("mrs_collision_avoidance/drone_names", other_drone_names_);
 
   // exclude this drone from the list
   std::vector<std::string>::iterator it = other_drone_names_.begin();
@@ -773,7 +750,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     it++;
   }
 
-  nh.param("mbzirc_collision_avoidance/enable", mbzirc_collision_avoidance, false);
+  nh.param("mrs_collision_avoidance/enable", mrs_collision_avoidance, false);
 
   // create publisher for predicted trajectory
   predicted_trajectory_publisher = priv_nh.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
@@ -790,15 +767,15 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   nh.param("predicted_trajectory_topic", predicted_trajectory_topic, std::string());
 
-  nh.param("mbzirc_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate, 1.0);
-  nh.param("mbzirc_collision_avoidance/correction", mbzirc_collision_avoidance_correction, 2.0);
-  nh.param("mbzirc_collision_avoidance/radius", mbzirc_collision_avoidance_radius, 1.0);
-  nh.param("mbzirc_collision_avoidance/altitude_threshold", mbzirc_collision_avoidance_altitude_threshold, 1.0);
-  nh.param("mbzirc_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef, 1.0);
-  nh.param("mbzirc_collision_avoidance/collision_horizontal_acceleration_coef", collision_horizontal_acceleration_coef, 1.0);
-  nh.param("mbzirc_collision_avoidance/collision_slow_down_before", collision_slow_down_before, 0);
-  nh.param("mbzirc_collision_avoidance/collision_slowing_hysteresis", collision_slowing_hysteresis, 0.0);
-  nh.param("mbzirc_collision_avoidance/trajectory_timeout", collision_trajectory_timeout, 1.0);
+  nh.param("mrs_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate, 1.0);
+  nh.param("mrs_collision_avoidance/correction", mrs_collision_avoidance_correction, 2.0);
+  nh.param("mrs_collision_avoidance/radius", mrs_collision_avoidance_radius, 1.0);
+  nh.param("mrs_collision_avoidance/altitude_threshold", mrs_collision_avoidance_altitude_threshold, 1.0);
+  nh.param("mrs_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef, 1.0);
+  nh.param("mrs_collision_avoidance/collision_horizontal_acceleration_coef", collision_horizontal_acceleration_coef, 1.0);
+  nh.param("mrs_collision_avoidance/collision_slow_down_before", collision_slow_down_before, 0);
+  nh.param("mrs_collision_avoidance/collision_slowing_hysteresis", collision_slowing_hysteresis, 0.0);
+  nh.param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout, 1.0);
 
   // collision avoidance toggle service
   collision_avoidance_service = priv_nh.advertiseService("collision_avoidance", &MpcTracker::collision_avoidance_toggle_cb, this);
@@ -824,27 +801,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   predicted_trajectory_thread = std::thread(&MpcTracker::futureTrajectoryThread, this);
 }
 
-void MpcTracker::drs_callback(mbzirc_trackers::gains_drsConfig &config, uint32_t level) {
-
-  if (level == 4294967295 || level == 0) // nothing has changed
-    return;
-
-  mutex_new_gains.lock();
-  {
-    new_kx_[0] = config.kpx;
-    new_kx_[1] = config.kpy;
-    new_kx_[2] = config.kpz;
-    new_kv_[0] = config.kdx;
-    new_kv_[1] = config.kdy;
-    new_kv_[2] = config.kdz;
-
-    last_drs_config = config;
-
-    ROS_INFO("Setting gains: kpx=%2.2f, kpy=%2.2f, kpz=%2.2f, kdx=%2.2f, kdy=%2.2f, kdz=%2.2f", new_kx_[0], new_kx_[1], new_kx_[2], new_kv_[0], new_kv_[1], new_kv_[2]);
-  }
-  mutex_new_gains.unlock();
-}
-
 void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr& msg) {
 
   mrs_msgs::FutureTrajectory temp_trajectory = *msg;
@@ -857,61 +813,17 @@ void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajector
 
 bool MpcTracker::collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
-  mbzirc_collision_avoidance = req.data;
+  mrs_collision_avoidance = req.data;
 
-  if (!mbzirc_collision_avoidance) {
+  if (!mrs_collision_avoidance) {
 
     collision_altitude_offeset = 0;
   }
 
-  ROS_INFO("Collision avoidance was switched %s", mbzirc_collision_avoidance ? "TRUE" : "FALSE");
+  ROS_INFO("Collision avoidance was switched %s", mrs_collision_avoidance ? "TRUE" : "FALSE");
 
   res.message = "Collision avoidance set.";
   res.success = true;
-
-  return true;
-}
-
-bool MpcTracker::set_gains_cb(mrs_msgs::Gains::Request &req, mrs_msgs::Gains::Response &res) {
-
-  // TODO check the range of the gains
-
-  mutex_new_gains.lock();
-  {
-    new_kx_[0] = req.kpx;
-    new_kx_[1] = req.kpy;
-    new_kx_[2] = req.kpz;
-    new_kv_[0] = req.kdx;
-    new_kv_[1] = req.kdy;
-    new_kv_[2] = req.kdz;
-
-    ROS_INFO("Setting gains by service: kpx=%2.2f, kpy=%2.2f, kpz=%2.2f, kdx=%2.2f, kdy=%2.2f, kdz=%2.2f", new_kx_[0], new_kx_[1], new_kx_[2], new_kv_[0], new_kv_[1], new_kv_[2]);
-  }
-  mutex_new_gains.unlock();
-
-  res.message = "Gains set."; 
-  res.success = true;
-
-  return true;
-}
-
-bool MpcTracker::reset_gains_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  mutex_new_gains.lock();
-  {
-    new_kx_[0] = last_drs_config.kpx;
-    new_kx_[1] = last_drs_config.kpy;
-    new_kx_[2] = last_drs_config.kpz;
-    new_kv_[0] = last_drs_config.kdx;
-    new_kv_[1] = last_drs_config.kdy;
-    new_kv_[2] = last_drs_config.kdz;
-
-    ROS_INFO("Resetting gains: kpx=%2.2f, kpy=%2.2f, kpz=%2.2f, kdx=%2.2f, kdy=%2.2f, kdz=%2.2f", new_kx_[0], new_kx_[1], new_kx_[2], new_kv_[0], new_kv_[1], new_kv_[2]);
-  }
-  mutex_new_gains.unlock();
-
-  res.success = true;
-  res.message = "Gains reset back to original values.";
 
   return true;
 }
@@ -962,7 +874,7 @@ double dist(const double ax, const double ay, const double bx, const double by) 
 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (dist(ax, ay, bx, by) < mbzirc_collision_avoidance_radius && fabs(az - bz) < mbzirc_collision_avoidance_altitude_threshold) {
+  if (dist(ax, ay, bx, by) < mrs_collision_avoidance_radius && fabs(az - bz) < mrs_collision_avoidance_altitude_threshold) {
 
     return true; 
 
@@ -1005,10 +917,10 @@ void MpcTracker::filterReference(void) {
 
   trajectory_setpoint_mutex.lock();
 
-  // mbzirc collision avoidance
+  // mrs collision avoidance
   collision_altitude_offeset = 0;
 
-  if (mbzirc_collision_avoidance) {
+  if (mrs_collision_avoidance) {
 
     std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
 
@@ -1046,13 +958,13 @@ void MpcTracker::filterReference(void) {
 
         // only do the avoidance manouver when we are higher number the the other one
         // ! or if the other drones avoidance is turned off
-        if ((u->second.collision_avoidance == false) || (other_drone_id < uav_num_name) || (des_z_trajectory(v) > (u->second.points[v].z + mbzirc_collision_avoidance_correction/2.0 + collision_altitude_offeset))) {
+        if ((u->second.collision_avoidance == false) || (other_drone_id < uav_num_name) || (des_z_trajectory(v) > (u->second.points[v].z + mrs_collision_avoidance_correction/2.0 + collision_altitude_offeset))) {
 
           ROS_INFO_THROTTLE(1, "Avoiding collision with %s.", u->first.c_str());
 
           avoiding_collision_time = ros::Time::now();
 
-          collision_altitude_offeset = u->second.points[v].z + mbzirc_collision_avoidance_correction - des_z_trajectory(v);
+          collision_altitude_offeset = u->second.points[v].z + mrs_collision_avoidance_correction - des_z_trajectory(v);
           u = other_drones_trajectories.begin();
           continue;
 

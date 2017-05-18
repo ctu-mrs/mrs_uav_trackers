@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 <package>
-  <name>mbzirc_trackers</name>
-  <version>0.0.1</version>
-  <description>The mbzirc_trackers package</description>
+  <name>mrs_trackers</name>
+  <version>1.0.0</version>
+  <description>The mrs_trackers package</description>
 
   <!-- One maintainer tag required, multiple allowed, one person per tag --> 
   <!-- Example:  -->
@@ -44,21 +44,19 @@
   <build_depend>quadrotor_msgs</build_depend>
   <build_depend>mrs_msgs</build_depend>
   <build_depend>mav_manager</build_depend>
-  <build_depend>dynamic_reconfigure</build_depend>
-  <build_depend>mbzirc_estimation</build_depend>
+  <build_depend>mrs_estimation</build_depend>
 
   <run_depend>pluginlib</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>trackers_manager</run_depend>
   <run_depend>geometry_msgs</run_depend>
   <run_depend>tf</run_depend>
-  <run_depend>dynamic_reconfigure</run_depend>
   <run_depend>message_runtime</run_depend>
-  <run_depend>mbzirc_estimation</run_depend>
+  <run_depend>mrs_estimation</run_depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
-	<trackers_manager plugin="${prefix}/mbzirc_trackers.xml" />
+	<trackers_manager plugin="${prefix}/mrs_trackers.xml" />
   </export>
 </package>

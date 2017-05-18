@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mbzirc_trackers)
+project(mrs_trackers)
 
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
@@ -9,56 +9,43 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   mav_manager
-  dynamic_reconfigure
   roscpp
   rospy
-  mbzirc_estimation
+  mrs_estimation
   mrs_msgs
   )
-find_package(Eigen REQUIRED)
 
 set(CMAKE_CXX_FLAGS "-std=c++11")
 
-include_directories(${EIGEN_INCLUDE_DIR} ${catkin_INCLUDE_DIRS})
-
-generate_dynamic_reconfigure_options(
-  config/gains_drs.cfg
-)
-
-#add_message_files(FILES
-#  )
-
-#add_service_files(FILES
-#  Vec1.srv
-#  Gains.srv
-#  TrackerTrajectorySrv.srv
-#)
-
-#generate_messages(DEPENDENCIES
-#  std_msgs
-#  geometry_msgs
-#)
+# include Eigen3
+find_package(Eigen3 REQUIRED)
+set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
+set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mbzirc_estimation
-  DEPENDS Eigen thread)
+  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation
+  DEPENDS Eigen
+  )
 
 ###########
 ## Build ##
 ###########
 
 include_directories(
+  ${EIGEN_INCLUDE_DIR} 
+  ${catkin_INCLUDE_DIRS}
+  )
+
+include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
 add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp)
 add_dependencies(mpc_tracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  ${PROJECT_NAME}_gencfg
   )
 target_link_libraries(mpc_tracker ${catkin_LIBRARIES})
 
@@ -79,4 +66,4 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mbzirc_trackers.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES mrs_trackers.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

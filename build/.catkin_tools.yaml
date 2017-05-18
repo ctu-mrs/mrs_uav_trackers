@@ -1,6 +1,0 @@
-devel_space: /home/klaxalk/repo/ros_nodes/mbzirc_trackers/devel
-install: false
-install_space: /home/klaxalk/repo/ros_nodes/mbzirc_trackers/install
-profile: default
-source_space: /home/klaxalk/repo/ros_nodes/mbzirc_trackers/src
-workspace: /home/klaxalk/repo/ros_nodes/mbzirc_trackers

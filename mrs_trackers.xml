@@ -1,5 +1,5 @@
 <library path="lib/libmpc_tracker">
-	<class name="mbzirc_trackers/MpcTracker" type="MpcTracker" base_class_type="trackers_manager::Tracker">
+	<class name="mrs_trackers/MpcTracker" type="MpcTracker" base_class_type="trackers_manager::Tracker">
     		<description>This is MPC tracker.</description>
   	</class>
 </library>

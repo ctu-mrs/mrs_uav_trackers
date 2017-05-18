@@ -4,14 +4,6 @@ rc_failsafe_channel: 9              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place" 
 
-so3gains:
-  
-  # those are not really used now
-  pos: {x: 8.0, y: 8.0, z: 4.0}
-  vel: {x: 3.0, y: 3.0, z: 4.0}
-
-gains_max_change: 0.03
-
 use_safety_area: true
 
 # mbzirc collision avoidance
