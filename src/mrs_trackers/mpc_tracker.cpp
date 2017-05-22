@@ -10,7 +10,6 @@
 #include <geometry_msgs/PoseArray.h>
 #include <mav_manager/Vec4.h>
 #include <mrs_msgs/Vec1.h>
-#include <mrs_msgs/Gains.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <nav_msgs/Odometry.h>
 #include <thread>
@@ -56,8 +55,6 @@ class MpcTracker : public trackers_manager::Tracker {
     ros::ServiceServer gotorelative_service_cmd_cb_;			
     ros::ServiceServer gotoaltitude_service_cmd_cb_;			// 
     ros::ServiceServer failsafe_trigger_service_cmd_;       // this service makes the uav stop and go 5m above
-    ros::ServiceServer ser_gains_set_;
-    ros::ServiceServer ser_gains_reset_;
     ros::ServiceServer collision_avoidance_service;
 
     // debugging publishers
@@ -74,11 +71,9 @@ class MpcTracker : public trackers_manager::Tracker {
 
     quadrotor_msgs::PositionCommand position_cmd_;			// message being returned
 
-    bool odom_set_, active_, use_position_gains_;
+    bool odom_set_, active_;
     double kx_[3], kv_[3];
     double new_kx_[3], new_kv_[3];
-    std::mutex mutex_new_gains;
-    double gains_max_change;
     double cur_yaw_;
     ros::Time odomLastTime;
 
@@ -238,8 +233,6 @@ class MpcTracker : public trackers_manager::Tracker {
     void rc_cb(const mavros_msgs::RCInConstPtr &msg);
     bool trigger_failsafe();
     void publishDiagnostics();
-    bool set_gains_cb(mrs_msgs::Gains::Request &req, mrs_msgs::Gains::Response &res);
-    bool reset_gains_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
     double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
     bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
@@ -330,26 +323,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   int tempIdx;
 
   nh.param("debug", debug_, false);
-
-  // SO3 gains
-  nh.param("so3gains/pos/x", kx_[0], 0.0);
-  nh.param("so3gains/pos/y", kx_[1], 0.0);
-  nh.param("so3gains/pos/z", kx_[2], 0.0);
-  nh.param("so3gains/vel/x", kv_[0], 0.0);
-  nh.param("so3gains/vel/y", kv_[1], 0.0);
-  nh.param("so3gains/vel/z", kv_[2], 0.0);
-
-  mutex_new_gains.lock();
-  {
-    for (int i = 0; i < 3; i++) {
-
-      new_kx_[i] = kx_[i];
-      new_kv_[i] = kv_[i];
-    } 
-  }
-  mutex_new_gains.unlock();
-
-  nh.param("gains_max_change", gains_max_change, 0.01);
 
   // safety area
   nh.param("use_safety_area", use_safety_area, false);
@@ -705,9 +678,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   // service for triggering failsafe 
   failsafe_trigger_service_cmd_ = priv_nh.advertiseService("failsafe", &MpcTracker::failsafe_trigger_service_cmd_cb, this);
-
-  ser_gains_set_ = priv_nh.advertiseService("set_gains", &MpcTracker::set_gains_cb, this);
-  ser_gains_reset_ = priv_nh.advertiseService("reset_gains", &MpcTracker::reset_gains_cb, this);
 
   // publishers for debugging
   pub_cmd_pose_ = priv_nh.advertise<nav_msgs::Odometry>("cmd_pose", 1);
@@ -1452,60 +1422,6 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
   if(!active_)
     return quadrotor_msgs::PositionCommand::Ptr();
-
-  // filter out the gains
-  mutex_new_gains.lock();
-  {
-
-    double correction = 0;
-    bool gains_changing = false;
-
-    for (int i = 0; i < 3; i++) {
-
-      correction = new_kx_[i] - kx_[i];
-
-      if (!std::isfinite(correction)) {
-        correction = 0;
-        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
-      } else if (correction > gains_max_change) {
-        correction = gains_max_change;
-      } else if (correction < -gains_max_change) {
-        correction = -gains_max_change;
-      }
-
-      kx_[i] += correction;
-
-      if (fabs(correction) > 0) {
-        gains_changing = true; 
-      }
-
-      correction = new_kv_[i] - kv_[i];
-
-      if (!std::isfinite(correction)) {
-        correction = 0;
-        ROS_ERROR("NaN detected in variable \"correction\", setting it to 0!!!");
-      } else if (correction > gains_max_change) {
-        correction = gains_max_change;
-      } else if (correction < -gains_max_change) {
-        correction = -gains_max_change;
-      }
-
-      if (fabs(correction) > 0) {
-        gains_changing = true; 
-      }
-
-      kv_[i] += correction;
-    }
-
-    if (gains_changing) {
-
-      ROS_INFO_THROTTLE(0.1, "Gains are updating through values kpx=%2.2f, kpy=%2.2f, kpz=%2.2f, kdx=%2.2f, kdy=%2.2f, kdz=%2.2f", kx_[0], kx_[1], kx_[2], kv_[0], kv_[1], kv_[2]);
-    }
-  }
-  mutex_new_gains.unlock();
-
-  position_cmd_.kx[0] = kx_[0], position_cmd_.kx[1] = kx_[1], position_cmd_.kx[2] = kx_[2];
-  position_cmd_.kv[0] = kv_[0], position_cmd_.kv[1] = kv_[1], position_cmd_.kv[2] = kv_[2];
 
   if (!mpc_computed_) {
 
