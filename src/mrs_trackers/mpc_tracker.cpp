@@ -346,7 +346,24 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
       tempMatrix(i, j) = tempList[tempIdx++];	
     }
   }
-  safety_area = new ConvexPolygon(tempMatrix);
+
+  try {
+
+    safety_area = new ConvexPolygon(tempMatrix);
+
+  } catch (ConvexPolygon::WrongNumberOfVertices) {
+
+    ROS_ERROR("Exception caught. Wrong number of vertices was supplied to create the safety area.");
+    ros::shutdown();
+
+  } catch (ConvexPolygon::PolygonNotConvexException) {
+
+    ROS_ERROR("Exception caught. Polygon supplied to create the safety area is not convex.");
+    ros::shutdown();
+
+  } catch (ConvexPolygon::WrongNumberOfColumns) {
+    ROS_ERROR("Exception caught. Wrong number of columns was supplied to the safety area.");
+  }
 
   // pload parameters for yaw_tracker
   nh.param("yawTracker/maxYawRate", max_yaw_rate, 0.0);
@@ -481,7 +498,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   tempIdx = 0;
   int tempIdx2 = 0;
 
-  for(int i=0; i < UvaluesList.size(); i++) {
+  for(unsigned long i=0; i < UvaluesList.size(); i++) {
     for(int j=0; j < UvaluesList[i]; j++) {
 
       U.block(tempIdx, tempIdx2, m, m) = MatrixXd::Identity(m, m);	
@@ -588,7 +605,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   P_roof = MatrixXd::Zero(n_variables, n_variables);
 
   tempIdx = 0;
-  for (int i=0; i < UvaluesList.size(); i++) {
+  for (unsigned long i=0; i < UvaluesList.size(); i++) {
 
     P_roof.block(i*m, i*m, m, m) = P*UvaluesList[i];
   }
@@ -756,7 +773,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   }
 
   // create subscribers on other drones diagnostics
-  for (int i = 0; i < other_drone_names_.size(); i++) {
+  for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
 
     std::string topic_name = std::string("/") + other_drone_names_[i] + std::string("/") + predicted_trajectory_topic;
 
@@ -863,7 +880,7 @@ void MpcTracker::rc_cb(const mavros_msgs::RCInConstPtr &msg) {
     if ((ros::Time::now() - rc_failsafe_time).toSec() < 5)
       return;
 
-    if (msg->channels.size() < rc_failsafe_channel) {
+    if (int(msg->channels.size()) < rc_failsafe_channel) {
 
       ROS_WARN_THROTTLE(1, "rc_failsafe_channel is larger than the field of RC Channels");
       return;

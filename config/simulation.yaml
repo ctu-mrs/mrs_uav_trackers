@@ -4,8 +4,6 @@ rc_failsafe_channel: 9              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place" 
 
-use_safety_area: true
-
 # mbzirc collision avoidance
 mbzirc_collision_avoidance:
   enable: true
