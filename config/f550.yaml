@@ -82,7 +82,7 @@ mpc:
   maxVerticalDescendingSpeed: 1.0
   maxVerticalDescendingAcceleration: 2.0
 
-  maxAltitude: 10.0
+  maxAltitude: 30.0
 
   trackingErrorThr: 2.0
 
