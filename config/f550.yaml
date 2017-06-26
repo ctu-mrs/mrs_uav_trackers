@@ -4,12 +4,12 @@ rc_failsafe_channel: 8            # indexing from 1
 diagnostics_rate: 1               # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1  # [m] distance considered as "in place" 
 
-# mbzirc collision avoidance
-mbzirc_collision_avoidance:
+# mrs collision avoidance
+mrs_collision_avoidance:
   enable: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav6]
-  radius: 5.0 # [m]
+  radius: 3.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m] 
   predicted_trajectory_publish_rate: 2 # [Hz]
