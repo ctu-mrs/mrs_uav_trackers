@@ -9,7 +9,7 @@ mrs_collision_avoidance:
   enable: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav6]
-  radius: 3.0 # [m]
+  radius: 1.5 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m] 
   predicted_trajectory_publish_rate: 2 # [Hz]
