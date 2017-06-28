@@ -9,7 +9,7 @@ mrs_collision_avoidance:
   enable: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
-  radius: 1.5 # [m]
+  radius: 5.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m] 
   predicted_trajectory_publish_rate: 2 # [Hz]
@@ -73,16 +73,16 @@ mpc:
   numberOfVariables: 33
   maxTrajectorySize: 5000
 
-  maxHorizontalSpeed: 7.0
-  maxHorizontalAcceleration: 1.65
+  maxHorizontalSpeed: 8.33
+  maxHorizontalAcceleration: 2.0
 
   maxVerticalAscendingSpeed: 2.0
-  maxVerticalAscendingAcceleration: 1.0
+  maxVerticalAscendingAcceleration: 1.5
 
-  maxVerticalDescendingSpeed: 1.0
-  maxVerticalDescendingAcceleration: 2.0
+  maxVerticalDescendingSpeed: 1.5
+  maxVerticalDescendingAcceleration: 1.0
 
-  maxAltitude: 15.0
+  maxAltitude: 20.0
 
   trackingErrorThr: 2.0
 

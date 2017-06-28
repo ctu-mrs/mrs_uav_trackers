@@ -1937,6 +1937,8 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
         // the point is not feasible
         if (!safety_area->isPointIn(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
+          ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+
           // we found the left point
           if (first_invalid_idx == -1) {
 
@@ -2253,7 +2255,12 @@ bool MpcTracker::fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req,
 
   if (trajectory_set_) {
 
-    setTrajectory(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0]);
+    if (!set_goal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true)) {
+
+      res.success = false;
+      res.message = "Cannot set the goal. It is probably outside of the safety area.";
+      return true;
+    }
 
     if (use_yaw_in_trajectory)
       desired_yaw = des_yaw_whole_trajectory[0];
