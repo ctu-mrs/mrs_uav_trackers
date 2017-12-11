@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2017-12-06 04:30:19 -0500.
+# Produced by CVXGEN, 2017-12-11 09:54:45 -0500.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -25,6 +25,8 @@ parameters
   x[0] (n) # initial state.
   x_max_2 nonnegative
   x_max_3 nonnegative
+  x_min_2
+  x_min_3
 
   x_ss[t] (n), t=0..T
 end
@@ -35,11 +37,13 @@ variables
 end
 
 minimize
-  sum[t=0..T](quad(x[t]-x_ss[t], Q) + quad(u[t], R))
+  sum[t=1..T](quad(x[t]-x_ss[t], Q) + quad(u[t], R))
 subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
 
-  abs(x[t][2]) <= x_max_2, t=1..T
-  abs(x[t][3]) <= x_max_3, t=1..T  #state constraints
+  x[t][2] <= x_max_2, t=1..T
+  x[t][3] <= x_max_3, t=1..T
+  x[t][2] >= x_min_2, t=1..T
+  x[t][3] >= x_min_3, t=1..T  #state constraints
 end

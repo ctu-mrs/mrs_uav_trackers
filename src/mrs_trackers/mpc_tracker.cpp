@@ -22,6 +22,14 @@
 #include <eigen3/Eigen/Eigen>
 #include <mutex>
 #include <thread>
+extern "C" {
+#include <solver.h>
+}
+
+Vars      vars;
+Params    params;
+Workspace work;
+Settings  settings;
 
 using namespace Eigen;
 
@@ -65,6 +73,7 @@ private:
 
   nav_msgs::Odometry odom_;  // odometry
 
+  // Cvxgen
   bool debug_;
 
   quadrotor_msgs::PositionCommand position_cmd_;  // message being returned
@@ -217,6 +226,8 @@ private:
   bool fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void calculateMPC();
+  void loadReferenceForCvxgen(int k);
+  void getStatesFromCvxgen(int k);
   void setTrajectory(float x, float y, float z);
   bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
@@ -312,6 +323,113 @@ void MpcTracker::futureTrajectoryThread(void) {
 
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
+
+  // Some cvxgen stuff
+  set_defaults();
+  setup_indexing();
+  settings.verbose   = 0;
+  settings.max_iters = 25;
+
+  params.Q[0]  = 5000;
+  params.Q[1]  = 0;
+  params.Q[2]  = 0;
+  params.R[0]  = 500;
+  params.A[0]  = 1;
+  params.A[1]  = 1;
+  params.A[2]  = 1;
+  params.A[3]  = 0.2;
+  params.A[4]  = 0.2;
+  params.Af[0] = 1;
+  params.Af[1] = 1;
+  params.Af[2] = 1;
+  params.Af[3] = 0.01;
+  params.Af[4] = 0.01;
+  params.B[0]  = 0.2;
+  params.Bf[0] = 0.01;
+
+  params.x_ss_1[1]  = 0;
+  params.x_ss_2[1]  = 0;
+  params.x_ss_3[1]  = 0;
+  params.x_ss_4[1]  = 0;
+  params.x_ss_5[1]  = 0;
+  params.x_ss_6[1]  = 0;
+  params.x_ss_7[1]  = 0;
+  params.x_ss_8[1]  = 0;
+  params.x_ss_9[1]  = 0;
+  params.x_ss_10[1] = 0;
+  params.x_ss_11[1] = 0;
+  params.x_ss_12[1] = 0;
+  params.x_ss_13[1] = 0;
+  params.x_ss_14[1] = 0;
+  params.x_ss_15[1] = 0;
+  params.x_ss_16[1] = 0;
+  params.x_ss_17[1] = 0;
+  params.x_ss_18[1] = 0;
+  params.x_ss_19[1] = 0;
+  params.x_ss_20[1] = 0;
+  params.x_ss_21[1] = 0;
+  params.x_ss_22[1] = 0;
+  params.x_ss_23[1] = 0;
+  params.x_ss_24[1] = 0;
+  params.x_ss_25[1] = 0;
+  params.x_ss_26[1] = 0;
+  params.x_ss_27[1] = 0;
+  params.x_ss_28[1] = 0;
+  params.x_ss_29[1] = 0;
+  params.x_ss_30[1] = 0;
+  params.x_ss_31[1] = 0;
+  params.x_ss_32[1] = 0;
+  params.x_ss_33[1] = 0;
+  params.x_ss_34[1] = 0;
+  params.x_ss_35[1] = 0;
+  params.x_ss_36[1] = 0;
+  params.x_ss_37[1] = 0;
+  params.x_ss_38[1] = 0;
+  params.x_ss_39[1] = 0;
+  params.x_ss_40[1] = 0;
+
+
+  params.x_ss_1[2]  = 0;
+  params.x_ss_2[2]  = 0;
+  params.x_ss_3[2]  = 0;
+  params.x_ss_4[2]  = 0;
+  params.x_ss_5[2]  = 0;
+  params.x_ss_6[2]  = 0;
+  params.x_ss_7[2]  = 0;
+  params.x_ss_8[2]  = 0;
+  params.x_ss_9[2]  = 0;
+  params.x_ss_10[2] = 0;
+  params.x_ss_11[2] = 0;
+  params.x_ss_12[2] = 0;
+  params.x_ss_13[2] = 0;
+  params.x_ss_14[2] = 0;
+  params.x_ss_15[2] = 0;
+  params.x_ss_16[2] = 0;
+  params.x_ss_17[2] = 0;
+  params.x_ss_18[2] = 0;
+  params.x_ss_19[2] = 0;
+  params.x_ss_20[2] = 0;
+  params.x_ss_21[2] = 0;
+  params.x_ss_22[2] = 0;
+  params.x_ss_23[2] = 0;
+  params.x_ss_24[2] = 0;
+  params.x_ss_25[2] = 0;
+  params.x_ss_26[2] = 0;
+  params.x_ss_27[2] = 0;
+  params.x_ss_28[2] = 0;
+  params.x_ss_29[2] = 0;
+  params.x_ss_30[2] = 0;
+  params.x_ss_31[2] = 0;
+  params.x_ss_32[2] = 0;
+  params.x_ss_33[2] = 0;
+  params.x_ss_34[2] = 0;
+  params.x_ss_35[2] = 0;
+  params.x_ss_36[2] = 0;
+  params.x_ss_37[2] = 0;
+  params.x_ss_38[2] = 0;
+  params.x_ss_39[2] = 0;
+  params.x_ss_40[2] = 0;
+
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
@@ -866,7 +984,6 @@ double dist(const double ax, const double ay, const double bx, const double by) 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
   if (dist(ax, ay, bx, by) < mrs_collision_avoidance_radius && fabs(az - bz) < mrs_collision_avoidance_altitude_threshold) {
-
     return true;
 
   } else {
@@ -905,7 +1022,7 @@ void MpcTracker::filterReference(void) {
 
   double difference_x, difference_y, difference;
   double maxSpeed;
-  double angleTmp, totalSpeed;
+  double totalSpeed;
 
   trajectory_setpoint_mutex.lock();
 
@@ -917,14 +1034,13 @@ void MpcTracker::filterReference(void) {
     std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
 
     while (u != other_drones_trajectories.end()) {
-
       bool collision = false;
       int  v         = 0;
 
       // is the other's trajectory fresh enought?
       if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
-
         while (v < horizon_len) {
+
           if (checkCollision(des_x_filtered(v), des_y_filtered(v), des_z_trajectory(v) + collision_altitude_offeset, u->second.points[v].x,
                              u->second.points[v].y, u->second.points[v].z)) {
 
@@ -945,7 +1061,6 @@ void MpcTracker::filterReference(void) {
       }
 
       if (collision) {
-
         int other_drone_id = INT_MAX;
         sscanf(u->first.c_str(), "uav%d", &other_drone_id);
 
@@ -989,43 +1104,59 @@ void MpcTracker::filterReference(void) {
   // saturate the x and y part of the trajectory
   for (int i = 0; i < horizon_len; i++) {
 
+    if (i == 0) {
+      /* maxSpeed     = temp_horizontal_speed_limit * dt; */
+      difference_x = des_x_trajectory(i, 0) - x(0, 0);
+      difference_y = des_y_trajectory(i, 0) - x(3, 0);
+    } else {
+      /* maxSpeed     = temp_horizontal_speed_limit * dt2; */
+      difference_x = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
+      difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
+    }
+
     // limit the velocity for the part of the trajectory where there is a collision
     double temp_horizontal_speed_limit = max_horizontal_speed;
     if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) {
       temp_horizontal_speed_limit *= collision_horizontal_speed_coef;
       ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i * 0.2);
+      if (i == 0) {
+        maxSpeed = temp_horizontal_speed_limit * dt;
+      } else {
+        maxSpeed = temp_horizontal_speed_limit * dt2;
+      }
+      if (difference_x > maxSpeed)
+        difference_x = maxSpeed;
+      else if (difference_x < -maxSpeed)
+        difference_x = -maxSpeed;
+      if (difference_y > maxSpeed)
+        difference_y = maxSpeed;
+      else if (difference_y < -maxSpeed)
+        difference_y = -maxSpeed;
     }
 
-    if (i == 0) {
-      maxSpeed     = temp_horizontal_speed_limit * dt;
-      difference_x = des_x_trajectory(i, 0) - x(0, 0);
-      difference_y = des_y_trajectory(i, 0) - x(3, 0);
-    } else {
-      maxSpeed     = temp_horizontal_speed_limit * dt2;
-      difference_x = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
-      difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
-    }
 
     // saturate the difference
-    if (difference_x > maxSpeed)
-      difference_x = maxSpeed;
-    else if (difference_x < -maxSpeed)
-      difference_x = -maxSpeed;
-    if (difference_y > maxSpeed)
-      difference_y = maxSpeed;
-    else if (difference_y < -maxSpeed)
-      difference_y = -maxSpeed;
-    // saturate over both x and y
-    if (i == 0) {
-      totalSpeed = sqrt(pow(difference_x, 2) + pow(difference_y, 2)) / dt;
-    } else {
-      totalSpeed = sqrt(pow(difference_x, 2) + pow(difference_y, 2)) / dt2;
-    }
-    if (totalSpeed > max_horizontal_speed) {
-      angleTmp     = atan2(difference_y, difference_x);
-      difference_x = difference_x * (max_horizontal_speed / totalSpeed);
-      difference_y = difference_y * (max_horizontal_speed / totalSpeed);
-    }
+    /* if (difference_x > maxSpeed) */
+    /*   difference_x = maxSpeed; */
+    /* else if (difference_x < -maxSpeed) */
+    /*   difference_x = -maxSpeed; */
+    /* if (difference_y > maxSpeed) */
+    /*   difference_y = maxSpeed; */
+    /* else if (difference_y < -maxSpeed) */
+    /*   difference_y = -maxSpeed; */
+    /* } */
+
+
+    // saturate over both x and y - circle saturation
+    /* if (i == 0) { */
+    /*   totalSpeed = sqrt(pow(difference_x, 2) + pow(difference_y, 2)) / dt; */
+    /* } else { */
+    /*   totalSpeed = sqrt(pow(difference_x, 2) + pow(difference_y, 2)) / dt2; */
+    /* } */
+    /* if (totalSpeed > max_horizontal_speed) { */
+    /*   difference_x = difference_x * (max_horizontal_speed / totalSpeed); */
+    /*   difference_y = difference_y * (max_horizontal_speed / totalSpeed); */
+    /* } */
 
     if (i == 0) {
       des_x_filtered(i, 0) = x(0, 0) + difference_x;
@@ -1079,21 +1210,21 @@ void MpcTracker::filterReference(void) {
       difference = des_z_trajectory(i, 0) + collision_altitude_offeset - des_z_filtered(i - 1, 0);
       tempDt     = dt2;
     }
+    // No saturation, Cvxgen will handle this
+    /*   // saturate the difference */
+    /*   if (difference > max_vertical_ascending_speed * tempDt) { */
 
-    // saturate the difference
-    if (difference > max_vertical_ascending_speed * tempDt) {
+    /*     // saturated the upwards velocity only if we are not avoiding collision */
+    /*     if (!avoiding_someone) { */
+    /*       difference = max_vertical_ascending_speed * tempDt; */
 
-      // saturated the upwards velocity only if we are not avoiding collision
-      if (!avoiding_someone) {
-        difference = max_vertical_ascending_speed * tempDt;
+    /*     } else { */
 
-      } else {
+    /*       ROS_INFO_THROTTLE(1, "NOT saturation vertical speed."); */
+    /*     } */
 
-        ROS_INFO_THROTTLE(1, "NOT saturation vertical speed.");
-      }
-
-    } else if (difference < -max_vertical_descending_speed * tempDt)
-      difference = -max_vertical_descending_speed * tempDt;
+    /*   } else if (difference < -max_vertical_descending_speed * tempDt) */
+    /*     difference = -max_vertical_descending_speed * tempDt; */
 
     if (i == 0) {
       des_z_filtered(i, 0) = x(6, 0) + difference;
@@ -1133,11 +1264,196 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
   return out;
 }
+void MpcTracker::loadReferenceForCvxgen(int k) {
+  params.x_ss_1[0]  = reference(0 * n + (k * 3), 0);
+  params.x_ss_2[0]  = reference(1 * n + (k * 3), 0);
+  params.x_ss_3[0]  = reference(2 * n + (k * 3), 0);
+  params.x_ss_4[0]  = reference(3 * n + (k * 3), 0);
+  params.x_ss_5[0]  = reference(4 * n + (k * 3), 0);
+  params.x_ss_6[0]  = reference(5 * n + (k * 3), 0);
+  params.x_ss_7[0]  = reference(6 * n + (k * 3), 0);
+  params.x_ss_8[0]  = reference(7 * n + (k * 3), 0);
+  params.x_ss_9[0]  = reference(8 * n + (k * 3), 0);
+  params.x_ss_10[0] = reference(9 * n + (k * 3), 0);
+  params.x_ss_11[0] = reference(10 * n + (k * 3), 0);
+  params.x_ss_12[0] = reference(11 * n + (k * 3), 0);
+  params.x_ss_13[0] = reference(12 * n + (k * 3), 0);
+  params.x_ss_14[0] = reference(13 * n + (k * 3), 0);
+  params.x_ss_15[0] = reference(14 * n + (k * 3), 0);
+  params.x_ss_16[0] = reference(15 * n + (k * 3), 0);
+  params.x_ss_17[0] = reference(16 * n + (k * 3), 0);
+  params.x_ss_18[0] = reference(17 * n + (k * 3), 0);
+  params.x_ss_19[0] = reference(18 * n + (k * 3), 0);
+  params.x_ss_20[0] = reference(19 * n + (k * 3), 0);
+  params.x_ss_21[0] = reference(20 * n + (k * 3), 0);
+  params.x_ss_22[0] = reference(21 * n + (k * 3), 0);
+  params.x_ss_23[0] = reference(22 * n + (k * 3), 0);
+  params.x_ss_24[0] = reference(23 * n + (k * 3), 0);
+  params.x_ss_25[0] = reference(24 * n + (k * 3), 0);
+  params.x_ss_26[0] = reference(25 * n + (k * 3), 0);
+  params.x_ss_27[0] = reference(26 * n + (k * 3), 0);
+  params.x_ss_28[0] = reference(27 * n + (k * 3), 0);
+  params.x_ss_29[0] = reference(28 * n + (k * 3), 0);
+  params.x_ss_30[0] = reference(29 * n + (k * 3), 0);
+  params.x_ss_31[0] = reference(30 * n + (k * 3), 0);
+  params.x_ss_32[0] = reference(31 * n + (k * 3), 0);
+  params.x_ss_33[0] = reference(32 * n + (k * 3), 0);
+  params.x_ss_34[0] = reference(33 * n + (k * 3), 0);
+  params.x_ss_35[0] = reference(34 * n + (k * 3), 0);
+  params.x_ss_36[0] = reference(35 * n + (k * 3), 0);
+  params.x_ss_37[0] = reference(36 * n + (k * 3), 0);
+  params.x_ss_38[0] = reference(37 * n + (k * 3), 0);
+  params.x_ss_39[0] = reference(38 * n + (k * 3), 0);
+  params.x_ss_40[0] = reference(39 * n + (k * 3), 0);
+}
+void MpcTracker::getStatesFromCvxgen(int k) {
+
+  predicted_future_trajectory(0 + k * 3 + (0 * 9))  = *(vars.x_1);
+  predicted_future_trajectory(1 + k * 3 + (0 * 9))  = *(vars.x_1 + 1);
+  predicted_future_trajectory(2 + k * 3 + (0 * 9))  = *(vars.x_1 + 2);
+  predicted_future_trajectory(0 + k * 3 + (1 * 9))  = *(vars.x_2);
+  predicted_future_trajectory(1 + k * 3 + (1 * 9))  = *(vars.x_2 + 1);
+  predicted_future_trajectory(2 + k * 3 + (1 * 9))  = *(vars.x_2 + 2);
+  predicted_future_trajectory(0 + k * 3 + (2 * 9))  = *(vars.x_3);
+  predicted_future_trajectory(1 + k * 3 + (2 * 9))  = *(vars.x_3 + 1);
+  predicted_future_trajectory(2 + k * 3 + (2 * 9))  = *(vars.x_3 + 2);
+  predicted_future_trajectory(0 + k * 3 + (3 * 9))  = *(vars.x_4);
+  predicted_future_trajectory(1 + k * 3 + (3 * 9))  = *(vars.x_4 + 1);
+  predicted_future_trajectory(2 + k * 3 + (3 * 9))  = *(vars.x_4 + 2);
+  predicted_future_trajectory(0 + k * 3 + (4 * 9))  = *(vars.x_5);
+  predicted_future_trajectory(1 + k * 3 + (4 * 9))  = *(vars.x_5 + 1);
+  predicted_future_trajectory(2 + k * 3 + (4 * 9))  = *(vars.x_5 + 2);
+  predicted_future_trajectory(0 + k * 3 + (5 * 9))  = *(vars.x_6);
+  predicted_future_trajectory(1 + k * 3 + (5 * 9))  = *(vars.x_6 + 1);
+  predicted_future_trajectory(2 + k * 3 + (5 * 9))  = *(vars.x_6 + 2);
+  predicted_future_trajectory(0 + k * 3 + (6 * 9))  = *(vars.x_7);
+  predicted_future_trajectory(1 + k * 3 + (6 * 9))  = *(vars.x_7 + 1);
+  predicted_future_trajectory(2 + k * 3 + (6 * 9))  = *(vars.x_7 + 2);
+  predicted_future_trajectory(0 + k * 3 + (7 * 9))  = *(vars.x_8);
+  predicted_future_trajectory(1 + k * 3 + (7 * 9))  = *(vars.x_8 + 1);
+  predicted_future_trajectory(2 + k * 3 + (7 * 9))  = *(vars.x_8 + 2);
+  predicted_future_trajectory(0 + k * 3 + (8 * 9))  = *(vars.x_9);
+  predicted_future_trajectory(1 + k * 3 + (8 * 9))  = *(vars.x_9 + 1);
+  predicted_future_trajectory(2 + k * 3 + (8 * 9))  = *(vars.x_9 + 2);
+  predicted_future_trajectory(0 + k * 3 + (9 * 9))  = *(vars.x_10);
+  predicted_future_trajectory(1 + k * 3 + (9 * 9))  = *(vars.x_10 + 1);
+  predicted_future_trajectory(2 + k * 3 + (9 * 9))  = *(vars.x_10 + 2);
+  predicted_future_trajectory(0 + k * 3 + (10 * 9)) = *(vars.x_11);
+  predicted_future_trajectory(1 + k * 3 + (10 * 9)) = *(vars.x_11 + 1);
+  predicted_future_trajectory(2 + k * 3 + (10 * 9)) = *(vars.x_11 + 2);
+  predicted_future_trajectory(0 + k * 3 + (11 * 9)) = *(vars.x_12);
+  predicted_future_trajectory(1 + k * 3 + (11 * 9)) = *(vars.x_12 + 1);
+  predicted_future_trajectory(2 + k * 3 + (11 * 9)) = *(vars.x_12 + 2);
+  predicted_future_trajectory(0 + k * 3 + (12 * 9)) = *(vars.x_13);
+  predicted_future_trajectory(1 + k * 3 + (12 * 9)) = *(vars.x_13 + 1);
+  predicted_future_trajectory(2 + k * 3 + (12 * 9)) = *(vars.x_13 + 2);
+  predicted_future_trajectory(0 + k * 3 + (13 * 9)) = *(vars.x_14);
+  predicted_future_trajectory(1 + k * 3 + (13 * 9)) = *(vars.x_14 + 1);
+  predicted_future_trajectory(2 + k * 3 + (13 * 9)) = *(vars.x_14 + 2);
+  predicted_future_trajectory(0 + k * 3 + (14 * 9)) = *(vars.x_15);
+  predicted_future_trajectory(1 + k * 3 + (14 * 9)) = *(vars.x_15 + 1);
+  predicted_future_trajectory(2 + k * 3 + (14 * 9)) = *(vars.x_15 + 2);
+  predicted_future_trajectory(0 + k * 3 + (15 * 9)) = *(vars.x_16);
+  predicted_future_trajectory(1 + k * 3 + (15 * 9)) = *(vars.x_16 + 1);
+  predicted_future_trajectory(2 + k * 3 + (15 * 9)) = *(vars.x_16 + 2);
+  predicted_future_trajectory(0 + k * 3 + (16 * 9)) = *(vars.x_17);
+  predicted_future_trajectory(1 + k * 3 + (16 * 9)) = *(vars.x_17 + 1);
+  predicted_future_trajectory(2 + k * 3 + (16 * 9)) = *(vars.x_17 + 2);
+  predicted_future_trajectory(0 + k * 3 + (17 * 9)) = *(vars.x_18);
+  predicted_future_trajectory(1 + k * 3 + (17 * 9)) = *(vars.x_18 + 1);
+  predicted_future_trajectory(2 + k * 3 + (17 * 9)) = *(vars.x_18 + 2);
+  predicted_future_trajectory(0 + k * 3 + (18 * 9)) = *(vars.x_19);
+  predicted_future_trajectory(1 + k * 3 + (18 * 9)) = *(vars.x_19 + 1);
+  predicted_future_trajectory(2 + k * 3 + (18 * 9)) = *(vars.x_19 + 2);
+  predicted_future_trajectory(0 + k * 3 + (19 * 9)) = *(vars.x_20);
+  predicted_future_trajectory(1 + k * 3 + (19 * 9)) = *(vars.x_20 + 1);
+  predicted_future_trajectory(2 + k * 3 + (19 * 9)) = *(vars.x_20 + 2);
+  predicted_future_trajectory(0 + k * 3 + (20 * 9)) = *(vars.x_21);
+  predicted_future_trajectory(1 + k * 3 + (20 * 9)) = *(vars.x_21 + 1);
+  predicted_future_trajectory(2 + k * 3 + (20 * 9)) = *(vars.x_21 + 2);
+  predicted_future_trajectory(0 + k * 3 + (21 * 9)) = *(vars.x_22);
+  predicted_future_trajectory(1 + k * 3 + (21 * 9)) = *(vars.x_22 + 1);
+  predicted_future_trajectory(2 + k * 3 + (21 * 9)) = *(vars.x_22 + 2);
+  predicted_future_trajectory(0 + k * 3 + (22 * 9)) = *(vars.x_23);
+  predicted_future_trajectory(1 + k * 3 + (22 * 9)) = *(vars.x_23 + 1);
+  predicted_future_trajectory(2 + k * 3 + (22 * 9)) = *(vars.x_23 + 2);
+  predicted_future_trajectory(0 + k * 3 + (23 * 9)) = *(vars.x_24);
+  predicted_future_trajectory(1 + k * 3 + (23 * 9)) = *(vars.x_24 + 1);
+  predicted_future_trajectory(2 + k * 3 + (23 * 9)) = *(vars.x_24 + 2);
+  predicted_future_trajectory(0 + k * 3 + (24 * 9)) = *(vars.x_25);
+  predicted_future_trajectory(1 + k * 3 + (24 * 9)) = *(vars.x_25 + 1);
+  predicted_future_trajectory(2 + k * 3 + (24 * 9)) = *(vars.x_25 + 2);
+  predicted_future_trajectory(0 + k * 3 + (25 * 9)) = *(vars.x_26);
+  predicted_future_trajectory(1 + k * 3 + (25 * 9)) = *(vars.x_26 + 1);
+  predicted_future_trajectory(2 + k * 3 + (25 * 9)) = *(vars.x_26 + 2);
+  predicted_future_trajectory(0 + k * 3 + (26 * 9)) = *(vars.x_27);
+  predicted_future_trajectory(1 + k * 3 + (26 * 9)) = *(vars.x_27 + 1);
+  predicted_future_trajectory(2 + k * 3 + (26 * 9)) = *(vars.x_27 + 2);
+  predicted_future_trajectory(0 + k * 3 + (27 * 9)) = *(vars.x_28);
+  predicted_future_trajectory(1 + k * 3 + (27 * 9)) = *(vars.x_28 + 1);
+  predicted_future_trajectory(2 + k * 3 + (27 * 9)) = *(vars.x_28 + 2);
+  predicted_future_trajectory(0 + k * 3 + (28 * 9)) = *(vars.x_29);
+  predicted_future_trajectory(1 + k * 3 + (28 * 9)) = *(vars.x_29 + 1);
+  predicted_future_trajectory(2 + k * 3 + (28 * 9)) = *(vars.x_29 + 2);
+  predicted_future_trajectory(0 + k * 3 + (29 * 9)) = *(vars.x_30);
+  predicted_future_trajectory(1 + k * 3 + (29 * 9)) = *(vars.x_30 + 1);
+  predicted_future_trajectory(2 + k * 3 + (29 * 9)) = *(vars.x_30 + 2);
+  predicted_future_trajectory(0 + k * 3 + (30 * 9)) = *(vars.x_31);
+  predicted_future_trajectory(1 + k * 3 + (30 * 9)) = *(vars.x_31 + 1);
+  predicted_future_trajectory(2 + k * 3 + (30 * 9)) = *(vars.x_31 + 2);
+  predicted_future_trajectory(0 + k * 3 + (31 * 9)) = *(vars.x_32);
+  predicted_future_trajectory(1 + k * 3 + (31 * 9)) = *(vars.x_32 + 1);
+  predicted_future_trajectory(2 + k * 3 + (31 * 9)) = *(vars.x_32 + 2);
+  predicted_future_trajectory(0 + k * 3 + (32 * 9)) = *(vars.x_33);
+  predicted_future_trajectory(1 + k * 3 + (32 * 9)) = *(vars.x_33 + 1);
+  predicted_future_trajectory(2 + k * 3 + (32 * 9)) = *(vars.x_33 + 2);
+  predicted_future_trajectory(0 + k * 3 + (33 * 9)) = *(vars.x_34);
+  predicted_future_trajectory(1 + k * 3 + (33 * 9)) = *(vars.x_34 + 1);
+  predicted_future_trajectory(2 + k * 3 + (33 * 9)) = *(vars.x_34 + 2);
+  predicted_future_trajectory(0 + k * 3 + (34 * 9)) = *(vars.x_35);
+  predicted_future_trajectory(1 + k * 3 + (34 * 9)) = *(vars.x_35 + 1);
+  predicted_future_trajectory(2 + k * 3 + (34 * 9)) = *(vars.x_35 + 2);
+  predicted_future_trajectory(0 + k * 3 + (35 * 9)) = *(vars.x_36);
+  predicted_future_trajectory(1 + k * 3 + (35 * 9)) = *(vars.x_36 + 1);
+  predicted_future_trajectory(2 + k * 3 + (35 * 9)) = *(vars.x_36 + 2);
+  predicted_future_trajectory(0 + k * 3 + (36 * 9)) = *(vars.x_37);
+  predicted_future_trajectory(1 + k * 3 + (36 * 9)) = *(vars.x_37 + 1);
+  predicted_future_trajectory(2 + k * 3 + (36 * 9)) = *(vars.x_37 + 2);
+  predicted_future_trajectory(0 + k * 3 + (37 * 9)) = *(vars.x_38);
+  predicted_future_trajectory(1 + k * 3 + (37 * 9)) = *(vars.x_38 + 1);
+  predicted_future_trajectory(2 + k * 3 + (37 * 9)) = *(vars.x_38 + 2);
+  predicted_future_trajectory(0 + k * 3 + (38 * 9)) = *(vars.x_39);
+  predicted_future_trajectory(1 + k * 3 + (38 * 9)) = *(vars.x_39 + 1);
+  predicted_future_trajectory(2 + k * 3 + (38 * 9)) = *(vars.x_39 + 2);
+  predicted_future_trajectory(0 + k * 3 + (39 * 9)) = *(vars.x_40);
+  predicted_future_trajectory(1 + k * 3 + (39 * 9)) = *(vars.x_40 + 1);
+  predicted_future_trajectory(2 + k * 3 + (39 * 9)) = *(vars.x_40 + 2);
+}
+
 
 void MpcTracker::calculateMPC() {
-
-  // filter the desired trajectory to be feasible
+  tic();
+  // filter the desired trajectory to be feasibl
   filterReference();
+
+  bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
+  bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
+  int  iters            = 0;
+
+  // max speed and acceleration for X and Y axis
+  if (being_avoided) {
+    // somebody is trying to avoid me, better slow down a bit to give them more time
+    params.x_max_2[0] = max_horizontal_speed * collision_horizontal_speed_coef;
+    params.x_max_3[0] = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
+    params.x_min_2[0] = -max_horizontal_speed * collision_horizontal_speed_coef;
+    params.x_min_3[0] = -max_horizontal_acceleration * collision_horizontal_acceleration_coef;
+  } else {
+    params.x_max_2[0] = max_horizontal_speed;
+    params.x_max_3[0] = max_horizontal_acceleration;
+    params.x_min_2[0] = -max_horizontal_speed;
+    params.x_min_3[0] = -max_horizontal_acceleration;
+  }
+
 
   // prepare the full reference vector
   for (int i = 0; i < horizon_len; i++) {
@@ -1153,189 +1469,72 @@ void MpcTracker::calculateMPC() {
     reference(i * n + 8, 0) = 0;
   }
 
-  // prepare the linear part of the qudratic function
-  x_mutex.lock();
-  X_0 = (A_roof * x - reference).transpose();
-  x_mutex.unlock();
+  // First control input generated by cvxgen
+  VectorXd cvx_u = VectorXd::Zero(m);
 
-  MatrixXd temp(1, n * horizon_len);
+  // cvxgen X axis-------------------------------------------------------------------------------
 
-  // do clever product of X_0 and Q_roof
-  if ((fabs(x(0, 0) - des_x_trajectory(0)) > tracking_error_threshold) || (fabs(x(3, 0) - des_y_trajectory(0)) > tracking_error_threshold)) {
-    for (int i = 0; i < n * horizon_len; i++) {
-      if (i == 0 || i == (n * horizon_len - 1))
-        temp(0, i) = X_0(0, i) * Q_roof(i, i);
-      else
-        temp(0, i) = X_0(0, i - 1) * Q_roof(i, i - 1) + X_0(0, i) * Q_roof(i, i) + X_0(0, i + 1) * Q_roof(i, i + 1);
-    }
+  // initial position
+  params.x_0[0] = x(0, 0);
+  params.x_0[1] = x(1, 0);
+  params.x_0[2] = x(2, 0);
+
+  // reference
+  loadReferenceForCvxgen(0);
+
+
+  iters += solve();
+  getStatesFromCvxgen(0);
+  cvx_u(0) = *(vars.u_0);
+
+  // cvxgen Y axis-------------------------------------------------------------------------------
+  // initial position
+  params.x_0[0] = x(3, 0);
+  params.x_0[1] = x(4, 0);
+  params.x_0[2] = x(5, 0);
+  // reference
+
+  loadReferenceForCvxgen(1);
+
+  iters += solve();
+  getStatesFromCvxgen(1);
+  cvx_u(1) = *(vars.u_0);
+
+  // cvxgen Z axis------------------------------------------------------------------------------
+  // initial position
+  params.x_0[0] = x(6, 0);
+  params.x_0[1] = x(7, 0);
+  params.x_0[2] = x(8, 0);
+  // max speed and acceleration for Z axis
+  if (avoiding_someone) {
+    //I am avoiding someone, better push vertical speed and acc up to avoid in time
+    params.x_max_2[0] = 5.0;
+    params.x_max_3[0] = 2.0;
   } else {
-    for (int i = 0; i < n * horizon_len; i++) {
-      if (i == 0 || i == (n * horizon_len - 1))
-        temp(0, i) = X_0(0, i) * Q_roof_2(i, i);
-      else
-        temp(0, i) = X_0(0, i - 1) * Q_roof_2(i, i - 1) + X_0(0, i) * Q_roof_2(i, i) + X_0(0, i + 1) * Q_roof_2(i, i + 1);
-    }
+    params.x_max_2[0] = max_vertical_ascending_speed;
+    params.x_max_3[0] = max_vertical_ascending_acceleration;
   }
+  params.x_min_2[0] = -max_vertical_descending_speed;
+  params.x_min_3[0] = -max_vertical_descending_acceleration;
+  // reference
 
-  c = (temp * B_roof_reduced).transpose();
+  loadReferenceForCvxgen(2);
 
-  // calculate the control actions
-  u_cf = H_inv * (c * (-0.5));
 
-  // stretch the control vector to its full length
-  u = U * u_cf;
+  iters += solve();
 
-  // simulate the whole trajectory
-  x_mutex.lock();
-  states = A_roof * x + B_roof * u;
-  x_mutex.unlock();
+  getStatesFromCvxgen(2);
+  cvx_u(2) = *(vars.u_0);
 
-  // create temp matrix for the acceleration vector
-  VectorXd tempAccel_x, tempAccel_y, tempAccel_z, tempVel_x, tempVel_y, tempVel_z, tempPos_x, tempPos_y, tempPos_z;
+  double tmptime = tocq();
+  ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters);
 
-  tempAccel_x = VectorXd::Zero(horizon_len);
-  tempAccel_y = VectorXd::Zero(horizon_len);
-  tempAccel_z = VectorXd::Zero(horizon_len);
 
-  tempVel_x = VectorXd::Zero(horizon_len);
-  tempVel_y = VectorXd::Zero(horizon_len);
-  tempVel_z = VectorXd::Zero(horizon_len);
-
-  tempPos_x = VectorXd::Zero(horizon_len);
-  tempPos_y = VectorXd::Zero(horizon_len);
-  tempPos_z = VectorXd::Zero(horizon_len);
-
-  // set the temp Acceleration vector
-  for (int i = 0; i < horizon_len; i++) {
-
-    tempAccel_x(i) = states(i * n + 2, 0);
-    tempAccel_y(i) = states(i * n + 5, 0);
-    tempAccel_z(i) = states(i * n + 8, 0);
-  }
-
-  bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
-  bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
-
-  double temp_max_horizontal_acceleration = max_horizontal_acceleration;
-  if (avoiding_someone || being_avoided) {
-    temp_max_horizontal_acceleration *= collision_horizontal_acceleration_coef;
-    ROS_INFO_THROTTLE(1, "Reducing XY acceleration.");
-  }
-
-  // ROS_INFO_THROTTLE(1, "temp_max_horizontal_acceleration = %2.2f", temp_max_horizontal_acceleration);
-
-  for (int i = 0; i < horizon_len; i++) {
-
-    if (tempAccel_x(i) > temp_max_horizontal_acceleration) {
-
-      tempAccel_x(i) = temp_max_horizontal_acceleration;
-
-    } else if (tempAccel_x(i) < -temp_max_horizontal_acceleration) {
-
-      tempAccel_x(i) = -temp_max_horizontal_acceleration;
-    }
-
-    if (tempAccel_y(i) > temp_max_horizontal_acceleration) {
-
-      tempAccel_y(i) = temp_max_horizontal_acceleration;
-
-    } else if (tempAccel_y(i) < -temp_max_horizontal_acceleration) {
-
-      tempAccel_y(i) = -temp_max_horizontal_acceleration;
-    }
-
-    if (tempAccel_z(i) > max_vertical_ascending_acceleration) {
-
-      // only saturate the upward acceleration when not avoiding collision
-      if (!avoiding_someone) {
-
-        tempAccel_z(i) = max_vertical_ascending_acceleration;
-
-      } else {
-
-        ROS_INFO_THROTTLE(1, "NOT saturation vertical acceleration.");
-      }
-
-    } else if (tempAccel_z(i) < -max_vertical_descending_acceleration) {
-
-      tempAccel_z(i) = -max_vertical_descending_acceleration;
-    }
-  }
-
-  // integrate accelerations
-  tempVel_x = integrate(tempAccel_x, dt2, states(1));
-  tempVel_y = integrate(tempAccel_y, dt2, states(4));
-  tempVel_z = integrate(tempAccel_z, dt2, states(7));
-
-  // integrate velocities
-  tempPos_x = integrate(tempVel_x, dt2, states(0));
-  tempPos_y = integrate(tempVel_y, dt2, states(3));
-  tempPos_z = integrate(tempVel_z, dt2, states(6));
-
-  // prepare the full reference vector
-  for (int i = 0; i < horizon_len; i++) {
-
-    reference(i * n, 0)     = tempPos_x(i);
-    reference(i * n + 1, 0) = 0;
-    reference(i * n + 2, 0) = 0;
-    reference(i * n + 3, 0) = tempPos_y(i);
-    reference(i * n + 4, 0) = 0;
-    reference(i * n + 5, 0) = 0;
-    reference(i * n + 6, 0) = tempPos_z(i);
-    reference(i * n + 7, 0) = 0;
-    reference(i * n + 8, 0) = 0;
-  }
-
-  // prepare the linear part of the qudratic function
-  X_0 = (A_roof * x - reference).transpose();
-
-  // do clever product of X_0 and Q_roof
-  if ((fabs(x(0, 0) - des_x_trajectory(0)) > tracking_error_threshold) || (fabs(x(3, 0) - des_y_trajectory(0)) > tracking_error_threshold)) {
-    for (int i = 0; i < n * horizon_len; i++) {
-
-      if (i == 0 || i == (n * horizon_len - 1))
-        temp(0, i) = X_0(0, i) * Q_roof(i, i);
-      else
-        temp(0, i) = X_0(0, i - 1) * Q_roof(i, i - 1) + X_0(0, i) * Q_roof(i, i) + X_0(0, i + 1) * Q_roof(i, i + 1);
-    }
-  } else {
-    for (int i = 0; i < n * horizon_len; i++) {
-
-      if (i == 0 || i == (n * horizon_len - 1))
-        temp(0, i) = X_0(0, i) * Q_roof_2(i, i);
-      else
-        temp(0, i) = X_0(0, i - 1) * Q_roof_2(i, i - 1) + X_0(0, i) * Q_roof_2(i, i) + X_0(0, i + 1) * Q_roof_2(i, i + 1);
-    }
-  }
-
-  c = (temp * B_roof_reduced).transpose();
-
-  // calculate the control actions
-  u_cf = H_inv * (c * (-0.5));
-
-  // TODO we might need to do that and save to controlls for the future
-  // stretch the control vector to its full length
-  // not neccessary in the second step since we use only the first control input
-  // 2.2.2017 it is neccessary now, for the collision avoidance
-  u = U * u_cf;
+  future_was_predicted = true;
 
   x_mutex.lock();
-  {
-    // predict the whole future horizon
-    mutex_predicted_trajectory.lock();
-    { predicted_future_trajectory = A_roof * x + B_roof * u; }
-    mutex_predicted_trajectory.unlock();
+  { x = A * x + B * cvx_u; }
 
-    // copy it for publication
-    future_was_predicted = true;
-  }
-  x_mutex.unlock();
-
-  // TODO move this simulation to the main loop
-  // compute the next step based on the optimized input
-  // calculate next step of the system
-  x_mutex.lock();
-  { x = A * x + B * u_cf.block(0, 0, m, 1); }
   x_mutex.unlock();
 }
 
