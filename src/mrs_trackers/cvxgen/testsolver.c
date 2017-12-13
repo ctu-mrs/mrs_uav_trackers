@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2017-12-11 09:54:53 -0500.  */
+/* Produced by CVXGEN, 2017-12-13 10:18:00 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -51,9 +51,16 @@ void load_default_data(void) {
   params.x_ss_1[0] = 0.20319161029830202;
   params.x_ss_1[1] = 0.8325912904724193;
   params.x_ss_1[2] = -0.8363810443482227;
+  /* Make this a diagonal PSD matrix, even though it's not diagonal. */
   params.Q[0] = 1.510827605197663;
-  params.Q[1] = 1.8929469543476547;
-  params.Q[2] = 1.896293088933438;
+  params.Q[3] = 0;
+  params.Q[6] = 0;
+  params.Q[1] = 0;
+  params.Q[4] = 1.8929469543476547;
+  params.Q[7] = 0;
+  params.Q[2] = 0;
+  params.Q[5] = 0;
+  params.Q[8] = 1.896293088933438;
   /* Make this a diagonal PSD matrix, even though it's not diagonal. */
   params.R[0] = 1.1255853104638363;
   params.x_ss_2[0] = -1.171028487447253;
@@ -173,23 +180,27 @@ void load_default_data(void) {
   params.x_ss_40[0] = 0.9228324965161532;
   params.x_ss_40[1] = 0.6044910817663975;
   params.x_ss_40[2] = -0.0840868104920891;
-  params.Af[0] = -0.900877978017443;
-  params.Af[1] = 0.608892500264739;
-  params.Af[2] = 1.8257980452695217;
-  params.Af[3] = -0.25791777529922877;
-  params.Af[4] = -1.7194699796493191;
-  params.x_0[0] = -1.7690740487081298;
-  params.x_0[1] = -1.6685159248097703;
-  params.x_0[2] = 1.8388287490128845;
-  params.Bf[0] = 0.16304334474597537;
-  params.A[0] = 1.3498497306788897;
-  params.A[1] = -1.3198658230514613;
-  params.A[2] = -0.9586197090843394;
-  params.A[3] = 0.7679100474913709;
-  params.A[4] = 1.5822813125679343;
-  params.B[0] = -0.6372460621593619;
-  params.x_max_2[0] = 0.12934639598056652;
-  params.x_max_3[0] = 1.7282393388212876;
-  params.x_min_2[0] = -0.8365102166820959;
-  params.x_min_3[0] = 0.9643296255982503;
+  /* Make this a diagonal PSD matrix, even though it's not diagonal. */
+  params.S[0] = 1.2747805054956394;
+  params.Af[0] = 0.608892500264739;
+  params.Af[1] = 1.8257980452695217;
+  params.Af[2] = -0.25791777529922877;
+  params.Af[3] = -1.7194699796493191;
+  params.Af[4] = -1.7690740487081298;
+  params.x_0[0] = -1.6685159248097703;
+  params.x_0[1] = 1.8388287490128845;
+  params.x_0[2] = 0.16304334474597537;
+  params.Bf[0] = 1.3498497306788897;
+  params.A[0] = -1.3198658230514613;
+  params.A[1] = -0.9586197090843394;
+  params.A[2] = 0.7679100474913709;
+  params.A[3] = 1.5822813125679343;
+  params.A[4] = -0.6372460621593619;
+  params.B[0] = -1.741307208038867;
+  params.u_max[0] = 1.7282393388212876;
+  params.u_min[0] = -0.8365102166820959;
+  params.x_max_2[0] = 1.4821648127991252;
+  params.x_max_3[0] = 0.316067309402988;
+  params.x_min_2[0] = 0.7798537405635035;
+  params.x_min_3[0] = 1.3656784761245926;
 }

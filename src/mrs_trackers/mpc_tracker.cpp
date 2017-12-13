@@ -334,6 +334,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   params.Q[1]  = 0;
   params.Q[2]  = 0;
   params.R[0]  = 500;
+  params.S[0] = 500;
   params.A[0]  = 1;
   params.A[1]  = 1;
   params.A[2]  = 1;
@@ -1453,6 +1454,8 @@ void MpcTracker::calculateMPC() {
     params.x_min_2[0] = -max_horizontal_speed;
     params.x_min_3[0] = -max_horizontal_acceleration;
   }
+  params.u_max[0] = max_horizontal_acceleration;
+  params.u_min[0] = -max_horizontal_acceleration;
 
 
   // prepare the full reference vector
@@ -1507,7 +1510,7 @@ void MpcTracker::calculateMPC() {
   params.x_0[2] = x(8, 0);
   // max speed and acceleration for Z axis
   if (avoiding_someone) {
-    //I am avoiding someone, better push vertical speed and acc up to avoid in time
+    // I am avoiding someone, better push vertical speed and acc up to avoid in time
     params.x_max_2[0] = 5.0;
     params.x_max_3[0] = 2.0;
   } else {
@@ -1517,6 +1520,9 @@ void MpcTracker::calculateMPC() {
   params.x_min_2[0] = -max_vertical_descending_speed;
   params.x_min_3[0] = -max_vertical_descending_acceleration;
   // reference
+  params.u_max[0] = max_vertical_ascending_acceleration;
+  params.u_min[0] = -max_vertical_descending_acceleration;
+
 
   loadReferenceForCvxgen(2);
 
