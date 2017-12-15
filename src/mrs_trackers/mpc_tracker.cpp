@@ -22,323 +22,326 @@
 #include <eigen3/Eigen/Eigen>
 #include <mutex>
 #include <thread>
-  extern "C" {
+extern "C" {
 #include <solver.h>
-  }
+}
 
-  Vars      vars;
-  Params    params;
-  Workspace work;
-  Settings  settings;
+Vars      vars;
+Params    params;
+Workspace work;
+Settings  settings;
 
-  using namespace Eigen;
+using namespace Eigen;
 
-  class MpcTracker : public trackers_manager::Tracker {
-  public:
-    MpcTracker(void);
+class MpcTracker : public trackers_manager::Tracker {
+public:
+  MpcTracker(void);
 
-    void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
-    bool Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd);
-    void Deactivate(void);
+  void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
+  bool Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd);
+  void Deactivate(void);
 
-    const quadrotor_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-    const quadrotor_msgs::TrackerStatus::Ptr status();
+  const quadrotor_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  const quadrotor_msgs::TrackerStatus::Ptr status();
 
-  private:
-    ros::NodeHandle nh_;
+private:
+  ros::NodeHandle nh_;
 
-    // nodelet variables
-    ros::Subscriber    sub_pos_cmd_;                      // desired position command
-    ros::Subscriber    sub_pos_rel_cmd_;                  // desired position relative command
-    ros::Subscriber    sub_trajectory_;                   // desired trajectory
-    ros::Subscriber    sub_rc_;                           // rc transmitter
-    ros::ServiceServer ser_start_trajectory_following_;   // start trajectory following
-    ros::ServiceServer ser_stop_trajectory_following_;    // stop trajectory following
-    ros::ServiceServer ser_resume_trajectory_following_;  // resume trajectory following
-    ros::ServiceServer ser_fly_to_trajectory_start_;      // fly to the first point of the trajectory
-    ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
-    ros::ServiceServer goto_service_cmd_cb_;
-    ros::ServiceServer gotorelative_service_cmd_cb_;
-    ros::ServiceServer gotoaltitude_service_cmd_cb_;
-    ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
-    ros::ServiceServer collision_avoidance_service;
+  // nodelet variables
+  ros::Subscriber    sub_pos_cmd_;                      // desired position command
+  ros::Subscriber    sub_pos_rel_cmd_;                  // desired position relative command
+  ros::Subscriber    sub_trajectory_;                   // desired trajectory
+  ros::Subscriber    sub_rc_;                           // rc transmitter
+  ros::ServiceServer ser_start_trajectory_following_;   // start trajectory following
+  ros::ServiceServer ser_stop_trajectory_following_;    // stop trajectory following
+  ros::ServiceServer ser_resume_trajectory_following_;  // resume trajectory following
+  ros::ServiceServer ser_fly_to_trajectory_start_;      // fly to the first point of the trajectory
+  ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
+  ros::ServiceServer goto_service_cmd_cb_;
+  ros::ServiceServer gotorelative_service_cmd_cb_;
+  ros::ServiceServer gotoaltitude_service_cmd_cb_;
+  ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
+  ros::ServiceServer collision_avoidance_service;
 
-    // debugging publishers
-    ros::Publisher pub_cmd_pose_;
-    ros::Publisher pub_cmd_velocity_;
-    ros::Publisher pub_cmd_acceleration_;
-    ros::Publisher pub_setpoint_pose_;
-    ros::Publisher pub_diagnostics_;
-    ros::Publisher pub_debug_trajectory_;  // publishes the trajectory that was just set... because service
+  // debugging publishers
+  ros::Publisher pub_cmd_pose_;
+  ros::Publisher pub_cmd_velocity_;
+  ros::Publisher pub_cmd_acceleration_;
+  ros::Publisher pub_setpoint_pose_;
+  ros::Publisher pub_diagnostics_;
+  ros::Publisher pub_debug_trajectory_;  // publishes the trajectory that was just set... because service
 
-    nav_msgs::Odometry odom_;  // odometry
+  nav_msgs::Odometry odom_;  // odometry
 
-    // Cvxgen
-    bool debug_;
+  // Cvxgen
+  bool debug_;
 
-    quadrotor_msgs::PositionCommand position_cmd_;  // message being returned
+  quadrotor_msgs::PositionCommand position_cmd_;  // message being returned
 
-    bool      odom_set_, active_;
-    double    kx_[3], kv_[3];
-    double    new_kx_[3], new_kv_[3];
-    double    cur_yaw_;
-    ros::Time odomLastTime;
+  bool      odom_set_, active_;
+  double    kx_[3], kv_[3];
+  double    new_kx_[3], new_kv_[3];
+  double    cur_yaw_;
+  ros::Time odomLastTime;
 
-    // variables for yaw tracker
-    double max_yaw_rate;
-    double yaw_gain;
+  // variables for yaw tracker
+  double max_yaw_rate;
+  double yaw_gain;
 
-    // safety area
-    ConvexPolygon *safety_area;
-    bool           use_safety_area;
+  // safety area
+  ConvexPolygon *safety_area;
+  bool           use_safety_area;
 
-    // variables regarding the MPC controller
-    int    n;                                    // number of states
-    int    m;                                    // number of inputs
-    int    horizon_len;                          // lenght of the prediction horizon
-    int    n_variables;                          // number of variables in the optimization
-    double max_vertical_ascending_speed;         // maximum allowed horizontal speed for the mpc controller
-    double max_horizontal_speed;                 // maximum allowed vertical speed for the mpc controller
-    double max_vertical_ascending_acceleration;  // maximum allowed horizontal acceleration
-    double max_horizontal_acceleration;          // maximum allowed vertical acceleration
-    double max_vertical_descending_acceleration;
-    double max_vertical_descending_speed;
-    double max_altitude;
+  // variables regarding the MPC controller
+  int    n;                                    // number of states
+  int    m;                                    // number of inputs
+  int    horizon_len;                          // lenght of the prediction horizon
+  int    n_variables;                          // number of variables in the optimization
+  double max_vertical_ascending_speed;         // maximum allowed horizontal speed for the mpc controller
+  double max_horizontal_speed;                 // maximum allowed vertical speed for the mpc controller
+  double max_vertical_ascending_acceleration;  // maximum allowed horizontal acceleration
+  double max_horizontal_acceleration;          // maximum allowed vertical acceleration
+  double max_vertical_descending_acceleration;
+  double max_vertical_descending_speed;
+  double max_altitude;
 
-    double tracking_error_threshold;  // for switching large error and small error tracking
-    double diagnostic_tracking_threshold;
+  double tracking_error_threshold;  // for switching large error and small error tracking
+  double diagnostic_tracking_threshold;
 
-    double   dt, dt2;         // time difference of the dynamical system
-    MatrixXd A;               // system matrix
-    MatrixXd A2;              // system matrix 2
-    MatrixXd B;               // input matrix
-    MatrixXd B2;              // input matrix
-    MatrixXd U;               // matrix for reshaping inputs
-    MatrixXd A_roof;          // BIG main matrix
-    MatrixXd B_roof;          // BIG input matrix
-    MatrixXd B_roof_reduced;  // BIG input matrix reduced by U
-    MatrixXd Q;               // small penalization matrix for large error
-    MatrixXd Q2;              // small penalization matrix for small error
-    MatrixXd P;               // small penalization of input actions
-    MatrixXd Q_roof;          // BIG matrix of coeficients of quadratic penalization for large error
-    MatrixXd Q_roof_2;        // BIG matrix of coeficients of quadratic penalization for small error
-    MatrixXd P_roof;          // BIG matrix of coeficients of penalization of inputs
-    MatrixXd H_inv;           // inversion of the main matrix of the quadratic form
-    MatrixXd H;               // inversion of the main matrix of the quadratic form
+  double   dt, dt2;         // time difference of the dynamical system
+  MatrixXd A;               // system matrix
+  MatrixXd A2;              // system matrix 2
+  MatrixXd B;               // input matrix
+  MatrixXd B2;              // input matrix
+  MatrixXd U;               // matrix for reshaping inputs
+  MatrixXd A_roof;          // BIG main matrix
+  MatrixXd B_roof;          // BIG input matrix
+  MatrixXd B_roof_reduced;  // BIG input matrix reduced by U
+  MatrixXd Q;               // small penalization matrix for large error
+  MatrixXd Q2;              // small penalization matrix for small error
+  MatrixXd P;               // small penalization of input actions
+  MatrixXd Q_roof;          // BIG matrix of coeficients of quadratic penalization for large error
+  MatrixXd Q_roof_2;        // BIG matrix of coeficients of quadratic penalization for small error
+  MatrixXd P_roof;          // BIG matrix of coeficients of penalization of inputs
+  MatrixXd H_inv;           // inversion of the main matrix of the quadratic form
+  MatrixXd H;               // inversion of the main matrix of the quadratic form
 
-    MatrixXd X_0;
-    MatrixXd c;
-    MatrixXd u_cf;
-    MatrixXd u;
-    MatrixXd states;
+  MatrixXd X_0;
+  MatrixXd c;
+  MatrixXd u_cf;
+  MatrixXd u;
+  MatrixXd states;
 
-    // trajectories
-    MatrixXd des_x_trajectory;  // trajectory reference over the prediction horizon
-    MatrixXd des_y_trajectory;  // trajectory reference over the prediction horizon
-    MatrixXd des_z_trajectory;  // trajectory reference over the prediction horizon
-    MatrixXd des_x_filtered;    // filtered trajectory reference over the horizon
-    MatrixXd des_y_filtered;    // filtered trajectory reference over the horizon
-    MatrixXd des_z_filtered;    // filtered trajectory reference over the horizon
+  // trajectories
+  MatrixXd des_x_trajectory;  // trajectory reference over the prediction horizon
+  MatrixXd des_y_trajectory;  // trajectory reference over the prediction horizon
+  MatrixXd des_z_trajectory;  // trajectory reference over the prediction horizon
+  MatrixXd des_x_filtered;    // filtered trajectory reference over the horizon
+  MatrixXd des_y_filtered;    // filtered trajectory reference over the horizon
+  MatrixXd des_z_filtered;    // filtered trajectory reference over the horizon
 
-    VectorXd des_x_whole_trajectory;    // long trajectory reference
-    VectorXd des_y_whole_trajectory;    // long trajectory reference
-    VectorXd des_z_whole_trajectory;    // long trajectory reference
-    VectorXd des_yaw_whole_trajectory;  // long trajectory reference
-    bool     use_yaw_in_trajectory;
+  VectorXd des_x_whole_trajectory;    // long trajectory reference
+  VectorXd des_y_whole_trajectory;    // long trajectory reference
+  VectorXd des_z_whole_trajectory;    // long trajectory reference
+  VectorXd des_yaw_whole_trajectory;  // long trajectory reference
+  bool     use_yaw_in_trajectory;
 
-    bool tracking_trajectory_;  // are we currently tracking a trajectory
-    int  trajectory_idx;        // index in the currently tracked trajectory
-    int  trajectory_size;       // size of the tracked trajectory
-    int  max_trajectory_size;   // maximum length of the trajectory
-    bool trajectory_set_;       // true if trajectory was set
-    int  trajectory_count;      // counting number of trajectories uploaded to the tracker
-    bool loop;                  // whether we are looping the trajectory
+  bool tracking_trajectory_;  // are we currently tracking a trajectory
+  int  trajectory_idx;        // index in the currently tracked trajectory
+  int  trajectory_size;       // size of the tracked trajectory
+  int  max_trajectory_size;   // maximum length of the trajectory
+  bool trajectory_set_;       // true if trajectory was set
+  int  trajectory_count;      // counting number of trajectories uploaded to the tracker
+  bool loop;                  // whether we are looping the trajectory
 
-    MatrixXd reference;  // reference for the controller
-    MatrixXd x;          // current state of the uav
+  MatrixXd reference;  // reference for the controller
+  MatrixXd x;          // current state of the uav
 
-    // yaw tracker
-    double yaw_rate;
-    double yaw;
-    double desired_yaw;
+  // yaw tracker
+  double yaw_rate;
+  double yaw;
+  double desired_yaw;
 
-    // predicting the future
-    MatrixXd                 predicted_future_trajectory;
-    std::string              uav_name_;
-    std::vector<std::string> other_drone_names_;
-    std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-    std::vector<ros::Subscriber> other_drones_subscribers;
-    ros::Publisher               predicted_trajectory_publisher;
-    ros::Publisher               debug_predicted_trajectory_publisher;
-    bool                         mrs_collision_avoidance;
-    double                       predicted_trajectory_publish_rate;
-    double                       mrs_collision_avoidance_radius;
-    double                       mrs_collision_avoidance_correction;
-    std::thread                  predicted_trajectory_thread;
-    std::mutex                   mutex_predicted_trajectory;
-    void                         futureTrajectoryThread(void);
-    std::string                  predicted_trajectory_topic;
-    void otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-    bool   future_was_predicted;
-    double mrs_collision_avoidance_altitude_threshold;
-    double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-    int       uav_num_name;
-    double    collision_altitude_offeset;
-    ros::Time avoiding_collision_time;
-    ros::Time being_avoided_time;
-    bool collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-    double collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
-    int    collision_slow_down_before;
-    double collision_slowing_hysteresis;
-    int    earliest_collision_idx;
-    double collision_trajectory_timeout;
+  // predicting the future
+  MatrixXd                 predicted_future_trajectory;
+  std::string              uav_name_;
+  std::vector<std::string> other_drone_names_;
+  std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
+  std::vector<ros::Subscriber> other_drones_subscribers;
+  ros::Publisher               predicted_trajectory_publisher;
+  ros::Publisher               debug_predicted_trajectory_publisher;
+  bool                         mrs_collision_avoidance;
+  double                       predicted_trajectory_publish_rate;
+  double                       mrs_collision_avoidance_radius;
+  double                       mrs_collision_avoidance_correction;
+  std::thread                  predicted_trajectory_thread;
+  std::mutex                   mutex_predicted_trajectory;
+  void                         futureTrajectoryThread(void);
+  std::string                  predicted_trajectory_topic;
+  void otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool   future_was_predicted;
+  double mrs_collision_avoidance_altitude_threshold;
+  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  int       uav_num_name;
+  double    collision_altitude_offeset;
+  ros::Time avoiding_collision_time;
+  ros::Time being_avoided_time;
+  bool collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
+  int    collision_slow_down_before;
+  double collision_slowing_hysteresis;
+  int    earliest_collision_idx;
+  double collision_trajectory_timeout;
 
-    MatrixXd   outputTrajectory;
-    std::mutex x_mutex, trajectory_setpoint_mutex, des_yaw_mutex, des_trajectory_mutex;
+  MatrixXd   outputTrajectory;
+  std::mutex x_mutex, trajectory_setpoint_mutex, des_yaw_mutex, des_trajectory_mutex;
 
-    std::thread mpc_thread, diagnostics_thread;
+  std::thread mpc_thread, diagnostics_thread;
 
-    bool mpc_computed_;
+  bool mpc_computed_;
 
-    double diagnostics_rate;
+  double diagnostics_rate;
 
-    // failsafe
-    bool      failsafe_triggered    = false;
-    bool      use_rc_failsafe       = false;
-    int       rc_failsafe_threshold = 2000;
-    int       rc_failsafe_channel;
-    ros::Time rc_failsafe_time;  // remembers the time when failsafe was triggered by the rc
+  // failsafe
+  bool      failsafe_triggered    = false;
+  bool      use_rc_failsafe       = false;
+  int       rc_failsafe_threshold = 2000;
+  int       rc_failsafe_channel;
+  ros::Time rc_failsafe_time;  // remembers the time when failsafe was triggered by the rc
 
-    // for integrating the delay caused by long mpc calculations
-    ros::Time mpc_start_time;
-    double    mpc_total_delay = 0;
+  // for integrating the delay caused by long mpc calculations
+  ros::Time mpc_start_time;
+  double    mpc_total_delay = 0;
 
-    // methods
-    void mpcThread(void);
-    void diagnosticsThread(void);
-    void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-    void pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-    void trajectory_cmd_cb(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
-    bool trajectory_service_cb(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
-    bool start_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    bool stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    bool resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    bool fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    void odom_cb(const nav_msgs::OdometryConstPtr &msg);
-    void calculateMPC();
-    void loadReferenceForCvxgen(int k);
-    void getStatesFromCvxgen(int k);
-    void setTrajectory(float x, float y, float z);
-    bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-    void     filterReference(void);
-    VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-    void validateYawSetpoint();
-    bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-    bool gotorelative_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
-    bool gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-    bool set_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-    bool goto_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
-    bool failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    void rc_cb(const mavros_msgs::RCInConstPtr &msg);
-    bool   trigger_failsafe();
-    void   publishDiagnostics();
-    double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
-    bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+  // methods
+  void mpcThread(void);
+  void diagnosticsThread(void);
+  void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void trajectory_cmd_cb(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  bool trajectory_service_cb(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
+  bool start_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void odom_cb(const nav_msgs::OdometryConstPtr &msg);
+  void calculateMPC();
+  void loadReferenceForCvxgen(int k);
+  void getStatesFromCvxgen(int k);
+  void setTrajectory(float x, float y, float z);
+  bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  void     filterReference(void);
+  VectorXd integrate(VectorXd &in, double dt, double integrational_const);
+  void validateYawSetpoint();
+  bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool gotorelative_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
+  bool gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool set_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool goto_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
+  bool failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void rc_cb(const mavros_msgs::RCInConstPtr &msg);
+  bool   trigger_failsafe();
+  void   publishDiagnostics();
+  double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
+  bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
-    const double pi = 3.1415926535897;
-  };
+  const double pi = 3.1415926535897;
+};
 
-  MpcTracker::MpcTracker(void) : odom_set_(false), active_(false), mpc_computed_(false) {
-  }
+MpcTracker::MpcTracker(void) : odom_set_(false), active_(false), mpc_computed_(false) {
+}
 
-  void MpcTracker::futureTrajectoryThread(void) {
+void MpcTracker::futureTrajectoryThread(void) {
 
-    ros::Rate r(predicted_trajectory_publish_rate);
+  ros::Rate r(predicted_trajectory_publish_rate);
 
-    while (ros::ok()) {
+  while (ros::ok()) {
 
-      while (!active_ && ros::ok()) {
-        r.sleep();
-      }
-
-      if (future_was_predicted) {
-
-        mrs_msgs::FutureTrajectory newTrajectory;
-        newTrajectory.stamp    = ros::Time::now();
-        newTrajectory.uav_name = uav_name_;
-
-        newTrajectory.collision_avoidance = mrs_collision_avoidance;
-
-        geometry_msgs::PoseArray debugTrajectory;
-        debugTrajectory.header.stamp    = ros::Time::now();
-        debugTrajectory.header.frame_id = "local_origin";
-
-        // fill the trajectory
-        mutex_predicted_trajectory.lock();
-        {
-          for (int i = 0; i < horizon_len; i++) {
-
-            mrs_msgs::FuturePoint newPoint;
-
-            newPoint.x = predicted_future_trajectory(i * n);
-            newPoint.y = predicted_future_trajectory(i * n + 3);
-            newPoint.z = predicted_future_trajectory(i * n + 6);
-
-            newTrajectory.points.push_back(newPoint);
-
-            geometry_msgs::Pose newPose;
-
-            newPose.position.x = newPoint.x;
-            newPose.position.y = newPoint.y;
-            newPose.position.z = newPoint.z;
-            tf::Quaternion orientation;
-            orientation.setEuler(0, 0, desired_yaw);
-            newPose.orientation.x = orientation.x();
-            newPose.orientation.y = orientation.y();
-            newPose.orientation.z = orientation.z();
-            newPose.orientation.w = orientation.w();
-
-            debugTrajectory.poses.push_back(newPose);
-          }
-        }
-        mutex_predicted_trajectory.unlock();
-
-        try {
-          predicted_trajectory_publisher.publish(newTrajectory);
-        }
-        catch (...) {
-          ROS_ERROR("Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
-        }
-        try {
-          debug_predicted_trajectory_publisher.publish(debugTrajectory);
-        }
-        catch (...) {
-          ROS_ERROR("Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
-        }
-      }
-
+    while (!active_ && ros::ok()) {
       r.sleep();
     }
+
+    if (future_was_predicted) {
+
+      mrs_msgs::FutureTrajectory newTrajectory;
+      newTrajectory.stamp    = ros::Time::now();
+      newTrajectory.uav_name = uav_name_;
+
+      newTrajectory.collision_avoidance = mrs_collision_avoidance;
+
+      geometry_msgs::PoseArray debugTrajectory;
+      debugTrajectory.header.stamp    = ros::Time::now();
+      debugTrajectory.header.frame_id = "local_origin";
+
+      // fill the trajectory
+      mutex_predicted_trajectory.lock();
+      {
+        for (int i = 0; i < horizon_len; i++) {
+
+          mrs_msgs::FuturePoint newPoint;
+
+          newPoint.x = predicted_future_trajectory(i * n);
+          newPoint.y = predicted_future_trajectory(i * n + 3);
+          newPoint.z = predicted_future_trajectory(i * n + 6);
+
+          newTrajectory.points.push_back(newPoint);
+
+          geometry_msgs::Pose newPose;
+
+          newPose.position.x = newPoint.x;
+          newPose.position.y = newPoint.y;
+          newPose.position.z = newPoint.z;
+          tf::Quaternion orientation;
+          orientation.setEuler(0, 0, desired_yaw);
+          newPose.orientation.x = orientation.x();
+          newPose.orientation.y = orientation.y();
+          newPose.orientation.z = orientation.z();
+          newPose.orientation.w = orientation.w();
+
+          debugTrajectory.poses.push_back(newPose);
+        }
+      }
+      mutex_predicted_trajectory.unlock();
+
+      try {
+        predicted_trajectory_publisher.publish(newTrajectory);
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
+      }
+      try {
+        debug_predicted_trajectory_publisher.publish(debugTrajectory);
+      }
+      catch (...) {
+        ROS_ERROR("Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+      }
+    }
+
+    r.sleep();
   }
+}
 
-  // called once at the very beginning
-  void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
+// called once at the very beginning
+void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
 
-    // Some cvxgen stuff
-    set_defaults();
-    setup_indexing();
-    settings.verbose   = 0;
-    settings.max_iters = 25;
+  // Some cvxgen stuff
+  set_defaults();
+  setup_indexing();
+  settings.verbose   = 0;
+  settings.max_iters = 25;
 
-    params.Q[0]  = 5000;
-    params.Q[1]  = 0;
-    params.Q[2]  = 0;
-    params.Q[3]  = 0;
-    params.Q[4]  = 0;
-    params.Q[5]  = 800;
-    params.Q[6]  = 0;
-    params.Q[7]  = 800;
-    params.Q[8]  = 0;
+  params.Q[0]  = 5000;
+  params.Q[1]  = 0;
+  params.Q[2]  = 0;
+  /* params.Q[3]  = 0; */
+  /* params.Q[4]  = 0; */
+  /* params.Q[5]  = 0; */
+  /* params.Q[6]  = 0; */
+  /* params.Q[7]  = 0; */
+  /* params.Q[8]  = 0; */
+
+
+
   params.R[0]  = 500;
   params.A[0]  = 1;
   params.A[1]  = 1;
@@ -1441,6 +1444,8 @@ void MpcTracker::calculateMPC() {
   tic();
   // filter the desired trajectory to be feasibl
   filterReference();
+
+
 
   bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
   bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
