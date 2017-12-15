@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2017-12-13 10:17:41 -0500.
+# Produced by CVXGEN, 2017-12-15 05:04:47 -0500.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -19,15 +19,12 @@ parameters
   Af (n,n) {1,1 2,2 3,3 1,2 2,3} # dynamics matrix for first prediction.
   Bf (n,m) {3,1} # transfer matrix for first prediction.
 
-  Q (n,n) psd symmetric # state cost.
+  Q (n,n) psd {1,1 1,2 1,3 2,1 2,2 2,3 3,1 3,2 3,3} # state cost.
   R psd symmetric   # input cost.
-  S psd symmetric   # slew rate cost.
 
   x[0] (n) # initial state.
   x_max_2 nonnegative
   x_max_3 nonnegative
-  u_max nonnegative
-  u_min
   x_min_2
   x_min_3
 
@@ -40,13 +37,10 @@ variables
 end
 
 minimize
-  sum[t=1..T](quad(x[t]-x_ss[t], Q) + quad(u[t], R)) + sum[t=0..T-1](quad(u[t+1] - u[t], S))
+  sum[t=1..T](quad(x[t]-x_ss[t], Q) + quad(u[t], R))
 subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
-
-  u[t] <= u_max, t=0..T # dynamics constraints
-  u[t] >= u_min, t=0..T # dynamics constraints
 
   x[t][2] <= x_max_2, t=1..T
   x[t][3] <= x_max_3, t=1..T
