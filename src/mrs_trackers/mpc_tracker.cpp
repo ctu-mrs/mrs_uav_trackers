@@ -330,16 +330,15 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   settings.verbose   = 0;
   settings.max_iters = 25;
 
-  params.Q[0]  = 5000;
-  params.Q[1]  = 0;
-  params.Q[2]  = 0;
-  /* params.Q[3]  = 0; */
-  /* params.Q[4]  = 0; */
-  /* params.Q[5]  = 0; */
-  /* params.Q[6]  = 0; */
-  /* params.Q[7]  = 0; */
-  /* params.Q[8]  = 0; */
-
+  params.Q[0] = 5000;
+  params.Q[1] = 0;
+  params.Q[2] = 0;
+  params.Q[3] = 0;
+  params.Q[4] = 0;
+  params.Q[5] = 0;
+  params.Q[6] = 0;
+  params.Q[7] = 0;
+  params.Q[8] = 0;
 
 
   params.R[0]  = 500;
@@ -1444,7 +1443,12 @@ void MpcTracker::calculateMPC() {
   tic();
   // filter the desired trajectory to be feasibl
   filterReference();
-
+  if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) <
+      2.0) {
+    params.Q[4] = 0;
+  } else {
+    params.Q[4] = 0;
+  }
 
 
   bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
@@ -1539,7 +1543,7 @@ void MpcTracker::calculateMPC() {
   cvx_u(2) = *(vars.u_0);
 
   double tmptime = tocq();
-  ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters);
+  ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)");
 
 
   future_was_predicted = true;

@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2017-12-15 09:27:51 -0500.  */
+/* Produced by CVXGEN, 2017-12-18 05:43:11 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -27,8 +27,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   const char *status_names[] = {"optval", "gap", "steps", "converged"};
   mwSize dims1x1of1[1] = {1};
   mwSize dims[1];
-  const char *var_names[] = {"u_0", "u_1", "u_2", "u_3", "u_4", "u_5", "u_6", "u_7", "u_8", "u_9", "u_10", "u_11", "u_12", "u_13", "u_14", "u_15", "u_16", "u_17", "u_18", "u_19", "u_20", "u_21", "u_22", "u_23", "u_24", "u_25", "u_26", "u_27", "u_28", "u_29", "u_30", "u_31", "u_32", "u_33", "u_34", "u_35", "u_36", "u_37", "u_38", "u_39", "u_40", "x_1", "x_2", "x_3", "x_4", "x_5", "x_6", "x_7", "x_8", "x_9", "x_10", "x_11", "x_12", "x_13", "x_14", "x_15", "x_16", "x_17", "x_18", "x_19", "x_20", "x_21", "x_22", "x_23", "x_24", "x_25", "x_26", "x_27", "x_28", "x_29", "x_30", "x_31", "x_32", "x_33", "x_34", "x_35", "x_36", "x_37", "x_38", "x_39", "x_40", "x_41", "u", "x"};
-  const int num_var_names = 84;
+  const char *var_names[] = {"u_0", "u_1", "u_2", "u_3", "u_4", "u_5", "u_6", "u_7", "u_8", "u_9", "u_10", "u_11", "u_12", "u_13", "u_14", "u_15", "u_16", "u_17", "u_18", "u_19", "u_20", "u_21", "u_22", "u_23", "u_24", "u_25", "u_26", "u_27", "u_28", "u_29", "u_30", "u_31", "u_32", "u_33", "u_34", "u_35", "u_36", "u_37", "u_38", "u_39", "u_40", "x_1", "x_2", "x_3", "x_4", "x_5", "x_6", "x_7", "x_8", "x_9", "x_10", "x_11", "x_12", "x_13", "x_14", "x_15", "x_16", "x_17", "x_18", "x_19", "x_20", "x_21", "x_22", "x_23", "x_24", "x_25", "x_26", "x_27", "x_28", "x_29", "x_30", "x_31", "x_32", "x_33", "x_34", "x_35", "x_36", "x_37", "x_38", "x_39", "x_40", "u", "x"};
+  const int num_var_names = 83;
   /* Avoid compiler warnings of unused variables by using a dummy assignment. */
   warned_diags = j = 0;
   extra_solves = 0;
@@ -1802,6 +1802,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params.x_ss_1[%d] = %.6g;\n", i, params.x_ss_1[i]);
     for (i = 0; i < 9; i++)
       printf("  params.Q[%d] = %.6g;\n", i, params.Q[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.R[%d] = %.6g;\n", i, params.R[i]);
     for (i = 0; i < 3; i++)
       printf("  params.x_ss_2[%d] = %.6g;\n", i, params.x_ss_2[i]);
     for (i = 0; i < 3; i++)
@@ -1880,8 +1882,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params.x_ss_39[%d] = %.6g;\n", i, params.x_ss_39[i]);
     for (i = 0; i < 3; i++)
       printf("  params.x_ss_40[%d] = %.6g;\n", i, params.x_ss_40[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.R[%d] = %.6g;\n", i, params.R[i]);
     for (i = 0; i < 5; i++)
       printf("  params.Af[%d] = %.6g;\n", i, params.Af[i]);
     for (i = 0; i < 3; i++)
@@ -1927,7 +1927,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   dims[0] = 40;
   cell = mxCreateCellArray(1, dims);
   mxSetField(plhs[0], 0, "u", cell);
-  dims[0] = 41;
+  dims[0] = 40;
   cell = mxCreateCellArray(1, dims);
   mxSetField(plhs[0], 0, "x", cell);
   xm = mxCreateDoubleMatrix(1, 1, mxREAL);
@@ -2893,18 +2893,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_40;
-  for (i = 0; i < 3; i++) {
-    *dest++ = *src;
-    *dest_cell++ = *src++;
-  }
-  xm = mxCreateDoubleMatrix(3, 1, mxREAL);
-  mxSetField(plhs[0], 0, "x_41", xm);
-  xm_cell = mxCreateDoubleMatrix(3, 1, mxREAL);
-  cell = mxGetField(plhs[0], 0, "x");
-  mxSetCell(cell, 40, xm_cell);
-  dest = mxGetPr(xm);
-  dest_cell = mxGetPr(xm_cell);
-  src = vars.x_41;
   for (i = 0; i < 3; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
