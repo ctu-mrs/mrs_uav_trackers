@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2017-12-18 05:43:11 -0500.  */
+/* Produced by CVXGEN, 2017-12-28 05:21:08 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -1802,8 +1802,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params.x_ss_1[%d] = %.6g;\n", i, params.x_ss_1[i]);
     for (i = 0; i < 9; i++)
       printf("  params.Q[%d] = %.6g;\n", i, params.Q[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.R[%d] = %.6g;\n", i, params.R[i]);
     for (i = 0; i < 3; i++)
       printf("  params.x_ss_2[%d] = %.6g;\n", i, params.x_ss_2[i]);
     for (i = 0; i < 3; i++)
@@ -1882,6 +1880,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params.x_ss_39[%d] = %.6g;\n", i, params.x_ss_39[i]);
     for (i = 0; i < 3; i++)
       printf("  params.x_ss_40[%d] = %.6g;\n", i, params.x_ss_40[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.R[%d] = %.6g;\n", i, params.R[i]);
     for (i = 0; i < 5; i++)
       printf("  params.Af[%d] = %.6g;\n", i, params.Af[i]);
     for (i = 0; i < 3; i++)

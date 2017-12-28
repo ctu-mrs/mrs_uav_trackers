@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2017-12-18 05:43:24 -0500.  */
+/* Produced by CVXGEN, 2017-12-28 05:21:16 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -175,84 +175,84 @@ void setup_indexed_optvars(void) {
   /* If you access variables that you haven't defined in CVXGEN, the result */
   /* is undefined. */
   vars.x[1] = vars.x_1;
-  vars.u[1] = vars.u_1;
   vars.x[2] = vars.x_2;
-  vars.u[2] = vars.u_2;
   vars.x[3] = vars.x_3;
-  vars.u[3] = vars.u_3;
   vars.x[4] = vars.x_4;
-  vars.u[4] = vars.u_4;
   vars.x[5] = vars.x_5;
-  vars.u[5] = vars.u_5;
   vars.x[6] = vars.x_6;
-  vars.u[6] = vars.u_6;
   vars.x[7] = vars.x_7;
-  vars.u[7] = vars.u_7;
   vars.x[8] = vars.x_8;
-  vars.u[8] = vars.u_8;
   vars.x[9] = vars.x_9;
-  vars.u[9] = vars.u_9;
   vars.x[10] = vars.x_10;
-  vars.u[10] = vars.u_10;
   vars.x[11] = vars.x_11;
-  vars.u[11] = vars.u_11;
   vars.x[12] = vars.x_12;
-  vars.u[12] = vars.u_12;
   vars.x[13] = vars.x_13;
-  vars.u[13] = vars.u_13;
   vars.x[14] = vars.x_14;
-  vars.u[14] = vars.u_14;
   vars.x[15] = vars.x_15;
-  vars.u[15] = vars.u_15;
   vars.x[16] = vars.x_16;
-  vars.u[16] = vars.u_16;
   vars.x[17] = vars.x_17;
-  vars.u[17] = vars.u_17;
   vars.x[18] = vars.x_18;
-  vars.u[18] = vars.u_18;
   vars.x[19] = vars.x_19;
-  vars.u[19] = vars.u_19;
   vars.x[20] = vars.x_20;
-  vars.u[20] = vars.u_20;
   vars.x[21] = vars.x_21;
-  vars.u[21] = vars.u_21;
   vars.x[22] = vars.x_22;
-  vars.u[22] = vars.u_22;
   vars.x[23] = vars.x_23;
-  vars.u[23] = vars.u_23;
   vars.x[24] = vars.x_24;
-  vars.u[24] = vars.u_24;
   vars.x[25] = vars.x_25;
-  vars.u[25] = vars.u_25;
   vars.x[26] = vars.x_26;
-  vars.u[26] = vars.u_26;
   vars.x[27] = vars.x_27;
-  vars.u[27] = vars.u_27;
   vars.x[28] = vars.x_28;
-  vars.u[28] = vars.u_28;
   vars.x[29] = vars.x_29;
-  vars.u[29] = vars.u_29;
   vars.x[30] = vars.x_30;
-  vars.u[30] = vars.u_30;
   vars.x[31] = vars.x_31;
-  vars.u[31] = vars.u_31;
   vars.x[32] = vars.x_32;
-  vars.u[32] = vars.u_32;
   vars.x[33] = vars.x_33;
-  vars.u[33] = vars.u_33;
   vars.x[34] = vars.x_34;
-  vars.u[34] = vars.u_34;
   vars.x[35] = vars.x_35;
-  vars.u[35] = vars.u_35;
   vars.x[36] = vars.x_36;
-  vars.u[36] = vars.u_36;
   vars.x[37] = vars.x_37;
-  vars.u[37] = vars.u_37;
   vars.x[38] = vars.x_38;
-  vars.u[38] = vars.u_38;
   vars.x[39] = vars.x_39;
-  vars.u[39] = vars.u_39;
   vars.x[40] = vars.x_40;
+  vars.u[1] = vars.u_1;
+  vars.u[2] = vars.u_2;
+  vars.u[3] = vars.u_3;
+  vars.u[4] = vars.u_4;
+  vars.u[5] = vars.u_5;
+  vars.u[6] = vars.u_6;
+  vars.u[7] = vars.u_7;
+  vars.u[8] = vars.u_8;
+  vars.u[9] = vars.u_9;
+  vars.u[10] = vars.u_10;
+  vars.u[11] = vars.u_11;
+  vars.u[12] = vars.u_12;
+  vars.u[13] = vars.u_13;
+  vars.u[14] = vars.u_14;
+  vars.u[15] = vars.u_15;
+  vars.u[16] = vars.u_16;
+  vars.u[17] = vars.u_17;
+  vars.u[18] = vars.u_18;
+  vars.u[19] = vars.u_19;
+  vars.u[20] = vars.u_20;
+  vars.u[21] = vars.u_21;
+  vars.u[22] = vars.u_22;
+  vars.u[23] = vars.u_23;
+  vars.u[24] = vars.u_24;
+  vars.u[25] = vars.u_25;
+  vars.u[26] = vars.u_26;
+  vars.u[27] = vars.u_27;
+  vars.u[28] = vars.u_28;
+  vars.u[29] = vars.u_29;
+  vars.u[30] = vars.u_30;
+  vars.u[31] = vars.u_31;
+  vars.u[32] = vars.u_32;
+  vars.u[33] = vars.u_33;
+  vars.u[34] = vars.u_34;
+  vars.u[35] = vars.u_35;
+  vars.u[36] = vars.u_36;
+  vars.u[37] = vars.u_37;
+  vars.u[38] = vars.u_38;
+  vars.u[39] = vars.u_39;
   vars.u[40] = vars.u_40;
   vars.u[0] = vars.u_0;
 }
@@ -283,7 +283,7 @@ double eval_objv(void) {
   objv *= 0.5;
   for (i = 0; i < 161; i++)
     objv += work.q[i]*work.x[i];
-  objv += 0.5*(work.quad_600568381440[0]+work.quad_898851794944[0]+work.quad_88433618944[0]+work.quad_240204779520[0]+work.quad_635618762752[0]+work.quad_732753989632[0]+work.quad_427523055616[0]+work.quad_976046530560[0]+work.quad_688550678528[0]+work.quad_304816418816[0]+work.quad_819339411456[0]+work.quad_101800079360[0]+work.quad_976903761920[0]+work.quad_141299838976[0]+work.quad_343404097536[0]+work.quad_815806124032[0]+work.quad_997002137600[0]+work.quad_141630619648[0]+work.quad_835263414272[0]+work.quad_962643562496[0]+work.quad_928463360000[0]+work.quad_380101586944[0]+work.quad_150659375104[0]+work.quad_392524365824[0]+work.quad_653656117248[0]+work.quad_70101270528[0]+work.quad_514920816640[0]+work.quad_674593345536[0]+work.quad_563078742016[0]+work.quad_758829424640[0]+work.quad_779426672640[0]+work.quad_59167404032[0]+work.quad_532283006976[0]+work.quad_792751730688[0]+work.quad_677500567552[0]+work.quad_848330452992[0]+work.quad_31841603584[0]+work.quad_193524883456[0]+work.quad_637564002304[0]+work.quad_646561718272[0]);
+  objv += work.quad_600568381440[0]+work.quad_898851794944[0]+work.quad_88433618944[0]+work.quad_240204779520[0]+work.quad_635618762752[0]+work.quad_732753989632[0]+work.quad_427523055616[0]+work.quad_976046530560[0]+work.quad_688550678528[0]+work.quad_304816418816[0]+work.quad_819339411456[0]+work.quad_101800079360[0]+work.quad_976903761920[0]+work.quad_141299838976[0]+work.quad_343404097536[0]+work.quad_815806124032[0]+work.quad_997002137600[0]+work.quad_141630619648[0]+work.quad_835263414272[0]+work.quad_962643562496[0]+work.quad_928463360000[0]+work.quad_380101586944[0]+work.quad_150659375104[0]+work.quad_392524365824[0]+work.quad_653656117248[0]+work.quad_70101270528[0]+work.quad_514920816640[0]+work.quad_674593345536[0]+work.quad_563078742016[0]+work.quad_758829424640[0]+work.quad_779426672640[0]+work.quad_59167404032[0]+work.quad_532283006976[0]+work.quad_792751730688[0]+work.quad_677500567552[0]+work.quad_848330452992[0]+work.quad_31841603584[0]+work.quad_193524883456[0]+work.quad_637564002304[0]+work.quad_646561718272[0];
   return objv;
 }
 void fillrhs_aff(void) {

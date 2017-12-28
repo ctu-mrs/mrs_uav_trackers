@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2017-12-18 05:43:27 -0500.  */
+/* Produced by CVXGEN, 2017-12-28 05:21:20 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -30,7 +30,6 @@
 typedef struct Params_t {
   double x_ss_1[3];
   double Q[9];
-  double R[1];
   double x_ss_2[3];
   double x_ss_3[3];
   double x_ss_4[3];
@@ -70,6 +69,7 @@ typedef struct Params_t {
   double x_ss_38[3];
   double x_ss_39[3];
   double x_ss_40[3];
+  double R[1];
   double Af[5];
   double x_0[3];
   double Bf[1];
@@ -84,84 +84,84 @@ typedef struct Params_t {
 } Params;
 typedef struct Vars_t {
   double *x_1; /* 3 rows. */
-  double *u_1; /* 1 rows. */
   double *x_2; /* 3 rows. */
-  double *u_2; /* 1 rows. */
   double *x_3; /* 3 rows. */
-  double *u_3; /* 1 rows. */
   double *x_4; /* 3 rows. */
-  double *u_4; /* 1 rows. */
   double *x_5; /* 3 rows. */
-  double *u_5; /* 1 rows. */
   double *x_6; /* 3 rows. */
-  double *u_6; /* 1 rows. */
   double *x_7; /* 3 rows. */
-  double *u_7; /* 1 rows. */
   double *x_8; /* 3 rows. */
-  double *u_8; /* 1 rows. */
   double *x_9; /* 3 rows. */
-  double *u_9; /* 1 rows. */
   double *x_10; /* 3 rows. */
-  double *u_10; /* 1 rows. */
   double *x_11; /* 3 rows. */
-  double *u_11; /* 1 rows. */
   double *x_12; /* 3 rows. */
-  double *u_12; /* 1 rows. */
   double *x_13; /* 3 rows. */
-  double *u_13; /* 1 rows. */
   double *x_14; /* 3 rows. */
-  double *u_14; /* 1 rows. */
   double *x_15; /* 3 rows. */
-  double *u_15; /* 1 rows. */
   double *x_16; /* 3 rows. */
-  double *u_16; /* 1 rows. */
   double *x_17; /* 3 rows. */
-  double *u_17; /* 1 rows. */
   double *x_18; /* 3 rows. */
-  double *u_18; /* 1 rows. */
   double *x_19; /* 3 rows. */
-  double *u_19; /* 1 rows. */
   double *x_20; /* 3 rows. */
-  double *u_20; /* 1 rows. */
   double *x_21; /* 3 rows. */
-  double *u_21; /* 1 rows. */
   double *x_22; /* 3 rows. */
-  double *u_22; /* 1 rows. */
   double *x_23; /* 3 rows. */
-  double *u_23; /* 1 rows. */
   double *x_24; /* 3 rows. */
-  double *u_24; /* 1 rows. */
   double *x_25; /* 3 rows. */
-  double *u_25; /* 1 rows. */
   double *x_26; /* 3 rows. */
-  double *u_26; /* 1 rows. */
   double *x_27; /* 3 rows. */
-  double *u_27; /* 1 rows. */
   double *x_28; /* 3 rows. */
-  double *u_28; /* 1 rows. */
   double *x_29; /* 3 rows. */
-  double *u_29; /* 1 rows. */
   double *x_30; /* 3 rows. */
-  double *u_30; /* 1 rows. */
   double *x_31; /* 3 rows. */
-  double *u_31; /* 1 rows. */
   double *x_32; /* 3 rows. */
-  double *u_32; /* 1 rows. */
   double *x_33; /* 3 rows. */
-  double *u_33; /* 1 rows. */
   double *x_34; /* 3 rows. */
-  double *u_34; /* 1 rows. */
   double *x_35; /* 3 rows. */
-  double *u_35; /* 1 rows. */
   double *x_36; /* 3 rows. */
-  double *u_36; /* 1 rows. */
   double *x_37; /* 3 rows. */
-  double *u_37; /* 1 rows. */
   double *x_38; /* 3 rows. */
-  double *u_38; /* 1 rows. */
   double *x_39; /* 3 rows. */
-  double *u_39; /* 1 rows. */
   double *x_40; /* 3 rows. */
+  double *u_1; /* 1 rows. */
+  double *u_2; /* 1 rows. */
+  double *u_3; /* 1 rows. */
+  double *u_4; /* 1 rows. */
+  double *u_5; /* 1 rows. */
+  double *u_6; /* 1 rows. */
+  double *u_7; /* 1 rows. */
+  double *u_8; /* 1 rows. */
+  double *u_9; /* 1 rows. */
+  double *u_10; /* 1 rows. */
+  double *u_11; /* 1 rows. */
+  double *u_12; /* 1 rows. */
+  double *u_13; /* 1 rows. */
+  double *u_14; /* 1 rows. */
+  double *u_15; /* 1 rows. */
+  double *u_16; /* 1 rows. */
+  double *u_17; /* 1 rows. */
+  double *u_18; /* 1 rows. */
+  double *u_19; /* 1 rows. */
+  double *u_20; /* 1 rows. */
+  double *u_21; /* 1 rows. */
+  double *u_22; /* 1 rows. */
+  double *u_23; /* 1 rows. */
+  double *u_24; /* 1 rows. */
+  double *u_25; /* 1 rows. */
+  double *u_26; /* 1 rows. */
+  double *u_27; /* 1 rows. */
+  double *u_28; /* 1 rows. */
+  double *u_29; /* 1 rows. */
+  double *u_30; /* 1 rows. */
+  double *u_31; /* 1 rows. */
+  double *u_32; /* 1 rows. */
+  double *u_33; /* 1 rows. */
+  double *u_34; /* 1 rows. */
+  double *u_35; /* 1 rows. */
+  double *u_36; /* 1 rows. */
+  double *u_37; /* 1 rows. */
+  double *u_38; /* 1 rows. */
+  double *u_39; /* 1 rows. */
   double *u_40; /* 1 rows. */
   double *u_0; /* 1 rows. */
   double *x[41];
