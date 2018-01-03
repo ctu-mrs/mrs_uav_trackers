@@ -253,7 +253,8 @@ MpcTracker::MpcTracker(void) : odom_set_(false), active_(false), mpc_computed_(f
 
 void MpcTracker::futureTrajectoryThread(void) {
 
-  ros::Rate r(predicted_trajectory_publish_rate);
+  /* ros::Rate r(predicted_trajectory_publish_rate); */
+  ros::Rate r(100);
 
   while (ros::ok()) {
 

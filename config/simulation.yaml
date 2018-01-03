@@ -73,8 +73,8 @@ mpc:
   numberOfVariables: 33
   maxTrajectorySize: 5000
 
-  maxHorizontalSpeed: 14.0
-  maxHorizontalAcceleration: 3.5
+  maxHorizontalSpeed: 9.0
+  maxHorizontalAcceleration: 3.0
 
   maxVerticalAscendingSpeed: 2.0
   maxVerticalAscendingAcceleration: 1.5
