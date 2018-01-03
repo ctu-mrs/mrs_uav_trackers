@@ -36,12 +36,14 @@ include_directories(
   ${EIGEN_INCLUDE_DIR} 
   ${catkin_INCLUDE_DIRS}
   src/${PROJECT_NAME}/cvxgen
+  src/${PROJECT_NAME}/cvxgen_xy
   )
 
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   src/${PROJECT_NAME}/cvxgen
+  src/${PROJECT_NAME}/cvxgen_xy
   )
 
 add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp
@@ -49,6 +51,10 @@ add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp
   src/${PROJECT_NAME}/cvxgen/matrix_support.c
   src/${PROJECT_NAME}/cvxgen/solver.c
   src/${PROJECT_NAME}/cvxgen/util.c
+  src/${PROJECT_NAME}/cvxgen_xy/ldl.c
+  src/${PROJECT_NAME}/cvxgen_xy/matrix_support.c
+  src/${PROJECT_NAME}/cvxgen_xy/solver_xy.c
+  src/${PROJECT_NAME}/cvxgen_xy/util.c
   )
 add_dependencies(mpc_tracker
   ${catkin_EXPORTED_TARGETS}

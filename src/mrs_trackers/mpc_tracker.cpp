@@ -24,6 +24,7 @@
 #include <thread>
 extern "C" {
 #include <solver.h>
+#include <solver_xy.h>
 }
 
 Vars      vars;
