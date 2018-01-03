@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 # Produced by CVXGEN, 2018-01-03 04:19:11 -0500.
-=======
-# Produced by CVXGEN, 2017-12-28 05:21:08 -0500.
->>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -41,11 +37,7 @@ variables
 end
 
 minimize
-<<<<<<< HEAD
   sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T](quad(u[t], R))  + 5*quad(x[T]-x_ss[T],Q)
-=======
-  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T](quad(u[t], R))
->>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
 subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
@@ -54,5 +46,4 @@ subject to
   abs(x[t][3]) <= x_max_3, t=1..T  #state constraints
   x[t][2] >= x_min_2, t=1..T
   x[t][3] >= x_min_3, t=1..T  #state constraints
-
 end

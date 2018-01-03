@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 /* Produced by CVXGEN, 2018-01-03 04:19:35 -0500.  */
-=======
-/* Produced by CVXGEN, 2017-12-28 05:21:16 -0500.  */
->>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -287,11 +283,7 @@ double eval_objv(void) {
   objv *= 0.5;
   for (i = 0; i < 241; i++)
     objv += work.q[i]*work.x[i];
-<<<<<<< HEAD
   objv += work.quad_600568381440[0]+work.quad_898851794944[0]+work.quad_88433618944[0]+work.quad_240204779520[0]+work.quad_635618762752[0]+work.quad_732753989632[0]+work.quad_427523055616[0]+work.quad_976046530560[0]+work.quad_688550678528[0]+work.quad_304816418816[0]+work.quad_819339411456[0]+work.quad_101800079360[0]+work.quad_976903761920[0]+work.quad_141299838976[0]+work.quad_343404097536[0]+work.quad_815806124032[0]+work.quad_997002137600[0]+work.quad_141630619648[0]+work.quad_835263414272[0]+work.quad_962643562496[0]+work.quad_928463360000[0]+work.quad_380101586944[0]+work.quad_150659375104[0]+work.quad_392524365824[0]+work.quad_653656117248[0]+work.quad_70101270528[0]+work.quad_514920816640[0]+work.quad_674593345536[0]+work.quad_563078742016[0]+work.quad_758829424640[0]+work.quad_779426672640[0]+work.quad_59167404032[0]+work.quad_532283006976[0]+work.quad_792751730688[0]+work.quad_677500567552[0]+work.quad_848330452992[0]+work.quad_31841603584[0]+work.quad_193524883456[0]+work.quad_637564002304[0]+work.quad_646561718272[0]+5*work.quad_646561718272[0];
-=======
-  objv += work.quad_600568381440[0]+work.quad_898851794944[0]+work.quad_88433618944[0]+work.quad_240204779520[0]+work.quad_635618762752[0]+work.quad_732753989632[0]+work.quad_427523055616[0]+work.quad_976046530560[0]+work.quad_688550678528[0]+work.quad_304816418816[0]+work.quad_819339411456[0]+work.quad_101800079360[0]+work.quad_976903761920[0]+work.quad_141299838976[0]+work.quad_343404097536[0]+work.quad_815806124032[0]+work.quad_997002137600[0]+work.quad_141630619648[0]+work.quad_835263414272[0]+work.quad_962643562496[0]+work.quad_928463360000[0]+work.quad_380101586944[0]+work.quad_150659375104[0]+work.quad_392524365824[0]+work.quad_653656117248[0]+work.quad_70101270528[0]+work.quad_514920816640[0]+work.quad_674593345536[0]+work.quad_563078742016[0]+work.quad_758829424640[0]+work.quad_779426672640[0]+work.quad_59167404032[0]+work.quad_532283006976[0]+work.quad_792751730688[0]+work.quad_677500567552[0]+work.quad_848330452992[0]+work.quad_31841603584[0]+work.quad_193524883456[0]+work.quad_637564002304[0]+work.quad_646561718272[0];
->>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
   return objv;
 }
 void fillrhs_aff(void) {

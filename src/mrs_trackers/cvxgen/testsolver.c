@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 /* Produced by CVXGEN, 2018-01-03 04:19:43 -0500.  */
-=======
-/* Produced by CVXGEN, 2017-12-28 05:21:20 -0500.  */
->>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
