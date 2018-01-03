@@ -23,6 +23,7 @@ dynamicalModel:
   numberOfInputs: 3
   dt: 0.01
   dt2: 0.2
+  limitOvershoot: false #Set to true to limit overShoot, do not use for agresive flying  
 
   A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
       0, 1, 0.01, 0, 0, 0, 0, 0, 0,
@@ -74,7 +75,11 @@ mpc:
   maxTrajectorySize: 5000
 
   maxHorizontalSpeed: 9.0
+<<<<<<< HEAD
   maxHorizontalAcceleration: 3.0
+=======
+  maxHorizontalAcceleration: 2.5
+>>>>>>> 4b7c700f248a3235bb36ee77228279091af2a5f5
 
   maxVerticalAscendingSpeed: 2.0
   maxVerticalAscendingAcceleration: 1.5

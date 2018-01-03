@@ -192,6 +192,7 @@ private:
   double collision_slowing_hysteresis;
   int    earliest_collision_idx;
   double collision_trajectory_timeout;
+  bool   limOvs;
 
   MatrixXd   outputTrajectory;
   std::mutex x_mutex, trajectory_setpoint_mutex, des_yaw_mutex, des_trajectory_mutex;
@@ -341,8 +342,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   params.Q[7] = 0;
   params.Q[8] = 0;
 
-
-  params.R[0]  = 500;
+  params.R[0]  = 200;
   params.A[0]  = 1;
   params.A[1]  = 1;
   params.A[2]  = 1;
@@ -500,6 +500,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   nh.param("dynamicalModel/numberOfInputs", m, -1);
   nh.param("dynamicalModel/dt", dt, 0.0);
   nh.param("dynamicalModel/dt2", dt2, 0.0);
+  nh.param("dynamicalModel/limitOvershoot", limOvs, false);
 
   // failsafe
   nh.param("use_rc_failsafe", use_rc_failsafe, false);
@@ -1442,15 +1443,19 @@ void MpcTracker::getStatesFromCvxgen(int k) {
 
 void MpcTracker::calculateMPC() {
   tic();
-  // filter the desired trajectory to be feasibl
+  // filter the desired trajectory to be feasible
   filterReference();
-  if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) <
-      2.0) {
-    params.Q[4] = 0;
-  } else {
-    params.Q[4] = 0;
+  if (limOvs) {  // limit overshoot, worse performance
+    if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 3.0) {
+      params.Q[4] = 6500;
+    } else {
+      params.Q[4] = 3500;
+    }
   }
 
+  double tohleSmaz1 = 0;
+  double tohleSmaz2 = 0;
+  double tohleSmaz3 = 0;
 
   bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
   bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
@@ -1503,6 +1508,14 @@ void MpcTracker::calculateMPC() {
   getStatesFromCvxgen(0);
   cvx_u(0) = *(vars.u_0);
 
+  tohleSmaz1 = *(vars.x_1);
+  tohleSmaz2 = *(vars.x_1 + 1);
+  tohleSmaz3 = *(vars.x_1 + 2);
+
+  /* x(0, 0) = *(vars.x_1); */
+  /* x(1, 0) = *(vars.x_1 + 1); */
+  /* x(2, 0) = *(vars.x_1 + 2); */
+
   // cvxgen Y axis-------------------------------------------------------------------------------
   // initial position
   params.x_0[0] = x(3, 0);
@@ -1515,6 +1528,9 @@ void MpcTracker::calculateMPC() {
   iters += solve();
   getStatesFromCvxgen(1);
   cvx_u(1) = *(vars.u_0);
+  /* x(3, 0) = *(vars.x_1 + 3); */
+  /* x(4, 0) = *(vars.x_1 + 4); */
+  /* x(5, 0) = *(vars.x_1 + 5); */
 
   // cvxgen Z axis------------------------------------------------------------------------------
   // initial position
@@ -1542,6 +1558,9 @@ void MpcTracker::calculateMPC() {
 
   getStatesFromCvxgen(2);
   cvx_u(2) = *(vars.u_0);
+  /* x(6, 0) = *(vars.x_1 + 6); */
+  /* x(7, 0) = *(vars.x_1 + 7); */
+  /* x(8, 0) = *(vars.x_1 + 8); */
 
   double tmptime = tocq();
   ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)");
@@ -1552,7 +1571,12 @@ void MpcTracker::calculateMPC() {
   x_mutex.lock();
   { x = A * x + B * cvx_u; }
 
+
   x_mutex.unlock();
+  ROS_INFO_STREAM_THROTTLE(0.1, "cvx \n " << tohleSmaz1 << "\n"
+                                          << tohleSmaz2 << "\n"
+                                          << tohleSmaz3 << "\n"
+                                          << "x \n " << x);
 }
 
 // the trackers_manager call this once when it wants to start using this tracker
