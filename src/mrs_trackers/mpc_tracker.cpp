@@ -1215,21 +1215,28 @@ void MpcTracker::calculateMPC() {
   // cvxgen X axis-------------------------------------------------------------------------------
 
   // reference
-  cvx1d->setInitialState(x, 0);
-  cvx1d->loadReference(reference, 0);
-  iters += cvx1d->solveCvx();
-  cvx1d->getStates(predicted_future_trajectory, 0);
-  cvx_u(0) = cvx1d->getFirstControlInput();
+  /* cvx1d->setInitialState(x, 0); */
+  /* cvx1d->loadReference(reference, 0); */
+  /* iters += cvx1d->solveCvx(); */
+  /* cvx1d->getStates(predicted_future_trajectory, 0); */
+  /* cvx_u(0) = cvx1d->getFirstControlInput(); */
 
 
   // cvxgen Y axis-------------------------------------------------------------------------------
-
-  cvx1d->setInitialState(x, 1);
-  cvx1d->loadReference(reference, 1);
-  iters += cvx1d->solveCvx();
-  cvx1d->getStates(predicted_future_trajectory, 1);
-  cvx_u(1) = cvx1d->getFirstControlInput();
-
+ROS_INFO("1");
+  cvx2d->setInitialState(x);
+  
+ROS_INFO("2");
+  cvx2d->loadReference(reference);
+ROS_INFO("3");
+  iters += cvx2d->solveCvx();
+ROS_INFO_STREAM("4 " << iters);
+  cvx2d->getStates(predicted_future_trajectory);
+ROS_INFO("5");
+  cvx_u(0) = cvx2d->getFirstControlInputX();
+ROS_INFO("6");
+  cvx_u(1) = cvx2d->getFirstControlInputY();
+ROS_INFO("7");
   // cvxgen Z axis------------------------------------------------------------------------------
 
   // max speed and acceleration for Z axi
