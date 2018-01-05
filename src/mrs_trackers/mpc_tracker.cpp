@@ -25,11 +25,14 @@
 extern "C" {
 #include <solver.h>
 }
+#include "cvx_wrapper.h"
+#include "cvx_wrapper_xy.h"
 
 Vars      vars;
 Params    params;
 Workspace work;
 Settings  settings;
+
 
 using namespace Eigen;
 
@@ -73,7 +76,6 @@ private:
 
   nav_msgs::Odometry odom_;  // odometry
 
-  // Cvxgen
   bool debug_;
 
   quadrotor_msgs::PositionCommand position_cmd_;  // message being returned
@@ -107,6 +109,9 @@ private:
 
   double tracking_error_threshold;  // for switching large error and small error tracking
   double diagnostic_tracking_threshold;
+
+  CvxWrapper *  cvx1d;
+  CvxWrapperXY *cvx2d;
 
   double   dt, dt2;         // time difference of the dynamical system
   MatrixXd A;               // system matrix
@@ -226,8 +231,6 @@ private:
   bool fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void calculateMPC();
-  void loadReferenceForCvxgen(int k);
-  void getStatesFromCvxgen(int k);
   void setTrajectory(float x, float y, float z);
   bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
@@ -324,121 +327,9 @@ void MpcTracker::futureTrajectoryThread(void) {
 
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
-
-  // Some cvxgen stuff
-  set_defaults();
-  setup_indexing();
-  settings.verbose   = 0;
-  settings.max_iters = 25;
-
-  params.Q[0] = 5000;
-  params.Q[1] = 0;
-  params.Q[2] = 0;
-  params.Q[3] = 0;
-  params.Q[4] = 0;
-  params.Q[5] = 0;
-  params.Q[6] = 0;
-  params.Q[7] = 0;
-  params.Q[8] = 0;
-
-
-  params.R[0]  = 500;
-  params.A[0]  = 1;
-  params.A[1]  = 1;
-  params.A[2]  = 1;
-  params.A[3]  = 0.2;
-  params.A[4]  = 0.2;
-  params.Af[0] = 1;
-  params.Af[1] = 1;
-  params.Af[2] = 1;
-  params.Af[3] = 0.01;
-  params.Af[4] = 0.01;
-  params.B[0]  = 0.2;
-  params.Bf[0] = 0.01;
-
-  params.x_ss_1[1]  = 0;
-  params.x_ss_2[1]  = 0;
-  params.x_ss_3[1]  = 0;
-  params.x_ss_4[1]  = 0;
-  params.x_ss_5[1]  = 0;
-  params.x_ss_6[1]  = 0;
-  params.x_ss_7[1]  = 0;
-  params.x_ss_8[1]  = 0;
-  params.x_ss_9[1]  = 0;
-  params.x_ss_10[1] = 0;
-  params.x_ss_11[1] = 0;
-  params.x_ss_12[1] = 0;
-  params.x_ss_13[1] = 0;
-  params.x_ss_14[1] = 0;
-  params.x_ss_15[1] = 0;
-  params.x_ss_16[1] = 0;
-  params.x_ss_17[1] = 0;
-  params.x_ss_18[1] = 0;
-  params.x_ss_19[1] = 0;
-  params.x_ss_20[1] = 0;
-  params.x_ss_21[1] = 0;
-  params.x_ss_22[1] = 0;
-  params.x_ss_23[1] = 0;
-  params.x_ss_24[1] = 0;
-  params.x_ss_25[1] = 0;
-  params.x_ss_26[1] = 0;
-  params.x_ss_27[1] = 0;
-  params.x_ss_28[1] = 0;
-  params.x_ss_29[1] = 0;
-  params.x_ss_30[1] = 0;
-  params.x_ss_31[1] = 0;
-  params.x_ss_32[1] = 0;
-  params.x_ss_33[1] = 0;
-  params.x_ss_34[1] = 0;
-  params.x_ss_35[1] = 0;
-  params.x_ss_36[1] = 0;
-  params.x_ss_37[1] = 0;
-  params.x_ss_38[1] = 0;
-  params.x_ss_39[1] = 0;
-  params.x_ss_40[1] = 0;
-
-
-  params.x_ss_1[2]  = 0;
-  params.x_ss_2[2]  = 0;
-  params.x_ss_3[2]  = 0;
-  params.x_ss_4[2]  = 0;
-  params.x_ss_5[2]  = 0;
-  params.x_ss_6[2]  = 0;
-  params.x_ss_7[2]  = 0;
-  params.x_ss_8[2]  = 0;
-  params.x_ss_9[2]  = 0;
-  params.x_ss_10[2] = 0;
-  params.x_ss_11[2] = 0;
-  params.x_ss_12[2] = 0;
-  params.x_ss_13[2] = 0;
-  params.x_ss_14[2] = 0;
-  params.x_ss_15[2] = 0;
-  params.x_ss_16[2] = 0;
-  params.x_ss_17[2] = 0;
-  params.x_ss_18[2] = 0;
-  params.x_ss_19[2] = 0;
-  params.x_ss_20[2] = 0;
-  params.x_ss_21[2] = 0;
-  params.x_ss_22[2] = 0;
-  params.x_ss_23[2] = 0;
-  params.x_ss_24[2] = 0;
-  params.x_ss_25[2] = 0;
-  params.x_ss_26[2] = 0;
-  params.x_ss_27[2] = 0;
-  params.x_ss_28[2] = 0;
-  params.x_ss_29[2] = 0;
-  params.x_ss_30[2] = 0;
-  params.x_ss_31[2] = 0;
-  params.x_ss_32[2] = 0;
-  params.x_ss_33[2] = 0;
-  params.x_ss_34[2] = 0;
-  params.x_ss_35[2] = 0;
-  params.x_ss_36[2] = 0;
-  params.x_ss_37[2] = 0;
-  params.x_ss_38[2] = 0;
-  params.x_ss_39[2] = 0;
-  params.x_ss_40[2] = 0;
-
+ 
+  cvx1d = new CvxWrapper();
+  cvx2d = new CvxWrapperXY();
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
@@ -1273,179 +1164,12 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
   return out;
 }
-void MpcTracker::loadReferenceForCvxgen(int k) {
-  params.x_ss_1[0]  = reference(0 * n + (k * 3), 0);
-  params.x_ss_2[0]  = reference(1 * n + (k * 3), 0);
-  params.x_ss_3[0]  = reference(2 * n + (k * 3), 0);
-  params.x_ss_4[0]  = reference(3 * n + (k * 3), 0);
-  params.x_ss_5[0]  = reference(4 * n + (k * 3), 0);
-  params.x_ss_6[0]  = reference(5 * n + (k * 3), 0);
-  params.x_ss_7[0]  = reference(6 * n + (k * 3), 0);
-  params.x_ss_8[0]  = reference(7 * n + (k * 3), 0);
-  params.x_ss_9[0]  = reference(8 * n + (k * 3), 0);
-  params.x_ss_10[0] = reference(9 * n + (k * 3), 0);
-  params.x_ss_11[0] = reference(10 * n + (k * 3), 0);
-  params.x_ss_12[0] = reference(11 * n + (k * 3), 0);
-  params.x_ss_13[0] = reference(12 * n + (k * 3), 0);
-  params.x_ss_14[0] = reference(13 * n + (k * 3), 0);
-  params.x_ss_15[0] = reference(14 * n + (k * 3), 0);
-  params.x_ss_16[0] = reference(15 * n + (k * 3), 0);
-  params.x_ss_17[0] = reference(16 * n + (k * 3), 0);
-  params.x_ss_18[0] = reference(17 * n + (k * 3), 0);
-  params.x_ss_19[0] = reference(18 * n + (k * 3), 0);
-  params.x_ss_20[0] = reference(19 * n + (k * 3), 0);
-  params.x_ss_21[0] = reference(20 * n + (k * 3), 0);
-  params.x_ss_22[0] = reference(21 * n + (k * 3), 0);
-  params.x_ss_23[0] = reference(22 * n + (k * 3), 0);
-  params.x_ss_24[0] = reference(23 * n + (k * 3), 0);
-  params.x_ss_25[0] = reference(24 * n + (k * 3), 0);
-  params.x_ss_26[0] = reference(25 * n + (k * 3), 0);
-  params.x_ss_27[0] = reference(26 * n + (k * 3), 0);
-  params.x_ss_28[0] = reference(27 * n + (k * 3), 0);
-  params.x_ss_29[0] = reference(28 * n + (k * 3), 0);
-  params.x_ss_30[0] = reference(29 * n + (k * 3), 0);
-  params.x_ss_31[0] = reference(30 * n + (k * 3), 0);
-  params.x_ss_32[0] = reference(31 * n + (k * 3), 0);
-  params.x_ss_33[0] = reference(32 * n + (k * 3), 0);
-  params.x_ss_34[0] = reference(33 * n + (k * 3), 0);
-  params.x_ss_35[0] = reference(34 * n + (k * 3), 0);
-  params.x_ss_36[0] = reference(35 * n + (k * 3), 0);
-  params.x_ss_37[0] = reference(36 * n + (k * 3), 0);
-  params.x_ss_38[0] = reference(37 * n + (k * 3), 0);
-  params.x_ss_39[0] = reference(38 * n + (k * 3), 0);
-  params.x_ss_40[0] = reference(39 * n + (k * 3), 0);
-}
-void MpcTracker::getStatesFromCvxgen(int k) {
-
-  predicted_future_trajectory(0 + k * 3 + (0 * 9))  = *(vars.x_1);
-  predicted_future_trajectory(1 + k * 3 + (0 * 9))  = *(vars.x_1 + 1);
-  predicted_future_trajectory(2 + k * 3 + (0 * 9))  = *(vars.x_1 + 2);
-  predicted_future_trajectory(0 + k * 3 + (1 * 9))  = *(vars.x_2);
-  predicted_future_trajectory(1 + k * 3 + (1 * 9))  = *(vars.x_2 + 1);
-  predicted_future_trajectory(2 + k * 3 + (1 * 9))  = *(vars.x_2 + 2);
-  predicted_future_trajectory(0 + k * 3 + (2 * 9))  = *(vars.x_3);
-  predicted_future_trajectory(1 + k * 3 + (2 * 9))  = *(vars.x_3 + 1);
-  predicted_future_trajectory(2 + k * 3 + (2 * 9))  = *(vars.x_3 + 2);
-  predicted_future_trajectory(0 + k * 3 + (3 * 9))  = *(vars.x_4);
-  predicted_future_trajectory(1 + k * 3 + (3 * 9))  = *(vars.x_4 + 1);
-  predicted_future_trajectory(2 + k * 3 + (3 * 9))  = *(vars.x_4 + 2);
-  predicted_future_trajectory(0 + k * 3 + (4 * 9))  = *(vars.x_5);
-  predicted_future_trajectory(1 + k * 3 + (4 * 9))  = *(vars.x_5 + 1);
-  predicted_future_trajectory(2 + k * 3 + (4 * 9))  = *(vars.x_5 + 2);
-  predicted_future_trajectory(0 + k * 3 + (5 * 9))  = *(vars.x_6);
-  predicted_future_trajectory(1 + k * 3 + (5 * 9))  = *(vars.x_6 + 1);
-  predicted_future_trajectory(2 + k * 3 + (5 * 9))  = *(vars.x_6 + 2);
-  predicted_future_trajectory(0 + k * 3 + (6 * 9))  = *(vars.x_7);
-  predicted_future_trajectory(1 + k * 3 + (6 * 9))  = *(vars.x_7 + 1);
-  predicted_future_trajectory(2 + k * 3 + (6 * 9))  = *(vars.x_7 + 2);
-  predicted_future_trajectory(0 + k * 3 + (7 * 9))  = *(vars.x_8);
-  predicted_future_trajectory(1 + k * 3 + (7 * 9))  = *(vars.x_8 + 1);
-  predicted_future_trajectory(2 + k * 3 + (7 * 9))  = *(vars.x_8 + 2);
-  predicted_future_trajectory(0 + k * 3 + (8 * 9))  = *(vars.x_9);
-  predicted_future_trajectory(1 + k * 3 + (8 * 9))  = *(vars.x_9 + 1);
-  predicted_future_trajectory(2 + k * 3 + (8 * 9))  = *(vars.x_9 + 2);
-  predicted_future_trajectory(0 + k * 3 + (9 * 9))  = *(vars.x_10);
-  predicted_future_trajectory(1 + k * 3 + (9 * 9))  = *(vars.x_10 + 1);
-  predicted_future_trajectory(2 + k * 3 + (9 * 9))  = *(vars.x_10 + 2);
-  predicted_future_trajectory(0 + k * 3 + (10 * 9)) = *(vars.x_11);
-  predicted_future_trajectory(1 + k * 3 + (10 * 9)) = *(vars.x_11 + 1);
-  predicted_future_trajectory(2 + k * 3 + (10 * 9)) = *(vars.x_11 + 2);
-  predicted_future_trajectory(0 + k * 3 + (11 * 9)) = *(vars.x_12);
-  predicted_future_trajectory(1 + k * 3 + (11 * 9)) = *(vars.x_12 + 1);
-  predicted_future_trajectory(2 + k * 3 + (11 * 9)) = *(vars.x_12 + 2);
-  predicted_future_trajectory(0 + k * 3 + (12 * 9)) = *(vars.x_13);
-  predicted_future_trajectory(1 + k * 3 + (12 * 9)) = *(vars.x_13 + 1);
-  predicted_future_trajectory(2 + k * 3 + (12 * 9)) = *(vars.x_13 + 2);
-  predicted_future_trajectory(0 + k * 3 + (13 * 9)) = *(vars.x_14);
-  predicted_future_trajectory(1 + k * 3 + (13 * 9)) = *(vars.x_14 + 1);
-  predicted_future_trajectory(2 + k * 3 + (13 * 9)) = *(vars.x_14 + 2);
-  predicted_future_trajectory(0 + k * 3 + (14 * 9)) = *(vars.x_15);
-  predicted_future_trajectory(1 + k * 3 + (14 * 9)) = *(vars.x_15 + 1);
-  predicted_future_trajectory(2 + k * 3 + (14 * 9)) = *(vars.x_15 + 2);
-  predicted_future_trajectory(0 + k * 3 + (15 * 9)) = *(vars.x_16);
-  predicted_future_trajectory(1 + k * 3 + (15 * 9)) = *(vars.x_16 + 1);
-  predicted_future_trajectory(2 + k * 3 + (15 * 9)) = *(vars.x_16 + 2);
-  predicted_future_trajectory(0 + k * 3 + (16 * 9)) = *(vars.x_17);
-  predicted_future_trajectory(1 + k * 3 + (16 * 9)) = *(vars.x_17 + 1);
-  predicted_future_trajectory(2 + k * 3 + (16 * 9)) = *(vars.x_17 + 2);
-  predicted_future_trajectory(0 + k * 3 + (17 * 9)) = *(vars.x_18);
-  predicted_future_trajectory(1 + k * 3 + (17 * 9)) = *(vars.x_18 + 1);
-  predicted_future_trajectory(2 + k * 3 + (17 * 9)) = *(vars.x_18 + 2);
-  predicted_future_trajectory(0 + k * 3 + (18 * 9)) = *(vars.x_19);
-  predicted_future_trajectory(1 + k * 3 + (18 * 9)) = *(vars.x_19 + 1);
-  predicted_future_trajectory(2 + k * 3 + (18 * 9)) = *(vars.x_19 + 2);
-  predicted_future_trajectory(0 + k * 3 + (19 * 9)) = *(vars.x_20);
-  predicted_future_trajectory(1 + k * 3 + (19 * 9)) = *(vars.x_20 + 1);
-  predicted_future_trajectory(2 + k * 3 + (19 * 9)) = *(vars.x_20 + 2);
-  predicted_future_trajectory(0 + k * 3 + (20 * 9)) = *(vars.x_21);
-  predicted_future_trajectory(1 + k * 3 + (20 * 9)) = *(vars.x_21 + 1);
-  predicted_future_trajectory(2 + k * 3 + (20 * 9)) = *(vars.x_21 + 2);
-  predicted_future_trajectory(0 + k * 3 + (21 * 9)) = *(vars.x_22);
-  predicted_future_trajectory(1 + k * 3 + (21 * 9)) = *(vars.x_22 + 1);
-  predicted_future_trajectory(2 + k * 3 + (21 * 9)) = *(vars.x_22 + 2);
-  predicted_future_trajectory(0 + k * 3 + (22 * 9)) = *(vars.x_23);
-  predicted_future_trajectory(1 + k * 3 + (22 * 9)) = *(vars.x_23 + 1);
-  predicted_future_trajectory(2 + k * 3 + (22 * 9)) = *(vars.x_23 + 2);
-  predicted_future_trajectory(0 + k * 3 + (23 * 9)) = *(vars.x_24);
-  predicted_future_trajectory(1 + k * 3 + (23 * 9)) = *(vars.x_24 + 1);
-  predicted_future_trajectory(2 + k * 3 + (23 * 9)) = *(vars.x_24 + 2);
-  predicted_future_trajectory(0 + k * 3 + (24 * 9)) = *(vars.x_25);
-  predicted_future_trajectory(1 + k * 3 + (24 * 9)) = *(vars.x_25 + 1);
-  predicted_future_trajectory(2 + k * 3 + (24 * 9)) = *(vars.x_25 + 2);
-  predicted_future_trajectory(0 + k * 3 + (25 * 9)) = *(vars.x_26);
-  predicted_future_trajectory(1 + k * 3 + (25 * 9)) = *(vars.x_26 + 1);
-  predicted_future_trajectory(2 + k * 3 + (25 * 9)) = *(vars.x_26 + 2);
-  predicted_future_trajectory(0 + k * 3 + (26 * 9)) = *(vars.x_27);
-  predicted_future_trajectory(1 + k * 3 + (26 * 9)) = *(vars.x_27 + 1);
-  predicted_future_trajectory(2 + k * 3 + (26 * 9)) = *(vars.x_27 + 2);
-  predicted_future_trajectory(0 + k * 3 + (27 * 9)) = *(vars.x_28);
-  predicted_future_trajectory(1 + k * 3 + (27 * 9)) = *(vars.x_28 + 1);
-  predicted_future_trajectory(2 + k * 3 + (27 * 9)) = *(vars.x_28 + 2);
-  predicted_future_trajectory(0 + k * 3 + (28 * 9)) = *(vars.x_29);
-  predicted_future_trajectory(1 + k * 3 + (28 * 9)) = *(vars.x_29 + 1);
-  predicted_future_trajectory(2 + k * 3 + (28 * 9)) = *(vars.x_29 + 2);
-  predicted_future_trajectory(0 + k * 3 + (29 * 9)) = *(vars.x_30);
-  predicted_future_trajectory(1 + k * 3 + (29 * 9)) = *(vars.x_30 + 1);
-  predicted_future_trajectory(2 + k * 3 + (29 * 9)) = *(vars.x_30 + 2);
-  predicted_future_trajectory(0 + k * 3 + (30 * 9)) = *(vars.x_31);
-  predicted_future_trajectory(1 + k * 3 + (30 * 9)) = *(vars.x_31 + 1);
-  predicted_future_trajectory(2 + k * 3 + (30 * 9)) = *(vars.x_31 + 2);
-  predicted_future_trajectory(0 + k * 3 + (31 * 9)) = *(vars.x_32);
-  predicted_future_trajectory(1 + k * 3 + (31 * 9)) = *(vars.x_32 + 1);
-  predicted_future_trajectory(2 + k * 3 + (31 * 9)) = *(vars.x_32 + 2);
-  predicted_future_trajectory(0 + k * 3 + (32 * 9)) = *(vars.x_33);
-  predicted_future_trajectory(1 + k * 3 + (32 * 9)) = *(vars.x_33 + 1);
-  predicted_future_trajectory(2 + k * 3 + (32 * 9)) = *(vars.x_33 + 2);
-  predicted_future_trajectory(0 + k * 3 + (33 * 9)) = *(vars.x_34);
-  predicted_future_trajectory(1 + k * 3 + (33 * 9)) = *(vars.x_34 + 1);
-  predicted_future_trajectory(2 + k * 3 + (33 * 9)) = *(vars.x_34 + 2);
-  predicted_future_trajectory(0 + k * 3 + (34 * 9)) = *(vars.x_35);
-  predicted_future_trajectory(1 + k * 3 + (34 * 9)) = *(vars.x_35 + 1);
-  predicted_future_trajectory(2 + k * 3 + (34 * 9)) = *(vars.x_35 + 2);
-  predicted_future_trajectory(0 + k * 3 + (35 * 9)) = *(vars.x_36);
-  predicted_future_trajectory(1 + k * 3 + (35 * 9)) = *(vars.x_36 + 1);
-  predicted_future_trajectory(2 + k * 3 + (35 * 9)) = *(vars.x_36 + 2);
-  predicted_future_trajectory(0 + k * 3 + (36 * 9)) = *(vars.x_37);
-  predicted_future_trajectory(1 + k * 3 + (36 * 9)) = *(vars.x_37 + 1);
-  predicted_future_trajectory(2 + k * 3 + (36 * 9)) = *(vars.x_37 + 2);
-  predicted_future_trajectory(0 + k * 3 + (37 * 9)) = *(vars.x_38);
-  predicted_future_trajectory(1 + k * 3 + (37 * 9)) = *(vars.x_38 + 1);
-  predicted_future_trajectory(2 + k * 3 + (37 * 9)) = *(vars.x_38 + 2);
-  predicted_future_trajectory(0 + k * 3 + (38 * 9)) = *(vars.x_39);
-  predicted_future_trajectory(1 + k * 3 + (38 * 9)) = *(vars.x_39 + 1);
-  predicted_future_trajectory(2 + k * 3 + (38 * 9)) = *(vars.x_39 + 2);
-  predicted_future_trajectory(0 + k * 3 + (39 * 9)) = *(vars.x_40);
-  predicted_future_trajectory(1 + k * 3 + (39 * 9)) = *(vars.x_40 + 1);
-  predicted_future_trajectory(2 + k * 3 + (39 * 9)) = *(vars.x_40 + 2);
-}
-
 
 void MpcTracker::calculateMPC() {
   tic();
   // filter the desired trajectory to be feasibl
   filterReference();
-  if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) <
-      2.0) {
+  if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) {
     params.Q[4] = 0;
   } else {
     params.Q[4] = 0;
@@ -1490,38 +1214,25 @@ void MpcTracker::calculateMPC() {
 
   // cvxgen X axis-------------------------------------------------------------------------------
 
-  // initial position
-  params.x_0[0] = x(0, 0);
-  params.x_0[1] = x(1, 0);
-  params.x_0[2] = x(2, 0);
-
   // reference
-  loadReferenceForCvxgen(0);
+  cvx1d->setInitialState(x, 0);
+  cvx1d->loadReference(reference, 0);
+  iters += cvx1d->solveCvx();
+  cvx1d->getStates(predicted_future_trajectory, 0);
+  cvx_u(0) = cvx1d->getFirstControlInput();
 
-
-  iters += solve();
-  getStatesFromCvxgen(0);
-  cvx_u(0) = *(vars.u_0);
 
   // cvxgen Y axis-------------------------------------------------------------------------------
-  // initial position
-  params.x_0[0] = x(3, 0);
-  params.x_0[1] = x(4, 0);
-  params.x_0[2] = x(5, 0);
-  // reference
 
-  loadReferenceForCvxgen(1);
-
-  iters += solve();
-  getStatesFromCvxgen(1);
-  cvx_u(1) = *(vars.u_0);
+  cvx1d->setInitialState(x, 1);
+  cvx1d->loadReference(reference, 1);
+  iters += cvx1d->solveCvx();
+  cvx1d->getStates(predicted_future_trajectory, 1);
+  cvx_u(1) = cvx1d->getFirstControlInput();
 
   // cvxgen Z axis------------------------------------------------------------------------------
-  // initial position
-  params.x_0[0] = x(6, 0);
-  params.x_0[1] = x(7, 0);
-  params.x_0[2] = x(8, 0);
-  // max speed and acceleration for Z axis
+
+  // max speed and acceleration for Z axi
   if (avoiding_someone) {
     // I am avoiding someone, better push vertical speed and acc up to avoid in time
     params.x_max_2[0] = 5.0;
@@ -1534,14 +1245,11 @@ void MpcTracker::calculateMPC() {
   params.x_min_3[0] = -max_vertical_descending_acceleration;
   // reference
 
-
-  loadReferenceForCvxgen(2);
-
-
-  iters += solve();
-
-  getStatesFromCvxgen(2);
-  cvx_u(2) = *(vars.u_0);
+  cvx1d->setInitialState(x, 2);
+  cvx1d->loadReference(reference, 2);
+  iters += cvx1d->solveCvx();
+  cvx1d->getStates(predicted_future_trajectory, 2);
+  cvx_u(2) = cvx1d->getFirstControlInput();
 
   double tmptime = tocq();
   ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)");
