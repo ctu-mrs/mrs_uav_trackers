@@ -515,7 +515,7 @@ long solve(void) {
   pre_ops();
 #ifndef ZERO_LIBRARY_MODE
   if (settings.verbose)
-    printf("iter     objv        gap       |Ax-b|    |Gx+s-h|    step\n");
+    printf("iteraaaa     objv        gap       |Ax-b|    |Gx+s-h|    step\n");
 #endif
   fillq();
   fillh();

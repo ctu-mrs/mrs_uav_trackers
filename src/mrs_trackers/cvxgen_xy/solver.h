@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-01-05 15:36:25 -0500.  */
+/* Produced by CVXGEN, 2018-01-06 07:23:05 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -29,7 +29,7 @@
 #endif
 typedef struct Params_t {
   double x_ss_1[6];
-  double Q[36];
+  double Q[6];
   double x_ss_2[6];
   double x_ss_3[6];
   double x_ss_4[6];
@@ -69,18 +69,12 @@ typedef struct Params_t {
   double x_ss_38[6];
   double x_ss_39[6];
   double x_ss_40[6];
-  double R[4];
+  double R[2];
   double Af[10];
   double x_0[6];
   double Bf[2];
   double A[10];
   double B[2];
-  double x_max_2[1];
-  double x_max_3[1];
-  double x_min_2[1];
-  double x_min_3[1];
-  double x_aprx_max_1[1];
-  double x_aprx_min_1[1];
   double *x_ss[41];
   double *x[1];
 } Params;
@@ -170,25 +164,25 @@ typedef struct Vars_t {
   double *u[41];
 } Vars;
 typedef struct Workspace_t {
-  double h[480];
-  double s_inv[480];
-  double s_inv_z[480];
+  double *h;
+  double *s_inv;
+  double *s_inv_z;
   double b[240];
   double q[322];
-  double rhs[1522];
-  double x[1522];
+  double rhs[562];
+  double x[562];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[1522];
-  double lhs_cc[1522];
-  double buffer[1522];
-  double buffer2[1522];
-  double KKT[3750];
-  double L[3447];
-  double d[1522];
-  double v[1522];
-  double d_inv[1522];
+  double lhs_aff[562];
+  double lhs_cc[562];
+  double buffer[562];
+  double buffer2[562];
+  double KKT[1030];
+  double L[1312];
+  double d[562];
+  double v[562];
+  double d_inv[562];
   double gap;
   double optval;
   double ineq_resid_squared;
@@ -292,7 +286,7 @@ double calc_ineq_resid_squared(void);
 double calc_eq_resid_squared(void);
 void better_start(void);
 void fillrhs_start(void);
-long solve(void);
+long solveR(void);
 
 /* Function definitions in testsolver.c: */
 int main(int argc, char **argv);

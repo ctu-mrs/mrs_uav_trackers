@@ -28,11 +28,6 @@ extern "C" {
 #include "cvx_wrapper.h"
 #include "cvx_wrapper_xy.h"
 
-Vars      vars;
-Params    params;
-Workspace work;
-Settings  settings;
-
 
 using namespace Eigen;
 
@@ -1169,11 +1164,11 @@ void MpcTracker::calculateMPC() {
   tic();
   // filter the desired trajectory to be feasibl
   filterReference();
-  if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) {
-    params.Q[4] = 0;
-  } else {
-    params.Q[4] = 0;
-  }
+  /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
+  /*   params.Q[4] = 0; */
+  /* } else { */
+  /*   params.Q[4] = 0; */
+  /* } */
 
 
   bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
@@ -1181,18 +1176,18 @@ void MpcTracker::calculateMPC() {
   int  iters            = 0;
 
   // max speed and acceleration for X and Y axis
-  if (being_avoided) {
-    // somebody is trying to avoid me, better slow down a bit to give them more time
-    params.x_max_2[0] = max_horizontal_speed * collision_horizontal_speed_coef;
-    params.x_max_3[0] = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
-    params.x_min_2[0] = -max_horizontal_speed * collision_horizontal_speed_coef;
-    params.x_min_3[0] = -max_horizontal_acceleration * collision_horizontal_acceleration_coef;
-  } else {
-    params.x_max_2[0] = max_horizontal_speed;
-    params.x_max_3[0] = max_horizontal_acceleration;
-    params.x_min_2[0] = -max_horizontal_speed;
-    params.x_min_3[0] = -max_horizontal_acceleration;
-  }
+  /* if (being_avoided) { */
+  /*   // somebody is trying to avoid me, better slow down a bit to give them more time */
+  /*   params.x_max_2[0] = max_horizontal_speed * collision_horizontal_speed_coef; */
+  /*   params.x_max_3[0] = max_horizontal_acceleration * collision_horizontal_acceleration_coef; */
+  /*   params.x_min_2[0] = -max_horizontal_speed * collision_horizontal_speed_coef; */
+  /*   params.x_min_3[0] = -max_horizontal_acceleration * collision_horizontal_acceleration_coef; */
+  /* } else { */
+  /*   params.x_max_2[0] = max_horizontal_speed; */
+  /*   params.x_max_3[0] = max_horizontal_acceleration; */
+  /*   params.x_min_2[0] = -max_horizontal_speed; */
+  /*   params.x_min_3[0] = -max_horizontal_acceleration; */
+  /* } */
 
 
   // prepare the full reference vector
@@ -1240,16 +1235,16 @@ ROS_INFO("7");
   // cvxgen Z axis------------------------------------------------------------------------------
 
   // max speed and acceleration for Z axi
-  if (avoiding_someone) {
-    // I am avoiding someone, better push vertical speed and acc up to avoid in time
-    params.x_max_2[0] = 5.0;
-    params.x_max_3[0] = 2.0;
-  } else {
-    params.x_max_2[0] = max_vertical_ascending_speed;
-    params.x_max_3[0] = max_vertical_ascending_acceleration;
-  }
-  params.x_min_2[0] = -max_vertical_descending_speed;
-  params.x_min_3[0] = -max_vertical_descending_acceleration;
+  /* if (avoiding_someone) { */
+  /*   // I am avoiding someone, better push vertical speed and acc up to avoid in time */
+  /*   params.x_max_2[0] = 5.0; */
+  /*   params.x_max_3[0] = 2.0; */
+  /* } else { */
+  /*   params.x_max_2[0] = max_vertical_ascending_speed; */
+  /*   params.x_max_3[0] = max_vertical_ascending_acceleration; */
+  /* } */
+  /* params.x_min_2[0] = -max_vertical_descending_speed; */
+  /* params.x_min_3[0] = -max_vertical_descending_acceleration; */
   // reference
 
   cvx1d->setInitialState(x, 2);

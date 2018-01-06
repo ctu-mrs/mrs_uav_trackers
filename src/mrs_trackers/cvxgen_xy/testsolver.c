@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-01-05 15:36:25 -0500.  */
+/* Produced by CVXGEN, 2018-01-06 07:23:05 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -54,43 +54,12 @@ void load_default_data(void) {
   params.x_ss_1[3] = 0.04331042079065206;
   params.x_ss_1[4] = 1.5717878173906188;
   params.x_ss_1[5] = 1.5851723557337523;
-  /* Make this a diagonal PSD matrix, even though it's not diagonal. */
   params.Q[0] = 1.1255853104638363;
-  params.Q[6] = 0;
-  params.Q[12] = 0;
-  params.Q[18] = 0;
-  params.Q[24] = 0;
-  params.Q[30] = 0;
-  params.Q[1] = 0;
-  params.Q[7] = 1.2072428781381868;
-  params.Q[13] = 0;
-  params.Q[19] = 0;
-  params.Q[25] = 0;
-  params.Q[31] = 0;
-  params.Q[2] = 0;
-  params.Q[8] = 0;
-  params.Q[14] = 1.0514672033008299;
-  params.Q[20] = 0;
-  params.Q[26] = 0;
-  params.Q[32] = 0;
-  params.Q[3] = 0;
-  params.Q[9] = 0;
-  params.Q[15] = 0;
-  params.Q[21] = 1.4408098436506365;
-  params.Q[27] = 0;
-  params.Q[33] = 0;
-  params.Q[4] = 0;
-  params.Q[10] = 0;
-  params.Q[16] = 0;
-  params.Q[22] = 0;
-  params.Q[28] = 1.0298762108785668;
-  params.Q[34] = 0;
-  params.Q[5] = 0;
-  params.Q[11] = 0;
-  params.Q[17] = 0;
-  params.Q[23] = 0;
-  params.Q[29] = 0;
-  params.Q[35] = 1.456833224394711;
+  params.Q[1] = 1.2072428781381868;
+  params.Q[2] = 1.0514672033008299;
+  params.Q[3] = 1.4408098436506365;
+  params.Q[4] = 1.0298762108785668;
+  params.Q[5] = 1.456833224394711;
   params.x_ss_2[0] = 0.596576190459043;
   params.x_ss_2[1] = -0.8860508694080989;
   params.x_ss_2[2] = 0.7050196079205251;
@@ -325,11 +294,8 @@ void load_default_data(void) {
   params.x_ss_40[3] = -0.3309324209710929;
   params.x_ss_40[4] = -1.9829342633313622;
   params.x_ss_40[5] = -1.013858124556442;
-  /* Make this a diagonal PSD matrix, even though it's not diagonal. */
   params.R[0] = 1.7060561835840065;
-  params.R[2] = 0;
-  params.R[1] = 0;
-  params.R[3] = 1.0615407159206998;
+  params.R[1] = 1.0615407159206998;
   params.Af[0] = -0.8212260055868805;
   params.Af[1] = 1.9524510112487126;
   params.Af[2] = 1.884888920907902;
@@ -360,10 +326,4 @@ void load_default_data(void) {
   params.A[9] = -0.3423245633865686;
   params.B[0] = 0.9412967499805762;
   params.B[1] = -0.09163346622652258;
-  params.x_max_2[0] = 1.0011311088728638;
-  params.x_max_3[0] = 0.835123820817179;
-  params.x_min_2[0] = -0.8380604158593941;
-  params.x_min_3[0] = 1.6028434695494038;
-  params.x_aprx_max_1[0] = 0.675150311940429;
-  params.x_aprx_min_1[0] = 1.1553293733718686;
 }

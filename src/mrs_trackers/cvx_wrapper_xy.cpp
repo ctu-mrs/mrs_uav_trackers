@@ -18,7 +18,7 @@ CvxWrapperXY::CvxWrapperXY() {
   ROS_INFO("Cvx wrapper initiated");
   set_defaults();
   setup_indexing();
-  settings.verbose   = 0;
+  settings.verbose   = 1;
   settings.max_iters = 25;
 
   params.Q[0] = 5000;
@@ -29,7 +29,7 @@ CvxWrapperXY::CvxWrapperXY() {
   params.Q[5] = 0;
  
   params.R[0]  = 500;
-  params.R[2]  = 500;
+  params.R[1]  = 500;
 
   params.A[0]  = 1;
   params.A[1]  = 1;
@@ -58,12 +58,12 @@ CvxWrapperXY::CvxWrapperXY() {
   params.Bf[0] = 0.01;
   params.Bf[1] = 0.01;
 
-  params.x_max_2[0] = 8;
-  params.x_max_3[0] = 2;
-  params.x_min_2[0] = 8;
-  params.x_min_3[0] = 2;
-  params.x_aprx_max_1[0] = 8;
-  params.x_aprx_min_1[0] = 8;
+  /* params.x_max_2[0] = 8; */
+  /* params.x_max_3[0] = 2; */
+  /* params.x_min_2[0] = 8; */
+  /* params.x_min_3[0] = 2; */
+  /* params.x_aprx_max_1[0] = 8; */
+  /* params.x_aprx_min_1[0] = 8; */
 }
 void CvxWrapperXY::setInitialState(MatrixXd &x) {
   params.x_0[0] = x(0, 0);
@@ -156,9 +156,10 @@ void CvxWrapperXY::loadReference(MatrixXd &reference) {
   params.x_ss_40[3] = reference(39 * n + 3, 0);
 }
 int CvxWrapperXY::solveCvx() {
-  return solve();
+  return solveR();
 }
 void CvxWrapperXY::getStates(MatrixXd &future_traj) {
+  ROS_INFO_STREAM(*(vars.x_1)<< "  " <<*(vars.x_2) <<"  " <<*(vars.x_3));
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.x_1 + 2);
