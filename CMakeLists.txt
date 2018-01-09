@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_estimation
   mrs_msgs
+  mrs_cvxy
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
@@ -54,12 +55,6 @@ add_library(cvx_wrapper src/${PROJECT_NAME}/cvx_wrapper.cpp
   src/${PROJECT_NAME}/cvxgen/solver.c
   src/${PROJECT_NAME}/cvxgen/util.c
   )
-add_library(cvx_wrapper_xy src/${PROJECT_NAME}/cvx_wrapper_xy.cpp
-  src/${PROJECT_NAME}/cvxgen_xy/ldl.c
-  src/${PROJECT_NAME}/cvxgen_xy/matrix_support.c
-  src/${PROJECT_NAME}/cvxgen_xy/solver.c
-  src/${PROJECT_NAME}/cvxgen_xy/util.c
-  )
 
 add_dependencies(mpc_tracker
   ${catkin_EXPORTED_TARGETS}
@@ -67,9 +62,6 @@ add_dependencies(mpc_tracker
   )
 target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper
   )
-target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper_xy
-  )
-
 #############
 ## Install ##
 #############

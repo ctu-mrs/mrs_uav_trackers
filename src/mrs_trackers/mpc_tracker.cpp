@@ -22,11 +22,8 @@
 #include <eigen3/Eigen/Eigen>
 #include <mutex>
 #include <thread>
-extern "C" {
-#include <solver.h>
-}
+
 #include "cvx_wrapper.h"
-#include "cvx_wrapper_xy.h"
 
 
 using namespace Eigen;
@@ -1161,7 +1158,7 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 }
 
 void MpcTracker::calculateMPC() {
-  tic();
+  /* tic(); */
   // filter the desired trajectory to be feasibl
   filterReference();
   /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
@@ -1253,8 +1250,8 @@ ROS_INFO("7");
   cvx1d->getStates(predicted_future_trajectory, 2);
   cvx_u(2) = cvx1d->getFirstControlInput();
 
-  double tmptime = tocq();
-  ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)");
+  /* double tmptime = tocq(); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)"); */
 
 
   future_was_predicted = true;
