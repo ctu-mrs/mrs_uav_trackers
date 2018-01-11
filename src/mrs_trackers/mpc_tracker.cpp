@@ -24,6 +24,7 @@
 #include <thread>
 
 #include "cvx_wrapper.h"
+#include <mrs_cvxy/cvx_wrapper_xy.h>
 
 
 using namespace Eigen;

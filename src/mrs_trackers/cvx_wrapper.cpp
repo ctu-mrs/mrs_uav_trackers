@@ -94,6 +94,7 @@ void CvxWrapper::loadReference(MatrixXd &reference, int k) {
   params.x_ss_40[0] = reference(39 * n + (k * 3), 0);
 }
 int CvxWrapper::solveCvx() {
+  ROS_INFO("SOLVE Z");
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd &future_traj, int k) {
