@@ -58,5 +58,6 @@
   <export>
     <!-- Other tools can request additional information be placed here -->
 	<trackers_manager plugin="${prefix}/mrs_trackers.xml" />
+	<trackers_manager plugin="${prefix}/csv_tracker.xml" />
   </export>
 </package>

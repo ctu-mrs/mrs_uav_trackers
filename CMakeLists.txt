@@ -49,12 +49,20 @@ add_dependencies(mpc_tracker
   )
 target_link_libraries(mpc_tracker ${catkin_LIBRARIES})
 
+add_library(csv_tracker src/${PROJECT_NAME}/csv_tracker.cpp)
+add_dependencies(csv_tracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(csv_tracker ${catkin_LIBRARIES})
+
 #############
 ## Install ##
 #############
 
 install(TARGETS
   mpc_tracker
+  csv_tracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -66,4 +74,4 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mrs_trackers.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES mrs_trackers.xml csv_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
