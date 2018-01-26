@@ -62,6 +62,8 @@ class CsvTracker : public trackers_manager::Tracker {
     // publishers
     ros::Publisher publisher_odom_pitch_;
     ros::Publisher publisher_desired_pitch_;
+    
+    ros::Publisher publisher_desired_thrust_;
 
     std::thread mpc_thread;
 
@@ -139,6 +141,8 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
       s >> trajectory(trajectory_len, 4);
       s >> trajectory(trajectory_len, 5);
       s >> trajectory(trajectory_len, 6);
+      s >> trajectory(trajectory_len, 7);
+      s >> trajectory(trajectory_len, 8);
 
       ROS_INFO("%2.2f %2.2f", trajectory(trajectory_len, 0), trajectory(trajectory_len, 1));
 
@@ -157,6 +161,8 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   
   publisher_odom_pitch_ = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
+
+  publisher_desired_thrust_ = priv_nh.advertise<std_msgs::Float64>("desired_thrust", 1, false);
 
   main_thread = std::thread(&CsvTracker::mainThread, this);
 }
@@ -298,6 +304,12 @@ void CsvTracker::mainThread(void) {
 
     publisher_odom_pitch_.publish(odom_pitch_msg);
     publisher_desired_pitch_.publish(desired_pitch_msg);
+
+    // debugging desired thrust
+    std_msgs::Float64 desired_thrust_msg;
+    desired_thrust_msg.data = trajectory(tracking_idx, 7)/34.3233;
+
+    publisher_desired_thrust_.publish(desired_thrust_msg);
 
     if (tracking_idx < (trajectory_len-1)) {
 
