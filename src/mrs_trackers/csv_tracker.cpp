@@ -69,6 +69,8 @@ class CsvTracker : public trackers_manager::Tracker {
     ros::Publisher publisher_desired_xd_;
 
     ros::Publisher pub_weight;
+    
+    ros::Publisher publisher_desired_thrust_;
 
     std::thread mpc_thread;
 
@@ -172,6 +174,8 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
   publisher_desired_zd_ = priv_nh.advertise<std_msgs::Float64>("desired_zd", 1, false);
   publisher_desired_xd_ = priv_nh.advertise<std_msgs::Float64>("desired_xd", 1, false);
+
+  publisher_desired_thrust_ = priv_nh.advertise<std_msgs::Float64>("desired_thrust", 1, false);
 
   main_thread = std::thread(&CsvTracker::mainThread, this);
 }
@@ -344,6 +348,12 @@ void CsvTracker::mainThread(void) {
       pub_weight.publish(msg);
 
     }
+
+    // debugging desired thrust
+    std_msgs::Float64 desired_thrust_msg;
+    desired_thrust_msg.data = trajectory(tracking_idx, 7)/34.3233;
+
+    publisher_desired_thrust_.publish(desired_thrust_msg);
 
     if (tracking_idx < (trajectory_len-1)) {
 
