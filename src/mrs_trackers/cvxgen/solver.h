@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-01-03 04:19:43 -0500.  */
+/* Produced by CVXGEN, 2018-02-01 11:34:14 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -28,53 +28,53 @@
 #define pm(A, m, n) printmatrix(#A, A, m, n, 1)
 #endif
 typedef struct Params_t {
-  double x_ss_1[3];
-  double Q[9];
-  double x_ss_2[3];
-  double x_ss_3[3];
-  double x_ss_4[3];
-  double x_ss_5[3];
-  double x_ss_6[3];
-  double x_ss_7[3];
-  double x_ss_8[3];
-  double x_ss_9[3];
-  double x_ss_10[3];
-  double x_ss_11[3];
-  double x_ss_12[3];
-  double x_ss_13[3];
-  double x_ss_14[3];
-  double x_ss_15[3];
-  double x_ss_16[3];
-  double x_ss_17[3];
-  double x_ss_18[3];
-  double x_ss_19[3];
-  double x_ss_20[3];
-  double x_ss_21[3];
-  double x_ss_22[3];
-  double x_ss_23[3];
-  double x_ss_24[3];
-  double x_ss_25[3];
-  double x_ss_26[3];
-  double x_ss_27[3];
-  double x_ss_28[3];
-  double x_ss_29[3];
-  double x_ss_30[3];
-  double x_ss_31[3];
-  double x_ss_32[3];
-  double x_ss_33[3];
-  double x_ss_34[3];
-  double x_ss_35[3];
-  double x_ss_36[3];
-  double x_ss_37[3];
-  double x_ss_38[3];
-  double x_ss_39[3];
-  double x_ss_40[3];
-  double R[1];
-  double Af[5];
-  double x_0[3];
-  double Bf[1];
-  double A[5];
-  double B[1];
+  double x_ss_1[6];
+  double Q[6];
+  double x_ss_2[6];
+  double x_ss_3[6];
+  double x_ss_4[6];
+  double x_ss_5[6];
+  double x_ss_6[6];
+  double x_ss_7[6];
+  double x_ss_8[6];
+  double x_ss_9[6];
+  double x_ss_10[6];
+  double x_ss_11[6];
+  double x_ss_12[6];
+  double x_ss_13[6];
+  double x_ss_14[6];
+  double x_ss_15[6];
+  double x_ss_16[6];
+  double x_ss_17[6];
+  double x_ss_18[6];
+  double x_ss_19[6];
+  double x_ss_20[6];
+  double x_ss_21[6];
+  double x_ss_22[6];
+  double x_ss_23[6];
+  double x_ss_24[6];
+  double x_ss_25[6];
+  double x_ss_26[6];
+  double x_ss_27[6];
+  double x_ss_28[6];
+  double x_ss_29[6];
+  double x_ss_30[6];
+  double x_ss_31[6];
+  double x_ss_32[6];
+  double x_ss_33[6];
+  double x_ss_34[6];
+  double x_ss_35[6];
+  double x_ss_36[6];
+  double x_ss_37[6];
+  double x_ss_38[6];
+  double x_ss_39[6];
+  double x_ss_40[6];
+  double R[2];
+  double Af[10];
+  double x_0[6];
+  double Bf[2];
+  double A[10];
+  double B[2];
   double x_max_2[1];
   double x_max_3[1];
   double x_min_2[1];
@@ -83,190 +83,110 @@ typedef struct Params_t {
   double *x[1];
 } Params;
 typedef struct Vars_t {
-  double *x_1; /* 3 rows. */
-  double *x_2; /* 3 rows. */
-  double *x_3; /* 3 rows. */
-  double *x_4; /* 3 rows. */
-  double *x_5; /* 3 rows. */
-  double *x_6; /* 3 rows. */
-  double *x_7; /* 3 rows. */
-  double *x_8; /* 3 rows. */
-  double *x_9; /* 3 rows. */
-  double *x_10; /* 3 rows. */
-  double *x_11; /* 3 rows. */
-  double *x_12; /* 3 rows. */
-  double *x_13; /* 3 rows. */
-  double *x_14; /* 3 rows. */
-  double *x_15; /* 3 rows. */
-  double *x_16; /* 3 rows. */
-  double *x_17; /* 3 rows. */
-  double *x_18; /* 3 rows. */
-  double *x_19; /* 3 rows. */
-  double *x_20; /* 3 rows. */
-  double *x_21; /* 3 rows. */
-  double *x_22; /* 3 rows. */
-  double *x_23; /* 3 rows. */
-  double *x_24; /* 3 rows. */
-  double *x_25; /* 3 rows. */
-  double *x_26; /* 3 rows. */
-  double *x_27; /* 3 rows. */
-  double *x_28; /* 3 rows. */
-  double *x_29; /* 3 rows. */
-  double *x_30; /* 3 rows. */
-  double *x_31; /* 3 rows. */
-  double *x_32; /* 3 rows. */
-  double *x_33; /* 3 rows. */
-  double *x_34; /* 3 rows. */
-  double *x_35; /* 3 rows. */
-  double *x_36; /* 3 rows. */
-  double *x_37; /* 3 rows. */
-  double *x_38; /* 3 rows. */
-  double *x_39; /* 3 rows. */
-  double *x_40; /* 3 rows. */
-  double *u_1; /* 1 rows. */
-  double *u_2; /* 1 rows. */
-  double *u_3; /* 1 rows. */
-  double *u_4; /* 1 rows. */
-  double *u_5; /* 1 rows. */
-  double *u_6; /* 1 rows. */
-  double *u_7; /* 1 rows. */
-  double *u_8; /* 1 rows. */
-  double *u_9; /* 1 rows. */
-  double *u_10; /* 1 rows. */
-  double *u_11; /* 1 rows. */
-  double *u_12; /* 1 rows. */
-  double *u_13; /* 1 rows. */
-  double *u_14; /* 1 rows. */
-  double *u_15; /* 1 rows. */
-  double *u_16; /* 1 rows. */
-  double *u_17; /* 1 rows. */
-  double *u_18; /* 1 rows. */
-  double *u_19; /* 1 rows. */
-  double *u_20; /* 1 rows. */
-  double *u_21; /* 1 rows. */
-  double *u_22; /* 1 rows. */
-  double *u_23; /* 1 rows. */
-  double *u_24; /* 1 rows. */
-  double *u_25; /* 1 rows. */
-  double *u_26; /* 1 rows. */
-  double *u_27; /* 1 rows. */
-  double *u_28; /* 1 rows. */
-  double *u_29; /* 1 rows. */
-  double *u_30; /* 1 rows. */
-  double *u_31; /* 1 rows. */
-  double *u_32; /* 1 rows. */
-  double *u_33; /* 1 rows. */
-  double *u_34; /* 1 rows. */
-  double *u_35; /* 1 rows. */
-  double *u_36; /* 1 rows. */
-  double *u_37; /* 1 rows. */
-  double *u_38; /* 1 rows. */
-  double *u_39; /* 1 rows. */
-  double *u_40; /* 1 rows. */
-  double *t_01; /* 1 rows. */
-  double *t_02; /* 1 rows. */
-  double *t_03; /* 1 rows. */
-  double *t_04; /* 1 rows. */
-  double *t_05; /* 1 rows. */
-  double *t_06; /* 1 rows. */
-  double *t_07; /* 1 rows. */
-  double *t_08; /* 1 rows. */
-  double *t_09; /* 1 rows. */
-  double *t_10; /* 1 rows. */
-  double *t_11; /* 1 rows. */
-  double *t_12; /* 1 rows. */
-  double *t_13; /* 1 rows. */
-  double *t_14; /* 1 rows. */
-  double *t_15; /* 1 rows. */
-  double *t_16; /* 1 rows. */
-  double *t_17; /* 1 rows. */
-  double *t_18; /* 1 rows. */
-  double *t_19; /* 1 rows. */
-  double *t_20; /* 1 rows. */
-  double *t_21; /* 1 rows. */
-  double *t_22; /* 1 rows. */
-  double *t_23; /* 1 rows. */
-  double *t_24; /* 1 rows. */
-  double *t_25; /* 1 rows. */
-  double *t_26; /* 1 rows. */
-  double *t_27; /* 1 rows. */
-  double *t_28; /* 1 rows. */
-  double *t_29; /* 1 rows. */
-  double *t_30; /* 1 rows. */
-  double *t_31; /* 1 rows. */
-  double *t_32; /* 1 rows. */
-  double *t_33; /* 1 rows. */
-  double *t_34; /* 1 rows. */
-  double *t_35; /* 1 rows. */
-  double *t_36; /* 1 rows. */
-  double *t_37; /* 1 rows. */
-  double *t_38; /* 1 rows. */
-  double *t_39; /* 1 rows. */
-  double *t_40; /* 1 rows. */
-  double *t_41; /* 1 rows. */
-  double *t_42; /* 1 rows. */
-  double *t_43; /* 1 rows. */
-  double *t_44; /* 1 rows. */
-  double *t_45; /* 1 rows. */
-  double *t_46; /* 1 rows. */
-  double *t_47; /* 1 rows. */
-  double *t_48; /* 1 rows. */
-  double *t_49; /* 1 rows. */
-  double *t_50; /* 1 rows. */
-  double *t_51; /* 1 rows. */
-  double *t_52; /* 1 rows. */
-  double *t_53; /* 1 rows. */
-  double *t_54; /* 1 rows. */
-  double *t_55; /* 1 rows. */
-  double *t_56; /* 1 rows. */
-  double *t_57; /* 1 rows. */
-  double *t_58; /* 1 rows. */
-  double *t_59; /* 1 rows. */
-  double *t_60; /* 1 rows. */
-  double *t_61; /* 1 rows. */
-  double *t_62; /* 1 rows. */
-  double *t_63; /* 1 rows. */
-  double *t_64; /* 1 rows. */
-  double *t_65; /* 1 rows. */
-  double *t_66; /* 1 rows. */
-  double *t_67; /* 1 rows. */
-  double *t_68; /* 1 rows. */
-  double *t_69; /* 1 rows. */
-  double *t_70; /* 1 rows. */
-  double *t_71; /* 1 rows. */
-  double *t_72; /* 1 rows. */
-  double *t_73; /* 1 rows. */
-  double *t_74; /* 1 rows. */
-  double *t_75; /* 1 rows. */
-  double *t_76; /* 1 rows. */
-  double *t_77; /* 1 rows. */
-  double *t_78; /* 1 rows. */
-  double *t_79; /* 1 rows. */
-  double *t_80; /* 1 rows. */
-  double *u_0; /* 1 rows. */
+  double *x_1; /* 6 rows. */
+  double *x_2; /* 6 rows. */
+  double *x_3; /* 6 rows. */
+  double *x_4; /* 6 rows. */
+  double *x_5; /* 6 rows. */
+  double *x_6; /* 6 rows. */
+  double *x_7; /* 6 rows. */
+  double *x_8; /* 6 rows. */
+  double *x_9; /* 6 rows. */
+  double *x_10; /* 6 rows. */
+  double *x_11; /* 6 rows. */
+  double *x_12; /* 6 rows. */
+  double *x_13; /* 6 rows. */
+  double *x_14; /* 6 rows. */
+  double *x_15; /* 6 rows. */
+  double *x_16; /* 6 rows. */
+  double *x_17; /* 6 rows. */
+  double *x_18; /* 6 rows. */
+  double *x_19; /* 6 rows. */
+  double *x_20; /* 6 rows. */
+  double *x_21; /* 6 rows. */
+  double *x_22; /* 6 rows. */
+  double *x_23; /* 6 rows. */
+  double *x_24; /* 6 rows. */
+  double *x_25; /* 6 rows. */
+  double *x_26; /* 6 rows. */
+  double *x_27; /* 6 rows. */
+  double *x_28; /* 6 rows. */
+  double *x_29; /* 6 rows. */
+  double *x_30; /* 6 rows. */
+  double *x_31; /* 6 rows. */
+  double *x_32; /* 6 rows. */
+  double *x_33; /* 6 rows. */
+  double *x_34; /* 6 rows. */
+  double *x_35; /* 6 rows. */
+  double *x_36; /* 6 rows. */
+  double *x_37; /* 6 rows. */
+  double *x_38; /* 6 rows. */
+  double *x_39; /* 6 rows. */
+  double *x_40; /* 6 rows. */
+  double *u_1; /* 2 rows. */
+  double *u_2; /* 2 rows. */
+  double *u_3; /* 2 rows. */
+  double *u_4; /* 2 rows. */
+  double *u_5; /* 2 rows. */
+  double *u_6; /* 2 rows. */
+  double *u_7; /* 2 rows. */
+  double *u_8; /* 2 rows. */
+  double *u_9; /* 2 rows. */
+  double *u_10; /* 2 rows. */
+  double *u_11; /* 2 rows. */
+  double *u_12; /* 2 rows. */
+  double *u_13; /* 2 rows. */
+  double *u_14; /* 2 rows. */
+  double *u_15; /* 2 rows. */
+  double *u_16; /* 2 rows. */
+  double *u_17; /* 2 rows. */
+  double *u_18; /* 2 rows. */
+  double *u_19; /* 2 rows. */
+  double *u_20; /* 2 rows. */
+  double *u_21; /* 2 rows. */
+  double *u_22; /* 2 rows. */
+  double *u_23; /* 2 rows. */
+  double *u_24; /* 2 rows. */
+  double *u_25; /* 2 rows. */
+  double *u_26; /* 2 rows. */
+  double *u_27; /* 2 rows. */
+  double *u_28; /* 2 rows. */
+  double *u_29; /* 2 rows. */
+  double *u_30; /* 2 rows. */
+  double *u_31; /* 2 rows. */
+  double *u_32; /* 2 rows. */
+  double *u_33; /* 2 rows. */
+  double *u_34; /* 2 rows. */
+  double *u_35; /* 2 rows. */
+  double *u_36; /* 2 rows. */
+  double *u_37; /* 2 rows. */
+  double *u_38; /* 2 rows. */
+  double *u_39; /* 2 rows. */
+  double *u_40; /* 2 rows. */
+  double *u_0; /* 2 rows. */
   double *x[41];
   double *u[41];
 } Vars;
 typedef struct Workspace_t {
-  double h[320];
-  double s_inv[320];
-  double s_inv_z[320];
-  double b[120];
-  double q[241];
-  double rhs[1001];
-  double x[1001];
+  double h[160];
+  double s_inv[160];
+  double s_inv_z[160];
+  double b[240];
+  double q[322];
+  double rhs[882];
+  double x[882];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[1001];
-  double lhs_cc[1001];
-  double buffer[1001];
-  double buffer2[1001];
-  double KKT[2075];
-  double L[1589];
-  double d[1001];
-  double v[1001];
-  double d_inv[1001];
+  double lhs_aff[882];
+  double lhs_cc[882];
+  double buffer[882];
+  double buffer2[882];
+  double KKT[1670];
+  double L[1632];
+  double d[882];
+  double v[882];
+  double d_inv[882];
   double gap;
   double optval;
   double ineq_resid_squared;

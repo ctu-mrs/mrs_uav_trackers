@@ -24,7 +24,7 @@
 #include <thread>
 
 #include "cvx_wrapper.h"
-#include <mrs_cvxy/cvx_wrapper_xy.h>
+/* #include <mrs_cvxy/cvx_wrapper_xy.h> */
 
 
 using namespace Eigen;
@@ -104,7 +104,7 @@ private:
   double diagnostic_tracking_threshold;
 
   CvxWrapper *  cvx1d;
-  CvxWrapperXY *cvx2d;
+  /* CvxWrapperXY *cvx2d; */
 
   double   dt, dt2;         // time difference of the dynamical system
   MatrixXd A;               // system matrix
@@ -321,8 +321,8 @@ void MpcTracker::futureTrajectoryThread(void) {
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
  
-  cvx1d = new CvxWrapper();
-  cvx2d = new CvxWrapperXY();
+  /* cvx1d = new CvxWrapper(); */
+  cvx2d = new CvxWrapper();
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
@@ -1245,12 +1245,13 @@ ROS_INFO("7");
   /* params.x_min_3[0] = -max_vertical_descending_acceleration; */
   // reference
 
-  cvx1d->setInitialState(x, 2);
-  cvx1d->loadReference(reference, 2);
-  iters += cvx1d->solveCvx();
-  cvx1d->getStates(predicted_future_trajectory, 2);
-  cvx_u(2) = cvx1d->getFirstControlInput();
+  /* cvx1d->setInitialState(x, 2); */
+  /* cvx1d->loadReference(reference, 2); */
+  /* iters += cvx1d->solveCvx(); */
+  /* cvx1d->getStates(predicted_future_trajectory, 2); */
+  /* cvx_u(2) = cvx1d->getFirstControlInput(); */
 
+  cvx_u(2) = 5.0;
   /* double tmptime = tocq(); */
   /* ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)"); */
 

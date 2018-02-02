@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-01-03 04:19:11 -0500.
+# Produced by CVXGEN, 2018-02-01 11:33:54 -0500.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -8,25 +8,28 @@
 # Description: A description of the CVXGEN problem.
 
 dimensions
-  m = 1  # inputs.
-  n = 3  # states.
+  m = 2  # inputs.
+  n = 6  # states.
   T = 40  # horizon.
 end
 
 parameters
-  A (n,n)  {1,1 2,2 3,3 1,2 2,3}  # dynamics matrix.
-  B (n,m)  {3,1} # transfer matrix.
-  Af (n,n) {1,1 2,2 3,3 1,2 2,3} # dynamics matrix for first prediction.
-  Bf (n,m) {3,1} # transfer matrix for first prediction.
+  A (n,n)  {1,1 2,2 3,3 4,4 5,5 6,6 1,2 2,3 4,5 5,6}  # dynamics matrix.
+  B (n,m)  {3,1 6,2} # transfer matrix.
+  Af (n,n) {1,1 2,2 3,3 4,4 5,5 6,6 1,2 2,3 4,5 5,6} # dynamics matrix for first prediction.
+  Bf (n,m) {3,1 6,2} # transfer matrix for first prediction.
 
-  Q (n,n) psd    # state cost.
-  R psd symmetric nonnegative  # input cost.
+  Q (n,n) psd diagonal nonnegative   # state cost.
+  R (m,m) psd diagonal nonnegative  # input cost.
 
   x[0] (n) # initial state.
   x_max_2 nonnegative
   x_max_3 nonnegative
   x_min_2
   x_min_3
+
+  #x_aprx_max_1
+  #x_aprx_min_1
 
   x_ss[t] (n), t=1..T
 end
@@ -37,13 +40,24 @@ variables
 end
 
 minimize
-  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T](quad(u[t], R))  + 5*quad(x[T]-x_ss[T],Q)
+  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T](quad(u[t], R))
 subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
 
-  abs(x[t][2]) <= x_max_2, t=1..T
-  abs(x[t][3]) <= x_max_3, t=1..T  #state constraints
+  x[t][2] <= x_max_2, t=1..T
+  x[t][3] <= x_max_3, t=1..T  #state constraints
   x[t][2] >= x_min_2, t=1..T
   x[t][3] >= x_min_3, t=1..T  #state constraints
+
+  #x[t][5] <= x_max_2, t=1..T
+  #x[t][6] <= x_max_3, t=1..T  #state constraints
+  #x[t][5] >= x_min_2, t=1..T
+  #x[t][6] >= x_min_3, t=1..T  #state constraints
+
+  #(x[t][2] + x[t][5]) <= x_aprx_max_1 , t=1..T
+  #(x[t][2] + x[t][5]) >= x_aprx_min_1 , t=1..T
+
+  #(x[t][2] - x[t][5]) <= x_aprx_max_1 , t=1..T
+  #(x[t][2] - x[t][5]) >= x_aprx_min_1 , t=1..T
 end
