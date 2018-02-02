@@ -11,11 +11,12 @@ class CvxWrapper {
 public:
   CvxWrapper();
 
-  void setInitialState(Eigen::MatrixXd &x, int k);
-  void loadReference(Eigen::MatrixXd &reference, int k);
+  void setInitialState(Eigen::MatrixXd &x);
+  void loadReference(Eigen::MatrixXd &reference);
   int solveCvx();
-  void getStates(Eigen::MatrixXd &future_traj, int k);
-  double getFirstControlInput();
+  void getStates(Eigen::MatrixXd &future_traj);
+  double getFirstControlInputX();
+  double getFirstControlInputY();
 private:
 };
 

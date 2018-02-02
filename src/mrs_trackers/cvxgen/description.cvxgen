@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-02-01 11:33:54 -0500.
+# Produced by CVXGEN, 2018-02-02 04:44:20 -0500.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -28,8 +28,8 @@ parameters
   x_min_2
   x_min_3
 
-  #x_aprx_max_1
-  #x_aprx_min_1
+  x_maxdiag_2
+  x_mindiag_2
 
   x_ss[t] (n), t=1..T
 end
@@ -50,14 +50,14 @@ subject to
   x[t][2] >= x_min_2, t=1..T
   x[t][3] >= x_min_3, t=1..T  #state constraints
 
-  #x[t][5] <= x_max_2, t=1..T
-  #x[t][6] <= x_max_3, t=1..T  #state constraints
-  #x[t][5] >= x_min_2, t=1..T
-  #x[t][6] >= x_min_3, t=1..T  #state constraints
+  x[t][5] <= x_max_2, t=1..T
+  x[t][6] <= x_max_3, t=1..T  #state constraints
+  x[t][5] >= x_min_2, t=1..T
+  x[t][6] >= x_min_3, t=1..T  #state constraints
 
-  #(x[t][2] + x[t][5]) <= x_aprx_max_1 , t=1..T
-  #(x[t][2] + x[t][5]) >= x_aprx_min_1 , t=1..T
+  (x[t][2] + x[t][5]) <= x_maxdiag_2, t=1..T
+  (x[t][2] + x[t][5]) >= x_mindiag_2 , t=1..T
 
-  #(x[t][2] - x[t][5]) <= x_aprx_max_1 , t=1..T
-  #(x[t][2] - x[t][5]) >= x_aprx_min_1 , t=1..T
+  (x[t][2] - x[t][5]) <= x_maxdiag_2 , t=1..T
+  (x[t][2] - x[t][5]) >= x_mindiag_2 , t=1..T
 end

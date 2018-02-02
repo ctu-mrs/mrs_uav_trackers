@@ -103,7 +103,7 @@ private:
   double tracking_error_threshold;  // for switching large error and small error tracking
   double diagnostic_tracking_threshold;
 
-  CvxWrapper *  cvx1d;
+  CvxWrapper *  cvx2d;
   /* CvxWrapperXY *cvx2d; */
 
   double   dt, dt2;         // time difference of the dynamical system
@@ -1251,7 +1251,6 @@ ROS_INFO("7");
   /* cvx1d->getStates(predicted_future_trajectory, 2); */
   /* cvx_u(2) = cvx1d->getFirstControlInput(); */
 
-  cvx_u(2) = 5.0;
   /* double tmptime = tocq(); */
   /* ROS_INFO_STREAM_THROTTLE(1, "CVXGEN stats; total time taken: " << tmptime << "total number of iterations: " << iters << "/75 (max)"); */
 
@@ -1260,6 +1259,9 @@ ROS_INFO("7");
 
   x_mutex.lock();
   { x = A * x + B * cvx_u; }
+  x(6,0) = 5;
+  x(7,0) = 0;
+  x(8,0) = 0;
 
   x_mutex.unlock();
 }

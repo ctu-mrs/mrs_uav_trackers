@@ -58,8 +58,18 @@ CvxWrapper::CvxWrapper() {
   params.B[1]  = 0.2;
   params.Bf[0] = 0.01;
   params.Bf[1] = 0.01;
+
+
+  params.x_max_2[0] = 8;
+  params.x_max_3[0] = 8;
+  params.x_min_2[0] = -8;
+  params.x_min_3[0] = -8;
+
+  params.x_maxdiag_2[0] = 8*sqrt(2);
+  params.x_mindiag_2[0] = -8*sqrt(2);
+
 }
-void CvxWrapper::setInitialState(MatrixXd &x, int k) {
+void CvxWrapper::setInitialState(MatrixXd &x) {
   params.x_0[0] = x(0, 0);
   params.x_0[1] = x(1, 0);
   params.x_0[2] = x(2, 0);
@@ -67,7 +77,7 @@ void CvxWrapper::setInitialState(MatrixXd &x, int k) {
   params.x_0[4] = x(4, 0);
   params.x_0[5] = x(5, 0);
 }
-void CvxWrapper::loadReference(MatrixXd &reference, int k) {
+void CvxWrapper::loadReference(MatrixXd &reference) {
   params.x_ss_1[0]  = reference(0 * n + 0, 0);
   params.x_ss_1[3]  = reference(0 * n + 3, 0);
   params.x_ss_2[0]  = reference(1 * n + 0, 0);
@@ -153,7 +163,7 @@ int CvxWrapper::solveCvx() {
   ROS_INFO("SOLVE Z");
   return solve();
 }
-void CvxWrapper::getStates(MatrixXd &future_traj, int k) {
+void CvxWrapper::getStates(MatrixXd &future_traj) {
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.x_1 + 2);
@@ -395,6 +405,9 @@ void CvxWrapper::getStates(MatrixXd &future_traj, int k) {
   future_traj(4 + (39 * 9)) = *(vars.x_40 + 4);
   future_traj(5 + (39 * 9)) = *(vars.x_40 + 5);
 }
-double CvxWrapper::getFirstControlInput() {
+double CvxWrapper::getFirstControlInputX() {
   return *(vars.u_0);
+}
+double CvxWrapper::getFirstControlInputY() {
+  return *(vars.u_0 + 1);
 }

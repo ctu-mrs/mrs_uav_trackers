@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-01 11:34:14 -0500.  */
+/* Produced by CVXGEN, 2018-02-02 04:45:22 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -79,6 +79,8 @@ typedef struct Params_t {
   double x_max_3[1];
   double x_min_2[1];
   double x_min_3[1];
+  double x_maxdiag_2[1];
+  double x_mindiag_2[1];
   double *x_ss[41];
   double *x[1];
 } Params;
@@ -168,25 +170,25 @@ typedef struct Vars_t {
   double *u[41];
 } Vars;
 typedef struct Workspace_t {
-  double h[160];
-  double s_inv[160];
-  double s_inv_z[160];
+  double h[480];
+  double s_inv[480];
+  double s_inv_z[480];
   double b[240];
   double q[322];
-  double rhs[882];
-  double x[882];
+  double rhs[1522];
+  double x[1522];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[882];
-  double lhs_cc[882];
-  double buffer[882];
-  double buffer2[882];
-  double KKT[1670];
-  double L[1632];
-  double d[882];
-  double v[882];
-  double d_inv[882];
+  double lhs_aff[1522];
+  double lhs_cc[1522];
+  double buffer[1522];
+  double buffer2[1522];
+  double KKT[3110];
+  double L[2994];
+  double d[1522];
+  double v[1522];
+  double d_inv[1522];
   double gap;
   double optval;
   double ineq_resid_squared;
