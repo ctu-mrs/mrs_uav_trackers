@@ -16,6 +16,8 @@
 #include <trackers_manager/Transition.h>
 #include "tf/LinearMath/Transform.h"
 #include <std_msgs/Float64.h>
+#include <std_msgs/Float32.h>
+#include <gazebo_ros_link_attacher/Attach.h>
 
 using namespace Eigen;
 
@@ -58,10 +60,15 @@ class CsvTracker : public trackers_manager::Tracker {
     // service clients
     ros::ServiceClient service_switch_tracker;
     ros::ServiceClient service_goto;
+    ros::ServiceClient service_drop;
 
     // publishers
     ros::Publisher publisher_odom_pitch_;
     ros::Publisher publisher_desired_pitch_;
+    ros::Publisher publisher_desired_zd_;
+    ros::Publisher publisher_desired_xd_;
+
+    ros::Publisher pub_weight;
 
     std::thread mpc_thread;
 
@@ -139,6 +146,8 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
       s >> trajectory(trajectory_len, 4);
       s >> trajectory(trajectory_len, 5);
       s >> trajectory(trajectory_len, 6);
+      s >> trajectory(trajectory_len, 7);
+      s >> trajectory(trajectory_len, 8);
 
       ROS_INFO("%2.2f %2.2f", trajectory(trajectory_len, 0), trajectory(trajectory_len, 1));
 
@@ -152,11 +161,17 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   service_goto = priv_nh.serviceClient<mav_manager::Vec4>("goto_out");
   service_switch_tracker = priv_nh.serviceClient<trackers_manager::Transition>("transition_out");
+  service_switch_tracker = priv_nh.serviceClient<trackers_manager::Transition>("transition_out");
+
+  service_drop = priv_nh.serviceClient<gazebo_ros_link_attacher::Attach>("drop");
+  pub_weight = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
 
   subscriber_odom = priv_nh.subscribe("/uav1/mrs_odometry/new_odom", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
   
   publisher_odom_pitch_ = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
+  publisher_desired_zd_ = priv_nh.advertise<std_msgs::Float64>("desired_zd", 1, false);
+  publisher_desired_xd_ = priv_nh.advertise<std_msgs::Float64>("desired_xd", 1, false);
 
   main_thread = std::thread(&CsvTracker::mainThread, this);
 }
@@ -258,6 +273,8 @@ void CsvTracker::mainThread(void) {
 
   ros::Rate r(100);
 
+  int released = 0;
+
   while (ros::ok()) {
 
     while (!active && ros::ok()) {r.sleep();}
@@ -296,8 +313,37 @@ void CsvTracker::mainThread(void) {
     std_msgs::Float64 desired_pitch_msg;
     desired_pitch_msg.data = -trajectory(tracking_idx, 6);
 
+    // debugging desired zd
+    std_msgs::Float64 desired_zd_msg;
+    desired_zd_msg.data = trajectory(tracking_idx, 3);
+
+    // debugging desired xd
+    std_msgs::Float64 desired_xd_msg;
+    desired_xd_msg.data = trajectory(tracking_idx, 2);
+
     publisher_odom_pitch_.publish(odom_pitch_msg);
     publisher_desired_pitch_.publish(desired_pitch_msg);
+    publisher_desired_zd_.publish(desired_zd_msg);
+    publisher_desired_xd_.publish(desired_xd_msg);
+
+    if (trajectory(tracking_idx, 8) == 1) {
+
+      ROS_ERROR("RELEASING MASS");
+
+      gazebo_ros_link_attacher::Attach drop_ser; 
+
+      drop_ser.request.model_name_1 = "uav1";
+      drop_ser.request.model_name_2 = "object1";
+      drop_ser.request.link_name_1 = "base_link";
+      drop_ser.request.link_name_2 = "link";
+
+      service_drop.call(drop_ser);
+
+      std_msgs::Float32 msg;
+      msg.data = 2.5;
+      pub_weight.publish(msg);
+
+    }
 
     if (tracking_idx < (trajectory_len-1)) {
 

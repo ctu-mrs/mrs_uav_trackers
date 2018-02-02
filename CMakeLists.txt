@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_estimation
   mrs_msgs
+  gazebo_ros_link_attacher
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -fno-diagnostics-color")
