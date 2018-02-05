@@ -1222,13 +1222,10 @@ void MpcTracker::calculateMPC() {
   cvx1d->setInitialState(x);
   cvx1d->loadReference(reference);
   iters += cvx1d->solveCvx();
-  ROS_INFO("1");
   cvx1d->getStates(predicted_future_trajectory);
   
-  ROS_INFO("2");
   cvx_u(2) = cvx1d->getFirstControlInput();
 
-  ROS_INFO("3");
   // max speed and acceleration for Z axi
   /* if (avoiding_someone) { */
   /*   // I am avoiding someone, better push vertical speed and acc up to avoid in time */

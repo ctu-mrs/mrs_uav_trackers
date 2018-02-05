@@ -51,6 +51,7 @@ void CvxWrapper1d::setInitialState(MatrixXd &x) {
   params1d.x_0[0] = x(6, 0);
   params1d.x_0[1] = x(7, 0);
   params1d.x_0[2] = x(8, 0);
+  settings1d.verbose   = 0;
 }
 void CvxWrapper1d::loadReference(MatrixXd &reference) {
   params1d.x_ss_1[0]  = reference(0 * n + 6, 0);
@@ -102,6 +103,7 @@ int CvxWrapper1d::solveCvx() {
   return it;
 }
 void CvxWrapper1d::getStates(MatrixXd &future_traj) {
+  ROS_INFO_STREAM_THROTTLE(1, vars1d.x_1);
   return;
   future_traj(6 + (0 * 9))  = *(vars1d.x_1);
   future_traj(7 + (0 * 9))  = *(vars1d.x_1 + 1);
@@ -225,7 +227,6 @@ void CvxWrapper1d::getStates(MatrixXd &future_traj) {
   future_traj(8 + (39 * 9)) = *(vars1d.x_40 + 2);
 }
 double CvxWrapper1d::getFirstControlInput() {
-  /* return *(vars1d.u_0); */
-  ROS_INFO_STREAM(vars1d.u_0);
+  ROS_INFO_STREAM_THROTTLE(1, vars1d.u_0);
   return (0.0);
 }

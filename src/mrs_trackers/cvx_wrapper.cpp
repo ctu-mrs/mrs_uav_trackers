@@ -75,6 +75,7 @@ void CvxWrapper::setInitialState(MatrixXd &x) {
   params.x_0[3] = x(3, 0);
   params.x_0[4] = x(4, 0);
   params.x_0[5] = x(5, 0);
+  settings.verbose   = 0;
 }
 void CvxWrapper::loadReference(MatrixXd &reference) {
   params.x_ss_1[0]  = reference(0 * n + 0, 0);
