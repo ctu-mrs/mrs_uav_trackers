@@ -29,19 +29,19 @@ CvxWrapper::CvxWrapper() {
   params.Q[5] = 0;
 
 
-  params.R[0]  = 500;
-  params.R[1]  = 500;
-   
-  params.A[0]  = 1;
-  params.A[1]  = 1;
-  params.A[2]  = 1;
-  params.A[3]  = 1;
-  params.A[4]  = 1;
-  params.A[5]  = 1;
-  params.A[6]  = 0.2;
-  params.A[7]  = 0.2;
-  params.A[8]  = 0.2;
-  params.A[9]  = 0.2;
+  params.R[0] = 500;
+  params.R[1] = 500;
+
+  params.A[0] = 1;
+  params.A[1] = 1;
+  params.A[2] = 1;
+  params.A[3] = 1;
+  params.A[4] = 1;
+  params.A[5] = 1;
+  params.A[6] = 0.2;
+  params.A[7] = 0.2;
+  params.A[8] = 0.2;
+  params.A[9] = 0.2;
 
   params.Af[0] = 1;
   params.Af[1] = 1;
@@ -53,7 +53,7 @@ CvxWrapper::CvxWrapper() {
   params.Af[7] = 0.01;
   params.Af[8] = 0.01;
   params.Af[9] = 0.01;
-    
+
   params.B[0]  = 0.2;
   params.B[1]  = 0.2;
   params.Bf[0] = 0.01;
@@ -65,9 +65,8 @@ CvxWrapper::CvxWrapper() {
   params.x_min_2[0] = -8;
   params.x_min_3[0] = -8;
 
-  params.x_maxdiag_2[0] = 8*sqrt(2);
-  params.x_mindiag_2[0] = -8*sqrt(2);
-
+  params.x_maxdiag_2[0] = 8 * sqrt(2);
+  params.x_mindiag_2[0] = -8 * sqrt(2);
 }
 void CvxWrapper::setInitialState(MatrixXd &x) {
   params.x_0[0] = x(0, 0);
@@ -160,8 +159,11 @@ void CvxWrapper::loadReference(MatrixXd &reference) {
   params.x_ss_40[3] = reference(39 * n + 3, 0);
 }
 int CvxWrapper::solveCvx() {
-  ROS_INFO("SOLVE Z");
-  return solve();
+  tic();
+  int it   = solve();
+  double  time = tocq();
+  ROS_INFO_STREAM_THROTTLE(1, "time XY: " << time);
+  return it;
 }
 void CvxWrapper::getStates(MatrixXd &future_traj) {
   future_traj(0 + (0 * 9))  = *(vars.x_1);

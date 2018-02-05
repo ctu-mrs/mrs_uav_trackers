@@ -43,10 +43,6 @@ include_directories(
 
 
 add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp
-  src/${PROJECT_NAME}/cvxgen/ldl.c
-  src/${PROJECT_NAME}/cvxgen/matrix_support.c
-  src/${PROJECT_NAME}/cvxgen/solver.c
-  src/${PROJECT_NAME}/cvxgen/util.c
   )
 
 add_library(cvx_wrapper src/${PROJECT_NAME}/cvx_wrapper.cpp
@@ -56,11 +52,18 @@ add_library(cvx_wrapper src/${PROJECT_NAME}/cvx_wrapper.cpp
   src/${PROJECT_NAME}/cvxgen/util.c
   )
 
+add_library(cvx_wrapper1d src/${PROJECT_NAME}/cvx_wrapper1d.cpp
+  src/${PROJECT_NAME}/cvxgen1d/ldl.c
+  src/${PROJECT_NAME}/cvxgen1d/matrix_support.c
+  src/${PROJECT_NAME}/cvxgen1d/solver.c
+  src/${PROJECT_NAME}/cvxgen1d/util.c
+  )
+
 add_dependencies(mpc_tracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper
+target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper1d
   )
 #############
 ## Install ##
