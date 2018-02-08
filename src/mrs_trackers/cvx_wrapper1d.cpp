@@ -12,7 +12,7 @@ Vars1d      vars1d;
 Params1d    params1d;
 Workspace1d work1d;
 Settings1d  settings1d;
-int       n = 9;
+int         n = 9;
 
 CvxWrapper1d::CvxWrapper1d() {
   ROS_INFO("Cvx wrapper 1d initiated");
@@ -36,24 +36,28 @@ CvxWrapper1d::CvxWrapper1d() {
   params1d.Af[0] = 1;
   params1d.Af[1] = 1;
   params1d.Af[2] = 1;
-  params1d.Af[3] = 0.2;
-  params1d.Af[4] = 0.2;
+  params1d.Af[3] = 0.01;
+  params1d.Af[4] = 0.01;
 
   params1d.B[0]  = 0.2;
   params1d.Bf[0] = 0.01;
 
-  params1d.x_max_2[0] = 8;
-  params1d.x_max_3[0] = 8;
-  params1d.x_min_2[0] = -8;
-  params1d.x_min_3[0] = -8;
 }
+void CvxWrapper1d::setLimits(double speed_max, double speed_min, double acc_max, double acc_min){
+  params1d.x_max_2[0] = speed_max;
+  params1d.x_max_3[0] = acc_max;
+  params1d.x_min_2[0] = -speed_min;
+  params1d.x_min_3[0] = -acc_min;
+}
+
 void CvxWrapper1d::setInitialState(MatrixXd &x) {
-  params1d.x_0[0] = x(6, 0);
-  params1d.x_0[1] = x(7, 0);
-  params1d.x_0[2] = x(8, 0);
-  settings1d.verbose   = 0;
+  params1d.x_0[0]    = x(6, 0);
+  params1d.x_0[1]    = x(7, 0);
+  params1d.x_0[2]    = x(8, 0);
+  settings1d.verbose = 0;
 }
 void CvxWrapper1d::loadReference(MatrixXd &reference) {
+
   params1d.x_ss_1[0]  = reference(0 * n + 6, 0);
   params1d.x_ss_2[0]  = reference(1 * n + 6, 0);
   params1d.x_ss_3[0]  = reference(2 * n + 6, 0);
@@ -94,17 +98,18 @@ void CvxWrapper1d::loadReference(MatrixXd &reference) {
   params1d.x_ss_38[0] = reference(37 * n + 6, 0);
   params1d.x_ss_39[0] = reference(38 * n + 6, 0);
   params1d.x_ss_40[0] = reference(39 * n + 6, 0);
+
 }
 int CvxWrapper1d::solveCvx() {
   tic1d();
-  int it   = solve1d();
-  double  time = tocq1d();
-  ROS_INFO_STREAM_THROTTLE(1, "time Z: " << time);
+  int    it   = solve1d();
+  double time = tocq1d();
+  /* ROS_INFO_STREAM_THROTTLE(1, "time Z: " << time); */
   return it;
 }
 void CvxWrapper1d::getStates(MatrixXd &future_traj) {
-  ROS_INFO_STREAM_THROTTLE(1, vars1d.x_1);
-  return;
+
+  ROS_INFO_STREAM_THROTTLE(1, "Future : " << future_traj(6 + (0 * 9)));
   future_traj(6 + (0 * 9))  = *(vars1d.x_1);
   future_traj(7 + (0 * 9))  = *(vars1d.x_1 + 1);
   future_traj(8 + (0 * 9))  = *(vars1d.x_1 + 2);
@@ -227,6 +232,5 @@ void CvxWrapper1d::getStates(MatrixXd &future_traj) {
   future_traj(8 + (39 * 9)) = *(vars1d.x_40 + 2);
 }
 double CvxWrapper1d::getFirstControlInput() {
-  ROS_INFO_STREAM_THROTTLE(1, vars1d.u_0);
-  return (0.0);
+  return *(vars1d.u_0);
 }

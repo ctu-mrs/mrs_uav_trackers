@@ -11,7 +11,15 @@ def replace( filename ):
         filedata = filedata.replace('settings', 'settings1d')
         filedata = filedata.replace('Workspace', 'Workspace1d')
         filedata = filedata.replace('work', 'work1d')
-   
+
+
+        filedata = filedata.replace('ldl_solve(', 'ldl_solve1d(');
+        filedata = filedata.replace('ldl_factor(', 'ldl_factor1d(');
+        filedata = filedata.replace('check_factorization(', 'check_factorization1d(');
+        filedata = filedata.replace('matrix_multiply(', 'matrix_multiply1d(');
+        filedata = filedata.replace('check_residual(', 'check_residual1d(');
+        filedata = filedata.replace('fill_KKT(', 'fill_KKT1d(');
+  
         filedata = filedata.replace('multbymA(', 'multbymA1d(')
         filedata = filedata.replace('multbymATmultbymAT(', 'multbymATmultbymAT1d(')
         filedata = filedata.replace('multbymG(', 'multbymG1d(')

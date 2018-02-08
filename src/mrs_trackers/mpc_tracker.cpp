@@ -104,8 +104,8 @@ private:
   double tracking_error_threshold;  // for switching large error and small error tracking
   double diagnostic_tracking_threshold;
 
-  CvxWrapper * cvx2d;
-  CvxWrapper1d * cvx1d;
+  CvxWrapper *  cvx2d;
+  CvxWrapper1d *cvx1d;
 
   double   dt, dt2;         // time difference of the dynamical system
   MatrixXd A;               // system matrix
@@ -1161,7 +1161,7 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
 void MpcTracker::calculateMPC() {
 
-  // filter the desired trajectory to be feasibl
+  // filter the desired trajectory to be feasible
   filterReference();
   /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
   /*   params.Q[4] = 0; */
@@ -1170,23 +1170,38 @@ void MpcTracker::calculateMPC() {
   /* } */
 
 
-  bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
-  bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
-  int  iters            = 0;
+  bool   avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
+  bool   being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
+  int    iters            = 0;
+  double max_speed_xy     = 0;
+  double max_acc_xy       = 0;
+  double max_speed_z      = 0;
+  double max_acc_z        = 0;
+  double min_speed_z      = 0;
+  double min_acc_z        = 0;
+
 
   // max speed and acceleration for X and Y axis
-  /* if (being_avoided) { */
-  /*   // somebody is trying to avoid me, better slow down a bit to give them more time */
-  /*   params.x_max_2[0] = max_horizontal_speed * collision_horizontal_speed_coef; */
-  /*   params.x_max_3[0] = max_horizontal_acceleration * collision_horizontal_acceleration_coef; */
-  /*   params.x_min_2[0] = -max_horizontal_speed * collision_horizontal_speed_coef; */
-  /*   params.x_min_3[0] = -max_horizontal_acceleration * collision_horizontal_acceleration_coef; */
-  /* } else { */
-  /*   params.x_max_2[0] = max_horizontal_speed; */
-  /*   params.x_max_3[0] = max_horizontal_acceleration; */
-  /*   params.x_min_2[0] = -max_horizontal_speed; */
-  /*   params.x_min_3[0] = -max_horizontal_acceleration; */
-  /* } */
+  if (being_avoided) {
+    // somebody is trying to avoid me, better slow down a bit to give them more time
+    max_speed_xy = max_horizontal_speed * collision_horizontal_speed_coef;
+    max_acc_xy   = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
+  } else {
+    max_speed_xy = max_horizontal_speed;
+    max_acc_xy   = max_horizontal_acceleration;
+  }
+  if (avoiding_someone) {
+    // we are avoiding someone, better increase the vertical limits to avoid in time
+    max_speed_z = 4.0;
+    max_acc_z   = 3.0;
+    min_speed_z = 4.0;
+    min_acc_z   = 3.0;
+  } else {
+    max_speed_z = max_vertical_ascending_speed;
+    max_acc_z   = max_vertical_ascending_acceleration;
+    min_speed_z = max_vertical_descending_speed;
+    min_acc_z   = max_vertical_descending_acceleration;
+  }
 
 
   // prepare the full reference vector
@@ -1209,6 +1224,7 @@ void MpcTracker::calculateMPC() {
   // cvxgen X and Y axis-------------------------------------------------------------------------------
 
   cvx2d->setInitialState(x);
+  cvx2d->setLimits(max_speed_xy, max_acc_xy);
   cvx2d->loadReference(reference);
   iters += cvx2d->solveCvx();
   cvx2d->getStates(predicted_future_trajectory);
@@ -1217,6 +1233,7 @@ void MpcTracker::calculateMPC() {
 
   // cvxgen Z axis------------------------------------------------------------------------------
   cvx1d->setInitialState(x);
+  cvx1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
   cvx1d->loadReference(reference);
   iters += cvx1d->solveCvx();
   cvx1d->getStates(predicted_future_trajectory);

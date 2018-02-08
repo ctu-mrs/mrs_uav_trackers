@@ -366,7 +366,7 @@ void refine1d(double *target, double *var) {
   double *new_var = work1d.buffer2;
   for (j = 0; j < settings1d.refine_steps; j++) {
     norm2 = 0;
-    matrix_multiply(residual, var);
+    matrix_multiply1d(residual, var);
     for (i = 0; i < 1001; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
@@ -391,7 +391,7 @@ void refine1d(double *target, double *var) {
     /* Check the residual once more, but only if we're reporting it, since */
     /* it's expensive. */
     norm2 = 0;
-    matrix_multiply(residual, var);
+    matrix_multiply1d(residual, var);
     for (i = 0; i < 1001; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
@@ -443,8 +443,8 @@ void better_start1d(void) {
   /* Make sure sinvz is 1 to make hijacked KKT system ok. */
   for (i = 0; i < 320; i++)
     work1d.s_inv_z[i] = 1;
-  fill_KKT();
-  ldl_factor();
+  fill_KKT1d();
+  ldl_factor1d();
   fillrhs_start1d();
   /* Borrow work1d.lhs_aff for the solution. */
   ldl_solve1d(work1d.rhs, work1d.lhs_aff);
@@ -530,8 +530,8 @@ long solve1d(void) {
       work1d.s_inv_z[i] = work1d.s_inv[i]*work1d.z[i];
     }
     work1d.block_33[0] = 0;
-    fill_KKT();
-    ldl_factor();
+    fill_KKT1d();
+    ldl_factor1d();
     /* Affine scaling directions. */
     fillrhs_aff1d();
     ldl_solve1d(work1d.rhs, work1d.lhs_aff);

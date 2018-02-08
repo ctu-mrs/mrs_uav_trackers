@@ -3023,11 +3023,11 @@ void ldl_solve1d(double *target, double *var) {
   var[1000] = work1d.v[768];
 #ifndef ZERO_LIBRARY_MODE
   if (settings1d.debug) {
-    printf("Squared norm for solution is %.8g.\n", check_residual(target, var));
+    printf("Squared norm for solution is %.8g.\n", check_residual1d(target, var));
   }
 #endif
 }
-void ldl_factor(void) {
+void ldl_factor1d(void) {
   work1d.d[0] = work1d.KKT[0];
   if (work1d.d[0] < 0)
     work1d.d[0] = settings1d.kkt_reg;
@@ -13108,11 +13108,11 @@ void ldl_factor(void) {
   work1d.d_inv[1000] = 1/work1d.d[1000];
 #ifndef ZERO_LIBRARY_MODE
   if (settings1d.debug) {
-    printf("Squared Frobenius for factorization is %.8g.\n", check_factorization());
+    printf("Squared Frobenius for factorization is %.8g.\n", check_factorization1d());
   }
 #endif
 }
-double check_factorization(void) {
+double check_factorization1d(void) {
   /* Returns the squared Frobenius norm of A - L*D*L'. */
   double temp, residual;
   /* Only check the lower triangle. */
@@ -17029,7 +17029,7 @@ double check_factorization(void) {
   residual += temp*temp;
   return residual;
 }
-void matrix_multiply(double *result, double *source) {
+void matrix_multiply1d(double *result, double *source) {
   /* Finds result = A*source. */
   result[0] = work1d.KKT[888]*source[561]+work1d.KKT[889]*source[562]+work1d.KKT[890]*source[563];
   result[1] = work1d.KKT[896]*source[564]+work1d.KKT[897]*source[565]+work1d.KKT[898]*source[566];
@@ -18033,19 +18033,19 @@ void matrix_multiply(double *result, double *source) {
   result[999] = work1d.KKT[1614]*source[236]+work1d.KKT[1534]*source[237]+work1d.KKT[1208]*source[239];
   result[1000] = work1d.KKT[882]*source[119]+work1d.KKT[1531]*source[237]+work1d.KKT[1530]*source[240];
 }
-double check_residual(double *target, double *multiplicand) {
+double check_residual1d(double *target, double *multiplicand) {
   /* Returns the squared 2-norm of lhs - A*rhs. */
   /* Reuses v to find the residual. */
   int i;
   double residual;
   residual = 0;
-  matrix_multiply(work1d.v, multiplicand);
+  matrix_multiply1d(work1d.v, multiplicand);
   for (i = 0; i < 241; i++) {
     residual += (target[i] - work1d.v[i])*(target[i] - work1d.v[i]);
   }
   return residual;
 }
-void fill_KKT(void) {
+void fill_KKT1d(void) {
   work1d.KKT[805] = 2*params1d.R[0];
   work1d.KKT[807] = 2*params1d.R[0];
   work1d.KKT[809] = 2*params1d.R[0];

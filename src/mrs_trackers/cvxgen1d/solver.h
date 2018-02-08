@@ -337,11 +337,11 @@ extern Workspace1d work1d;
 extern Settings1d settings1d;
 /* Function definitions in ldl.c: */
 void ldl_solve1d(double *target, double *var);
-void ldl_factor(void);
-double check_factorization(void);
-void matrix_multiply(double *result, double *source);
-double check_residual(double *target, double *multiplicand);
-void fill_KKT(void);
+void ldl_factor1d(void);
+double check_factorization1d(void);
+void matrix_multiply1d(double *result, double *source);
+double check_residual1d(double *target, double *multiplicand);
+void fill_KKT1d(void);
 
 /* Function definitions in matrix_support.c: */
 void multbymA1d(double *lhs, double *rhs);

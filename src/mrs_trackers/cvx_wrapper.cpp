@@ -58,24 +58,24 @@ CvxWrapper::CvxWrapper() {
   params.B[1]  = 0.2;
   params.Bf[0] = 0.01;
   params.Bf[1] = 0.01;
-
-
-  params.x_max_2[0] = 8;
-  params.x_max_3[0] = 8;
-  params.x_min_2[0] = -8;
-  params.x_min_3[0] = -8;
-
-  params.x_maxdiag_2[0] = 8 * sqrt(2);
-  params.x_mindiag_2[0] = -8 * sqrt(2);
 }
 void CvxWrapper::setInitialState(MatrixXd &x) {
-  params.x_0[0] = x(0, 0);
-  params.x_0[1] = x(1, 0);
-  params.x_0[2] = x(2, 0);
-  params.x_0[3] = x(3, 0);
-  params.x_0[4] = x(4, 0);
-  params.x_0[5] = x(5, 0);
-  settings.verbose   = 0;
+  params.x_0[0]    = x(0, 0);
+  params.x_0[1]    = x(1, 0);
+  params.x_0[2]    = x(2, 0);
+  params.x_0[3]    = x(3, 0);
+  params.x_0[4]    = x(4, 0);
+  params.x_0[5]    = x(5, 0);
+  settings.verbose = 0;
+}
+void CvxWrapper::setLimits(double max_speed, double max_acc) {
+  params.x_max_2[0] = max_speed;
+  params.x_max_3[0] = max_acc;
+  params.x_min_2[0] = -max_speed;
+  params.x_min_3[0] = -max_acc;
+
+  params.x_maxdiag_2[0] = max_speed * sqrt(2);
+  params.x_mindiag_2[0] = -max_speed * sqrt(2);
 }
 void CvxWrapper::loadReference(MatrixXd &reference) {
   params.x_ss_1[0]  = reference(0 * n + 0, 0);
@@ -161,8 +161,8 @@ void CvxWrapper::loadReference(MatrixXd &reference) {
 }
 int CvxWrapper::solveCvx() {
   tic();
-  int it   = solve();
-  double  time = tocq();
+  int    it   = solve();
+  double time = tocq();
   ROS_INFO_STREAM_THROTTLE(1, "time XY: " << time);
   return it;
 }
