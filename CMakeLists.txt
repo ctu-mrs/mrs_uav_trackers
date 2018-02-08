@@ -13,8 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_estimation
   mrs_msgs
-  mrs_cvxy
-  )
+)
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
 
@@ -38,7 +37,7 @@ include_directories(
   ${EIGEN_INCLUDE_DIR} 
   ${catkin_INCLUDE_DIRS}
   src/${PROJECT_NAME}/cvxgen
-  src/${PROJECT_NAME}/cvxgen_xy
+  src/${PROJECT_NAME}/cvxgen1d
   )
 
 

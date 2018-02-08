@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-05 04:47:17 -0500.  */
+/* Produced by CVXGEN, 2018-02-08 04:02:19 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -7,7 +7,7 @@
 /* Filename: solver.c. */
 /* Description: Main solver file. */
 #include "solver.h"
-double eval_gap(void) {
+double eval_gap1d(void) {
   int i;
   double gap;
   gap = 0;
@@ -15,7 +15,7 @@ double eval_gap(void) {
     gap += work1d.z[i]*work1d.s[i];
   return gap;
 }
-void set_defaults(void) {
+void set_defaults1d(void) {
   settings1d.resid_tol = 1e-6;
   settings1d.eps = 1e-4;
   settings1d.max_iters = 25;
@@ -28,7 +28,7 @@ void set_defaults(void) {
   settings1d.better_start = 1;
   settings1d.kkt_reg = 1e-7;
 }
-void setup_pointers(void) {
+void setup_pointers1d(void) {
   work1d.y = work1d.x + 241;
   work1d.s = work1d.x + 361;
   work1d.z = work1d.x + 681;
@@ -114,7 +114,7 @@ void setup_pointers(void) {
   vars1d.x_39 = work1d.x + 235;
   vars1d.x_40 = work1d.x + 238;
 }
-void setup_indexed_params1d(void) {
+void setup_indexed_params1d1d(void) {
   /* In CVXGEN, you can say */
   /*   parameters */
   /*     A[i] (5,3), i=1..4 */
@@ -165,7 +165,7 @@ void setup_indexed_params1d(void) {
   params1d.x_ss[40] = params1d.x_ss_40;
   params1d.x[0] = params1d.x_0;
 }
-void setup_indexed_optvars1d(void) {
+void setup_indexed_optvars1d1d(void) {
   /* In CVXGEN, you can say */
   /*   variables */
   /*     x[i] (5), i=2..4 */
@@ -256,12 +256,12 @@ void setup_indexed_optvars1d(void) {
   vars1d.u[40] = vars1d.u_40;
   vars1d.u[0] = vars1d.u_0;
 }
-void setup_indexing(void) {
-  setup_pointers();
-  setup_indexed_params1d();
-  setup_indexed_optvars1d();
+void setup_indexing1d(void) {
+  setup_pointers1d();
+  setup_indexed_params1d1d();
+  setup_indexed_optvars1d1d();
 }
-void set_start(void) {
+void set_start1d(void) {
   int i;
   for (i = 0; i < 241; i++)
     work1d.x[i] = 0;
@@ -272,11 +272,11 @@ void set_start(void) {
   for (i = 0; i < 320; i++)
     work1d.z[i] = settings1d.z_init;
 }
-double eval_objv(void) {
+double eval_objv1d(void) {
   int i;
   double objv;
   /* Borrow space in work1d.rhs. */
-  multbyP(work1d.rhs, work1d.x);
+  multbyP1d(work1d.rhs, work1d.x);
   objv = 0;
   for (i = 0; i < 241; i++)
     objv += work1d.x[i]*work1d.rhs[i];
@@ -286,7 +286,7 @@ double eval_objv(void) {
   objv += work1d.quad_600568381440[0]+work1d.quad_898851794944[0]+work1d.quad_88433618944[0]+work1d.quad_240204779520[0]+work1d.quad_635618762752[0]+work1d.quad_732753989632[0]+work1d.quad_427523055616[0]+work1d.quad_976046530560[0]+work1d.quad_688550678528[0]+work1d.quad_304816418816[0]+work1d.quad_819339411456[0]+work1d.quad_101800079360[0]+work1d.quad_976903761920[0]+work1d.quad_141299838976[0]+work1d.quad_343404097536[0]+work1d.quad_815806124032[0]+work1d.quad_997002137600[0]+work1d.quad_141630619648[0]+work1d.quad_835263414272[0]+work1d.quad_962643562496[0]+work1d.quad_928463360000[0]+work1d.quad_380101586944[0]+work1d.quad_150659375104[0]+work1d.quad_392524365824[0]+work1d.quad_653656117248[0]+work1d.quad_70101270528[0]+work1d.quad_514920816640[0]+work1d.quad_674593345536[0]+work1d.quad_563078742016[0]+work1d.quad_758829424640[0]+work1d.quad_779426672640[0]+work1d.quad_59167404032[0]+work1d.quad_532283006976[0]+work1d.quad_792751730688[0]+work1d.quad_677500567552[0]+work1d.quad_848330452992[0]+work1d.quad_31841603584[0]+work1d.quad_193524883456[0]+work1d.quad_637564002304[0]+work1d.quad_646561718272[0];
   return objv;
 }
-void fillrhs_aff(void) {
+void fillrhs_aff1d(void) {
   int i;
   double *r1, *r2, *r3, *r4;
   r1 = work1d.rhs;
@@ -295,25 +295,25 @@ void fillrhs_aff(void) {
   r4 = work1d.rhs + 881;
   /* r1 = -A^Ty - G^Tz - Px - q. */
   multbymAT(r1, work1d.y);
-  multbymGT(work1d.buffer, work1d.z);
+  multbymGT1d(work1d.buffer, work1d.z);
   for (i = 0; i < 241; i++)
     r1[i] += work1d.buffer[i];
-  multbyP(work1d.buffer, work1d.x);
+  multbyP1d(work1d.buffer, work1d.x);
   for (i = 0; i < 241; i++)
     r1[i] -= work1d.buffer[i] + work1d.q[i];
   /* r2 = -z. */
   for (i = 0; i < 320; i++)
     r2[i] = -work1d.z[i];
   /* r3 = -Gx - s + h. */
-  multbymG(r3, work1d.x);
+  multbymG1d(r3, work1d.x);
   for (i = 0; i < 320; i++)
     r3[i] += -work1d.s[i] + work1d.h[i];
   /* r4 = -Ax + b. */
-  multbymA(r4, work1d.x);
+  multbymA1d(r4, work1d.x);
   for (i = 0; i < 120; i++)
     r4[i] += work1d.b[i];
 }
-void fillrhs_cc(void) {
+void fillrhs_cc1d(void) {
   int i;
   double *r2;
   double *ds_aff, *dz_aff;
@@ -359,7 +359,7 @@ void fillrhs_cc(void) {
   for (i = 0; i < 320; i++)
     r2[i] = work1d.s_inv[i]*(smu - ds_aff[i]*dz_aff[i]);
 }
-void refine(double *target, double *var) {
+void refine1d(double *target, double *var) {
   int i, j;
   double *residual = work1d.buffer;
   double norm2;
@@ -380,7 +380,7 @@ void refine(double *target, double *var) {
     }
 #endif
     /* Solve to find new_var = KKT \ (target - A*var). */
-    ldl_solve(residual, new_var);
+    ldl_solve1d(residual, new_var);
     /* Update var += new_var, or var += KKT \ (target - A*var). */
     for (i = 0; i < 1001; i++) {
       var[i] -= new_var[i];
@@ -403,12 +403,12 @@ void refine(double *target, double *var) {
   }
 #endif
 }
-double calc_ineq_resid_squared(void) {
+double calc_ineq_resid_squared1d(void) {
   /* Calculates the norm ||-Gx - s + h||. */
   double norm2_squared;
   int i;
   /* Find -Gx. */
-  multbymG(work1d.buffer, work1d.x);
+  multbymG1d(work1d.buffer, work1d.x);
   /* Add -s + h. */
   for (i = 0; i < 320; i++)
     work1d.buffer[i] += -work1d.s[i] + work1d.h[i];
@@ -418,12 +418,12 @@ double calc_ineq_resid_squared(void) {
     norm2_squared += work1d.buffer[i]*work1d.buffer[i];
   return norm2_squared;
 }
-double calc_eq_resid_squared(void) {
+double calc_eq_resid_squared1d(void) {
   /* Calculates the norm ||-Ax + b||. */
   double norm2_squared;
   int i;
   /* Find -Ax. */
-  multbymA(work1d.buffer, work1d.x);
+  multbymA1d(work1d.buffer, work1d.x);
   /* Add +b. */
   for (i = 0; i < 120; i++)
     work1d.buffer[i] += work1d.b[i];
@@ -433,7 +433,7 @@ double calc_eq_resid_squared(void) {
     norm2_squared += work1d.buffer[i]*work1d.buffer[i];
   return norm2_squared;
 }
-void better_start(void) {
+void better_start1d(void) {
   /* Calculates a better starting point, using a similar approach to CVXOPT. */
   /* Not yet speed optimized. */
   int i;
@@ -445,9 +445,9 @@ void better_start(void) {
     work1d.s_inv_z[i] = 1;
   fill_KKT();
   ldl_factor();
-  fillrhs_start();
+  fillrhs_start1d();
   /* Borrow work1d.lhs_aff for the solution. */
-  ldl_solve(work1d.rhs, work1d.lhs_aff);
+  ldl_solve1d(work1d.rhs, work1d.lhs_aff);
   /* Don't do any refinement for now. Precision doesn't matter too much. */
   x = work1d.lhs_aff;
   s = work1d.lhs_aff + 241;
@@ -487,7 +487,7 @@ void better_start(void) {
       work1d.z[i] = z[i] + alpha;
   }
 }
-void fillrhs_start(void) {
+void fillrhs_start1d(void) {
   /* Fill rhs with (-q, 0, h, b). */
   int i;
   double *r1, *r2, *r3, *r4;
@@ -504,26 +504,26 @@ void fillrhs_start(void) {
   for (i = 0; i < 120; i++)
     r4[i] = work1d.b[i];
 }
-long solve(void) {
+long solve1d(void) {
   int i;
   int iter;
   double *dx, *ds, *dy, *dz;
   double minval;
   double alpha;
   work1d.converged = 0;
-  setup_pointers();
-  pre_ops();
+  setup_pointers1d();
+  pre_ops1d();
 #ifndef ZERO_LIBRARY_MODE
   if (settings1d.verbose)
     printf("iter     objv        gap       |Ax-b|    |Gx+s-h|    step\n");
 #endif
-  fillq();
-  fillh();
-  fillb();
+  fillq1d();
+  fillh1d();
+  fillb1d();
   if (settings1d.better_start)
-    better_start();
+    better_start1d();
   else
-    set_start();
+    set_start1d();
   for (iter = 0; iter < settings1d.max_iters; iter++) {
     for (i = 0; i < 320; i++) {
       work1d.s_inv[i] = 1.0 / work1d.s[i];
@@ -533,13 +533,13 @@ long solve(void) {
     fill_KKT();
     ldl_factor();
     /* Affine scaling directions. */
-    fillrhs_aff();
-    ldl_solve(work1d.rhs, work1d.lhs_aff);
-    refine(work1d.rhs, work1d.lhs_aff);
+    fillrhs_aff1d();
+    ldl_solve1d(work1d.rhs, work1d.lhs_aff);
+    refine1d(work1d.rhs, work1d.lhs_aff);
     /* Centering plus corrector directions. */
-    fillrhs_cc();
-    ldl_solve(work1d.rhs, work1d.lhs_cc);
-    refine(work1d.rhs, work1d.lhs_cc);
+    fillrhs_cc1d();
+    ldl_solve1d(work1d.rhs, work1d.lhs_cc);
+    refine1d(work1d.rhs, work1d.lhs_cc);
     /* Add the two together and store in aff. */
     for (i = 0; i < 1001; i++)
       work1d.lhs_aff[i] += work1d.lhs_cc[i];
@@ -570,12 +570,12 @@ long solve(void) {
       work1d.z[i] += alpha*dz[i];
     for (i = 0; i < 120; i++)
       work1d.y[i] += alpha*dy[i];
-    work1d.gap = eval_gap();
-    work1d.eq_resid_squared = calc_eq_resid_squared();
-    work1d.ineq_resid_squared = calc_ineq_resid_squared();
+    work1d.gap = eval_gap1d();
+    work1d.eq_resid_squared = calc_eq_resid_squared1d();
+    work1d.ineq_resid_squared = calc_ineq_resid_squared1d();
 #ifndef ZERO_LIBRARY_MODE
     if (settings1d.verbose) {
-      work1d.optval = eval_objv();
+      work1d.optval = eval_objv1d();
       printf("%3d   %10.3e  %9.2e  %9.2e  %9.2e  % 6.4f\n",
           iter+1, work1d.optval, work1d.gap, sqrt(work1d.eq_resid_squared),
           sqrt(work1d.ineq_resid_squared), alpha);
@@ -588,7 +588,7 @@ long solve(void) {
         && (work1d.ineq_resid_squared <= settings1d.resid_tol*settings1d.resid_tol)
        ) {
       work1d.converged = 1;
-      work1d.optval = eval_objv();
+      work1d.optval = eval_objv1d();
       return iter+1;
     }
   }

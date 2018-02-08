@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-05 04:47:05 -0500.  */
+/* Produced by CVXGEN, 2018-02-08 04:01:51 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -32,7 +32,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   /* Avoid compiler warnings of unused variables by using a dummy assignment. */
   warned_diags = j = 0;
   extra_solves = 0;
-  set_defaults();
+  set_defaults1d();
   /* Check we got the right number of arguments. */
   if (nrhs == 0)
     mexErrMsgTxt("Not enough arguments: You need to specify at least the parameters.\n");
@@ -1912,11 +1912,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params1d.x_min_3[%d] = %.6g;\n", i, params1d.x_min_3[i]);
   }
   /* Perform the actual solve in here. */
-  steps = solve();
+  steps = solve1d();
   /* For profiling purposes, allow extra silent solves if desired. */
   settings1d.verbose = 0;
   for (i = 0; i < extra_solves; i++)
-    solve();
+    solve1d();
   /* Update the status variables. */
   plhs[1] = mxCreateStructArray(1, dims1x1of1, 4, status_names);
   xm = mxCreateDoubleMatrix(1, 1, mxREAL);

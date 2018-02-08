@@ -25,7 +25,7 @@
 
 #include "cvx_wrapper.h"
 #include "cvx_wrapper1d.h"
-/* #include <mrs_cvxy/cvx_wrapper_xy.h> */
+/* #include "cvx_wrapper1d.h" */
 
 
 using namespace Eigen;
@@ -106,7 +106,6 @@ private:
 
   CvxWrapper * cvx2d;
   CvxWrapper1d * cvx1d;
-  /* CvxWrapperXY *cvx2d; */
 
   double   dt, dt2;         // time difference of the dynamical system
   MatrixXd A;               // system matrix
@@ -323,7 +322,6 @@ void MpcTracker::futureTrajectoryThread(void) {
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
 
-  /* cvx1d = new CvxWrapper(); */
   cvx2d = new CvxWrapper();
   cvx1d = new CvxWrapper1d();
 
@@ -1218,12 +1216,10 @@ void MpcTracker::calculateMPC() {
   cvx_u(1) = cvx2d->getFirstControlInputY();
 
   // cvxgen Z axis------------------------------------------------------------------------------
-  
   cvx1d->setInitialState(x);
   cvx1d->loadReference(reference);
   iters += cvx1d->solveCvx();
   cvx1d->getStates(predicted_future_trajectory);
-  
   cvx_u(2) = cvx1d->getFirstControlInput();
 
   // max speed and acceleration for Z axi
@@ -1252,10 +1248,6 @@ void MpcTracker::calculateMPC() {
 
   x_mutex.lock();
   { x = A * x + B * cvx_u; }
-  /* x(6, 0) = 5; */
-  /* x(7, 0) = 0; */
-  /* x(8, 0) = 0; */
-
   x_mutex.unlock();
 }
 

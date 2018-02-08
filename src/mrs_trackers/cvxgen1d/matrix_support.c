@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-05 04:47:15 -0500.  */
+/* Produced by CVXGEN, 2018-02-08 04:02:12 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -7,7 +7,7 @@
 /* Filename: matrix_support.c. */
 /* Description: Support functions for matrix multiplication and vector filling. */
 #include "solver.h"
-void multbymA(double *lhs, double *rhs) {
+void multbymA1d(double *lhs, double *rhs) {
   lhs[0] = -rhs[121]*(1);
   lhs[1] = -rhs[122]*(1);
   lhs[2] = -rhs[80]*(-params1d.Bf[0])-rhs[123]*(1);
@@ -372,7 +372,7 @@ void multbymAT(double *lhs, double *rhs) {
   lhs[239] = -rhs[118]*(1);
   lhs[240] = -rhs[119]*(1);
 }
-void multbymG(double *lhs, double *rhs) {
+void multbymG1d(double *lhs, double *rhs) {
   lhs[0] = -rhs[0]*(1);
   lhs[1] = -rhs[0]*(-1)-rhs[122]*(1);
   lhs[2] = -rhs[0]*(-1)-rhs[122]*(-1);
@@ -694,7 +694,7 @@ void multbymG(double *lhs, double *rhs) {
   lhs[318] = -rhs[237]*(-1);
   lhs[319] = -rhs[240]*(-1);
 }
-void multbymGT(double *lhs, double *rhs) {
+void multbymGT1d(double *lhs, double *rhs) {
   lhs[0] = -rhs[0]*(1)-rhs[1]*(-1)-rhs[2]*(-1);
   lhs[1] = -rhs[3]*(1)-rhs[4]*(-1)-rhs[5]*(-1);
   lhs[2] = -rhs[6]*(1)-rhs[7]*(-1)-rhs[8]*(-1);
@@ -937,7 +937,7 @@ void multbymGT(double *lhs, double *rhs) {
   lhs[239] = -rhs[118]*(1)-rhs[119]*(-1)-rhs[279]*(-1);
   lhs[240] = -rhs[238]*(1)-rhs[239]*(-1)-rhs[319]*(-1);
 }
-void multbyP(double *lhs, double *rhs) {
+void multbyP1d(double *lhs, double *rhs) {
   /* TODO use the fact that P is symmetric? */
   /* TODO check doubling / half factor etc. */
   lhs[0] = 0;
@@ -1182,7 +1182,7 @@ void multbyP(double *lhs, double *rhs) {
   lhs[239] = rhs[239]*(2*params1d.Q[1]);
   lhs[240] = rhs[240]*(2*params1d.Q[2]);
 }
-void fillq(void) {
+void fillq1d(void) {
   work1d.q[0] = 0;
   work1d.q[1] = 0;
   work1d.q[2] = 0;
@@ -1425,7 +1425,7 @@ void fillq(void) {
   work1d.q[239] = -2*params1d.Q[1]*params1d.x_ss_40[1];
   work1d.q[240] = -2*params1d.Q[2]*params1d.x_ss_40[2];
 }
-void fillh(void) {
+void fillh1d(void) {
   work1d.h[0] = params1d.x_max_2[0];
   work1d.h[1] = 0;
   work1d.h[2] = 0;
@@ -1747,7 +1747,7 @@ void fillh(void) {
   work1d.h[318] = -params1d.x_min_3[0];
   work1d.h[319] = -params1d.x_min_3[0];
 }
-void fillb(void) {
+void fillb1d(void) {
   work1d.b[0] = params1d.Af[0]*params1d.x_0[0]+params1d.Af[3]*params1d.x_0[1];
   work1d.b[1] = params1d.Af[1]*params1d.x_0[1]+params1d.Af[4]*params1d.x_0[2];
   work1d.b[2] = params1d.Af[2]*params1d.x_0[2];
@@ -1869,7 +1869,7 @@ void fillb(void) {
   work1d.b[118] = 0;
   work1d.b[119] = 0;
 }
-void pre_ops(void) {
+void pre_ops1d(void) {
   work1d.quad_600568381440[0] = params1d.x_ss_1[0]*params1d.Q[0]*params1d.x_ss_1[0]+params1d.x_ss_1[1]*params1d.Q[1]*params1d.x_ss_1[1]+params1d.x_ss_1[2]*params1d.Q[2]*params1d.x_ss_1[2];
   work1d.quad_898851794944[0] = params1d.x_ss_2[0]*params1d.Q[0]*params1d.x_ss_2[0]+params1d.x_ss_2[1]*params1d.Q[1]*params1d.x_ss_2[1]+params1d.x_ss_2[2]*params1d.Q[2]*params1d.x_ss_2[2];
   work1d.quad_88433618944[0] = params1d.x_ss_3[0]*params1d.Q[0]*params1d.x_ss_3[0]+params1d.x_ss_3[1]*params1d.Q[1]*params1d.x_ss_3[1]+params1d.x_ss_3[2]*params1d.Q[2]*params1d.x_ss_3[2];

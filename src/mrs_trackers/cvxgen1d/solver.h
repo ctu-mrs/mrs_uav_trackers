@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-05 04:47:20 -0500.  */
+/* Produced by CVXGEN, 2018-02-08 04:02:27 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -6,8 +6,8 @@
 
 /* Filename: solver.h. */
 /* Description: Header file with relevant definitions. */
-#ifndef SOLVER1D_H
-#define SOLVER1D_H
+#ifndef SOLVER_H
+#define SOLVER_H
 /* Uncomment the next line to remove all library dependencies. */
 /*#define ZERO_LIBRARY_MODE */
 #ifdef MATLAB_MEX_FILE
@@ -25,7 +25,7 @@
 /* At the bottom of this file, they are externed. */
 #ifndef ZERO_LIBRARY_MODE
 #include <math.h>
-#define pm(A, m, n) printmatrix(#A, A, m, n, 1)
+#define pm(A, m, n) printmatrix1d(#A, A, m, n, 1)
 #endif
 typedef struct Params1d_t {
   double x_ss_1[3];
@@ -336,7 +336,7 @@ extern Params1d params1d;
 extern Workspace1d work1d;
 extern Settings1d settings1d;
 /* Function definitions in ldl.c: */
-void ldl_solve(double *target, double *var);
+void ldl_solve1d(double *target, double *var);
 void ldl_factor(void);
 double check_factorization(void);
 void matrix_multiply(double *result, double *source);
@@ -344,47 +344,47 @@ double check_residual(double *target, double *multiplicand);
 void fill_KKT(void);
 
 /* Function definitions in matrix_support.c: */
-void multbymA(double *lhs, double *rhs);
+void multbymA1d(double *lhs, double *rhs);
 void multbymAT(double *lhs, double *rhs);
-void multbymG(double *lhs, double *rhs);
-void multbymGT(double *lhs, double *rhs);
-void multbyP(double *lhs, double *rhs);
-void fillq(void);
-void fillh(void);
-void fillb(void);
-void pre_ops(void);
+void multbymG1d(double *lhs, double *rhs);
+void multbymGT1d(double *lhs, double *rhs);
+void multbyP1d(double *lhs, double *rhs);
+void fillq1d(void);
+void fillh1d(void);
+void fillb1d(void);
+void pre_ops1d(void);
 
 /* Function definitions in solver.c: */
-double eval_gap(void);
-void set_defaults(void);
-void setup_pointers(void);
-void setup_indexed_params1d(void);
-void setup_indexed_optvars1d(void);
-void setup_indexing(void);
-void set_start(void);
-double eval_objv(void);
-void fillrhs_aff(void);
-void fillrhs_cc(void);
-void refine(double *target, double *var);
-double calc_ineq_resid_squared(void);
-double calc_eq_resid_squared(void);
-void better_start(void);
-void fillrhs_start(void);
-long solve(void);
+double eval_gap1d(void);
+void set_defaults1d(void);
+void setup_pointers1d(void);
+void setup_indexed_params1d1d(void);
+void setup_indexed_optvars1d1d(void);
+void setup_indexing1d(void);
+void set_start1d(void);
+double eval_objv1d(void);
+void fillrhs_aff1d(void);
+void fillrhs_cc1d(void);
+void refine1d(double *target, double *var);
+double calc_ineq_resid_squared1d(void);
+double calc_eq_resid_squared1d(void);
+void better_start1d(void);
+void fillrhs_start1d(void);
+long solve1d(void);
 
 /* Function definitions in testsolver.c: */
-int main(int argc, char **argv);
-void load_default_data(void);
+int main1d(int argc, char **argv);
+void load_default_data1d(void);
 
 /* Function definitions in util.c: */
-void tic(void);
-float toc(void);
-float tocq(void);
-void printmatrix(char *name, double *A, int m, int n, int sparse);
-double unif(double lower, double upper);
-float ran1(long*idum, int reset);
-float randn_internal(long *idum, int reset);
-double randn(void);
-void reset_rand(void);
+void tic1d(void);
+float toc1d(void);
+float tocq1d(void);
+void printmatrix1d(char *name, double *A, int m, int n, int sparse);
+double unif1d(double lower, double upper);
+float ran11d(long*idum, int reset);
+float randn_internal1d(long *idum, int reset);
+double randn1d(void);
+void reset_rand1d(void);
 
 #endif

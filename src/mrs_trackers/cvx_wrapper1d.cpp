@@ -16,8 +16,8 @@ int       n = 9;
 
 CvxWrapper1d::CvxWrapper1d() {
   ROS_INFO("Cvx wrapper 1d initiated");
-  set_defaults();
-  setup_indexing();
+  set_defaults1d();
+  setup_indexing1d();
   settings1d.verbose   = 0;
   settings1d.max_iters = 25;
 
@@ -96,9 +96,9 @@ void CvxWrapper1d::loadReference(MatrixXd &reference) {
   params1d.x_ss_40[0] = reference(39 * n + 6, 0);
 }
 int CvxWrapper1d::solveCvx() {
-  tic();
-  int it   = solve();
-  double  time = tocq();
+  tic1d();
+  int it   = solve1d();
+  double  time = tocq1d();
   ROS_INFO_STREAM_THROTTLE(1, "time Z: " << time);
   return it;
 }
