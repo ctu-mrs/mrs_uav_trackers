@@ -21,7 +21,7 @@ def replace( filename ):
         filedata = filedata.replace('fill_KKT(', 'fill_KKT1d(');
   
         filedata = filedata.replace('multbymA(', 'multbymA1d(')
-        filedata = filedata.replace('multbymATmultbymAT(', 'multbymATmultbymAT1d(')
+        filedata = filedata.replace('multbymAT(', 'multbymAT1d(')
         filedata = filedata.replace('multbymG(', 'multbymG1d(')
         filedata = filedata.replace('multbymGT(', 'multbymGT1d(')
         filedata = filedata.replace('multbyP(', 'multbyP1d(')

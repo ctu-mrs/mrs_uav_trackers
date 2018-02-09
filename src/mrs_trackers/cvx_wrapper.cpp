@@ -15,7 +15,7 @@ Settings  settings;
 int       n = 9;
 
 CvxWrapper::CvxWrapper() {
-  ROS_INFO("Cvx wrapper initiated");
+  ROS_INFO("Cvx wrapper XY initiated");
   set_defaults();
   setup_indexing();
   settings.verbose   = 0;
@@ -160,11 +160,7 @@ void CvxWrapper::loadReference(MatrixXd &reference) {
   params.x_ss_40[3] = reference(39 * n + 3, 0);
 }
 int CvxWrapper::solveCvx() {
-  tic();
-  int    it   = solve();
-  double time = tocq();
-  ROS_INFO_STREAM_THROTTLE(1, "time XY: " << time);
-  return it;
+  return solve();
 }
 void CvxWrapper::getStates(MatrixXd &future_traj) {
   future_traj(0 + (0 * 9))  = *(vars.x_1);
