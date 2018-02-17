@@ -14,33 +14,82 @@ Workspace1d work1d;
 Settings1d  settings1d;
 int         n = 9;
 
-CvxWrapper1d::CvxWrapper1d() {
-  ROS_INFO("Cvx wrapper 1d initiated");
+CvxWrapper1d::CvxWrapper1d(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2) {
+
+
   set_defaults1d();
   setup_indexing1d();
-  settings1d.verbose   = 0;
-  settings1d.max_iters = 25;
 
-  params1d.Q[0] = 5000;
-  params1d.Q[1] = 0;
-  params1d.Q[2] = 0;
+  if ((verbose != 1 && verbose != 0) || !std::isfinite(verbose)) {
+    ROS_ERROR("CvxWrapper1d - verbose has to be 0 or 1!!! Safe value of 0 set instead");
+    verbose = 0;
+  }
+  settings1d.verbose = verbose;
 
-  params1d.R[0] = 500;
+  if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
+    ROS_ERROR("CvxWrapper1d - max_iters wrong value!!! Safe value of 25 set instead");
+    max_iters = 25;
+  }
+  settings1d.max_iters = max_iters;
+
+  if (tempQ.size() == 3) {
+    for (int i = 0; i < 3; i++) {
+      if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
+        params1d.Q[i] = tempQ[i];
+      } else {
+        ROS_ERROR_STREAM("CvxWrapper1d - Q matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
+        params1d.Q[i] = 500;
+      }
+    }
+  } else {
+    ROS_ERROR_STREAM("CvxWrapper1d - Q matrix wrong size " << tempQ.size() << " !!! Safe values set instead");
+    params1d.Q[0] = 5000;
+    params1d.Q[1] = 0;
+    params1d.Q[2] = 0;
+  }
+
+  if (tempR.size() == 1) {
+    for (int i = 0; i < 1; i++) {
+      if (tempR[i] >= 0 && std::isfinite(tempR[i])) {
+        params1d.R[i] = tempR[i];
+      } else {
+        ROS_ERROR_STREAM("CvxWrapper1d - R matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
+        params1d.R[i] = 500;
+      }
+    }
+  } else {
+    ROS_ERROR_STREAM("CvxWrapper1d - R matrix wrong size " << tempR.size() << " !!! Safe values set instead");
+    params1d.R[0] = 500;
+  }
+
+  if (dt <= 0 || !std::isfinite(dt)) {
+    ROS_ERROR_STREAM("CvxWrapper1d - dt parameter wrong " << dt << " !!! Safe value of 0.01 set instead");
+    dt = 0.01;
+  }
+
+  if (dt2 <= 0 || !std::isfinite(dt2)) {
+    ROS_ERROR_STREAM("CvxWrapper1d - dt2 parameter wrong " << dt2 << " !!! Safe value of 0.2 set instead");
+    dt = 0.01;
+  }
+
 
   params1d.A[0] = 1;
   params1d.A[1] = 1;
   params1d.A[2] = 1;
-  params1d.A[3] = 0.2;
-  params1d.A[4] = 0.2;
+  params1d.A[3] = dt2;
+  params1d.A[4] = dt2;
 
   params1d.Af[0] = 1;
   params1d.Af[1] = 1;
   params1d.Af[2] = 1;
-  params1d.Af[3] = 0.01;
-  params1d.Af[4] = 0.01;
+  params1d.Af[3] = dt;
+  params1d.Af[4] = dt;
 
-  params1d.B[0]  = 0.2;
-  params1d.Bf[0] = 0.01;
+  params1d.B[0]  = dt2;
+
+  params1d.Bf[0] = dt;
+
+  ROS_INFO("Cvx wrapper 1d initiated");
 }
 void CvxWrapper1d::setLimits(double speed_max, double speed_min, double acc_max, double acc_min) {
   params1d.x_max_2[0] = speed_max;
@@ -53,7 +102,6 @@ void CvxWrapper1d::setInitialState(MatrixXd &x) {
   params1d.x_0[0]    = x(6, 0);
   params1d.x_0[1]    = x(7, 0);
   params1d.x_0[2]    = x(8, 0);
-  settings1d.verbose = 0;
 }
 void CvxWrapper1d::loadReference(MatrixXd &reference) {
 

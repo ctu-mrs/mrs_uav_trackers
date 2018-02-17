@@ -14,23 +14,66 @@ Workspace work;
 Settings  settings;
 int       n = 9;
 
-CvxWrapper::CvxWrapper() {
-  ROS_INFO("Cvx wrapper XY initiated");
+CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2) {
+
   set_defaults();
   setup_indexing();
-  settings.verbose   = 0;
-  settings.max_iters = 25;
 
-  params.Q[0] = 5000;
-  params.Q[1] = 0;
-  params.Q[2] = 0;
-  params.Q[3] = 5000;
-  params.Q[4] = 0;
-  params.Q[5] = 0;
+  if ((verbose != 1 && verbose != 0) || !std::isfinite(verbose)) {
+    ROS_ERROR("CvxWrapper - verbose has to be 0 or 1!!! Safe value of 0 set instead");
+    verbose = 0;
+  }
+  settings.verbose = verbose;
 
+  if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
+    ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 25 set instead");
+    max_iters = 25;
+  }
+  settings.max_iters = max_iters;
 
-  params.R[0] = 500;
-  params.R[1] = 500;
+  if (tempQ.size() == 6) {
+    for (int i = 0; i < 6; i++) {
+      if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
+        params.Q[i] = tempQ[i];
+      } else {
+        ROS_ERROR_STREAM("CvxWrapper - Q matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
+        params.Q[i] = 500;
+      }
+    }
+  } else {
+    ROS_ERROR_STREAM("CvxWrapper - Q matrix wrong size " << tempQ.size() << " !!! Safe values set instead");
+    params.Q[0] = 5000;
+    params.Q[1] = 0;
+    params.Q[2] = 0;
+    params.Q[3] = 5000;
+    params.Q[4] = 0;
+    params.Q[5] = 0;
+  }
+
+  if (tempR.size() == 2) {
+    for (int i = 0; i < 2; i++) {
+      if (tempR[i] >= 0 && std::isfinite(tempR[i])) {
+        params.R[i] = tempR[i];
+      } else {
+        ROS_ERROR_STREAM("CvxWrapper - R matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
+        params.R[i] = 500;
+      }
+    }
+  } else {
+    ROS_ERROR_STREAM("CvxWrapper - R matrix wrong size " << tempR.size() << " !!! Safe values set instead");
+    params.R[0] = 500;
+    params.R[1] = 500;
+  }
+
+  if (dt <= 0 || !std::isfinite(dt)) {
+    ROS_ERROR_STREAM("CvxWrapper - dt parameter wrong " << dt << " !!! Safe value of 0.01 set instead");
+    dt = 0.01;
+  }
+
+  if (dt2 <= 0 || !std::isfinite(dt2)) {
+    ROS_ERROR_STREAM("CvxWrapper - dt2 parameter wrong " << dt2 << " !!! Safe value of 0.2 set instead");
+    dt = 0.01;
+  }
 
   params.A[0] = 1;
   params.A[1] = 1;
@@ -38,10 +81,10 @@ CvxWrapper::CvxWrapper() {
   params.A[3] = 1;
   params.A[4] = 1;
   params.A[5] = 1;
-  params.A[6] = 0.2;
-  params.A[7] = 0.2;
-  params.A[8] = 0.2;
-  params.A[9] = 0.2;
+  params.A[6] = dt2;
+  params.A[7] = dt2;
+  params.A[8] = dt2;
+  params.A[9] = dt2;
 
   params.Af[0] = 1;
   params.Af[1] = 1;
@@ -49,24 +92,26 @@ CvxWrapper::CvxWrapper() {
   params.Af[3] = 1;
   params.Af[4] = 1;
   params.Af[5] = 1;
-  params.Af[6] = 0.01;
-  params.Af[7] = 0.01;
-  params.Af[8] = 0.01;
-  params.Af[9] = 0.01;
+  params.Af[6] = dt;
+  params.Af[7] = dt;
+  params.Af[8] = dt;
+  params.Af[9] = dt;
 
-  params.B[0]  = 0.2;
-  params.B[1]  = 0.2;
-  params.Bf[0] = 0.01;
-  params.Bf[1] = 0.01;
+  params.B[0] = dt2;
+  params.B[1] = dt2;
+
+  params.Bf[0] = dt;
+  params.Bf[1] = dt;
+
+  ROS_INFO("Cvx wrapper XY initiated");
 }
-void CvxWrapper::setInitialState(MatrixXd &x) {
-  params.x_0[0]    = x(0, 0);
-  params.x_0[1]    = x(1, 0);
-  params.x_0[2]    = x(2, 0);
-  params.x_0[3]    = x(3, 0);
-  params.x_0[4]    = x(4, 0);
-  params.x_0[5]    = x(5, 0);
-  settings.verbose = 0;
+void CvxWrapper::setInitialState(MatrixXd& x) {
+  params.x_0[0] = x(0, 0);
+  params.x_0[1] = x(1, 0);
+  params.x_0[2] = x(2, 0);
+  params.x_0[3] = x(3, 0);
+  params.x_0[4] = x(4, 0);
+  params.x_0[5] = x(5, 0);
 }
 void CvxWrapper::setLimits(double max_speed, double max_acc) {
   params.x_max_2[0] = max_speed;
@@ -77,7 +122,7 @@ void CvxWrapper::setLimits(double max_speed, double max_acc) {
   params.x_maxdiag_2[0] = max_speed * sqrt(2);
   params.x_mindiag_2[0] = -max_speed * sqrt(2);
 }
-void CvxWrapper::loadReference(MatrixXd &reference) {
+void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_1[0]  = reference(0 * n + 0, 0);
   params.x_ss_1[3]  = reference(0 * n + 3, 0);
   params.x_ss_2[0]  = reference(1 * n + 0, 0);
@@ -162,7 +207,7 @@ void CvxWrapper::loadReference(MatrixXd &reference) {
 int CvxWrapper::solveCvx() {
   return solve();
 }
-void CvxWrapper::getStates(MatrixXd &future_traj) {
+void CvxWrapper::getStates(MatrixXd& future_traj) {
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.x_1 + 2);

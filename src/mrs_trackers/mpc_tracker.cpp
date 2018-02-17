@@ -91,7 +91,6 @@ private:
   int    n;                                    // number of states
   int    m;                                    // number of inputs
   int    horizon_len;                          // lenght of the prediction horizon
-  int    n_variables;                          // number of variables in the optimization
   double max_vertical_ascending_speed;         // maximum allowed horizontal speed for the mpc controller
   double max_horizontal_speed;                 // maximum allowed vertical speed for the mpc controller
   double max_vertical_ascending_acceleration;  // maximum allowed horizontal acceleration
@@ -103,8 +102,9 @@ private:
   bool avoiding_someone;
   bool being_avoided;
 
-  int    itersZ       = 0;
-  int    itersXY      = 0;
+  int    max_iters_XY, max_iters_Z;
+  int    iters_Z      = 0;
+  int    iters_XY     = 0;
   double max_speed_xy = 0;
   double max_acc_xy   = 0;
   double max_speed_z  = 0;
@@ -113,35 +113,14 @@ private:
   double min_acc_z    = 0;
 
 
-  double tracking_error_threshold;  // for switching large error and small error tracking
   double diagnostic_tracking_threshold;
 
   CvxWrapper *  cvx2d;
   CvxWrapper1d *cvx1d;
 
-  double   dt, dt2;         // time difference of the dynamical system
-  MatrixXd A;               // system matrix
-  MatrixXd A2;              // system matrix 2
-  MatrixXd B;               // input matrix
-  MatrixXd B2;              // input matrix
-  MatrixXd U;               // matrix for reshaping inputs
-  MatrixXd A_roof;          // BIG main matrix
-  MatrixXd B_roof;          // BIG input matrix
-  MatrixXd B_roof_reduced;  // BIG input matrix reduced by U
-  MatrixXd Q;               // small penalization matrix for large error
-  MatrixXd Q2;              // small penalization matrix for small error
-  MatrixXd P;               // small penalization of input actions
-  MatrixXd Q_roof;          // BIG matrix of coeficients of quadratic penalization for large error
-  MatrixXd Q_roof_2;        // BIG matrix of coeficients of quadratic penalization for small error
-  MatrixXd P_roof;          // BIG matrix of coeficients of penalization of inputs
-  MatrixXd H_inv;           // inversion of the main matrix of the quadratic form
-  MatrixXd H;               // inversion of the main matrix of the quadratic form
-
-  MatrixXd X_0;
-  MatrixXd c;
-  MatrixXd u_cf;
-  MatrixXd u;
-  MatrixXd states;
+  double   dt, dt2;  // time difference of the dynamical system
+  MatrixXd A;        // system matrix for virtual UAV
+  MatrixXd B;        // input matrix for virtual UAV
 
   // trajectories
   MatrixXd des_x_trajectory;  // trajectory reference over the prediction horizon
@@ -334,14 +313,12 @@ void MpcTracker::futureTrajectoryThread(void) {
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
 
-  cvx2d = new CvxWrapper();
-  cvx1d = new CvxWrapper1d();
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
   failsafe_triggered = false;
 
-  std::vector<double> tempList, UvaluesList;
+  std::vector<double> tempList, tempList2, UvaluesList;
   int                 tempIdx;
 
   nh.param("debug", debug_, false);
@@ -395,8 +372,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   // load the dynamicall model parameters
   nh.param("dynamicalModel/numberOfStates", n, -1);
   nh.param("dynamicalModel/numberOfInputs", m, -1);
-  nh.param("dynamicalModel/dt", dt, 0.0);
-  nh.param("dynamicalModel/dt2", dt2, 0.0);
 
   // failsafe
   nh.param("use_rc_failsafe", use_rc_failsafe, false);
@@ -420,18 +395,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     }
   }
 
-  // load the second main system matrix
-  nh.getParam("dynamicalModel/A2", tempList);
-  A2 = MatrixXd::Zero(n, n);
-
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-
-      A2(i, j) = tempList[tempIdx++];
-    }
-  }
-
   // load the input matrix
   nh.getParam("dynamicalModel/B", tempList);
   B = MatrixXd::Zero(n, m);
@@ -444,210 +407,55 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     }
   }
 
-  // load the input matrix
-  nh.getParam("dynamicalModel/B2", tempList);
-  B2 = MatrixXd::Zero(n, m);
-
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-
-      B2(i, j) = tempList[tempIdx++];
-    }
-  }
-
   ROS_INFO("MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
-  ROS_INFO_STREAM("\nA:\n" << A << "\nA2:\n" << A2 << "\nB:\n" << B << "\nB2:\n" << B2);
+  ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
 
   // load the MPC parameters
-  nh.param("mpc/horizon_len", horizon_len, -1);
-  nh.param("mpc/numberOfVariables", n_variables, -1);
-  nh.param("mpc/maxHorizontalSpeed", max_horizontal_speed, 0.0);
-  nh.param("mpc/maxHorizontalAcceleration", max_horizontal_acceleration, 0.0);
-  nh.param("mpc/maxTrajectorySize", max_trajectory_size, 0);
+  nh.param("cvxgenMpc/horizon_len", horizon_len, -1);
+  nh.param("cvxgenMpc/maxTrajectorySize", max_trajectory_size, 0);
 
-  nh.param("mpc/maxVerticalAscendingSpeed", max_vertical_ascending_speed, 0.0);
-  nh.param("mpc/maxVerticalAscendingAcceleration", max_vertical_ascending_acceleration, 0.0);
+  nh.param("cvxgenMpc/dt", dt, 0.0);
+  nh.param("cvxgenMpc/dt2", dt2, 0.0);
 
-  nh.param("mpc/maxVerticalDescendingSpeed", max_vertical_descending_speed, 0.0);
-  nh.param("mpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration, 0.0);
-  nh.param("mpc/maxAltitude", max_altitude, 10.0);
+  nh.param("cvxgenMpc/maxHorizontalSpeed", max_horizontal_speed, 0.0);
+  nh.param("cvxgenMpc/maxHorizontalAcceleration", max_horizontal_acceleration, 0.0);
 
-  nh.param("mpc/trackingErrorThr", tracking_error_threshold, 1.0);
+  nh.param("cvxgenMpc/maxVerticalAscendingSpeed", max_vertical_ascending_speed, 0.0);
+  nh.param("cvxgenMpc/maxVerticalAscendingAcceleration", max_vertical_ascending_acceleration, 0.0);
+  nh.param("cvxgenMpc/maxVerticalDescendingSpeed", max_vertical_descending_speed, 0.0);
+  nh.param("cvxgenMpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration, 0.0);
+
+  nh.param("cvxgenMpc/maxAltitude", max_altitude, 10.0);
+
   nh.param("diagnostics_rate", diagnostics_rate, 1.0);
   nh.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
 
-  // load penalization matrix
-  nh.getParam("mpc/Q", tempList);
-  Q = MatrixXd::Zero(n, n);
-
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-
-      Q(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  // load end-state penalization matrix
-  nh.getParam("mpc/Q2", tempList);
-  Q2 = MatrixXd::Zero(n, n);
-
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-
-      Q2(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  // load input penalization matrix
-  nh.getParam("mpc/P", tempList);
-  P = MatrixXd::Zero(m, m);
-
-  tempIdx = 0;
-  for (int i = 0; i < m; i++) {
-    for (int j = 0; j < m; j++) {
-
-      P(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  // load the U matrix
-  nh.getParam("mpc/U", UvaluesList);
-  U = MatrixXd::Zero(horizon_len * m, n_variables);
-
-  tempIdx      = 0;
-  int tempIdx2 = 0;
-
-  for (unsigned long i = 0; i < UvaluesList.size(); i++) {
-    for (int j = 0; j < UvaluesList[i]; j++) {
-
-      U.block(tempIdx, tempIdx2, m, m) = MatrixXd::Identity(m, m);
-      tempIdx += m;
-    }
-    tempIdx2 += m;
-  }
-
   ROS_INFO(
-      "MPC parameters: horizon_len: %d, numberOfVariables: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
-      "%2.1f, max_vertical_ascending_acceleration: %2.1f, max_vertical_descending_speed: %2.1f, max_vertical_descending_acceleration: %2.1f, "
-      "tracking_error_threshold: %2.1f",
-      horizon_len, n_variables, max_vertical_ascending_speed, max_horizontal_speed, max_horizontal_acceleration, max_vertical_ascending_acceleration,
-      max_vertical_descending_speed, max_vertical_descending_acceleration, tracking_error_threshold);
-  ROS_INFO_STREAM("\nQ:\n" << Q << "\nP:\n" << P << "\nQ2:\n" << Q2);
+      "MPC parameters: horizon_len: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
+      "%2.1f, max_vertical_ascending_acceleration: %2.1f, max_vertical_descending_speed: %2.1f, max_vertical_descending_acceleration: %2.1f, ",
+      horizon_len, max_vertical_ascending_speed, max_horizontal_speed, max_horizontal_acceleration, max_vertical_ascending_acceleration,
+      max_vertical_descending_speed, max_vertical_descending_acceleration);
 
-  // prepare the MPC matrice
+  // CVXGEN wrappers
+  bool verbose;
 
-  // prepare A_roof matrix
-  // A_roof = [A;
-  //           A^2;
-  //           A^4;
-  //           ...;
-  //           A^n];
+  nh.param("cvxWrapper/verbose", verbose, false);
+  nh.param("cvxWrapper/maxNumOfIterations", max_iters_XY, 25);
+  nh.getParam("cvxWrapper/Q", tempList);
+  nh.getParam("cvxWrapper/R", tempList2);
 
-  A_roof = MatrixXd::Zero(horizon_len * n, n);
+  cvx2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2);
 
-  tempMatrix = MatrixXd(n, n);  // for acumulating the powers of A
-  tempMatrix = A;
+  nh.param("cvxWrapper1d/verbose", verbose, false);
+  nh.param("cvxWrapper1d/maxNumOfIterations", max_iters_Z, 25);
+  nh.getParam("cvxWrapper1d/Q", tempList);
+  nh.getParam("cvxWrapper1d/R", tempList2);
 
-  for (int i = 0; i < horizon_len; i++) {
+  cvx1d = new CvxWrapper1d(verbose, max_iters_Z, tempList, tempList2, dt, dt2);
 
-    A_roof.middleRows(i * n, n) = tempMatrix;
-    tempMatrix = tempMatrix * A2;  // compute next power of A
-  }
-
-  // B_roof matrix
-  //			% n = prediction horizon length
-  //			% B_roof = [B1,        0,        0,   0;
-  //         				  AB1,       B2,       0,   0;
-  //         				  A^2B1,     AB2,      B2,  0;
-  //         				  ...;
-  //         				  A^(n-2)B1, A^(n-1)B2, ..., 0;
-  //         				  A^(n-1)B1, A^(n-2)B2, ..., B2;
-
-  B_roof = MatrixXd::Zero(horizon_len * n, horizon_len * m);
-
-  B_roof.block(0, 0, n, m)         = B;
-  B_roof.block(1 * n, 0 * m, n, m) = A * B;
-  B_roof.block(1 * n, 1 * m, n, m) = B2;
-
-  for (int i = 2; i < horizon_len; i++) {    // over rows of submatrices
-    for (int j = 2; j < horizon_len; j++) {  // over cols of submatrices
-
-      // replicate the previous line but shift it one block right
-      B_roof.block(i * n, j * m, n, m) = B_roof.block((i - 1) * n, (j - 1) * m, n, m);
-    }
-
-    // create the first block of the new line
-    B_roof.block(i * n, 0, n, m) = A2 * B_roof.block((i - 1) * n, 0, n, m);
-
-    // create the second block of the new line
-    B_roof.block(i * n, m, n, m) = A2 * B_roof.block((i - 1) * n, m, n, m);
-  }
-
-  // create the reduced version of B_roof
-  B_roof_reduced = MatrixXd::Zero(horizon_len * n, n_variables);
-  B_roof_reduced = B_roof * U;
-
-  // Q_roof matrix
-  // n = number of system states
-  // Q = n*n
-  //     diagonal, penalizing control errors
-  // Q_roof = [Q,   0,   ...,  0;
-  //           0,   Q,   ...,  0;
-  //           ..., ..., Q,    0;
-  //           0,   ..., ...,  S];
-
-  Q_roof = MatrixXd::Zero(horizon_len * n, horizon_len * n);
-
-  for (int i = 0; i < horizon_len; i++) {
-
-    Q_roof.block(i * n, i * n, n, n) = Q;
-  }
-
-  // Q_roof_2 matrix
-  // n = number of system states
-  // Q2 = n*n
-  //      diagonal, penalizing control errors
-  // Q_roof_2 = [Q,   0,   ...,  0;
-  //             0,   Q,   ...,  0;
-  //             ..., ..., Q,    0;
-  //             0,   ..., ...,  S];
-
-  Q_roof_2 = MatrixXd::Zero(horizon_len * n, horizon_len * n);
-
-  for (int i = 0; i < horizon_len; i++) {
-
-    Q_roof_2.block(i * n, i * n, n, n) = Q2;
-  }
-
-  // P_roof matrix
-  // penalizing control actions
-  // P_roof = [P,   0,   ...,  0;
-  //           0,   P,   ...,  0;
-  //           ..., ..., P,    0;
-  //           0,   ..., ...,  P];
-
-  P_roof = MatrixXd::Zero(n_variables, n_variables);
-
-  tempIdx = 0;
-  for (unsigned long i = 0; i < UvaluesList.size(); i++) {
-
-    P_roof.block(i * m, i * m, m, m) = P * UvaluesList[i];
-  }
-
-  P_roof.block(0, 0, m, m) = P_roof.block(0, 0, m, m) / (dt2 / dt);
 
   // initialize other matrices
   x                = MatrixXd::Zero(n, 1);
-  X_0              = MatrixXd::Zero(horizon_len * n, 1);
-  c                = MatrixXd::Zero(n_variables * m, 1);
-  u_cf             = MatrixXd::Zero(n_variables * m, 1);
-  u                = MatrixXd::Zero(horizon_len * m, 1);
-  states           = MatrixXd::Zero(horizon_len * n, 1);
-  H_inv            = MatrixXd::Zero(n_variables, n_variables);
-  H                = MatrixXd::Zero(n_variables, n_variables);
   outputTrajectory = MatrixXd::Zero(horizon_len * n, 1);
 
   // trajectory tracking
@@ -674,11 +482,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   des_x_filtered = MatrixXd::Zero(horizon_len, 1);
   des_y_filtered = MatrixXd::Zero(horizon_len, 1);
   des_z_filtered = MatrixXd::Zero(horizon_len, 1);
-
-  H = B_roof_reduced.transpose() * Q_roof * B_roof_reduced + P_roof;
-
-  // create the inversion of H matrix - the main matrix of the qudratic form
-  H_inv = (0.5 * H).inverse();
 
   // subscriber for setting the position setpoint
   sub_pos_cmd_ = priv_nh.subscribe("desired_position", 1, &MpcTracker::pos_cmd_cb, this, ros::TransportHints().tcpNoDelay());
@@ -1001,8 +804,8 @@ void MpcTracker::filterReference(void) {
 
   // ROS_INFO("Collision altitude offset %2.2f", collision_altitude_offeset);
 
-  
-if (!avoiding_someone && !being_avoided) {
+
+  if (!avoiding_someone && !being_avoided) {
 
     earliest_collision_idx = INT_MAX;
   }
@@ -1012,17 +815,17 @@ if (!avoiding_someone && !being_avoided) {
 
     // limit the velocity for the part of the trajectory where there is a collision
     double temp_horizontal_speed_limit = max_horizontal_speed;
-    if ((avoiding_someone || being_avoided) && ((i+collision_slow_down_before) >= earliest_collision_idx)) {
+    if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) {
       temp_horizontal_speed_limit *= collision_horizontal_speed_coef;
-      ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i*0.2);
+      ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i * 0.2);
     }
 
     if (i == 0) {
-      maxSpeed = temp_horizontal_speed_limit*dt;
+      maxSpeed   = temp_horizontal_speed_limit * dt;
       difference = des_x_trajectory(i, 0) - x(0, 0);
     } else {
-      maxSpeed = temp_horizontal_speed_limit*dt2;
-      difference = des_x_trajectory(i, 0) - des_x_filtered(i-1, 0);
+      maxSpeed   = temp_horizontal_speed_limit * dt2;
+      difference = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
     }
 
     // saturate the difference
@@ -1034,7 +837,7 @@ if (!avoiding_someone && !being_avoided) {
     if (i == 0) {
       des_x_filtered(i, 0) = x(0, 0) + difference;
     } else {
-      des_x_filtered(i, 0) = des_x_filtered(i-1, 0) + difference;
+      des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference;
     }
   }
 
@@ -1043,16 +846,16 @@ if (!avoiding_someone && !being_avoided) {
 
     // limit the velocity for the part of the trajectory where there is a collision
     double temp_horizontal_speed_limit = max_horizontal_speed;
-    if ((avoiding_someone || being_avoided) && ((i+collision_slow_down_before) >= earliest_collision_idx)) {
+    if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) {
       temp_horizontal_speed_limit *= collision_horizontal_speed_coef;
     }
 
     if (i == 0) {
-      maxSpeed = temp_horizontal_speed_limit*dt;
+      maxSpeed   = temp_horizontal_speed_limit * dt;
       difference = des_y_trajectory(i, 0) - x(3, 0);
     } else {
-      maxSpeed = temp_horizontal_speed_limit*dt2;
-      difference = des_y_trajectory(i, 0) - des_y_filtered(i-1, 0);
+      maxSpeed   = temp_horizontal_speed_limit * dt2;
+      difference = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
     }
 
     // saturate the difference
@@ -1064,7 +867,7 @@ if (!avoiding_someone && !being_avoided) {
     if (i == 0) {
       des_y_filtered(i, 0) = x(3, 0) + difference;
     } else {
-      des_y_filtered(i, 0) = des_y_filtered(i-1, 0) + difference;
+      des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference;
     }
   }
 
@@ -1075,31 +878,31 @@ if (!avoiding_someone && !being_avoided) {
 
     if (i == 0) {
       difference = des_z_trajectory(i, 0) + collision_altitude_offeset - x(6, 0);
-      tempDt = dt;
+      tempDt     = dt;
     } else {
-      difference = des_z_trajectory(i, 0) + collision_altitude_offeset - des_z_filtered(i-1, 0);
-      tempDt = dt2;
+      difference = des_z_trajectory(i, 0) + collision_altitude_offeset - des_z_filtered(i - 1, 0);
+      tempDt     = dt2;
     }
 
     // saturate the difference
-    if (difference > max_vertical_ascending_speed*tempDt) {
+    if (difference > max_vertical_ascending_speed * tempDt) {
 
       // saturated the upwards velocity only if we are not avoiding collision
       if (!avoiding_someone) {
-        difference = max_vertical_ascending_speed*tempDt;
+        difference = max_vertical_ascending_speed * tempDt;
 
       } else {
 
         ROS_INFO_THROTTLE(1, "NOT saturation vertical speed.");
       }
 
-    } else if (difference < -max_vertical_descending_speed*tempDt)
-      difference = -max_vertical_descending_speed*tempDt;
+    } else if (difference < -max_vertical_descending_speed * tempDt)
+      difference = -max_vertical_descending_speed * tempDt;
 
     if (i == 0) {
       des_z_filtered(i, 0) = x(6, 0) + difference;
     } else {
-      des_z_filtered(i, 0) = des_z_filtered(i-1, 0) + difference;
+      des_z_filtered(i, 0) = des_z_filtered(i - 1, 0) + difference;
     }
 
     // saturate to maxAltitude
@@ -1110,7 +913,7 @@ if (!avoiding_someone && !being_avoided) {
   trajectory_setpoint_mutex.unlock();
 }
 
-// sets the desire trajectory based on a single setpoint
+// sets the desired trajectory based on a single setpoint
 void MpcTracker::setTrajectory(float x, float y, float z) {
 
   trajectory_setpoint_mutex.lock();
@@ -1147,8 +950,8 @@ void MpcTracker::calculateMPC() {
 
   avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
   being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
-  itersZ           = 0;
-  itersXY          = 0;
+  iters_Z          = 0;
+  iters_XY         = 0;
 
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
@@ -1196,7 +999,7 @@ void MpcTracker::calculateMPC() {
   cvx2d->setInitialState(x);
   cvx2d->setLimits(max_speed_xy, max_acc_xy);
   cvx2d->loadReference(reference);
-  itersXY += cvx2d->solveCvx();
+  iters_XY += cvx2d->solveCvx();
   cvx2d->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx2d->getFirstControlInputX();
   cvx_u(1) = cvx2d->getFirstControlInputY();
@@ -1205,39 +1008,16 @@ void MpcTracker::calculateMPC() {
   cvx1d->setInitialState(x);
   cvx1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
   cvx1d->loadReference(reference);
-  itersZ += cvx1d->solveCvx();
+  iters_Z += cvx1d->solveCvx();
   cvx1d->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx1d->getFirstControlInput();
 
-
-  /* ros::Duration cvx_duration = ros::Time::now() - time_begin; */
-
-  ROS_INFO_STREAM_THROTTLE(2.0, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY " << itersXY << "/25  iters Z" << itersZ << "/25");
-
-  // max speed and acceleration for Z axi
-  /* if (avoiding_someone) { */
-  /*   // I am avoiding someone, better push vertical speed and acc up to avoid in time */
-  /*   params.x_max_2[0] = 5.0; */
-  /*   params.x_max_3[0] = 2.0; */
-  /* } else { */
-  /*   params.x_max_2[0] = max_vertical_ascending_speed; */
-  /*   params.x_max_3[0] = max_vertical_ascending_acceleration; */
-  /* } */
-  /* params.x_min_2[0] = -max_vertical_descending_speed; */
-  /* params.x_min_3[0] = -max_vertical_descending_acceleration; */
-  // reference
-
-  /* cvx1d->setInitialState(x, 2); */
-  /* cvx1d->loadReference(reference, 2); */
-  /* iters += cvx1d->solveCvx(); */
-  /* cvx1d->getStates(predicted_future_trajectory, 2); */
-  /* cvx_u(2) = cvx1d->getFirstControlInput(); */
-
-  /* double tmptime = tocq(); */
-
+  ROS_INFO_STREAM_THROTTLE(2.0, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY
+                                                  << " iters Z: " << iters_Z << "/" << max_iters_Z);
 
   future_was_predicted = true;
 
+  // use the first control input from cvxgen to drive the virtual UAV
   x_mutex.lock();
   { x = A * x + B * cvx_u; }
   x_mutex.unlock();

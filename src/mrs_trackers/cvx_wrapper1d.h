@@ -9,7 +9,7 @@
 class CvxWrapper1d {
 
 public:
-  CvxWrapper1d();
+  CvxWrapper1d(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2);
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);
