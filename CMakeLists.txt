@@ -38,6 +38,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   src/${PROJECT_NAME}/cvxgen
   src/${PROJECT_NAME}/cvxgen1d
+  src/${PROJECT_NAME}/cvxgen_yaw
   )
 
 
@@ -58,11 +59,18 @@ add_library(cvx_wrapper1d src/${PROJECT_NAME}/cvx_wrapper1d.cpp
   src/${PROJECT_NAME}/cvxgen1d/util.c
   )
 
+add_library(cvx_wrapper_yaw src/${PROJECT_NAME}/cvx_wrapper_yaw.cpp
+  src/${PROJECT_NAME}/cvxgen_yaw/ldl.c
+  src/${PROJECT_NAME}/cvxgen_yaw/matrix_support.c
+  src/${PROJECT_NAME}/cvxgen_yaw/solver.c
+  src/${PROJECT_NAME}/cvxgen_yaw/util.c
+  )
+
 add_dependencies(mpc_tracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper1d
+target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper1d cvx_wrapper_yaw
   )
 #############
 ## Install ##

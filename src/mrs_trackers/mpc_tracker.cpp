@@ -25,6 +25,7 @@
 
 #include "cvx_wrapper.h"
 #include "cvx_wrapper1d.h"
+#include "cvx_wrapper_yaw.h"
 
 
 using namespace Eigen;
@@ -80,7 +81,7 @@ private:
   ros::Time odomLastTime;
 
   // variables for yaw tracker
-  double max_yaw_rate;
+  double max_yaw_rate_old;
   double yaw_gain;
 
   // safety area
@@ -97,14 +98,17 @@ private:
   double max_horizontal_acceleration;          // maximum allowed vertical acceleration
   double max_vertical_descending_acceleration;
   double max_vertical_descending_speed;
+  double max_yaw_rate;
+  double max_yaw_acceleration;
   double max_altitude;
 
   bool avoiding_someone;
   bool being_avoided;
 
-  int    max_iters_XY, max_iters_Z;
+  int    max_iters_XY, max_iters_Z, max_iters_yaw;
   int    iters_Z      = 0;
   int    iters_XY     = 0;
+  int    iters_yaw    = 0;
   double max_speed_xy = 0;
   double max_acc_xy   = 0;
   double max_speed_z  = 0;
@@ -115,8 +119,9 @@ private:
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapper *  cvx2d;
-  CvxWrapper1d *cvx1d;
+  CvxWrapper *   cvx_2d;
+  CvxWrapper1d * cvx_1d;
+  CvxWrapperYaw *cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
   MatrixXd A;        // system matrix for virtual UAV
@@ -126,6 +131,7 @@ private:
   MatrixXd des_x_trajectory;  // trajectory reference over the prediction horizon
   MatrixXd des_y_trajectory;  // trajectory reference over the prediction horizon
   MatrixXd des_z_trajectory;  // trajectory reference over the prediction horizon
+  MatrixXd des_yaw_trajectory;  // trajectory reference over the prediction horizon
   MatrixXd des_x_filtered;    // filtered trajectory reference over the horizon
   MatrixXd des_y_filtered;    // filtered trajectory reference over the horizon
   MatrixXd des_z_filtered;    // filtered trajectory reference over the horizon
@@ -144,8 +150,10 @@ private:
   int  trajectory_count;      // counting number of trajectories uploaded to the tracker
   bool loop;                  // whether we are looping the trajectory
 
-  MatrixXd reference;  // reference for the controller
-  MatrixXd x;          // current state of the uav
+  MatrixXd reference;      // XYZ reference for the controller
+  MatrixXd reference_yaw;  // yaw reference for the controlle
+  MatrixXd x;              // current state of the uav
+  MatrixXd x_yaw;          // current yaw of the uav
 
   // yaw tracker
   double yaw_rate;
@@ -154,6 +162,7 @@ private:
 
   // predicting the future
   MatrixXd                 predicted_future_trajectory;
+  MatrixXd                 predicted_future_yaw;
   std::string              uav_name_;
   std::vector<std::string> other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
@@ -216,7 +225,7 @@ private:
   bool fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void calculateMPC();
-  void setTrajectory(float x, float y, float z);
+  void setTrajectory(float x, float y, float z, float yaw);
   bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
@@ -365,7 +374,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   }
 
   // pload parameters for yaw_tracker
-  nh.param("yawTracker/maxYawRate", max_yaw_rate, 0.0);
+  nh.param("yawTracker/maxYawRate", max_yaw_rate_old, 0.0);
   nh.param("yawTracker/yawGain", yaw_gain, 0.0);
   desired_yaw = 0;
 
@@ -425,6 +434,9 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   nh.param("cvxgenMpc/maxVerticalDescendingSpeed", max_vertical_descending_speed, 0.0);
   nh.param("cvxgenMpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration, 0.0);
 
+  nh.param("cvxgenMpc/maxYawRate", max_yaw_rate, 0.0);
+  nh.param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration, 0.0);
+
   nh.param("cvxgenMpc/maxAltitude", max_altitude, 10.0);
 
   nh.param("diagnostics_rate", diagnostics_rate, 1.0);
@@ -444,18 +456,25 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   nh.getParam("cvxWrapper/Q", tempList);
   nh.getParam("cvxWrapper/R", tempList2);
 
-  cvx2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2);
+  cvx_2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2);
 
   nh.param("cvxWrapper1d/verbose", verbose, false);
   nh.param("cvxWrapper1d/maxNumOfIterations", max_iters_Z, 25);
   nh.getParam("cvxWrapper1d/Q", tempList);
   nh.getParam("cvxWrapper1d/R", tempList2);
 
-  cvx1d = new CvxWrapper1d(verbose, max_iters_Z, tempList, tempList2, dt, dt2);
+  cvx_1d = new CvxWrapper1d(verbose, max_iters_Z, tempList, tempList2, dt, dt2);
 
+  nh.param("cvxWrapperYaw/verbose", verbose, false);
+  nh.param("cvxWrapperYaw/maxNumOfIterations", max_iters_yaw, 25);
+  nh.getParam("cvxWrapperYaw/Q", tempList);
+  nh.getParam("cvxWrapperYaw/R", tempList2);
+
+  cvx_yaw = new CvxWrapperYaw(verbose, max_iters_yaw, tempList, tempList2, dt, dt2);
 
   // initialize other matrices
   x                = MatrixXd::Zero(n, 1);
+  x_yaw            = MatrixXd::Zero(3, 1);
   outputTrajectory = MatrixXd::Zero(horizon_len * n, 1);
 
   // trajectory tracking
@@ -473,11 +492,13 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   trajectory_size      = 0;
 
   // initialize the trajectory variables
-  reference = MatrixXd::Zero(n * horizon_len, 1);
+  reference     = MatrixXd::Zero(n * horizon_len, 1);
+  reference_yaw = MatrixXd::Zero(3 * horizon_len, 1);
 
   des_x_trajectory = MatrixXd::Zero(horizon_len, 1);
   des_y_trajectory = MatrixXd::Zero(horizon_len, 1);
   des_z_trajectory = MatrixXd::Zero(horizon_len, 1);
+  des_yaw_trajectory = MatrixXd::Zero(horizon_len, 1);
 
   des_x_filtered = MatrixXd::Zero(horizon_len, 1);
   des_y_filtered = MatrixXd::Zero(horizon_len, 1);
@@ -575,6 +596,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   // preallocate future trajectory
   predicted_future_trajectory = MatrixXd::Zero(horizon_len * n, 1);
+  predicted_future_yaw = MatrixXd::Zero(horizon_len * 3, 1);
 
   collision_altitude_offeset = 0;
   avoiding_collision_time    = ros::Time::now();
@@ -914,12 +936,13 @@ void MpcTracker::filterReference(void) {
 }
 
 // sets the desired trajectory based on a single setpoint
-void MpcTracker::setTrajectory(float x, float y, float z) {
+void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
 
   trajectory_setpoint_mutex.lock();
   des_x_trajectory.fill(x);
   des_y_trajectory.fill(y);
   des_z_trajectory.fill(z);
+  des_yaw_trajectory.fill(yaw);
   trajectory_setpoint_mutex.unlock();
 }
 
@@ -952,6 +975,7 @@ void MpcTracker::calculateMPC() {
   being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
   iters_Z          = 0;
   iters_XY         = 0;
+  iters_yaw         = 0;
 
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
@@ -975,7 +999,7 @@ void MpcTracker::calculateMPC() {
   }
 
 
-  // prepare the full reference vector
+  // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
 
     reference(i * n, 0)     = des_x_filtered(i, 0);
@@ -988,32 +1012,48 @@ void MpcTracker::calculateMPC() {
     reference(i * n + 7, 0) = 0;
     reference(i * n + 8, 0) = 0;
   }
+  // prepare reference vector for Yaw
+  for (int i = 0; i < horizon_len; i++) {
+    reference_yaw(i * 3, 0)     = des_yaw_trajectory(i, 0);
+    reference_yaw(i * 3 + 1, 0) = 0;
+    reference_yaw(i * 3 + 2, 0) = 0;
+  }
 
   // First control input generated by cvxgen
   VectorXd cvx_u = VectorXd::Zero(m);
 
   ros::Time time_begin = ros::Time::now();
 
-  // cvxgen X and Y axis-------------------------------------------------------------------------------
+  // cvxgen X and Y axis -------------------------------------------------------------------------------
 
-  cvx2d->setInitialState(x);
-  cvx2d->setLimits(max_speed_xy, max_acc_xy);
-  cvx2d->loadReference(reference);
-  iters_XY += cvx2d->solveCvx();
-  cvx2d->getStates(predicted_future_trajectory);
-  cvx_u(0) = cvx2d->getFirstControlInputX();
-  cvx_u(1) = cvx2d->getFirstControlInputY();
+  cvx_2d->setInitialState(x);
+  cvx_2d->setLimits(max_speed_xy, max_acc_xy);
+  cvx_2d->loadReference(reference);
+  iters_XY += cvx_2d->solveCvx();
+  cvx_2d->getStates(predicted_future_trajectory);
+  cvx_u(0) = cvx_2d->getFirstControlInputX();
+  cvx_u(1) = cvx_2d->getFirstControlInputY();
 
-  // cvxgen Z axis------------------------------------------------------------------------------
-  cvx1d->setInitialState(x);
-  cvx1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
-  cvx1d->loadReference(reference);
-  iters_Z += cvx1d->solveCvx();
-  cvx1d->getStates(predicted_future_trajectory);
-  cvx_u(2) = cvx1d->getFirstControlInput();
+  // cvxgen Z axis -------------------------------------------------------------------------------------
+  cvx_1d->setInitialState(x);
+  cvx_1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
+  cvx_1d->loadReference(reference);
+  iters_Z += cvx_1d->solveCvx();
+  cvx_1d->getStates(predicted_future_trajectory);
+  cvx_u(2) = cvx_1d->getFirstControlInput();
 
-  ROS_INFO_STREAM_THROTTLE(2.0, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY
-                                                  << " iters Z: " << iters_Z << "/" << max_iters_Z);
+  // cvxgen yaw ----------------------------------------------------------------------------------------
+  cvx_yaw->setInitialState(x);
+  cvx_yaw->setLimits(max_yaw_rate, max_yaw_acceleration);
+  cvx_yaw->loadReference(reference);
+  iters_yaw += cvx_yaw->solveCvx();
+  cvx_yaw->getStates(predicted_future_yaw);
+
+  ROS_WARN_STREAM("yaw set: " << predicted_future_yaw(0, 0));
+  /* cvx_u(2) = cvx_yaw->getFirstControlInput(); */
+
+
+  ROS_INFO_STREAM_THROTTLE(2.0, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY  << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_yaw << "/" << max_iters_yaw);
 
   future_was_predicted = true;
 
@@ -1060,7 +1100,7 @@ bool MpcTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) 
     desired_yaw = cmd->yaw;
     des_yaw_mutex.unlock();
 
-    setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z);
+    setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
 
     ROS_INFO("MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
     active_ = true;
@@ -1069,7 +1109,7 @@ bool MpcTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) 
   // if we dont, stay where you are
   else if (odom_set_) {
 
-    setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z);
+    setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation));
     position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation);
 
     ROS_INFO("MPC tracker activated with no setpoint, staying where we are.");
@@ -1138,6 +1178,9 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   // copy the odometry from the message
   odom_     = *msg;
   cur_yaw_  = tf::getYaw(msg->pose.pose.orientation);
+  x_yaw(0, 0) = cur_yaw_;
+  x_yaw(1, 0) = msg->twist.twist.angular.z;
+
   odom_set_ = true;
 
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
@@ -1225,10 +1268,10 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   }
   des_yaw_mutex.unlock();
 
-  if (yaw_rate > max_yaw_rate) {
-    yaw_rate = max_yaw_rate;
-  } else if (yaw_rate < -max_yaw_rate) {
-    yaw_rate = -max_yaw_rate;
+  if (yaw_rate > max_yaw_rate_old) {
+    yaw_rate = max_yaw_rate_old;
+  } else if (yaw_rate < -max_yaw_rate_old) {
+    yaw_rate = -max_yaw_rate_old;
   }
 
   // flap the resulted yaw aroud pi
@@ -1434,6 +1477,7 @@ void MpcTracker::mpcThread(void) {
           des_x_trajectory(i) = des_x_whole_trajectory(tempIdx);
           des_y_trajectory(i) = des_y_whole_trajectory(tempIdx);
           des_z_trajectory(i) = des_z_whole_trajectory(tempIdx);
+          des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
         }
 
         if (use_yaw_in_trajectory)
@@ -1500,7 +1544,7 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
   tracking_trajectory_ = false;
   des_trajectory_mutex.unlock();
 
-  setTrajectory(abs_x, abs_y, abs_z);
+  setTrajectory(abs_x, abs_y, abs_z, abs_yaw);
 
   if (set_use_yaw) {
     ROS_INFO("Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f.", set_x, set_y, set_z,
@@ -1783,6 +1827,7 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
         des_x_trajectory(i) = des_x_whole_trajectory(i);
         des_y_trajectory(i) = des_y_whole_trajectory(i);
         des_z_trajectory(i) = des_z_whole_trajectory(i);
+        des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
       }
 
       if (use_yaw_in_trajectory) {
@@ -1835,7 +1880,7 @@ bool MpcTracker::set_goal(double set_x, double set_y, double set_z, double set_y
     }
   }
 
-  setTrajectory(set_x, set_y, set_z);
+  setTrajectory(set_x, set_y, set_z, set_yaw);
 
   des_trajectory_mutex.lock();
   tracking_trajectory_ = false;
@@ -1852,7 +1897,7 @@ bool MpcTracker::set_goal(double set_x, double set_y, double set_z, double set_y
   return true;
 }
 
-// callback for goToe service
+// callback for goTo service
 bool MpcTracker::goto_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res) {
 
   if (failsafe_triggered) {
@@ -1935,7 +1980,7 @@ bool MpcTracker::stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &re
     tracking_trajectory_ = false;
 
     x_mutex.lock();
-    setTrajectory(x(0, 0), x(3, 0), x(6, 0));
+    setTrajectory(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0));
     x_mutex.unlock();
 
     des_trajectory_mutex.unlock();
