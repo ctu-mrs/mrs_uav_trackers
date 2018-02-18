@@ -233,6 +233,7 @@ private:
   void setTrajectory(float x, float y, float z, float yaw);
   bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
+  void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   void validateYawSetpoint();
   bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
@@ -961,6 +962,41 @@ void MpcTracker::filterReference(void) {
   trajectory_setpoint_mutex.unlock();
 }
 
+void MpcTracker::filterYawReference(void) {
+  for (int i = 0; i < horizon_len; i++) {
+    if (fabs(des_yaw_trajectory(0, 0)) > 1000) {
+      ROS_WARN_THROTTLE(0.1, "Desired yaw is greater than 1000 rad!");
+    }
+  }
+
+
+  // check the first trajectory member for yaw overflow
+  while (des_yaw_trajectory(0, 0) - x_yaw(0) < -pi) {
+    for (int i = 0; i < horizon_len; i++) {
+      des_yaw_trajectory(i, 0) += 2 * pi;
+    }
+  }
+  while (des_yaw_trajectory(0, 0) - x_yaw(0) > pi) {
+    for (int i = 0; i < horizon_len; i++) {
+      des_yaw_trajectory(i, 0) -= 2 * pi;
+    }
+  }
+
+  // check the rest of the trajectory for yaw overflow
+  for (int i = 1; i < horizon_len; i++) {
+    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) < -pi) {
+      for (int j = i; j < horizon_len; j++) {
+        des_yaw_trajectory(j, 0) += 2 * pi;
+      }
+    }
+    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) > pi) {
+      for (int j = i; j < horizon_len; j++) {
+        des_yaw_trajectory(j, 0) -= 2 * pi;
+      }
+    }
+  }
+}
+
 // sets the desired trajectory based on a single setpoint
 void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
 
@@ -990,6 +1026,8 @@ void MpcTracker::calculateMPC() {
 
   // filter the desired trajectory to be feasible
   filterReference();
+  // filter desired yaw reference to be feasible and remove pi rollarounds
+  filterYawReference();
   /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
   /*   params.Q[4] = 0; */
   /* } else { */
@@ -1087,8 +1125,15 @@ void MpcTracker::calculateMPC() {
   // use the first control input from cvxgen to drive the virtual UAV
   x_mutex.lock();
   {
-    x = A * x + B * cvx_u;
+    x     = A * x + B * cvx_u;
     x_yaw = A_yaw * x_yaw + B_yaw * cvx_u_yaw;
+
+    // fix possible pi overflows
+    if (x_yaw(0) > pi) {
+      x_yaw(0) -= 2 * pi;
+    } else if (x_yaw(0) < -pi) {
+      x_yaw(0) += 2 * pi;
+    }
   }
   x_mutex.unlock();
 }
@@ -1315,14 +1360,15 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   }
 
   if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
-    
+
     // set the yaw output - old PD controller
     /* position_cmd_.yaw_dot = yaw_rate; */
     /* position_cmd_.yaw     = yaw; */
 
     // set the yaw output - cvxgen MPC controller
-    position_cmd_.yaw_dot = x_yaw(1, 0);
     position_cmd_.yaw     = x_yaw(0, 0);
+    position_cmd_.yaw_dot = x_yaw(1, 0);
+    ROS_ERROR_STREAM_THROTTLE(0.5, "YAW: " << x_yaw(0, 0));
 
   } else {
 
@@ -1559,10 +1605,9 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
   double abs_x   = x(0, 0) + set_x;
   double abs_y   = x(3, 0) + set_y;
   double abs_z   = x(6, 0) + set_z;
-  double abs_yaw = desired_yaw + set_yaw;
-
+  double abs_yaw = x_yaw(0, 0) + set_yaw;
+  
   if (set_use_yaw) {
-
     des_yaw_mutex.lock();
     desired_yaw = abs_yaw;
     des_yaw_mutex.unlock();
