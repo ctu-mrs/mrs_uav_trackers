@@ -42,6 +42,18 @@ dynamicalModel:
       0, 0, 0,
       0, 0, 0.01]
 
+yawModel:
+  numberOfStates: 3
+  numberOfInputs: 1
+  
+  A: [1, 0.01, 0,
+      0, 1, 0.01,
+      0, 0, 1]
+
+  B: [0,
+      0,
+      0.01]
+      
 yawTracker:
   yawGain: 1.0
   maxYawRate: 1.0
@@ -62,8 +74,8 @@ cvxgenMpc:
   maxVerticalDescendingSpeed: 1.5
   maxVerticalDescendingAcceleration: 1.0
 
-  maxYawRate: 1.0
-  maxYawAcceleration: 1.0
+  maxYawRate: 3.0
+  maxYawAcceleration: 5.0
 
   maxAltitude: 20.0
 
