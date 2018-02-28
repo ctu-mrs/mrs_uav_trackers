@@ -1368,7 +1368,6 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
     // set the yaw output - cvxgen MPC controller
     position_cmd_.yaw     = x_yaw(0, 0);
     position_cmd_.yaw_dot = x_yaw(1, 0);
-    ROS_ERROR_STREAM_THROTTLE(0.5, "YAW: " << x_yaw(0, 0));
 
   } else {
 
