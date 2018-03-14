@@ -9,7 +9,7 @@ mrs_collision_avoidance:
   enable: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
-  radius: 5.0 # [m]
+  radius: 2.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
@@ -33,11 +33,11 @@ dynamicalModel:
       0, 0, 0, 0, 0, 0, 0, 0, 1]
 
   B: [0, 0, 0,
-      0, 0, 0,
       0.01, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0.01, 0,
+      0, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0, 0.01]
@@ -82,8 +82,8 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25
-  Q: [5000, 0, 0, 5000, 0, 0]
-  R: [500, 500]
+  Q: [5000, 0, 5000, 0]
+  R: [10000, 10000]
 
 cvxWrapper1d:
   verbose: false # cvxgen's debug output
