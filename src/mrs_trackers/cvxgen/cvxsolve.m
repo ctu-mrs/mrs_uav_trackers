@@ -1,4 +1,4 @@
-% Produced by CVXGEN, 2018-03-14 11:02:41 -0400.
+% Produced by CVXGEN, 2018-03-15 09:48:20 -0400.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -14,10 +14,560 @@ Bf = params.Bf;
 Q = params.Q;
 R = params.R;
 x_0 = params.x_0;
-x_max_2 = params.x_max_2;
-x_max_3 = params.x_max_3;
-x_min_2 = params.x_min_2;
-x_min_3 = params.x_min_3;
+if isfield(params, 'x_max_2_1')
+  x_max_2_1 = params.x_max_2_1;
+elseif isfield(params, 'x_max_2')
+  x_max_2_1 = params.x_max_2{1};
+else
+  error 'could not find x_max_2_1'
+end
+if isfield(params, 'x_max_2_2')
+  x_max_2_2 = params.x_max_2_2;
+elseif isfield(params, 'x_max_2')
+  x_max_2_2 = params.x_max_2{2};
+else
+  error 'could not find x_max_2_2'
+end
+if isfield(params, 'x_max_2_3')
+  x_max_2_3 = params.x_max_2_3;
+elseif isfield(params, 'x_max_2')
+  x_max_2_3 = params.x_max_2{3};
+else
+  error 'could not find x_max_2_3'
+end
+if isfield(params, 'x_max_2_4')
+  x_max_2_4 = params.x_max_2_4;
+elseif isfield(params, 'x_max_2')
+  x_max_2_4 = params.x_max_2{4};
+else
+  error 'could not find x_max_2_4'
+end
+if isfield(params, 'x_max_2_5')
+  x_max_2_5 = params.x_max_2_5;
+elseif isfield(params, 'x_max_2')
+  x_max_2_5 = params.x_max_2{5};
+else
+  error 'could not find x_max_2_5'
+end
+if isfield(params, 'x_max_2_6')
+  x_max_2_6 = params.x_max_2_6;
+elseif isfield(params, 'x_max_2')
+  x_max_2_6 = params.x_max_2{6};
+else
+  error 'could not find x_max_2_6'
+end
+if isfield(params, 'x_max_2_7')
+  x_max_2_7 = params.x_max_2_7;
+elseif isfield(params, 'x_max_2')
+  x_max_2_7 = params.x_max_2{7};
+else
+  error 'could not find x_max_2_7'
+end
+if isfield(params, 'x_max_2_8')
+  x_max_2_8 = params.x_max_2_8;
+elseif isfield(params, 'x_max_2')
+  x_max_2_8 = params.x_max_2{8};
+else
+  error 'could not find x_max_2_8'
+end
+if isfield(params, 'x_max_2_9')
+  x_max_2_9 = params.x_max_2_9;
+elseif isfield(params, 'x_max_2')
+  x_max_2_9 = params.x_max_2{9};
+else
+  error 'could not find x_max_2_9'
+end
+if isfield(params, 'x_max_2_10')
+  x_max_2_10 = params.x_max_2_10;
+elseif isfield(params, 'x_max_2')
+  x_max_2_10 = params.x_max_2{10};
+else
+  error 'could not find x_max_2_10'
+end
+if isfield(params, 'x_max_2_11')
+  x_max_2_11 = params.x_max_2_11;
+elseif isfield(params, 'x_max_2')
+  x_max_2_11 = params.x_max_2{11};
+else
+  error 'could not find x_max_2_11'
+end
+if isfield(params, 'x_max_2_12')
+  x_max_2_12 = params.x_max_2_12;
+elseif isfield(params, 'x_max_2')
+  x_max_2_12 = params.x_max_2{12};
+else
+  error 'could not find x_max_2_12'
+end
+if isfield(params, 'x_max_2_13')
+  x_max_2_13 = params.x_max_2_13;
+elseif isfield(params, 'x_max_2')
+  x_max_2_13 = params.x_max_2{13};
+else
+  error 'could not find x_max_2_13'
+end
+if isfield(params, 'x_max_2_14')
+  x_max_2_14 = params.x_max_2_14;
+elseif isfield(params, 'x_max_2')
+  x_max_2_14 = params.x_max_2{14};
+else
+  error 'could not find x_max_2_14'
+end
+if isfield(params, 'x_max_2_15')
+  x_max_2_15 = params.x_max_2_15;
+elseif isfield(params, 'x_max_2')
+  x_max_2_15 = params.x_max_2{15};
+else
+  error 'could not find x_max_2_15'
+end
+if isfield(params, 'x_max_2_16')
+  x_max_2_16 = params.x_max_2_16;
+elseif isfield(params, 'x_max_2')
+  x_max_2_16 = params.x_max_2{16};
+else
+  error 'could not find x_max_2_16'
+end
+if isfield(params, 'x_max_2_17')
+  x_max_2_17 = params.x_max_2_17;
+elseif isfield(params, 'x_max_2')
+  x_max_2_17 = params.x_max_2{17};
+else
+  error 'could not find x_max_2_17'
+end
+if isfield(params, 'x_max_2_18')
+  x_max_2_18 = params.x_max_2_18;
+elseif isfield(params, 'x_max_2')
+  x_max_2_18 = params.x_max_2{18};
+else
+  error 'could not find x_max_2_18'
+end
+if isfield(params, 'x_max_2_19')
+  x_max_2_19 = params.x_max_2_19;
+elseif isfield(params, 'x_max_2')
+  x_max_2_19 = params.x_max_2{19};
+else
+  error 'could not find x_max_2_19'
+end
+if isfield(params, 'x_max_2_20')
+  x_max_2_20 = params.x_max_2_20;
+elseif isfield(params, 'x_max_2')
+  x_max_2_20 = params.x_max_2{20};
+else
+  error 'could not find x_max_2_20'
+end
+if isfield(params, 'x_max_2_21')
+  x_max_2_21 = params.x_max_2_21;
+elseif isfield(params, 'x_max_2')
+  x_max_2_21 = params.x_max_2{21};
+else
+  error 'could not find x_max_2_21'
+end
+if isfield(params, 'x_max_2_22')
+  x_max_2_22 = params.x_max_2_22;
+elseif isfield(params, 'x_max_2')
+  x_max_2_22 = params.x_max_2{22};
+else
+  error 'could not find x_max_2_22'
+end
+if isfield(params, 'x_max_2_23')
+  x_max_2_23 = params.x_max_2_23;
+elseif isfield(params, 'x_max_2')
+  x_max_2_23 = params.x_max_2{23};
+else
+  error 'could not find x_max_2_23'
+end
+if isfield(params, 'x_max_2_24')
+  x_max_2_24 = params.x_max_2_24;
+elseif isfield(params, 'x_max_2')
+  x_max_2_24 = params.x_max_2{24};
+else
+  error 'could not find x_max_2_24'
+end
+if isfield(params, 'x_max_2_25')
+  x_max_2_25 = params.x_max_2_25;
+elseif isfield(params, 'x_max_2')
+  x_max_2_25 = params.x_max_2{25};
+else
+  error 'could not find x_max_2_25'
+end
+if isfield(params, 'x_max_2_26')
+  x_max_2_26 = params.x_max_2_26;
+elseif isfield(params, 'x_max_2')
+  x_max_2_26 = params.x_max_2{26};
+else
+  error 'could not find x_max_2_26'
+end
+if isfield(params, 'x_max_2_27')
+  x_max_2_27 = params.x_max_2_27;
+elseif isfield(params, 'x_max_2')
+  x_max_2_27 = params.x_max_2{27};
+else
+  error 'could not find x_max_2_27'
+end
+if isfield(params, 'x_max_2_28')
+  x_max_2_28 = params.x_max_2_28;
+elseif isfield(params, 'x_max_2')
+  x_max_2_28 = params.x_max_2{28};
+else
+  error 'could not find x_max_2_28'
+end
+if isfield(params, 'x_max_2_29')
+  x_max_2_29 = params.x_max_2_29;
+elseif isfield(params, 'x_max_2')
+  x_max_2_29 = params.x_max_2{29};
+else
+  error 'could not find x_max_2_29'
+end
+if isfield(params, 'x_max_2_30')
+  x_max_2_30 = params.x_max_2_30;
+elseif isfield(params, 'x_max_2')
+  x_max_2_30 = params.x_max_2{30};
+else
+  error 'could not find x_max_2_30'
+end
+if isfield(params, 'x_max_2_31')
+  x_max_2_31 = params.x_max_2_31;
+elseif isfield(params, 'x_max_2')
+  x_max_2_31 = params.x_max_2{31};
+else
+  error 'could not find x_max_2_31'
+end
+if isfield(params, 'x_max_2_32')
+  x_max_2_32 = params.x_max_2_32;
+elseif isfield(params, 'x_max_2')
+  x_max_2_32 = params.x_max_2{32};
+else
+  error 'could not find x_max_2_32'
+end
+if isfield(params, 'x_max_2_33')
+  x_max_2_33 = params.x_max_2_33;
+elseif isfield(params, 'x_max_2')
+  x_max_2_33 = params.x_max_2{33};
+else
+  error 'could not find x_max_2_33'
+end
+if isfield(params, 'x_max_2_34')
+  x_max_2_34 = params.x_max_2_34;
+elseif isfield(params, 'x_max_2')
+  x_max_2_34 = params.x_max_2{34};
+else
+  error 'could not find x_max_2_34'
+end
+if isfield(params, 'x_max_2_35')
+  x_max_2_35 = params.x_max_2_35;
+elseif isfield(params, 'x_max_2')
+  x_max_2_35 = params.x_max_2{35};
+else
+  error 'could not find x_max_2_35'
+end
+if isfield(params, 'x_max_2_36')
+  x_max_2_36 = params.x_max_2_36;
+elseif isfield(params, 'x_max_2')
+  x_max_2_36 = params.x_max_2{36};
+else
+  error 'could not find x_max_2_36'
+end
+if isfield(params, 'x_max_2_37')
+  x_max_2_37 = params.x_max_2_37;
+elseif isfield(params, 'x_max_2')
+  x_max_2_37 = params.x_max_2{37};
+else
+  error 'could not find x_max_2_37'
+end
+if isfield(params, 'x_max_2_38')
+  x_max_2_38 = params.x_max_2_38;
+elseif isfield(params, 'x_max_2')
+  x_max_2_38 = params.x_max_2{38};
+else
+  error 'could not find x_max_2_38'
+end
+if isfield(params, 'x_max_2_39')
+  x_max_2_39 = params.x_max_2_39;
+elseif isfield(params, 'x_max_2')
+  x_max_2_39 = params.x_max_2{39};
+else
+  error 'could not find x_max_2_39'
+end
+if isfield(params, 'x_max_2_40')
+  x_max_2_40 = params.x_max_2_40;
+elseif isfield(params, 'x_max_2')
+  x_max_2_40 = params.x_max_2{40};
+else
+  error 'could not find x_max_2_40'
+end
+x_max_3_0 = params.x_max_3_0;
+if isfield(params, 'x_max_3_1')
+  x_max_3_1 = params.x_max_3_1;
+elseif isfield(params, 'x_max_3')
+  x_max_3_1 = params.x_max_3{1};
+else
+  error 'could not find x_max_3_1'
+end
+if isfield(params, 'x_max_3_2')
+  x_max_3_2 = params.x_max_3_2;
+elseif isfield(params, 'x_max_3')
+  x_max_3_2 = params.x_max_3{2};
+else
+  error 'could not find x_max_3_2'
+end
+if isfield(params, 'x_max_3_3')
+  x_max_3_3 = params.x_max_3_3;
+elseif isfield(params, 'x_max_3')
+  x_max_3_3 = params.x_max_3{3};
+else
+  error 'could not find x_max_3_3'
+end
+if isfield(params, 'x_max_3_4')
+  x_max_3_4 = params.x_max_3_4;
+elseif isfield(params, 'x_max_3')
+  x_max_3_4 = params.x_max_3{4};
+else
+  error 'could not find x_max_3_4'
+end
+if isfield(params, 'x_max_3_5')
+  x_max_3_5 = params.x_max_3_5;
+elseif isfield(params, 'x_max_3')
+  x_max_3_5 = params.x_max_3{5};
+else
+  error 'could not find x_max_3_5'
+end
+if isfield(params, 'x_max_3_6')
+  x_max_3_6 = params.x_max_3_6;
+elseif isfield(params, 'x_max_3')
+  x_max_3_6 = params.x_max_3{6};
+else
+  error 'could not find x_max_3_6'
+end
+if isfield(params, 'x_max_3_7')
+  x_max_3_7 = params.x_max_3_7;
+elseif isfield(params, 'x_max_3')
+  x_max_3_7 = params.x_max_3{7};
+else
+  error 'could not find x_max_3_7'
+end
+if isfield(params, 'x_max_3_8')
+  x_max_3_8 = params.x_max_3_8;
+elseif isfield(params, 'x_max_3')
+  x_max_3_8 = params.x_max_3{8};
+else
+  error 'could not find x_max_3_8'
+end
+if isfield(params, 'x_max_3_9')
+  x_max_3_9 = params.x_max_3_9;
+elseif isfield(params, 'x_max_3')
+  x_max_3_9 = params.x_max_3{9};
+else
+  error 'could not find x_max_3_9'
+end
+if isfield(params, 'x_max_3_10')
+  x_max_3_10 = params.x_max_3_10;
+elseif isfield(params, 'x_max_3')
+  x_max_3_10 = params.x_max_3{10};
+else
+  error 'could not find x_max_3_10'
+end
+if isfield(params, 'x_max_3_11')
+  x_max_3_11 = params.x_max_3_11;
+elseif isfield(params, 'x_max_3')
+  x_max_3_11 = params.x_max_3{11};
+else
+  error 'could not find x_max_3_11'
+end
+if isfield(params, 'x_max_3_12')
+  x_max_3_12 = params.x_max_3_12;
+elseif isfield(params, 'x_max_3')
+  x_max_3_12 = params.x_max_3{12};
+else
+  error 'could not find x_max_3_12'
+end
+if isfield(params, 'x_max_3_13')
+  x_max_3_13 = params.x_max_3_13;
+elseif isfield(params, 'x_max_3')
+  x_max_3_13 = params.x_max_3{13};
+else
+  error 'could not find x_max_3_13'
+end
+if isfield(params, 'x_max_3_14')
+  x_max_3_14 = params.x_max_3_14;
+elseif isfield(params, 'x_max_3')
+  x_max_3_14 = params.x_max_3{14};
+else
+  error 'could not find x_max_3_14'
+end
+if isfield(params, 'x_max_3_15')
+  x_max_3_15 = params.x_max_3_15;
+elseif isfield(params, 'x_max_3')
+  x_max_3_15 = params.x_max_3{15};
+else
+  error 'could not find x_max_3_15'
+end
+if isfield(params, 'x_max_3_16')
+  x_max_3_16 = params.x_max_3_16;
+elseif isfield(params, 'x_max_3')
+  x_max_3_16 = params.x_max_3{16};
+else
+  error 'could not find x_max_3_16'
+end
+if isfield(params, 'x_max_3_17')
+  x_max_3_17 = params.x_max_3_17;
+elseif isfield(params, 'x_max_3')
+  x_max_3_17 = params.x_max_3{17};
+else
+  error 'could not find x_max_3_17'
+end
+if isfield(params, 'x_max_3_18')
+  x_max_3_18 = params.x_max_3_18;
+elseif isfield(params, 'x_max_3')
+  x_max_3_18 = params.x_max_3{18};
+else
+  error 'could not find x_max_3_18'
+end
+if isfield(params, 'x_max_3_19')
+  x_max_3_19 = params.x_max_3_19;
+elseif isfield(params, 'x_max_3')
+  x_max_3_19 = params.x_max_3{19};
+else
+  error 'could not find x_max_3_19'
+end
+if isfield(params, 'x_max_3_20')
+  x_max_3_20 = params.x_max_3_20;
+elseif isfield(params, 'x_max_3')
+  x_max_3_20 = params.x_max_3{20};
+else
+  error 'could not find x_max_3_20'
+end
+if isfield(params, 'x_max_3_21')
+  x_max_3_21 = params.x_max_3_21;
+elseif isfield(params, 'x_max_3')
+  x_max_3_21 = params.x_max_3{21};
+else
+  error 'could not find x_max_3_21'
+end
+if isfield(params, 'x_max_3_22')
+  x_max_3_22 = params.x_max_3_22;
+elseif isfield(params, 'x_max_3')
+  x_max_3_22 = params.x_max_3{22};
+else
+  error 'could not find x_max_3_22'
+end
+if isfield(params, 'x_max_3_23')
+  x_max_3_23 = params.x_max_3_23;
+elseif isfield(params, 'x_max_3')
+  x_max_3_23 = params.x_max_3{23};
+else
+  error 'could not find x_max_3_23'
+end
+if isfield(params, 'x_max_3_24')
+  x_max_3_24 = params.x_max_3_24;
+elseif isfield(params, 'x_max_3')
+  x_max_3_24 = params.x_max_3{24};
+else
+  error 'could not find x_max_3_24'
+end
+if isfield(params, 'x_max_3_25')
+  x_max_3_25 = params.x_max_3_25;
+elseif isfield(params, 'x_max_3')
+  x_max_3_25 = params.x_max_3{25};
+else
+  error 'could not find x_max_3_25'
+end
+if isfield(params, 'x_max_3_26')
+  x_max_3_26 = params.x_max_3_26;
+elseif isfield(params, 'x_max_3')
+  x_max_3_26 = params.x_max_3{26};
+else
+  error 'could not find x_max_3_26'
+end
+if isfield(params, 'x_max_3_27')
+  x_max_3_27 = params.x_max_3_27;
+elseif isfield(params, 'x_max_3')
+  x_max_3_27 = params.x_max_3{27};
+else
+  error 'could not find x_max_3_27'
+end
+if isfield(params, 'x_max_3_28')
+  x_max_3_28 = params.x_max_3_28;
+elseif isfield(params, 'x_max_3')
+  x_max_3_28 = params.x_max_3{28};
+else
+  error 'could not find x_max_3_28'
+end
+if isfield(params, 'x_max_3_29')
+  x_max_3_29 = params.x_max_3_29;
+elseif isfield(params, 'x_max_3')
+  x_max_3_29 = params.x_max_3{29};
+else
+  error 'could not find x_max_3_29'
+end
+if isfield(params, 'x_max_3_30')
+  x_max_3_30 = params.x_max_3_30;
+elseif isfield(params, 'x_max_3')
+  x_max_3_30 = params.x_max_3{30};
+else
+  error 'could not find x_max_3_30'
+end
+if isfield(params, 'x_max_3_31')
+  x_max_3_31 = params.x_max_3_31;
+elseif isfield(params, 'x_max_3')
+  x_max_3_31 = params.x_max_3{31};
+else
+  error 'could not find x_max_3_31'
+end
+if isfield(params, 'x_max_3_32')
+  x_max_3_32 = params.x_max_3_32;
+elseif isfield(params, 'x_max_3')
+  x_max_3_32 = params.x_max_3{32};
+else
+  error 'could not find x_max_3_32'
+end
+if isfield(params, 'x_max_3_33')
+  x_max_3_33 = params.x_max_3_33;
+elseif isfield(params, 'x_max_3')
+  x_max_3_33 = params.x_max_3{33};
+else
+  error 'could not find x_max_3_33'
+end
+if isfield(params, 'x_max_3_34')
+  x_max_3_34 = params.x_max_3_34;
+elseif isfield(params, 'x_max_3')
+  x_max_3_34 = params.x_max_3{34};
+else
+  error 'could not find x_max_3_34'
+end
+if isfield(params, 'x_max_3_35')
+  x_max_3_35 = params.x_max_3_35;
+elseif isfield(params, 'x_max_3')
+  x_max_3_35 = params.x_max_3{35};
+else
+  error 'could not find x_max_3_35'
+end
+if isfield(params, 'x_max_3_36')
+  x_max_3_36 = params.x_max_3_36;
+elseif isfield(params, 'x_max_3')
+  x_max_3_36 = params.x_max_3{36};
+else
+  error 'could not find x_max_3_36'
+end
+if isfield(params, 'x_max_3_37')
+  x_max_3_37 = params.x_max_3_37;
+elseif isfield(params, 'x_max_3')
+  x_max_3_37 = params.x_max_3{37};
+else
+  error 'could not find x_max_3_37'
+end
+if isfield(params, 'x_max_3_38')
+  x_max_3_38 = params.x_max_3_38;
+elseif isfield(params, 'x_max_3')
+  x_max_3_38 = params.x_max_3{38};
+else
+  error 'could not find x_max_3_38'
+end
+if isfield(params, 'x_max_3_39')
+  x_max_3_39 = params.x_max_3_39;
+elseif isfield(params, 'x_max_3')
+  x_max_3_39 = params.x_max_3{39};
+else
+  error 'could not find x_max_3_39'
+end
 if isfield(params, 'x_ss_1')
   x_ss_1 = params.x_ss_1;
 elseif isfield(params, 'x_ss')
@@ -423,726 +973,646 @@ cvx_begin
     x_38 == A*x_37 + B*u_37;
     x_39 == A*x_38 + B*u_38;
     x_40 == A*x_39 + B*u_39;
-    x_1(2) <= x_max_2;
-    x_3(2) <= x_max_2;
-    x_5(2) <= x_max_2;
-    x_7(2) <= x_max_2;
-    x_9(2) <= x_max_2;
-    x_11(2) <= x_max_2;
-    x_13(2) <= x_max_2;
-    x_15(2) <= x_max_2;
-    x_17(2) <= x_max_2;
-    x_19(2) <= x_max_2;
-    x_21(2) <= x_max_2;
-    x_23(2) <= x_max_2;
-    x_25(2) <= x_max_2;
-    x_27(2) <= x_max_2;
-    x_29(2) <= x_max_2;
-    x_31(2) <= x_max_2;
-    x_33(2) <= x_max_2;
-    x_35(2) <= x_max_2;
-    x_37(2) <= x_max_2;
-    x_39(2) <= x_max_2;
-    x_1(2) >= x_min_2;
-    x_3(2) >= x_min_2;
-    x_5(2) >= x_min_2;
-    x_7(2) >= x_min_2;
-    x_9(2) >= x_min_2;
-    x_11(2) >= x_min_2;
-    x_13(2) >= x_min_2;
-    x_15(2) >= x_min_2;
-    x_17(2) >= x_min_2;
-    x_19(2) >= x_min_2;
-    x_21(2) >= x_min_2;
-    x_23(2) >= x_min_2;
-    x_25(2) >= x_min_2;
-    x_27(2) >= x_min_2;
-    x_29(2) >= x_min_2;
-    x_31(2) >= x_min_2;
-    x_33(2) >= x_min_2;
-    x_35(2) >= x_min_2;
-    x_37(2) >= x_min_2;
-    x_39(2) >= x_min_2;
-    x_1(4) <= x_max_2;
-    x_3(4) <= x_max_2;
-    x_5(4) <= x_max_2;
-    x_7(4) <= x_max_2;
-    x_9(4) <= x_max_2;
-    x_11(4) <= x_max_2;
-    x_13(4) <= x_max_2;
-    x_15(4) <= x_max_2;
-    x_17(4) <= x_max_2;
-    x_19(4) <= x_max_2;
-    x_21(4) <= x_max_2;
-    x_23(4) <= x_max_2;
-    x_25(4) <= x_max_2;
-    x_27(4) <= x_max_2;
-    x_29(4) <= x_max_2;
-    x_31(4) <= x_max_2;
-    x_33(4) <= x_max_2;
-    x_35(4) <= x_max_2;
-    x_37(4) <= x_max_2;
-    x_39(4) <= x_max_2;
-    x_1(4) >= x_min_2;
-    x_3(4) >= x_min_2;
-    x_5(4) >= x_min_2;
-    x_7(4) >= x_min_2;
-    x_9(4) >= x_min_2;
-    x_11(4) >= x_min_2;
-    x_13(4) >= x_min_2;
-    x_15(4) >= x_min_2;
-    x_17(4) >= x_min_2;
-    x_19(4) >= x_min_2;
-    x_21(4) >= x_min_2;
-    x_23(4) >= x_min_2;
-    x_25(4) >= x_min_2;
-    x_27(4) >= x_min_2;
-    x_29(4) >= x_min_2;
-    x_31(4) >= x_min_2;
-    x_33(4) >= x_min_2;
-    x_35(4) >= x_min_2;
-    x_37(4) >= x_min_2;
-    x_39(4) >= x_min_2;
-    u_0(1) >= x_min_3;
-    u_1(1) >= x_min_3;
-    u_2(1) >= x_min_3;
-    u_3(1) >= x_min_3;
-    u_4(1) >= x_min_3;
-    u_5(1) >= x_min_3;
-    u_6(1) >= x_min_3;
-    u_7(1) >= x_min_3;
-    u_8(1) >= x_min_3;
-    u_9(1) >= x_min_3;
-    u_10(1) >= x_min_3;
-    u_11(1) >= x_min_3;
-    u_12(1) >= x_min_3;
-    u_13(1) >= x_min_3;
-    u_14(1) >= x_min_3;
-    u_15(1) >= x_min_3;
-    u_16(1) >= x_min_3;
-    u_17(1) >= x_min_3;
-    u_18(1) >= x_min_3;
-    u_19(1) >= x_min_3;
-    u_20(1) >= x_min_3;
-    u_21(1) >= x_min_3;
-    u_22(1) >= x_min_3;
-    u_23(1) >= x_min_3;
-    u_24(1) >= x_min_3;
-    u_25(1) >= x_min_3;
-    u_26(1) >= x_min_3;
-    u_27(1) >= x_min_3;
-    u_28(1) >= x_min_3;
-    u_29(1) >= x_min_3;
-    u_30(1) >= x_min_3;
-    u_31(1) >= x_min_3;
-    u_32(1) >= x_min_3;
-    u_33(1) >= x_min_3;
-    u_34(1) >= x_min_3;
-    u_35(1) >= x_min_3;
-    u_36(1) >= x_min_3;
-    u_37(1) >= x_min_3;
-    u_38(1) >= x_min_3;
-    u_39(1) >= x_min_3;
-    u_0(1) <= x_max_3;
-    u_1(1) <= x_max_3;
-    u_2(1) <= x_max_3;
-    u_3(1) <= x_max_3;
-    u_4(1) <= x_max_3;
-    u_5(1) <= x_max_3;
-    u_6(1) <= x_max_3;
-    u_7(1) <= x_max_3;
-    u_8(1) <= x_max_3;
-    u_9(1) <= x_max_3;
-    u_10(1) <= x_max_3;
-    u_11(1) <= x_max_3;
-    u_12(1) <= x_max_3;
-    u_13(1) <= x_max_3;
-    u_14(1) <= x_max_3;
-    u_15(1) <= x_max_3;
-    u_16(1) <= x_max_3;
-    u_17(1) <= x_max_3;
-    u_18(1) <= x_max_3;
-    u_19(1) <= x_max_3;
-    u_20(1) <= x_max_3;
-    u_21(1) <= x_max_3;
-    u_22(1) <= x_max_3;
-    u_23(1) <= x_max_3;
-    u_24(1) <= x_max_3;
-    u_25(1) <= x_max_3;
-    u_26(1) <= x_max_3;
-    u_27(1) <= x_max_3;
-    u_28(1) <= x_max_3;
-    u_29(1) <= x_max_3;
-    u_30(1) <= x_max_3;
-    u_31(1) <= x_max_3;
-    u_32(1) <= x_max_3;
-    u_33(1) <= x_max_3;
-    u_34(1) <= x_max_3;
-    u_35(1) <= x_max_3;
-    u_36(1) <= x_max_3;
-    u_37(1) <= x_max_3;
-    u_38(1) <= x_max_3;
-    u_39(1) <= x_max_3;
-    u_0(2) >= x_min_3;
-    u_1(2) >= x_min_3;
-    u_2(2) >= x_min_3;
-    u_3(2) >= x_min_3;
-    u_4(2) >= x_min_3;
-    u_5(2) >= x_min_3;
-    u_6(2) >= x_min_3;
-    u_7(2) >= x_min_3;
-    u_8(2) >= x_min_3;
-    u_9(2) >= x_min_3;
-    u_10(2) >= x_min_3;
-    u_11(2) >= x_min_3;
-    u_12(2) >= x_min_3;
-    u_13(2) >= x_min_3;
-    u_14(2) >= x_min_3;
-    u_15(2) >= x_min_3;
-    u_16(2) >= x_min_3;
-    u_17(2) >= x_min_3;
-    u_18(2) >= x_min_3;
-    u_19(2) >= x_min_3;
-    u_20(2) >= x_min_3;
-    u_21(2) >= x_min_3;
-    u_22(2) >= x_min_3;
-    u_23(2) >= x_min_3;
-    u_24(2) >= x_min_3;
-    u_25(2) >= x_min_3;
-    u_26(2) >= x_min_3;
-    u_27(2) >= x_min_3;
-    u_28(2) >= x_min_3;
-    u_29(2) >= x_min_3;
-    u_30(2) >= x_min_3;
-    u_31(2) >= x_min_3;
-    u_32(2) >= x_min_3;
-    u_33(2) >= x_min_3;
-    u_34(2) >= x_min_3;
-    u_35(2) >= x_min_3;
-    u_36(2) >= x_min_3;
-    u_37(2) >= x_min_3;
-    u_38(2) >= x_min_3;
-    u_39(2) >= x_min_3;
-    u_0(2) <= x_max_3;
-    u_1(2) <= x_max_3;
-    u_2(2) <= x_max_3;
-    u_3(2) <= x_max_3;
-    u_4(2) <= x_max_3;
-    u_5(2) <= x_max_3;
-    u_6(2) <= x_max_3;
-    u_7(2) <= x_max_3;
-    u_8(2) <= x_max_3;
-    u_9(2) <= x_max_3;
-    u_10(2) <= x_max_3;
-    u_11(2) <= x_max_3;
-    u_12(2) <= x_max_3;
-    u_13(2) <= x_max_3;
-    u_14(2) <= x_max_3;
-    u_15(2) <= x_max_3;
-    u_16(2) <= x_max_3;
-    u_17(2) <= x_max_3;
-    u_18(2) <= x_max_3;
-    u_19(2) <= x_max_3;
-    u_20(2) <= x_max_3;
-    u_21(2) <= x_max_3;
-    u_22(2) <= x_max_3;
-    u_23(2) <= x_max_3;
-    u_24(2) <= x_max_3;
-    u_25(2) <= x_max_3;
-    u_26(2) <= x_max_3;
-    u_27(2) <= x_max_3;
-    u_28(2) <= x_max_3;
-    u_29(2) <= x_max_3;
-    u_30(2) <= x_max_3;
-    u_31(2) <= x_max_3;
-    u_32(2) <= x_max_3;
-    u_33(2) <= x_max_3;
-    u_34(2) <= x_max_3;
-    u_35(2) <= x_max_3;
-    u_36(2) <= x_max_3;
-    u_37(2) <= x_max_3;
-    u_38(2) <= x_max_3;
-    u_39(2) <= x_max_3;
-    0.866*u_0(1) + 0.5*u_0(2) <= x_max_3;
-    0.866*u_1(1) + 0.5*u_1(2) <= x_max_3;
-    0.866*u_2(1) + 0.5*u_2(2) <= x_max_3;
-    0.866*u_3(1) + 0.5*u_3(2) <= x_max_3;
-    0.866*u_4(1) + 0.5*u_4(2) <= x_max_3;
-    0.866*u_5(1) + 0.5*u_5(2) <= x_max_3;
-    0.866*u_6(1) + 0.5*u_6(2) <= x_max_3;
-    0.866*u_7(1) + 0.5*u_7(2) <= x_max_3;
-    0.866*u_8(1) + 0.5*u_8(2) <= x_max_3;
-    0.866*u_9(1) + 0.5*u_9(2) <= x_max_3;
-    0.866*u_10(1) + 0.5*u_10(2) <= x_max_3;
-    0.866*u_11(1) + 0.5*u_11(2) <= x_max_3;
-    0.866*u_12(1) + 0.5*u_12(2) <= x_max_3;
-    0.866*u_13(1) + 0.5*u_13(2) <= x_max_3;
-    0.866*u_14(1) + 0.5*u_14(2) <= x_max_3;
-    0.866*u_15(1) + 0.5*u_15(2) <= x_max_3;
-    0.866*u_16(1) + 0.5*u_16(2) <= x_max_3;
-    0.866*u_17(1) + 0.5*u_17(2) <= x_max_3;
-    0.866*u_18(1) + 0.5*u_18(2) <= x_max_3;
-    0.866*u_19(1) + 0.5*u_19(2) <= x_max_3;
-    0.866*u_20(1) + 0.5*u_20(2) <= x_max_3;
-    0.866*u_21(1) + 0.5*u_21(2) <= x_max_3;
-    0.866*u_22(1) + 0.5*u_22(2) <= x_max_3;
-    0.866*u_23(1) + 0.5*u_23(2) <= x_max_3;
-    0.866*u_24(1) + 0.5*u_24(2) <= x_max_3;
-    0.866*u_25(1) + 0.5*u_25(2) <= x_max_3;
-    0.866*u_26(1) + 0.5*u_26(2) <= x_max_3;
-    0.866*u_27(1) + 0.5*u_27(2) <= x_max_3;
-    0.866*u_28(1) + 0.5*u_28(2) <= x_max_3;
-    0.866*u_29(1) + 0.5*u_29(2) <= x_max_3;
-    0.866*u_30(1) + 0.5*u_30(2) <= x_max_3;
-    0.866*u_31(1) + 0.5*u_31(2) <= x_max_3;
-    0.866*u_32(1) + 0.5*u_32(2) <= x_max_3;
-    0.866*u_33(1) + 0.5*u_33(2) <= x_max_3;
-    0.866*u_34(1) + 0.5*u_34(2) <= x_max_3;
-    0.866*u_35(1) + 0.5*u_35(2) <= x_max_3;
-    0.866*u_36(1) + 0.5*u_36(2) <= x_max_3;
-    0.866*u_37(1) + 0.5*u_37(2) <= x_max_3;
-    0.866*u_38(1) + 0.5*u_38(2) <= x_max_3;
-    0.866*u_39(1) + 0.5*u_39(2) <= x_max_3;
-    0.866*u_0(1) + 0.5*u_0(2) >= x_min_3;
-    0.866*u_1(1) + 0.5*u_1(2) >= x_min_3;
-    0.866*u_2(1) + 0.5*u_2(2) >= x_min_3;
-    0.866*u_3(1) + 0.5*u_3(2) >= x_min_3;
-    0.866*u_4(1) + 0.5*u_4(2) >= x_min_3;
-    0.866*u_5(1) + 0.5*u_5(2) >= x_min_3;
-    0.866*u_6(1) + 0.5*u_6(2) >= x_min_3;
-    0.866*u_7(1) + 0.5*u_7(2) >= x_min_3;
-    0.866*u_8(1) + 0.5*u_8(2) >= x_min_3;
-    0.866*u_9(1) + 0.5*u_9(2) >= x_min_3;
-    0.866*u_10(1) + 0.5*u_10(2) >= x_min_3;
-    0.866*u_11(1) + 0.5*u_11(2) >= x_min_3;
-    0.866*u_12(1) + 0.5*u_12(2) >= x_min_3;
-    0.866*u_13(1) + 0.5*u_13(2) >= x_min_3;
-    0.866*u_14(1) + 0.5*u_14(2) >= x_min_3;
-    0.866*u_15(1) + 0.5*u_15(2) >= x_min_3;
-    0.866*u_16(1) + 0.5*u_16(2) >= x_min_3;
-    0.866*u_17(1) + 0.5*u_17(2) >= x_min_3;
-    0.866*u_18(1) + 0.5*u_18(2) >= x_min_3;
-    0.866*u_19(1) + 0.5*u_19(2) >= x_min_3;
-    0.866*u_20(1) + 0.5*u_20(2) >= x_min_3;
-    0.866*u_21(1) + 0.5*u_21(2) >= x_min_3;
-    0.866*u_22(1) + 0.5*u_22(2) >= x_min_3;
-    0.866*u_23(1) + 0.5*u_23(2) >= x_min_3;
-    0.866*u_24(1) + 0.5*u_24(2) >= x_min_3;
-    0.866*u_25(1) + 0.5*u_25(2) >= x_min_3;
-    0.866*u_26(1) + 0.5*u_26(2) >= x_min_3;
-    0.866*u_27(1) + 0.5*u_27(2) >= x_min_3;
-    0.866*u_28(1) + 0.5*u_28(2) >= x_min_3;
-    0.866*u_29(1) + 0.5*u_29(2) >= x_min_3;
-    0.866*u_30(1) + 0.5*u_30(2) >= x_min_3;
-    0.866*u_31(1) + 0.5*u_31(2) >= x_min_3;
-    0.866*u_32(1) + 0.5*u_32(2) >= x_min_3;
-    0.866*u_33(1) + 0.5*u_33(2) >= x_min_3;
-    0.866*u_34(1) + 0.5*u_34(2) >= x_min_3;
-    0.866*u_35(1) + 0.5*u_35(2) >= x_min_3;
-    0.866*u_36(1) + 0.5*u_36(2) >= x_min_3;
-    0.866*u_37(1) + 0.5*u_37(2) >= x_min_3;
-    0.866*u_38(1) + 0.5*u_38(2) >= x_min_3;
-    0.866*u_39(1) + 0.5*u_39(2) >= x_min_3;
-    0.866*u_0(1) - 0.5*u_0(1) <= x_max_3;
-    0.866*u_1(1) - 0.5*u_1(1) <= x_max_3;
-    0.866*u_2(1) - 0.5*u_2(1) <= x_max_3;
-    0.866*u_3(1) - 0.5*u_3(1) <= x_max_3;
-    0.866*u_4(1) - 0.5*u_4(1) <= x_max_3;
-    0.866*u_5(1) - 0.5*u_5(1) <= x_max_3;
-    0.866*u_6(1) - 0.5*u_6(1) <= x_max_3;
-    0.866*u_7(1) - 0.5*u_7(1) <= x_max_3;
-    0.866*u_8(1) - 0.5*u_8(1) <= x_max_3;
-    0.866*u_9(1) - 0.5*u_9(1) <= x_max_3;
-    0.866*u_10(1) - 0.5*u_10(1) <= x_max_3;
-    0.866*u_11(1) - 0.5*u_11(1) <= x_max_3;
-    0.866*u_12(1) - 0.5*u_12(1) <= x_max_3;
-    0.866*u_13(1) - 0.5*u_13(1) <= x_max_3;
-    0.866*u_14(1) - 0.5*u_14(1) <= x_max_3;
-    0.866*u_15(1) - 0.5*u_15(1) <= x_max_3;
-    0.866*u_16(1) - 0.5*u_16(1) <= x_max_3;
-    0.866*u_17(1) - 0.5*u_17(1) <= x_max_3;
-    0.866*u_18(1) - 0.5*u_18(1) <= x_max_3;
-    0.866*u_19(1) - 0.5*u_19(1) <= x_max_3;
-    0.866*u_20(1) - 0.5*u_20(1) <= x_max_3;
-    0.866*u_21(1) - 0.5*u_21(1) <= x_max_3;
-    0.866*u_22(1) - 0.5*u_22(1) <= x_max_3;
-    0.866*u_23(1) - 0.5*u_23(1) <= x_max_3;
-    0.866*u_24(1) - 0.5*u_24(1) <= x_max_3;
-    0.866*u_25(1) - 0.5*u_25(1) <= x_max_3;
-    0.866*u_26(1) - 0.5*u_26(1) <= x_max_3;
-    0.866*u_27(1) - 0.5*u_27(1) <= x_max_3;
-    0.866*u_28(1) - 0.5*u_28(1) <= x_max_3;
-    0.866*u_29(1) - 0.5*u_29(1) <= x_max_3;
-    0.866*u_30(1) - 0.5*u_30(1) <= x_max_3;
-    0.866*u_31(1) - 0.5*u_31(1) <= x_max_3;
-    0.866*u_32(1) - 0.5*u_32(1) <= x_max_3;
-    0.866*u_33(1) - 0.5*u_33(1) <= x_max_3;
-    0.866*u_34(1) - 0.5*u_34(1) <= x_max_3;
-    0.866*u_35(1) - 0.5*u_35(1) <= x_max_3;
-    0.866*u_36(1) - 0.5*u_36(1) <= x_max_3;
-    0.866*u_37(1) - 0.5*u_37(1) <= x_max_3;
-    0.866*u_38(1) - 0.5*u_38(1) <= x_max_3;
-    0.866*u_39(1) - 0.5*u_39(1) <= x_max_3;
-    0.866*u_0(1) - 0.5*u_0(1) >= x_min_3;
-    0.866*u_1(1) - 0.5*u_1(1) >= x_min_3;
-    0.866*u_2(1) - 0.5*u_2(1) >= x_min_3;
-    0.866*u_3(1) - 0.5*u_3(1) >= x_min_3;
-    0.866*u_4(1) - 0.5*u_4(1) >= x_min_3;
-    0.866*u_5(1) - 0.5*u_5(1) >= x_min_3;
-    0.866*u_6(1) - 0.5*u_6(1) >= x_min_3;
-    0.866*u_7(1) - 0.5*u_7(1) >= x_min_3;
-    0.866*u_8(1) - 0.5*u_8(1) >= x_min_3;
-    0.866*u_9(1) - 0.5*u_9(1) >= x_min_3;
-    0.866*u_10(1) - 0.5*u_10(1) >= x_min_3;
-    0.866*u_11(1) - 0.5*u_11(1) >= x_min_3;
-    0.866*u_12(1) - 0.5*u_12(1) >= x_min_3;
-    0.866*u_13(1) - 0.5*u_13(1) >= x_min_3;
-    0.866*u_14(1) - 0.5*u_14(1) >= x_min_3;
-    0.866*u_15(1) - 0.5*u_15(1) >= x_min_3;
-    0.866*u_16(1) - 0.5*u_16(1) >= x_min_3;
-    0.866*u_17(1) - 0.5*u_17(1) >= x_min_3;
-    0.866*u_18(1) - 0.5*u_18(1) >= x_min_3;
-    0.866*u_19(1) - 0.5*u_19(1) >= x_min_3;
-    0.866*u_20(1) - 0.5*u_20(1) >= x_min_3;
-    0.866*u_21(1) - 0.5*u_21(1) >= x_min_3;
-    0.866*u_22(1) - 0.5*u_22(1) >= x_min_3;
-    0.866*u_23(1) - 0.5*u_23(1) >= x_min_3;
-    0.866*u_24(1) - 0.5*u_24(1) >= x_min_3;
-    0.866*u_25(1) - 0.5*u_25(1) >= x_min_3;
-    0.866*u_26(1) - 0.5*u_26(1) >= x_min_3;
-    0.866*u_27(1) - 0.5*u_27(1) >= x_min_3;
-    0.866*u_28(1) - 0.5*u_28(1) >= x_min_3;
-    0.866*u_29(1) - 0.5*u_29(1) >= x_min_3;
-    0.866*u_30(1) - 0.5*u_30(1) >= x_min_3;
-    0.866*u_31(1) - 0.5*u_31(1) >= x_min_3;
-    0.866*u_32(1) - 0.5*u_32(1) >= x_min_3;
-    0.866*u_33(1) - 0.5*u_33(1) >= x_min_3;
-    0.866*u_34(1) - 0.5*u_34(1) >= x_min_3;
-    0.866*u_35(1) - 0.5*u_35(1) >= x_min_3;
-    0.866*u_36(1) - 0.5*u_36(1) >= x_min_3;
-    0.866*u_37(1) - 0.5*u_37(1) >= x_min_3;
-    0.866*u_38(1) - 0.5*u_38(1) >= x_min_3;
-    0.866*u_39(1) - 0.5*u_39(1) >= x_min_3;
-    0.866*u_0(2) + 0.5*u_0(1) <= x_max_3;
-    0.866*u_1(2) + 0.5*u_1(1) <= x_max_3;
-    0.866*u_2(2) + 0.5*u_2(1) <= x_max_3;
-    0.866*u_3(2) + 0.5*u_3(1) <= x_max_3;
-    0.866*u_4(2) + 0.5*u_4(1) <= x_max_3;
-    0.866*u_5(2) + 0.5*u_5(1) <= x_max_3;
-    0.866*u_6(2) + 0.5*u_6(1) <= x_max_3;
-    0.866*u_7(2) + 0.5*u_7(1) <= x_max_3;
-    0.866*u_8(2) + 0.5*u_8(1) <= x_max_3;
-    0.866*u_9(2) + 0.5*u_9(1) <= x_max_3;
-    0.866*u_10(2) + 0.5*u_10(1) <= x_max_3;
-    0.866*u_11(2) + 0.5*u_11(1) <= x_max_3;
-    0.866*u_12(2) + 0.5*u_12(1) <= x_max_3;
-    0.866*u_13(2) + 0.5*u_13(1) <= x_max_3;
-    0.866*u_14(2) + 0.5*u_14(1) <= x_max_3;
-    0.866*u_15(2) + 0.5*u_15(1) <= x_max_3;
-    0.866*u_16(2) + 0.5*u_16(1) <= x_max_3;
-    0.866*u_17(2) + 0.5*u_17(1) <= x_max_3;
-    0.866*u_18(2) + 0.5*u_18(1) <= x_max_3;
-    0.866*u_19(2) + 0.5*u_19(1) <= x_max_3;
-    0.866*u_20(2) + 0.5*u_20(1) <= x_max_3;
-    0.866*u_21(2) + 0.5*u_21(1) <= x_max_3;
-    0.866*u_22(2) + 0.5*u_22(1) <= x_max_3;
-    0.866*u_23(2) + 0.5*u_23(1) <= x_max_3;
-    0.866*u_24(2) + 0.5*u_24(1) <= x_max_3;
-    0.866*u_25(2) + 0.5*u_25(1) <= x_max_3;
-    0.866*u_26(2) + 0.5*u_26(1) <= x_max_3;
-    0.866*u_27(2) + 0.5*u_27(1) <= x_max_3;
-    0.866*u_28(2) + 0.5*u_28(1) <= x_max_3;
-    0.866*u_29(2) + 0.5*u_29(1) <= x_max_3;
-    0.866*u_30(2) + 0.5*u_30(1) <= x_max_3;
-    0.866*u_31(2) + 0.5*u_31(1) <= x_max_3;
-    0.866*u_32(2) + 0.5*u_32(1) <= x_max_3;
-    0.866*u_33(2) + 0.5*u_33(1) <= x_max_3;
-    0.866*u_34(2) + 0.5*u_34(1) <= x_max_3;
-    0.866*u_35(2) + 0.5*u_35(1) <= x_max_3;
-    0.866*u_36(2) + 0.5*u_36(1) <= x_max_3;
-    0.866*u_37(2) + 0.5*u_37(1) <= x_max_3;
-    0.866*u_38(2) + 0.5*u_38(1) <= x_max_3;
-    0.866*u_39(2) + 0.5*u_39(1) <= x_max_3;
-    0.866*u_0(2) + 0.5*u_0(1) >= x_min_3;
-    0.866*u_1(2) + 0.5*u_1(1) >= x_min_3;
-    0.866*u_2(2) + 0.5*u_2(1) >= x_min_3;
-    0.866*u_3(2) + 0.5*u_3(1) >= x_min_3;
-    0.866*u_4(2) + 0.5*u_4(1) >= x_min_3;
-    0.866*u_5(2) + 0.5*u_5(1) >= x_min_3;
-    0.866*u_6(2) + 0.5*u_6(1) >= x_min_3;
-    0.866*u_7(2) + 0.5*u_7(1) >= x_min_3;
-    0.866*u_8(2) + 0.5*u_8(1) >= x_min_3;
-    0.866*u_9(2) + 0.5*u_9(1) >= x_min_3;
-    0.866*u_10(2) + 0.5*u_10(1) >= x_min_3;
-    0.866*u_11(2) + 0.5*u_11(1) >= x_min_3;
-    0.866*u_12(2) + 0.5*u_12(1) >= x_min_3;
-    0.866*u_13(2) + 0.5*u_13(1) >= x_min_3;
-    0.866*u_14(2) + 0.5*u_14(1) >= x_min_3;
-    0.866*u_15(2) + 0.5*u_15(1) >= x_min_3;
-    0.866*u_16(2) + 0.5*u_16(1) >= x_min_3;
-    0.866*u_17(2) + 0.5*u_17(1) >= x_min_3;
-    0.866*u_18(2) + 0.5*u_18(1) >= x_min_3;
-    0.866*u_19(2) + 0.5*u_19(1) >= x_min_3;
-    0.866*u_20(2) + 0.5*u_20(1) >= x_min_3;
-    0.866*u_21(2) + 0.5*u_21(1) >= x_min_3;
-    0.866*u_22(2) + 0.5*u_22(1) >= x_min_3;
-    0.866*u_23(2) + 0.5*u_23(1) >= x_min_3;
-    0.866*u_24(2) + 0.5*u_24(1) >= x_min_3;
-    0.866*u_25(2) + 0.5*u_25(1) >= x_min_3;
-    0.866*u_26(2) + 0.5*u_26(1) >= x_min_3;
-    0.866*u_27(2) + 0.5*u_27(1) >= x_min_3;
-    0.866*u_28(2) + 0.5*u_28(1) >= x_min_3;
-    0.866*u_29(2) + 0.5*u_29(1) >= x_min_3;
-    0.866*u_30(2) + 0.5*u_30(1) >= x_min_3;
-    0.866*u_31(2) + 0.5*u_31(1) >= x_min_3;
-    0.866*u_32(2) + 0.5*u_32(1) >= x_min_3;
-    0.866*u_33(2) + 0.5*u_33(1) >= x_min_3;
-    0.866*u_34(2) + 0.5*u_34(1) >= x_min_3;
-    0.866*u_35(2) + 0.5*u_35(1) >= x_min_3;
-    0.866*u_36(2) + 0.5*u_36(1) >= x_min_3;
-    0.866*u_37(2) + 0.5*u_37(1) >= x_min_3;
-    0.866*u_38(2) + 0.5*u_38(1) >= x_min_3;
-    0.866*u_39(2) + 0.5*u_39(1) >= x_min_3;
-    0.866*u_0(2) - 0.5*u_0(1) <= x_max_3;
-    0.866*u_1(2) - 0.5*u_1(1) <= x_max_3;
-    0.866*u_2(2) - 0.5*u_2(1) <= x_max_3;
-    0.866*u_3(2) - 0.5*u_3(1) <= x_max_3;
-    0.866*u_4(2) - 0.5*u_4(1) <= x_max_3;
-    0.866*u_5(2) - 0.5*u_5(1) <= x_max_3;
-    0.866*u_6(2) - 0.5*u_6(1) <= x_max_3;
-    0.866*u_7(2) - 0.5*u_7(1) <= x_max_3;
-    0.866*u_8(2) - 0.5*u_8(1) <= x_max_3;
-    0.866*u_9(2) - 0.5*u_9(1) <= x_max_3;
-    0.866*u_10(2) - 0.5*u_10(1) <= x_max_3;
-    0.866*u_11(2) - 0.5*u_11(1) <= x_max_3;
-    0.866*u_12(2) - 0.5*u_12(1) <= x_max_3;
-    0.866*u_13(2) - 0.5*u_13(1) <= x_max_3;
-    0.866*u_14(2) - 0.5*u_14(1) <= x_max_3;
-    0.866*u_15(2) - 0.5*u_15(1) <= x_max_3;
-    0.866*u_16(2) - 0.5*u_16(1) <= x_max_3;
-    0.866*u_17(2) - 0.5*u_17(1) <= x_max_3;
-    0.866*u_18(2) - 0.5*u_18(1) <= x_max_3;
-    0.866*u_19(2) - 0.5*u_19(1) <= x_max_3;
-    0.866*u_20(2) - 0.5*u_20(1) <= x_max_3;
-    0.866*u_21(2) - 0.5*u_21(1) <= x_max_3;
-    0.866*u_22(2) - 0.5*u_22(1) <= x_max_3;
-    0.866*u_23(2) - 0.5*u_23(1) <= x_max_3;
-    0.866*u_24(2) - 0.5*u_24(1) <= x_max_3;
-    0.866*u_25(2) - 0.5*u_25(1) <= x_max_3;
-    0.866*u_26(2) - 0.5*u_26(1) <= x_max_3;
-    0.866*u_27(2) - 0.5*u_27(1) <= x_max_3;
-    0.866*u_28(2) - 0.5*u_28(1) <= x_max_3;
-    0.866*u_29(2) - 0.5*u_29(1) <= x_max_3;
-    0.866*u_30(2) - 0.5*u_30(1) <= x_max_3;
-    0.866*u_31(2) - 0.5*u_31(1) <= x_max_3;
-    0.866*u_32(2) - 0.5*u_32(1) <= x_max_3;
-    0.866*u_33(2) - 0.5*u_33(1) <= x_max_3;
-    0.866*u_34(2) - 0.5*u_34(1) <= x_max_3;
-    0.866*u_35(2) - 0.5*u_35(1) <= x_max_3;
-    0.866*u_36(2) - 0.5*u_36(1) <= x_max_3;
-    0.866*u_37(2) - 0.5*u_37(1) <= x_max_3;
-    0.866*u_38(2) - 0.5*u_38(1) <= x_max_3;
-    0.866*u_39(2) - 0.5*u_39(1) <= x_max_3;
-    0.866*u_0(2) - 0.5*u_0(1) >= x_min_3;
-    0.866*u_1(2) - 0.5*u_1(1) >= x_min_3;
-    0.866*u_2(2) - 0.5*u_2(1) >= x_min_3;
-    0.866*u_3(2) - 0.5*u_3(1) >= x_min_3;
-    0.866*u_4(2) - 0.5*u_4(1) >= x_min_3;
-    0.866*u_5(2) - 0.5*u_5(1) >= x_min_3;
-    0.866*u_6(2) - 0.5*u_6(1) >= x_min_3;
-    0.866*u_7(2) - 0.5*u_7(1) >= x_min_3;
-    0.866*u_8(2) - 0.5*u_8(1) >= x_min_3;
-    0.866*u_9(2) - 0.5*u_9(1) >= x_min_3;
-    0.866*u_10(2) - 0.5*u_10(1) >= x_min_3;
-    0.866*u_11(2) - 0.5*u_11(1) >= x_min_3;
-    0.866*u_12(2) - 0.5*u_12(1) >= x_min_3;
-    0.866*u_13(2) - 0.5*u_13(1) >= x_min_3;
-    0.866*u_14(2) - 0.5*u_14(1) >= x_min_3;
-    0.866*u_15(2) - 0.5*u_15(1) >= x_min_3;
-    0.866*u_16(2) - 0.5*u_16(1) >= x_min_3;
-    0.866*u_17(2) - 0.5*u_17(1) >= x_min_3;
-    0.866*u_18(2) - 0.5*u_18(1) >= x_min_3;
-    0.866*u_19(2) - 0.5*u_19(1) >= x_min_3;
-    0.866*u_20(2) - 0.5*u_20(1) >= x_min_3;
-    0.866*u_21(2) - 0.5*u_21(1) >= x_min_3;
-    0.866*u_22(2) - 0.5*u_22(1) >= x_min_3;
-    0.866*u_23(2) - 0.5*u_23(1) >= x_min_3;
-    0.866*u_24(2) - 0.5*u_24(1) >= x_min_3;
-    0.866*u_25(2) - 0.5*u_25(1) >= x_min_3;
-    0.866*u_26(2) - 0.5*u_26(1) >= x_min_3;
-    0.866*u_27(2) - 0.5*u_27(1) >= x_min_3;
-    0.866*u_28(2) - 0.5*u_28(1) >= x_min_3;
-    0.866*u_29(2) - 0.5*u_29(1) >= x_min_3;
-    0.866*u_30(2) - 0.5*u_30(1) >= x_min_3;
-    0.866*u_31(2) - 0.5*u_31(1) >= x_min_3;
-    0.866*u_32(2) - 0.5*u_32(1) >= x_min_3;
-    0.866*u_33(2) - 0.5*u_33(1) >= x_min_3;
-    0.866*u_34(2) - 0.5*u_34(1) >= x_min_3;
-    0.866*u_35(2) - 0.5*u_35(1) >= x_min_3;
-    0.866*u_36(2) - 0.5*u_36(1) >= x_min_3;
-    0.866*u_37(2) - 0.5*u_37(1) >= x_min_3;
-    0.866*u_38(2) - 0.5*u_38(1) >= x_min_3;
-    0.866*u_39(2) - 0.5*u_39(1) >= x_min_3;
-    0.866*x_1(2) + 0.5*x_1(4) <= x_max_2;
-    0.866*x_3(2) + 0.5*x_3(4) <= x_max_2;
-    0.866*x_5(2) + 0.5*x_5(4) <= x_max_2;
-    0.866*x_7(2) + 0.5*x_7(4) <= x_max_2;
-    0.866*x_9(2) + 0.5*x_9(4) <= x_max_2;
-    0.866*x_11(2) + 0.5*x_11(4) <= x_max_2;
-    0.866*x_13(2) + 0.5*x_13(4) <= x_max_2;
-    0.866*x_15(2) + 0.5*x_15(4) <= x_max_2;
-    0.866*x_17(2) + 0.5*x_17(4) <= x_max_2;
-    0.866*x_19(2) + 0.5*x_19(4) <= x_max_2;
-    0.866*x_21(2) + 0.5*x_21(4) <= x_max_2;
-    0.866*x_23(2) + 0.5*x_23(4) <= x_max_2;
-    0.866*x_25(2) + 0.5*x_25(4) <= x_max_2;
-    0.866*x_27(2) + 0.5*x_27(4) <= x_max_2;
-    0.866*x_29(2) + 0.5*x_29(4) <= x_max_2;
-    0.866*x_31(2) + 0.5*x_31(4) <= x_max_2;
-    0.866*x_33(2) + 0.5*x_33(4) <= x_max_2;
-    0.866*x_35(2) + 0.5*x_35(4) <= x_max_2;
-    0.866*x_37(2) + 0.5*x_37(4) <= x_max_2;
-    0.866*x_39(2) + 0.5*x_39(4) <= x_max_2;
-    0.866*x_1(2) + 0.5*x_1(4) >= x_min_2;
-    0.866*x_3(2) + 0.5*x_3(4) >= x_min_2;
-    0.866*x_5(2) + 0.5*x_5(4) >= x_min_2;
-    0.866*x_7(2) + 0.5*x_7(4) >= x_min_2;
-    0.866*x_9(2) + 0.5*x_9(4) >= x_min_2;
-    0.866*x_11(2) + 0.5*x_11(4) >= x_min_2;
-    0.866*x_13(2) + 0.5*x_13(4) >= x_min_2;
-    0.866*x_15(2) + 0.5*x_15(4) >= x_min_2;
-    0.866*x_17(2) + 0.5*x_17(4) >= x_min_2;
-    0.866*x_19(2) + 0.5*x_19(4) >= x_min_2;
-    0.866*x_21(2) + 0.5*x_21(4) >= x_min_2;
-    0.866*x_23(2) + 0.5*x_23(4) >= x_min_2;
-    0.866*x_25(2) + 0.5*x_25(4) >= x_min_2;
-    0.866*x_27(2) + 0.5*x_27(4) >= x_min_2;
-    0.866*x_29(2) + 0.5*x_29(4) >= x_min_2;
-    0.866*x_31(2) + 0.5*x_31(4) >= x_min_2;
-    0.866*x_33(2) + 0.5*x_33(4) >= x_min_2;
-    0.866*x_35(2) + 0.5*x_35(4) >= x_min_2;
-    0.866*x_37(2) + 0.5*x_37(4) >= x_min_2;
-    0.866*x_39(2) + 0.5*x_39(4) >= x_min_2;
-    0.866*x_1(2) - 0.5*x_1(4) <= x_max_2;
-    0.866*x_3(2) - 0.5*x_3(4) <= x_max_2;
-    0.866*x_5(2) - 0.5*x_5(4) <= x_max_2;
-    0.866*x_7(2) - 0.5*x_7(4) <= x_max_2;
-    0.866*x_9(2) - 0.5*x_9(4) <= x_max_2;
-    0.866*x_11(2) - 0.5*x_11(4) <= x_max_2;
-    0.866*x_13(2) - 0.5*x_13(4) <= x_max_2;
-    0.866*x_15(2) - 0.5*x_15(4) <= x_max_2;
-    0.866*x_17(2) - 0.5*x_17(4) <= x_max_2;
-    0.866*x_19(2) - 0.5*x_19(4) <= x_max_2;
-    0.866*x_21(2) - 0.5*x_21(4) <= x_max_2;
-    0.866*x_23(2) - 0.5*x_23(4) <= x_max_2;
-    0.866*x_25(2) - 0.5*x_25(4) <= x_max_2;
-    0.866*x_27(2) - 0.5*x_27(4) <= x_max_2;
-    0.866*x_29(2) - 0.5*x_29(4) <= x_max_2;
-    0.866*x_31(2) - 0.5*x_31(4) <= x_max_2;
-    0.866*x_33(2) - 0.5*x_33(4) <= x_max_2;
-    0.866*x_35(2) - 0.5*x_35(4) <= x_max_2;
-    0.866*x_37(2) - 0.5*x_37(4) <= x_max_2;
-    0.866*x_39(2) - 0.5*x_39(4) <= x_max_2;
-    0.866*x_1(2) - 0.5*x_1(4) >= x_min_2;
-    0.866*x_3(2) - 0.5*x_3(4) >= x_min_2;
-    0.866*x_5(2) - 0.5*x_5(4) >= x_min_2;
-    0.866*x_7(2) - 0.5*x_7(4) >= x_min_2;
-    0.866*x_9(2) - 0.5*x_9(4) >= x_min_2;
-    0.866*x_11(2) - 0.5*x_11(4) >= x_min_2;
-    0.866*x_13(2) - 0.5*x_13(4) >= x_min_2;
-    0.866*x_15(2) - 0.5*x_15(4) >= x_min_2;
-    0.866*x_17(2) - 0.5*x_17(4) >= x_min_2;
-    0.866*x_19(2) - 0.5*x_19(4) >= x_min_2;
-    0.866*x_21(2) - 0.5*x_21(4) >= x_min_2;
-    0.866*x_23(2) - 0.5*x_23(4) >= x_min_2;
-    0.866*x_25(2) - 0.5*x_25(4) >= x_min_2;
-    0.866*x_27(2) - 0.5*x_27(4) >= x_min_2;
-    0.866*x_29(2) - 0.5*x_29(4) >= x_min_2;
-    0.866*x_31(2) - 0.5*x_31(4) >= x_min_2;
-    0.866*x_33(2) - 0.5*x_33(4) >= x_min_2;
-    0.866*x_35(2) - 0.5*x_35(4) >= x_min_2;
-    0.866*x_37(2) - 0.5*x_37(4) >= x_min_2;
-    0.866*x_39(2) - 0.5*x_39(4) >= x_min_2;
-    0.866*x_1(4) + 0.5*x_1(2) <= x_max_2;
-    0.866*x_3(4) + 0.5*x_3(2) <= x_max_2;
-    0.866*x_5(4) + 0.5*x_5(2) <= x_max_2;
-    0.866*x_7(4) + 0.5*x_7(2) <= x_max_2;
-    0.866*x_9(4) + 0.5*x_9(2) <= x_max_2;
-    0.866*x_11(4) + 0.5*x_11(2) <= x_max_2;
-    0.866*x_13(4) + 0.5*x_13(2) <= x_max_2;
-    0.866*x_15(4) + 0.5*x_15(2) <= x_max_2;
-    0.866*x_17(4) + 0.5*x_17(2) <= x_max_2;
-    0.866*x_19(4) + 0.5*x_19(2) <= x_max_2;
-    0.866*x_21(4) + 0.5*x_21(2) <= x_max_2;
-    0.866*x_23(4) + 0.5*x_23(2) <= x_max_2;
-    0.866*x_25(4) + 0.5*x_25(2) <= x_max_2;
-    0.866*x_27(4) + 0.5*x_27(2) <= x_max_2;
-    0.866*x_29(4) + 0.5*x_29(2) <= x_max_2;
-    0.866*x_31(4) + 0.5*x_31(2) <= x_max_2;
-    0.866*x_33(4) + 0.5*x_33(2) <= x_max_2;
-    0.866*x_35(4) + 0.5*x_35(2) <= x_max_2;
-    0.866*x_37(4) + 0.5*x_37(2) <= x_max_2;
-    0.866*x_39(4) + 0.5*x_39(2) <= x_max_2;
-    0.866*x_1(4) + 0.5*x_1(2) >= x_min_2;
-    0.866*x_3(4) + 0.5*x_3(2) >= x_min_2;
-    0.866*x_5(4) + 0.5*x_5(2) >= x_min_2;
-    0.866*x_7(4) + 0.5*x_7(2) >= x_min_2;
-    0.866*x_9(4) + 0.5*x_9(2) >= x_min_2;
-    0.866*x_11(4) + 0.5*x_11(2) >= x_min_2;
-    0.866*x_13(4) + 0.5*x_13(2) >= x_min_2;
-    0.866*x_15(4) + 0.5*x_15(2) >= x_min_2;
-    0.866*x_17(4) + 0.5*x_17(2) >= x_min_2;
-    0.866*x_19(4) + 0.5*x_19(2) >= x_min_2;
-    0.866*x_21(4) + 0.5*x_21(2) >= x_min_2;
-    0.866*x_23(4) + 0.5*x_23(2) >= x_min_2;
-    0.866*x_25(4) + 0.5*x_25(2) >= x_min_2;
-    0.866*x_27(4) + 0.5*x_27(2) >= x_min_2;
-    0.866*x_29(4) + 0.5*x_29(2) >= x_min_2;
-    0.866*x_31(4) + 0.5*x_31(2) >= x_min_2;
-    0.866*x_33(4) + 0.5*x_33(2) >= x_min_2;
-    0.866*x_35(4) + 0.5*x_35(2) >= x_min_2;
-    0.866*x_37(4) + 0.5*x_37(2) >= x_min_2;
-    0.866*x_39(4) + 0.5*x_39(2) >= x_min_2;
-    0.866*x_1(4) - 0.5*x_1(2) <= x_max_2;
-    0.866*x_3(4) - 0.5*x_3(2) <= x_max_2;
-    0.866*x_5(4) - 0.5*x_5(2) <= x_max_2;
-    0.866*x_7(4) - 0.5*x_7(2) <= x_max_2;
-    0.866*x_9(4) - 0.5*x_9(2) <= x_max_2;
-    0.866*x_11(4) - 0.5*x_11(2) <= x_max_2;
-    0.866*x_13(4) - 0.5*x_13(2) <= x_max_2;
-    0.866*x_15(4) - 0.5*x_15(2) <= x_max_2;
-    0.866*x_17(4) - 0.5*x_17(2) <= x_max_2;
-    0.866*x_19(4) - 0.5*x_19(2) <= x_max_2;
-    0.866*x_21(4) - 0.5*x_21(2) <= x_max_2;
-    0.866*x_23(4) - 0.5*x_23(2) <= x_max_2;
-    0.866*x_25(4) - 0.5*x_25(2) <= x_max_2;
-    0.866*x_27(4) - 0.5*x_27(2) <= x_max_2;
-    0.866*x_29(4) - 0.5*x_29(2) <= x_max_2;
-    0.866*x_31(4) - 0.5*x_31(2) <= x_max_2;
-    0.866*x_33(4) - 0.5*x_33(2) <= x_max_2;
-    0.866*x_35(4) - 0.5*x_35(2) <= x_max_2;
-    0.866*x_37(4) - 0.5*x_37(2) <= x_max_2;
-    0.866*x_39(4) - 0.5*x_39(2) <= x_max_2;
-    0.866*x_1(4) - 0.5*x_1(2) >= x_min_2;
-    0.866*x_3(4) - 0.5*x_3(2) >= x_min_2;
-    0.866*x_5(4) - 0.5*x_5(2) >= x_min_2;
-    0.866*x_7(4) - 0.5*x_7(2) >= x_min_2;
-    0.866*x_9(4) - 0.5*x_9(2) >= x_min_2;
-    0.866*x_11(4) - 0.5*x_11(2) >= x_min_2;
-    0.866*x_13(4) - 0.5*x_13(2) >= x_min_2;
-    0.866*x_15(4) - 0.5*x_15(2) >= x_min_2;
-    0.866*x_17(4) - 0.5*x_17(2) >= x_min_2;
-    0.866*x_19(4) - 0.5*x_19(2) >= x_min_2;
-    0.866*x_21(4) - 0.5*x_21(2) >= x_min_2;
-    0.866*x_23(4) - 0.5*x_23(2) >= x_min_2;
-    0.866*x_25(4) - 0.5*x_25(2) >= x_min_2;
-    0.866*x_27(4) - 0.5*x_27(2) >= x_min_2;
-    0.866*x_29(4) - 0.5*x_29(2) >= x_min_2;
-    0.866*x_31(4) - 0.5*x_31(2) >= x_min_2;
-    0.866*x_33(4) - 0.5*x_33(2) >= x_min_2;
-    0.866*x_35(4) - 0.5*x_35(2) >= x_min_2;
-    0.866*x_37(4) - 0.5*x_37(2) >= x_min_2;
-    0.866*x_39(4) - 0.5*x_39(2) >= x_min_2;
+    x_1(2) <= x_max_2_1;
+    x_2(2) <= x_max_2_2;
+    x_3(2) <= x_max_2_3;
+    x_4(2) <= x_max_2_4;
+    x_5(2) <= x_max_2_5;
+    x_6(2) <= x_max_2_6;
+    x_7(2) <= x_max_2_7;
+    x_8(2) <= x_max_2_8;
+    x_9(2) <= x_max_2_9;
+    x_10(2) <= x_max_2_10;
+    x_11(2) <= x_max_2_11;
+    x_12(2) <= x_max_2_12;
+    x_13(2) <= x_max_2_13;
+    x_14(2) <= x_max_2_14;
+    x_15(2) <= x_max_2_15;
+    x_16(2) <= x_max_2_16;
+    x_17(2) <= x_max_2_17;
+    x_18(2) <= x_max_2_18;
+    x_19(2) <= x_max_2_19;
+    x_20(2) <= x_max_2_20;
+    x_21(2) <= x_max_2_21;
+    x_22(2) <= x_max_2_22;
+    x_23(2) <= x_max_2_23;
+    x_24(2) <= x_max_2_24;
+    x_25(2) <= x_max_2_25;
+    x_26(2) <= x_max_2_26;
+    x_27(2) <= x_max_2_27;
+    x_28(2) <= x_max_2_28;
+    x_29(2) <= x_max_2_29;
+    x_30(2) <= x_max_2_30;
+    x_31(2) <= x_max_2_31;
+    x_32(2) <= x_max_2_32;
+    x_33(2) <= x_max_2_33;
+    x_34(2) <= x_max_2_34;
+    x_35(2) <= x_max_2_35;
+    x_36(2) <= x_max_2_36;
+    x_37(2) <= x_max_2_37;
+    x_38(2) <= x_max_2_38;
+    x_39(2) <= x_max_2_39;
+    x_40(2) <= x_max_2_40;
+    x_1(2) >= -x_max_2_1;
+    x_2(2) >= -x_max_2_2;
+    x_3(2) >= -x_max_2_3;
+    x_4(2) >= -x_max_2_4;
+    x_5(2) >= -x_max_2_5;
+    x_6(2) >= -x_max_2_6;
+    x_7(2) >= -x_max_2_7;
+    x_8(2) >= -x_max_2_8;
+    x_9(2) >= -x_max_2_9;
+    x_10(2) >= -x_max_2_10;
+    x_11(2) >= -x_max_2_11;
+    x_12(2) >= -x_max_2_12;
+    x_13(2) >= -x_max_2_13;
+    x_14(2) >= -x_max_2_14;
+    x_15(2) >= -x_max_2_15;
+    x_16(2) >= -x_max_2_16;
+    x_17(2) >= -x_max_2_17;
+    x_18(2) >= -x_max_2_18;
+    x_19(2) >= -x_max_2_19;
+    x_20(2) >= -x_max_2_20;
+    x_21(2) >= -x_max_2_21;
+    x_22(2) >= -x_max_2_22;
+    x_23(2) >= -x_max_2_23;
+    x_24(2) >= -x_max_2_24;
+    x_25(2) >= -x_max_2_25;
+    x_26(2) >= -x_max_2_26;
+    x_27(2) >= -x_max_2_27;
+    x_28(2) >= -x_max_2_28;
+    x_29(2) >= -x_max_2_29;
+    x_30(2) >= -x_max_2_30;
+    x_31(2) >= -x_max_2_31;
+    x_32(2) >= -x_max_2_32;
+    x_33(2) >= -x_max_2_33;
+    x_34(2) >= -x_max_2_34;
+    x_35(2) >= -x_max_2_35;
+    x_36(2) >= -x_max_2_36;
+    x_37(2) >= -x_max_2_37;
+    x_38(2) >= -x_max_2_38;
+    x_39(2) >= -x_max_2_39;
+    x_40(2) >= -x_max_2_40;
+    x_1(4) <= x_max_2_1;
+    x_2(4) <= x_max_2_2;
+    x_3(4) <= x_max_2_3;
+    x_4(4) <= x_max_2_4;
+    x_5(4) <= x_max_2_5;
+    x_6(4) <= x_max_2_6;
+    x_7(4) <= x_max_2_7;
+    x_8(4) <= x_max_2_8;
+    x_9(4) <= x_max_2_9;
+    x_10(4) <= x_max_2_10;
+    x_11(4) <= x_max_2_11;
+    x_12(4) <= x_max_2_12;
+    x_13(4) <= x_max_2_13;
+    x_14(4) <= x_max_2_14;
+    x_15(4) <= x_max_2_15;
+    x_16(4) <= x_max_2_16;
+    x_17(4) <= x_max_2_17;
+    x_18(4) <= x_max_2_18;
+    x_19(4) <= x_max_2_19;
+    x_20(4) <= x_max_2_20;
+    x_21(4) <= x_max_2_21;
+    x_22(4) <= x_max_2_22;
+    x_23(4) <= x_max_2_23;
+    x_24(4) <= x_max_2_24;
+    x_25(4) <= x_max_2_25;
+    x_26(4) <= x_max_2_26;
+    x_27(4) <= x_max_2_27;
+    x_28(4) <= x_max_2_28;
+    x_29(4) <= x_max_2_29;
+    x_30(4) <= x_max_2_30;
+    x_31(4) <= x_max_2_31;
+    x_32(4) <= x_max_2_32;
+    x_33(4) <= x_max_2_33;
+    x_34(4) <= x_max_2_34;
+    x_35(4) <= x_max_2_35;
+    x_36(4) <= x_max_2_36;
+    x_37(4) <= x_max_2_37;
+    x_38(4) <= x_max_2_38;
+    x_39(4) <= x_max_2_39;
+    x_40(4) <= x_max_2_40;
+    x_1(4) >= -x_max_2_1;
+    x_2(4) >= -x_max_2_2;
+    x_3(4) >= -x_max_2_3;
+    x_4(4) >= -x_max_2_4;
+    x_5(4) >= -x_max_2_5;
+    x_6(4) >= -x_max_2_6;
+    x_7(4) >= -x_max_2_7;
+    x_8(4) >= -x_max_2_8;
+    x_9(4) >= -x_max_2_9;
+    x_10(4) >= -x_max_2_10;
+    x_11(4) >= -x_max_2_11;
+    x_12(4) >= -x_max_2_12;
+    x_13(4) >= -x_max_2_13;
+    x_14(4) >= -x_max_2_14;
+    x_15(4) >= -x_max_2_15;
+    x_16(4) >= -x_max_2_16;
+    x_17(4) >= -x_max_2_17;
+    x_18(4) >= -x_max_2_18;
+    x_19(4) >= -x_max_2_19;
+    x_20(4) >= -x_max_2_20;
+    x_21(4) >= -x_max_2_21;
+    x_22(4) >= -x_max_2_22;
+    x_23(4) >= -x_max_2_23;
+    x_24(4) >= -x_max_2_24;
+    x_25(4) >= -x_max_2_25;
+    x_26(4) >= -x_max_2_26;
+    x_27(4) >= -x_max_2_27;
+    x_28(4) >= -x_max_2_28;
+    x_29(4) >= -x_max_2_29;
+    x_30(4) >= -x_max_2_30;
+    x_31(4) >= -x_max_2_31;
+    x_32(4) >= -x_max_2_32;
+    x_33(4) >= -x_max_2_33;
+    x_34(4) >= -x_max_2_34;
+    x_35(4) >= -x_max_2_35;
+    x_36(4) >= -x_max_2_36;
+    x_37(4) >= -x_max_2_37;
+    x_38(4) >= -x_max_2_38;
+    x_39(4) >= -x_max_2_39;
+    x_40(4) >= -x_max_2_40;
+    u_0(1) <= x_max_3_0;
+    u_1(1) <= x_max_3_1;
+    u_2(1) <= x_max_3_2;
+    u_3(1) <= x_max_3_3;
+    u_4(1) <= x_max_3_4;
+    u_5(1) <= x_max_3_5;
+    u_6(1) <= x_max_3_6;
+    u_7(1) <= x_max_3_7;
+    u_8(1) <= x_max_3_8;
+    u_9(1) <= x_max_3_9;
+    u_10(1) <= x_max_3_10;
+    u_11(1) <= x_max_3_11;
+    u_12(1) <= x_max_3_12;
+    u_13(1) <= x_max_3_13;
+    u_14(1) <= x_max_3_14;
+    u_15(1) <= x_max_3_15;
+    u_16(1) <= x_max_3_16;
+    u_17(1) <= x_max_3_17;
+    u_18(1) <= x_max_3_18;
+    u_19(1) <= x_max_3_19;
+    u_20(1) <= x_max_3_20;
+    u_21(1) <= x_max_3_21;
+    u_22(1) <= x_max_3_22;
+    u_23(1) <= x_max_3_23;
+    u_24(1) <= x_max_3_24;
+    u_25(1) <= x_max_3_25;
+    u_26(1) <= x_max_3_26;
+    u_27(1) <= x_max_3_27;
+    u_28(1) <= x_max_3_28;
+    u_29(1) <= x_max_3_29;
+    u_30(1) <= x_max_3_30;
+    u_31(1) <= x_max_3_31;
+    u_32(1) <= x_max_3_32;
+    u_33(1) <= x_max_3_33;
+    u_34(1) <= x_max_3_34;
+    u_35(1) <= x_max_3_35;
+    u_36(1) <= x_max_3_36;
+    u_37(1) <= x_max_3_37;
+    u_38(1) <= x_max_3_38;
+    u_39(1) <= x_max_3_39;
+    u_0(1) >= -x_max_3_0;
+    u_1(1) >= -x_max_3_1;
+    u_2(1) >= -x_max_3_2;
+    u_3(1) >= -x_max_3_3;
+    u_4(1) >= -x_max_3_4;
+    u_5(1) >= -x_max_3_5;
+    u_6(1) >= -x_max_3_6;
+    u_7(1) >= -x_max_3_7;
+    u_8(1) >= -x_max_3_8;
+    u_9(1) >= -x_max_3_9;
+    u_10(1) >= -x_max_3_10;
+    u_11(1) >= -x_max_3_11;
+    u_12(1) >= -x_max_3_12;
+    u_13(1) >= -x_max_3_13;
+    u_14(1) >= -x_max_3_14;
+    u_15(1) >= -x_max_3_15;
+    u_16(1) >= -x_max_3_16;
+    u_17(1) >= -x_max_3_17;
+    u_18(1) >= -x_max_3_18;
+    u_19(1) >= -x_max_3_19;
+    u_20(1) >= -x_max_3_20;
+    u_21(1) >= -x_max_3_21;
+    u_22(1) >= -x_max_3_22;
+    u_23(1) >= -x_max_3_23;
+    u_24(1) >= -x_max_3_24;
+    u_25(1) >= -x_max_3_25;
+    u_26(1) >= -x_max_3_26;
+    u_27(1) >= -x_max_3_27;
+    u_28(1) >= -x_max_3_28;
+    u_29(1) >= -x_max_3_29;
+    u_30(1) >= -x_max_3_30;
+    u_31(1) >= -x_max_3_31;
+    u_32(1) >= -x_max_3_32;
+    u_33(1) >= -x_max_3_33;
+    u_34(1) >= -x_max_3_34;
+    u_35(1) >= -x_max_3_35;
+    u_36(1) >= -x_max_3_36;
+    u_37(1) >= -x_max_3_37;
+    u_38(1) >= -x_max_3_38;
+    u_39(1) >= -x_max_3_39;
+    u_0(2) <= x_max_3_0;
+    u_1(2) <= x_max_3_1;
+    u_2(2) <= x_max_3_2;
+    u_3(2) <= x_max_3_3;
+    u_4(2) <= x_max_3_4;
+    u_5(2) <= x_max_3_5;
+    u_6(2) <= x_max_3_6;
+    u_7(2) <= x_max_3_7;
+    u_8(2) <= x_max_3_8;
+    u_9(2) <= x_max_3_9;
+    u_10(2) <= x_max_3_10;
+    u_11(2) <= x_max_3_11;
+    u_12(2) <= x_max_3_12;
+    u_13(2) <= x_max_3_13;
+    u_14(2) <= x_max_3_14;
+    u_15(2) <= x_max_3_15;
+    u_16(2) <= x_max_3_16;
+    u_17(2) <= x_max_3_17;
+    u_18(2) <= x_max_3_18;
+    u_19(2) <= x_max_3_19;
+    u_20(2) <= x_max_3_20;
+    u_21(2) <= x_max_3_21;
+    u_22(2) <= x_max_3_22;
+    u_23(2) <= x_max_3_23;
+    u_24(2) <= x_max_3_24;
+    u_25(2) <= x_max_3_25;
+    u_26(2) <= x_max_3_26;
+    u_27(2) <= x_max_3_27;
+    u_28(2) <= x_max_3_28;
+    u_29(2) <= x_max_3_29;
+    u_30(2) <= x_max_3_30;
+    u_31(2) <= x_max_3_31;
+    u_32(2) <= x_max_3_32;
+    u_33(2) <= x_max_3_33;
+    u_34(2) <= x_max_3_34;
+    u_35(2) <= x_max_3_35;
+    u_36(2) <= x_max_3_36;
+    u_37(2) <= x_max_3_37;
+    u_38(2) <= x_max_3_38;
+    u_39(2) <= x_max_3_39;
+    u_0(2) >= -x_max_3_0;
+    u_1(2) >= -x_max_3_1;
+    u_2(2) >= -x_max_3_2;
+    u_3(2) >= -x_max_3_3;
+    u_4(2) >= -x_max_3_4;
+    u_5(2) >= -x_max_3_5;
+    u_6(2) >= -x_max_3_6;
+    u_7(2) >= -x_max_3_7;
+    u_8(2) >= -x_max_3_8;
+    u_9(2) >= -x_max_3_9;
+    u_10(2) >= -x_max_3_10;
+    u_11(2) >= -x_max_3_11;
+    u_12(2) >= -x_max_3_12;
+    u_13(2) >= -x_max_3_13;
+    u_14(2) >= -x_max_3_14;
+    u_15(2) >= -x_max_3_15;
+    u_16(2) >= -x_max_3_16;
+    u_17(2) >= -x_max_3_17;
+    u_18(2) >= -x_max_3_18;
+    u_19(2) >= -x_max_3_19;
+    u_20(2) >= -x_max_3_20;
+    u_21(2) >= -x_max_3_21;
+    u_22(2) >= -x_max_3_22;
+    u_23(2) >= -x_max_3_23;
+    u_24(2) >= -x_max_3_24;
+    u_25(2) >= -x_max_3_25;
+    u_26(2) >= -x_max_3_26;
+    u_27(2) >= -x_max_3_27;
+    u_28(2) >= -x_max_3_28;
+    u_29(2) >= -x_max_3_29;
+    u_30(2) >= -x_max_3_30;
+    u_31(2) >= -x_max_3_31;
+    u_32(2) >= -x_max_3_32;
+    u_33(2) >= -x_max_3_33;
+    u_34(2) >= -x_max_3_34;
+    u_35(2) >= -x_max_3_35;
+    u_36(2) >= -x_max_3_36;
+    u_37(2) >= -x_max_3_37;
+    u_38(2) >= -x_max_3_38;
+    u_39(2) >= -x_max_3_39;
+    0.7071*u_0(1) + 0.7071*u_0(2) <= x_max_3_0;
+    0.7071*u_1(1) + 0.7071*u_1(2) <= x_max_3_1;
+    0.7071*u_2(1) + 0.7071*u_2(2) <= x_max_3_2;
+    0.7071*u_3(1) + 0.7071*u_3(2) <= x_max_3_3;
+    0.7071*u_4(1) + 0.7071*u_4(2) <= x_max_3_4;
+    0.7071*u_5(1) + 0.7071*u_5(2) <= x_max_3_5;
+    0.7071*u_6(1) + 0.7071*u_6(2) <= x_max_3_6;
+    0.7071*u_7(1) + 0.7071*u_7(2) <= x_max_3_7;
+    0.7071*u_8(1) + 0.7071*u_8(2) <= x_max_3_8;
+    0.7071*u_9(1) + 0.7071*u_9(2) <= x_max_3_9;
+    0.7071*u_10(1) + 0.7071*u_10(2) <= x_max_3_10;
+    0.7071*u_11(1) + 0.7071*u_11(2) <= x_max_3_11;
+    0.7071*u_12(1) + 0.7071*u_12(2) <= x_max_3_12;
+    0.7071*u_13(1) + 0.7071*u_13(2) <= x_max_3_13;
+    0.7071*u_14(1) + 0.7071*u_14(2) <= x_max_3_14;
+    0.7071*u_15(1) + 0.7071*u_15(2) <= x_max_3_15;
+    0.7071*u_16(1) + 0.7071*u_16(2) <= x_max_3_16;
+    0.7071*u_17(1) + 0.7071*u_17(2) <= x_max_3_17;
+    0.7071*u_18(1) + 0.7071*u_18(2) <= x_max_3_18;
+    0.7071*u_19(1) + 0.7071*u_19(2) <= x_max_3_19;
+    0.7071*u_20(1) + 0.7071*u_20(2) <= x_max_3_20;
+    0.7071*u_21(1) + 0.7071*u_21(2) <= x_max_3_21;
+    0.7071*u_22(1) + 0.7071*u_22(2) <= x_max_3_22;
+    0.7071*u_23(1) + 0.7071*u_23(2) <= x_max_3_23;
+    0.7071*u_24(1) + 0.7071*u_24(2) <= x_max_3_24;
+    0.7071*u_25(1) + 0.7071*u_25(2) <= x_max_3_25;
+    0.7071*u_26(1) + 0.7071*u_26(2) <= x_max_3_26;
+    0.7071*u_27(1) + 0.7071*u_27(2) <= x_max_3_27;
+    0.7071*u_28(1) + 0.7071*u_28(2) <= x_max_3_28;
+    0.7071*u_29(1) + 0.7071*u_29(2) <= x_max_3_29;
+    0.7071*u_30(1) + 0.7071*u_30(2) <= x_max_3_30;
+    0.7071*u_31(1) + 0.7071*u_31(2) <= x_max_3_31;
+    0.7071*u_32(1) + 0.7071*u_32(2) <= x_max_3_32;
+    0.7071*u_33(1) + 0.7071*u_33(2) <= x_max_3_33;
+    0.7071*u_34(1) + 0.7071*u_34(2) <= x_max_3_34;
+    0.7071*u_35(1) + 0.7071*u_35(2) <= x_max_3_35;
+    0.7071*u_36(1) + 0.7071*u_36(2) <= x_max_3_36;
+    0.7071*u_37(1) + 0.7071*u_37(2) <= x_max_3_37;
+    0.7071*u_38(1) + 0.7071*u_38(2) <= x_max_3_38;
+    0.7071*u_39(1) + 0.7071*u_39(2) <= x_max_3_39;
+    0.7071*u_0(1) + 0.7071*u_0(2) >= -x_max_3_0;
+    0.7071*u_1(1) + 0.7071*u_1(2) >= -x_max_3_1;
+    0.7071*u_2(1) + 0.7071*u_2(2) >= -x_max_3_2;
+    0.7071*u_3(1) + 0.7071*u_3(2) >= -x_max_3_3;
+    0.7071*u_4(1) + 0.7071*u_4(2) >= -x_max_3_4;
+    0.7071*u_5(1) + 0.7071*u_5(2) >= -x_max_3_5;
+    0.7071*u_6(1) + 0.7071*u_6(2) >= -x_max_3_6;
+    0.7071*u_7(1) + 0.7071*u_7(2) >= -x_max_3_7;
+    0.7071*u_8(1) + 0.7071*u_8(2) >= -x_max_3_8;
+    0.7071*u_9(1) + 0.7071*u_9(2) >= -x_max_3_9;
+    0.7071*u_10(1) + 0.7071*u_10(2) >= -x_max_3_10;
+    0.7071*u_11(1) + 0.7071*u_11(2) >= -x_max_3_11;
+    0.7071*u_12(1) + 0.7071*u_12(2) >= -x_max_3_12;
+    0.7071*u_13(1) + 0.7071*u_13(2) >= -x_max_3_13;
+    0.7071*u_14(1) + 0.7071*u_14(2) >= -x_max_3_14;
+    0.7071*u_15(1) + 0.7071*u_15(2) >= -x_max_3_15;
+    0.7071*u_16(1) + 0.7071*u_16(2) >= -x_max_3_16;
+    0.7071*u_17(1) + 0.7071*u_17(2) >= -x_max_3_17;
+    0.7071*u_18(1) + 0.7071*u_18(2) >= -x_max_3_18;
+    0.7071*u_19(1) + 0.7071*u_19(2) >= -x_max_3_19;
+    0.7071*u_20(1) + 0.7071*u_20(2) >= -x_max_3_20;
+    0.7071*u_21(1) + 0.7071*u_21(2) >= -x_max_3_21;
+    0.7071*u_22(1) + 0.7071*u_22(2) >= -x_max_3_22;
+    0.7071*u_23(1) + 0.7071*u_23(2) >= -x_max_3_23;
+    0.7071*u_24(1) + 0.7071*u_24(2) >= -x_max_3_24;
+    0.7071*u_25(1) + 0.7071*u_25(2) >= -x_max_3_25;
+    0.7071*u_26(1) + 0.7071*u_26(2) >= -x_max_3_26;
+    0.7071*u_27(1) + 0.7071*u_27(2) >= -x_max_3_27;
+    0.7071*u_28(1) + 0.7071*u_28(2) >= -x_max_3_28;
+    0.7071*u_29(1) + 0.7071*u_29(2) >= -x_max_3_29;
+    0.7071*u_30(1) + 0.7071*u_30(2) >= -x_max_3_30;
+    0.7071*u_31(1) + 0.7071*u_31(2) >= -x_max_3_31;
+    0.7071*u_32(1) + 0.7071*u_32(2) >= -x_max_3_32;
+    0.7071*u_33(1) + 0.7071*u_33(2) >= -x_max_3_33;
+    0.7071*u_34(1) + 0.7071*u_34(2) >= -x_max_3_34;
+    0.7071*u_35(1) + 0.7071*u_35(2) >= -x_max_3_35;
+    0.7071*u_36(1) + 0.7071*u_36(2) >= -x_max_3_36;
+    0.7071*u_37(1) + 0.7071*u_37(2) >= -x_max_3_37;
+    0.7071*u_38(1) + 0.7071*u_38(2) >= -x_max_3_38;
+    0.7071*u_39(1) + 0.7071*u_39(2) >= -x_max_3_39;
+    0.7071*u_0(1) - 0.7071*u_0(2) <= x_max_3_0;
+    0.7071*u_1(1) - 0.7071*u_1(2) <= x_max_3_1;
+    0.7071*u_2(1) - 0.7071*u_2(2) <= x_max_3_2;
+    0.7071*u_3(1) - 0.7071*u_3(2) <= x_max_3_3;
+    0.7071*u_4(1) - 0.7071*u_4(2) <= x_max_3_4;
+    0.7071*u_5(1) - 0.7071*u_5(2) <= x_max_3_5;
+    0.7071*u_6(1) - 0.7071*u_6(2) <= x_max_3_6;
+    0.7071*u_7(1) - 0.7071*u_7(2) <= x_max_3_7;
+    0.7071*u_8(1) - 0.7071*u_8(2) <= x_max_3_8;
+    0.7071*u_9(1) - 0.7071*u_9(2) <= x_max_3_9;
+    0.7071*u_10(1) - 0.7071*u_10(2) <= x_max_3_10;
+    0.7071*u_11(1) - 0.7071*u_11(2) <= x_max_3_11;
+    0.7071*u_12(1) - 0.7071*u_12(2) <= x_max_3_12;
+    0.7071*u_13(1) - 0.7071*u_13(2) <= x_max_3_13;
+    0.7071*u_14(1) - 0.7071*u_14(2) <= x_max_3_14;
+    0.7071*u_15(1) - 0.7071*u_15(2) <= x_max_3_15;
+    0.7071*u_16(1) - 0.7071*u_16(2) <= x_max_3_16;
+    0.7071*u_17(1) - 0.7071*u_17(2) <= x_max_3_17;
+    0.7071*u_18(1) - 0.7071*u_18(2) <= x_max_3_18;
+    0.7071*u_19(1) - 0.7071*u_19(2) <= x_max_3_19;
+    0.7071*u_20(1) - 0.7071*u_20(2) <= x_max_3_20;
+    0.7071*u_21(1) - 0.7071*u_21(2) <= x_max_3_21;
+    0.7071*u_22(1) - 0.7071*u_22(2) <= x_max_3_22;
+    0.7071*u_23(1) - 0.7071*u_23(2) <= x_max_3_23;
+    0.7071*u_24(1) - 0.7071*u_24(2) <= x_max_3_24;
+    0.7071*u_25(1) - 0.7071*u_25(2) <= x_max_3_25;
+    0.7071*u_26(1) - 0.7071*u_26(2) <= x_max_3_26;
+    0.7071*u_27(1) - 0.7071*u_27(2) <= x_max_3_27;
+    0.7071*u_28(1) - 0.7071*u_28(2) <= x_max_3_28;
+    0.7071*u_29(1) - 0.7071*u_29(2) <= x_max_3_29;
+    0.7071*u_30(1) - 0.7071*u_30(2) <= x_max_3_30;
+    0.7071*u_31(1) - 0.7071*u_31(2) <= x_max_3_31;
+    0.7071*u_32(1) - 0.7071*u_32(2) <= x_max_3_32;
+    0.7071*u_33(1) - 0.7071*u_33(2) <= x_max_3_33;
+    0.7071*u_34(1) - 0.7071*u_34(2) <= x_max_3_34;
+    0.7071*u_35(1) - 0.7071*u_35(2) <= x_max_3_35;
+    0.7071*u_36(1) - 0.7071*u_36(2) <= x_max_3_36;
+    0.7071*u_37(1) - 0.7071*u_37(2) <= x_max_3_37;
+    0.7071*u_38(1) - 0.7071*u_38(2) <= x_max_3_38;
+    0.7071*u_39(1) - 0.7071*u_39(2) <= x_max_3_39;
+    0.7071*u_0(1) - 0.7071*u_0(2) >= -x_max_3_0;
+    0.7071*u_1(1) - 0.7071*u_1(2) >= -x_max_3_1;
+    0.7071*u_2(1) - 0.7071*u_2(2) >= -x_max_3_2;
+    0.7071*u_3(1) - 0.7071*u_3(2) >= -x_max_3_3;
+    0.7071*u_4(1) - 0.7071*u_4(2) >= -x_max_3_4;
+    0.7071*u_5(1) - 0.7071*u_5(2) >= -x_max_3_5;
+    0.7071*u_6(1) - 0.7071*u_6(2) >= -x_max_3_6;
+    0.7071*u_7(1) - 0.7071*u_7(2) >= -x_max_3_7;
+    0.7071*u_8(1) - 0.7071*u_8(2) >= -x_max_3_8;
+    0.7071*u_9(1) - 0.7071*u_9(2) >= -x_max_3_9;
+    0.7071*u_10(1) - 0.7071*u_10(2) >= -x_max_3_10;
+    0.7071*u_11(1) - 0.7071*u_11(2) >= -x_max_3_11;
+    0.7071*u_12(1) - 0.7071*u_12(2) >= -x_max_3_12;
+    0.7071*u_13(1) - 0.7071*u_13(2) >= -x_max_3_13;
+    0.7071*u_14(1) - 0.7071*u_14(2) >= -x_max_3_14;
+    0.7071*u_15(1) - 0.7071*u_15(2) >= -x_max_3_15;
+    0.7071*u_16(1) - 0.7071*u_16(2) >= -x_max_3_16;
+    0.7071*u_17(1) - 0.7071*u_17(2) >= -x_max_3_17;
+    0.7071*u_18(1) - 0.7071*u_18(2) >= -x_max_3_18;
+    0.7071*u_19(1) - 0.7071*u_19(2) >= -x_max_3_19;
+    0.7071*u_20(1) - 0.7071*u_20(2) >= -x_max_3_20;
+    0.7071*u_21(1) - 0.7071*u_21(2) >= -x_max_3_21;
+    0.7071*u_22(1) - 0.7071*u_22(2) >= -x_max_3_22;
+    0.7071*u_23(1) - 0.7071*u_23(2) >= -x_max_3_23;
+    0.7071*u_24(1) - 0.7071*u_24(2) >= -x_max_3_24;
+    0.7071*u_25(1) - 0.7071*u_25(2) >= -x_max_3_25;
+    0.7071*u_26(1) - 0.7071*u_26(2) >= -x_max_3_26;
+    0.7071*u_27(1) - 0.7071*u_27(2) >= -x_max_3_27;
+    0.7071*u_28(1) - 0.7071*u_28(2) >= -x_max_3_28;
+    0.7071*u_29(1) - 0.7071*u_29(2) >= -x_max_3_29;
+    0.7071*u_30(1) - 0.7071*u_30(2) >= -x_max_3_30;
+    0.7071*u_31(1) - 0.7071*u_31(2) >= -x_max_3_31;
+    0.7071*u_32(1) - 0.7071*u_32(2) >= -x_max_3_32;
+    0.7071*u_33(1) - 0.7071*u_33(2) >= -x_max_3_33;
+    0.7071*u_34(1) - 0.7071*u_34(2) >= -x_max_3_34;
+    0.7071*u_35(1) - 0.7071*u_35(2) >= -x_max_3_35;
+    0.7071*u_36(1) - 0.7071*u_36(2) >= -x_max_3_36;
+    0.7071*u_37(1) - 0.7071*u_37(2) >= -x_max_3_37;
+    0.7071*u_38(1) - 0.7071*u_38(2) >= -x_max_3_38;
+    0.7071*u_39(1) - 0.7071*u_39(2) >= -x_max_3_39;
+    0.7071*x_1(4) + 0.7071*x_1(2) <= x_max_2_1;
+    0.7071*x_2(4) + 0.7071*x_2(2) <= x_max_2_2;
+    0.7071*x_3(4) + 0.7071*x_3(2) <= x_max_2_3;
+    0.7071*x_4(4) + 0.7071*x_4(2) <= x_max_2_4;
+    0.7071*x_5(4) + 0.7071*x_5(2) <= x_max_2_5;
+    0.7071*x_6(4) + 0.7071*x_6(2) <= x_max_2_6;
+    0.7071*x_7(4) + 0.7071*x_7(2) <= x_max_2_7;
+    0.7071*x_8(4) + 0.7071*x_8(2) <= x_max_2_8;
+    0.7071*x_9(4) + 0.7071*x_9(2) <= x_max_2_9;
+    0.7071*x_10(4) + 0.7071*x_10(2) <= x_max_2_10;
+    0.7071*x_11(4) + 0.7071*x_11(2) <= x_max_2_11;
+    0.7071*x_12(4) + 0.7071*x_12(2) <= x_max_2_12;
+    0.7071*x_13(4) + 0.7071*x_13(2) <= x_max_2_13;
+    0.7071*x_14(4) + 0.7071*x_14(2) <= x_max_2_14;
+    0.7071*x_15(4) + 0.7071*x_15(2) <= x_max_2_15;
+    0.7071*x_16(4) + 0.7071*x_16(2) <= x_max_2_16;
+    0.7071*x_17(4) + 0.7071*x_17(2) <= x_max_2_17;
+    0.7071*x_18(4) + 0.7071*x_18(2) <= x_max_2_18;
+    0.7071*x_19(4) + 0.7071*x_19(2) <= x_max_2_19;
+    0.7071*x_20(4) + 0.7071*x_20(2) <= x_max_2_20;
+    0.7071*x_21(4) + 0.7071*x_21(2) <= x_max_2_21;
+    0.7071*x_22(4) + 0.7071*x_22(2) <= x_max_2_22;
+    0.7071*x_23(4) + 0.7071*x_23(2) <= x_max_2_23;
+    0.7071*x_24(4) + 0.7071*x_24(2) <= x_max_2_24;
+    0.7071*x_25(4) + 0.7071*x_25(2) <= x_max_2_25;
+    0.7071*x_26(4) + 0.7071*x_26(2) <= x_max_2_26;
+    0.7071*x_27(4) + 0.7071*x_27(2) <= x_max_2_27;
+    0.7071*x_28(4) + 0.7071*x_28(2) <= x_max_2_28;
+    0.7071*x_29(4) + 0.7071*x_29(2) <= x_max_2_29;
+    0.7071*x_30(4) + 0.7071*x_30(2) <= x_max_2_30;
+    0.7071*x_31(4) + 0.7071*x_31(2) <= x_max_2_31;
+    0.7071*x_32(4) + 0.7071*x_32(2) <= x_max_2_32;
+    0.7071*x_33(4) + 0.7071*x_33(2) <= x_max_2_33;
+    0.7071*x_34(4) + 0.7071*x_34(2) <= x_max_2_34;
+    0.7071*x_35(4) + 0.7071*x_35(2) <= x_max_2_35;
+    0.7071*x_36(4) + 0.7071*x_36(2) <= x_max_2_36;
+    0.7071*x_37(4) + 0.7071*x_37(2) <= x_max_2_37;
+    0.7071*x_38(4) + 0.7071*x_38(2) <= x_max_2_38;
+    0.7071*x_39(4) + 0.7071*x_39(2) <= x_max_2_39;
+    0.7071*x_40(4) + 0.7071*x_40(2) <= x_max_2_40;
+    0.7071*x_1(4) + 0.7071*x_1(2) >= -x_max_2_1;
+    0.7071*x_2(4) + 0.7071*x_2(2) >= -x_max_2_2;
+    0.7071*x_3(4) + 0.7071*x_3(2) >= -x_max_2_3;
+    0.7071*x_4(4) + 0.7071*x_4(2) >= -x_max_2_4;
+    0.7071*x_5(4) + 0.7071*x_5(2) >= -x_max_2_5;
+    0.7071*x_6(4) + 0.7071*x_6(2) >= -x_max_2_6;
+    0.7071*x_7(4) + 0.7071*x_7(2) >= -x_max_2_7;
+    0.7071*x_8(4) + 0.7071*x_8(2) >= -x_max_2_8;
+    0.7071*x_9(4) + 0.7071*x_9(2) >= -x_max_2_9;
+    0.7071*x_10(4) + 0.7071*x_10(2) >= -x_max_2_10;
+    0.7071*x_11(4) + 0.7071*x_11(2) >= -x_max_2_11;
+    0.7071*x_12(4) + 0.7071*x_12(2) >= -x_max_2_12;
+    0.7071*x_13(4) + 0.7071*x_13(2) >= -x_max_2_13;
+    0.7071*x_14(4) + 0.7071*x_14(2) >= -x_max_2_14;
+    0.7071*x_15(4) + 0.7071*x_15(2) >= -x_max_2_15;
+    0.7071*x_16(4) + 0.7071*x_16(2) >= -x_max_2_16;
+    0.7071*x_17(4) + 0.7071*x_17(2) >= -x_max_2_17;
+    0.7071*x_18(4) + 0.7071*x_18(2) >= -x_max_2_18;
+    0.7071*x_19(4) + 0.7071*x_19(2) >= -x_max_2_19;
+    0.7071*x_20(4) + 0.7071*x_20(2) >= -x_max_2_20;
+    0.7071*x_21(4) + 0.7071*x_21(2) >= -x_max_2_21;
+    0.7071*x_22(4) + 0.7071*x_22(2) >= -x_max_2_22;
+    0.7071*x_23(4) + 0.7071*x_23(2) >= -x_max_2_23;
+    0.7071*x_24(4) + 0.7071*x_24(2) >= -x_max_2_24;
+    0.7071*x_25(4) + 0.7071*x_25(2) >= -x_max_2_25;
+    0.7071*x_26(4) + 0.7071*x_26(2) >= -x_max_2_26;
+    0.7071*x_27(4) + 0.7071*x_27(2) >= -x_max_2_27;
+    0.7071*x_28(4) + 0.7071*x_28(2) >= -x_max_2_28;
+    0.7071*x_29(4) + 0.7071*x_29(2) >= -x_max_2_29;
+    0.7071*x_30(4) + 0.7071*x_30(2) >= -x_max_2_30;
+    0.7071*x_31(4) + 0.7071*x_31(2) >= -x_max_2_31;
+    0.7071*x_32(4) + 0.7071*x_32(2) >= -x_max_2_32;
+    0.7071*x_33(4) + 0.7071*x_33(2) >= -x_max_2_33;
+    0.7071*x_34(4) + 0.7071*x_34(2) >= -x_max_2_34;
+    0.7071*x_35(4) + 0.7071*x_35(2) >= -x_max_2_35;
+    0.7071*x_36(4) + 0.7071*x_36(2) >= -x_max_2_36;
+    0.7071*x_37(4) + 0.7071*x_37(2) >= -x_max_2_37;
+    0.7071*x_38(4) + 0.7071*x_38(2) >= -x_max_2_38;
+    0.7071*x_39(4) + 0.7071*x_39(2) >= -x_max_2_39;
+    0.7071*x_40(4) + 0.7071*x_40(2) >= -x_max_2_40;
+    0.7071*x_1(4) - 0.7071*x_1(2) <= x_max_2_1;
+    0.7071*x_2(4) - 0.7071*x_2(2) <= x_max_2_2;
+    0.7071*x_3(4) - 0.7071*x_3(2) <= x_max_2_3;
+    0.7071*x_4(4) - 0.7071*x_4(2) <= x_max_2_4;
+    0.7071*x_5(4) - 0.7071*x_5(2) <= x_max_2_5;
+    0.7071*x_6(4) - 0.7071*x_6(2) <= x_max_2_6;
+    0.7071*x_7(4) - 0.7071*x_7(2) <= x_max_2_7;
+    0.7071*x_8(4) - 0.7071*x_8(2) <= x_max_2_8;
+    0.7071*x_9(4) - 0.7071*x_9(2) <= x_max_2_9;
+    0.7071*x_10(4) - 0.7071*x_10(2) <= x_max_2_10;
+    0.7071*x_11(4) - 0.7071*x_11(2) <= x_max_2_11;
+    0.7071*x_12(4) - 0.7071*x_12(2) <= x_max_2_12;
+    0.7071*x_13(4) - 0.7071*x_13(2) <= x_max_2_13;
+    0.7071*x_14(4) - 0.7071*x_14(2) <= x_max_2_14;
+    0.7071*x_15(4) - 0.7071*x_15(2) <= x_max_2_15;
+    0.7071*x_16(4) - 0.7071*x_16(2) <= x_max_2_16;
+    0.7071*x_17(4) - 0.7071*x_17(2) <= x_max_2_17;
+    0.7071*x_18(4) - 0.7071*x_18(2) <= x_max_2_18;
+    0.7071*x_19(4) - 0.7071*x_19(2) <= x_max_2_19;
+    0.7071*x_20(4) - 0.7071*x_20(2) <= x_max_2_20;
+    0.7071*x_21(4) - 0.7071*x_21(2) <= x_max_2_21;
+    0.7071*x_22(4) - 0.7071*x_22(2) <= x_max_2_22;
+    0.7071*x_23(4) - 0.7071*x_23(2) <= x_max_2_23;
+    0.7071*x_24(4) - 0.7071*x_24(2) <= x_max_2_24;
+    0.7071*x_25(4) - 0.7071*x_25(2) <= x_max_2_25;
+    0.7071*x_26(4) - 0.7071*x_26(2) <= x_max_2_26;
+    0.7071*x_27(4) - 0.7071*x_27(2) <= x_max_2_27;
+    0.7071*x_28(4) - 0.7071*x_28(2) <= x_max_2_28;
+    0.7071*x_29(4) - 0.7071*x_29(2) <= x_max_2_29;
+    0.7071*x_30(4) - 0.7071*x_30(2) <= x_max_2_30;
+    0.7071*x_31(4) - 0.7071*x_31(2) <= x_max_2_31;
+    0.7071*x_32(4) - 0.7071*x_32(2) <= x_max_2_32;
+    0.7071*x_33(4) - 0.7071*x_33(2) <= x_max_2_33;
+    0.7071*x_34(4) - 0.7071*x_34(2) <= x_max_2_34;
+    0.7071*x_35(4) - 0.7071*x_35(2) <= x_max_2_35;
+    0.7071*x_36(4) - 0.7071*x_36(2) <= x_max_2_36;
+    0.7071*x_37(4) - 0.7071*x_37(2) <= x_max_2_37;
+    0.7071*x_38(4) - 0.7071*x_38(2) <= x_max_2_38;
+    0.7071*x_39(4) - 0.7071*x_39(2) <= x_max_2_39;
+    0.7071*x_40(4) - 0.7071*x_40(2) <= x_max_2_40;
+    0.7071*x_1(4) - 0.7071*x_1(2) >= -x_max_2_1;
+    0.7071*x_2(4) - 0.7071*x_2(2) >= -x_max_2_2;
+    0.7071*x_3(4) - 0.7071*x_3(2) >= -x_max_2_3;
+    0.7071*x_4(4) - 0.7071*x_4(2) >= -x_max_2_4;
+    0.7071*x_5(4) - 0.7071*x_5(2) >= -x_max_2_5;
+    0.7071*x_6(4) - 0.7071*x_6(2) >= -x_max_2_6;
+    0.7071*x_7(4) - 0.7071*x_7(2) >= -x_max_2_7;
+    0.7071*x_8(4) - 0.7071*x_8(2) >= -x_max_2_8;
+    0.7071*x_9(4) - 0.7071*x_9(2) >= -x_max_2_9;
+    0.7071*x_10(4) - 0.7071*x_10(2) >= -x_max_2_10;
+    0.7071*x_11(4) - 0.7071*x_11(2) >= -x_max_2_11;
+    0.7071*x_12(4) - 0.7071*x_12(2) >= -x_max_2_12;
+    0.7071*x_13(4) - 0.7071*x_13(2) >= -x_max_2_13;
+    0.7071*x_14(4) - 0.7071*x_14(2) >= -x_max_2_14;
+    0.7071*x_15(4) - 0.7071*x_15(2) >= -x_max_2_15;
+    0.7071*x_16(4) - 0.7071*x_16(2) >= -x_max_2_16;
+    0.7071*x_17(4) - 0.7071*x_17(2) >= -x_max_2_17;
+    0.7071*x_18(4) - 0.7071*x_18(2) >= -x_max_2_18;
+    0.7071*x_19(4) - 0.7071*x_19(2) >= -x_max_2_19;
+    0.7071*x_20(4) - 0.7071*x_20(2) >= -x_max_2_20;
+    0.7071*x_21(4) - 0.7071*x_21(2) >= -x_max_2_21;
+    0.7071*x_22(4) - 0.7071*x_22(2) >= -x_max_2_22;
+    0.7071*x_23(4) - 0.7071*x_23(2) >= -x_max_2_23;
+    0.7071*x_24(4) - 0.7071*x_24(2) >= -x_max_2_24;
+    0.7071*x_25(4) - 0.7071*x_25(2) >= -x_max_2_25;
+    0.7071*x_26(4) - 0.7071*x_26(2) >= -x_max_2_26;
+    0.7071*x_27(4) - 0.7071*x_27(2) >= -x_max_2_27;
+    0.7071*x_28(4) - 0.7071*x_28(2) >= -x_max_2_28;
+    0.7071*x_29(4) - 0.7071*x_29(2) >= -x_max_2_29;
+    0.7071*x_30(4) - 0.7071*x_30(2) >= -x_max_2_30;
+    0.7071*x_31(4) - 0.7071*x_31(2) >= -x_max_2_31;
+    0.7071*x_32(4) - 0.7071*x_32(2) >= -x_max_2_32;
+    0.7071*x_33(4) - 0.7071*x_33(2) >= -x_max_2_33;
+    0.7071*x_34(4) - 0.7071*x_34(2) >= -x_max_2_34;
+    0.7071*x_35(4) - 0.7071*x_35(2) >= -x_max_2_35;
+    0.7071*x_36(4) - 0.7071*x_36(2) >= -x_max_2_36;
+    0.7071*x_37(4) - 0.7071*x_37(2) >= -x_max_2_37;
+    0.7071*x_38(4) - 0.7071*x_38(2) >= -x_max_2_38;
+    0.7071*x_39(4) - 0.7071*x_39(2) >= -x_max_2_39;
+    0.7071*x_40(4) - 0.7071*x_40(2) >= -x_max_2_40;
 cvx_end
 vars.u_0 = u_0;
 vars.u_1 = u_1;

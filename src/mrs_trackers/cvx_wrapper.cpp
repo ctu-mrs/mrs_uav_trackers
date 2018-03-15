@@ -101,11 +101,88 @@ void CvxWrapper::setInitialState(MatrixXd& x) {
   params.x_0[2] = x(3, 0);
   params.x_0[3] = x(4, 0);
 }
-void CvxWrapper::setLimits(double max_speed, double max_acc) {
-  params.x_max_2[0] = max_speed;
-  params.x_max_3[0] = max_acc;
-  params.x_min_2[0] = -max_speed;
-  params.x_min_3[0] = -max_acc;
+void CvxWrapper::setLimits(VectorXd& max_speed, VectorXd& max_acc) {
+  params.x_max_2_1[0] = max_speed(0);
+  params.x_max_2_2[0] = max_speed(1);
+  params.x_max_2_3[0] = max_speed(2);
+  params.x_max_2_4[0] = max_speed(3);
+  params.x_max_2_5[0] = max_speed(4);
+  params.x_max_2_6[0] = max_speed(5);
+  params.x_max_2_7[0] = max_speed(6);
+  params.x_max_2_8[0] = max_speed(7);
+  params.x_max_2_9[0] = max_speed(8);
+  params.x_max_2_10[0] = max_speed(9);
+  params.x_max_2_11[0] = max_speed(10);
+  params.x_max_2_12[0] = max_speed(11);
+  params.x_max_2_13[0] = max_speed(12);
+  params.x_max_2_14[0] = max_speed(13);
+  params.x_max_2_15[0] = max_speed(14);
+  params.x_max_2_16[0] = max_speed(15);
+  params.x_max_2_17[0] = max_speed(16);
+  params.x_max_2_18[0] = max_speed(17);
+  params.x_max_2_19[0] = max_speed(18);
+  params.x_max_2_20[0] = max_speed(19);
+  params.x_max_2_21[0] = max_speed(20);
+  params.x_max_2_22[0] = max_speed(21);
+  params.x_max_2_23[0] = max_speed(22);
+  params.x_max_2_24[0] = max_speed(23);
+  params.x_max_2_25[0] = max_speed(24);
+  params.x_max_2_26[0] = max_speed(25);
+  params.x_max_2_27[0] = max_speed(26);
+  params.x_max_2_28[0] = max_speed(27);
+  params.x_max_2_29[0] = max_speed(28);
+  params.x_max_2_30[0] = max_speed(29);
+  params.x_max_2_31[0] = max_speed(30);
+  params.x_max_2_32[0] = max_speed(31);
+  params.x_max_2_33[0] = max_speed(32);
+  params.x_max_2_34[0] = max_speed(33);
+  params.x_max_2_35[0] = max_speed(34);
+  params.x_max_2_36[0] = max_speed(35);
+  params.x_max_2_37[0] = max_speed(36);
+  params.x_max_2_38[0] = max_speed(37);
+  params.x_max_2_39[0] = max_speed(38);
+  params.x_max_2_40[0] = max_speed(39);
+  
+  params.x_max_3_0[0] = max_acc(0);
+  params.x_max_3_1[0] = max_acc(1);
+  params.x_max_3_2[0] = max_acc(2);
+  params.x_max_3_3[0] = max_acc(3);
+  params.x_max_3_4[0] = max_acc(4);
+  params.x_max_3_5[0] = max_acc(5);
+  params.x_max_3_6[0] = max_acc(6);
+  params.x_max_3_7[0] = max_acc(7);
+  params.x_max_3_8[0] = max_acc(8);
+  params.x_max_3_9[0] = max_acc(9);
+  params.x_max_3_10[0] = max_acc(10);
+  params.x_max_3_11[0] = max_acc(11);
+  params.x_max_3_12[0] = max_acc(12);
+  params.x_max_3_13[0] = max_acc(13);
+  params.x_max_3_14[0] = max_acc(14);
+  params.x_max_3_15[0] = max_acc(15);
+  params.x_max_3_16[0] = max_acc(16);
+  params.x_max_3_17[0] = max_acc(17);
+  params.x_max_3_18[0] = max_acc(18);
+  params.x_max_3_19[0] = max_acc(19);
+  params.x_max_3_20[0] = max_acc(20);
+  params.x_max_3_21[0] = max_acc(21);
+  params.x_max_3_22[0] = max_acc(22);
+  params.x_max_3_23[0] = max_acc(23);
+  params.x_max_3_24[0] = max_acc(24);
+  params.x_max_3_25[0] = max_acc(25);
+  params.x_max_3_26[0] = max_acc(26);
+  params.x_max_3_27[0] = max_acc(27);
+  params.x_max_3_28[0] = max_acc(28);
+  params.x_max_3_29[0] = max_acc(29);
+  params.x_max_3_30[0] = max_acc(30);
+  params.x_max_3_31[0] = max_acc(31);
+  params.x_max_3_32[0] = max_acc(32);
+  params.x_max_3_33[0] = max_acc(33);
+  params.x_max_3_34[0] = max_acc(34);
+  params.x_max_3_35[0] = max_acc(35);
+  params.x_max_3_36[0] = max_acc(36);
+  params.x_max_3_37[0] = max_acc(37);
+  params.x_max_3_38[0] = max_acc(38);
+  params.x_max_3_39[0] = max_acc(39);
 }
 void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_1[0]  = reference(0 * n + 0, 0);
@@ -193,7 +270,6 @@ int CvxWrapper::solveCvx() {
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {
-  ROS_INFO_STREAM_THROTTLE(0.3, *(vars.x_1 + 1) << "  " <<  *(vars.x_2 + 1) << "  " << *(vars.x_3 + 1) << "  " << *(vars.x_4 + 1) << "  " <<  *(vars.x_5 + 1));
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.u_0);

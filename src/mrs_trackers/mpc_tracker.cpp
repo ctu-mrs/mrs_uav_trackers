@@ -133,18 +133,19 @@ private:
   MatrixXd B_yaw;  // input matrix for yaw
 
   // trajectories
-  MatrixXd des_x_trajectory;    // trajectory reference over the prediction horizon
-  MatrixXd des_y_trajectory;    // trajectory reference over the prediction horizon
-  MatrixXd des_z_trajectory;    // trajectory reference over the prediction horizon
-  MatrixXd des_yaw_trajectory;  // trajectory reference over the prediction horizon
-  MatrixXd des_x_filtered;      // filtered trajectory reference over the horizon
-  MatrixXd des_y_filtered;      // filtered trajectory reference over the horizon
-  MatrixXd des_z_filtered;      // filtered trajectory reference over the horizon
-
-  VectorXd des_x_whole_trajectory;    // long trajectory reference
-  VectorXd des_y_whole_trajectory;    // long trajectory reference
-  VectorXd des_z_whole_trajectory;    // long trajectory reference
-  VectorXd des_yaw_whole_trajectory;  // long trajectory reference
+  MatrixXd des_x_trajectory;                  // trajectory reference over the prediction horizon
+  MatrixXd des_y_trajectory;                  // trajectory reference over the prediction horizon
+  MatrixXd des_z_trajectory;                  // trajectory reference over the prediction horizon
+  MatrixXd des_yaw_trajectory;                // trajectory reference over the prediction horizon
+  MatrixXd des_x_filtered;                    // filtered trajectory reference over the horizon
+  MatrixXd des_y_filtered;                    // filtered trajectory reference over the horizon
+  MatrixXd des_z_filtered;                    // filtered trajectory reference over the horizon
+  VectorXd cvxgen_horizontal_vel_constraint;  // velocity constraint for the XY cvxgen solver
+  VectorXd cvxgen_horizontal_acc_constraint;  // acceleration constraint for the XY cvxgen solv
+  VectorXd des_x_whole_trajectory;            // long trajectory reference
+  VectorXd des_y_whole_trajectory;            // long trajectory reference
+  VectorXd des_z_whole_trajectory;            // long trajectory reference
+  VectorXd des_yaw_whole_trajectory;          // long trajectory reference
   bool     use_yaw_in_trajectory;
 
   bool tracking_trajectory_;  // are we currently tracking a trajectory
@@ -521,6 +522,9 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   // initialize the trajectory variables
   reference     = MatrixXd::Zero(n * horizon_len, 1);
   reference_yaw = MatrixXd::Zero(3 * horizon_len, 1);
+
+  cvxgen_horizontal_vel_constraint = VectorXd::Zero(horizon_len);
+  cvxgen_horizontal_acc_constraint = VectorXd::Zero(horizon_len);
 
   des_x_trajectory   = MatrixXd::Zero(horizon_len, 1);
   des_y_trajectory   = MatrixXd::Zero(horizon_len, 1);
@@ -1028,6 +1032,7 @@ void MpcTracker::calculateMPC() {
   filterReference();
   // filter desired yaw reference to be feasible and remove pi rollarounds
   filterYawReference();
+
   /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
   /*   params.Q[4] = 0; */
   /* } else { */
@@ -1063,9 +1068,15 @@ void MpcTracker::calculateMPC() {
   }
 
 
+  // Prepare constraints for velocity and acceleration in X/Y
+  for (int i = 0; i < horizon_len; i++) {
+    cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
+    cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
+  }
+
+
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
-
     reference(i * n, 0)     = des_x_filtered(i, 0);
     reference(i * n + 1, 0) = 0;
     reference(i * n + 2, 0) = 0;
@@ -1089,16 +1100,6 @@ void MpcTracker::calculateMPC() {
 
   ros::Time time_begin = ros::Time::now();
 
-  // cvxgen X and Y axis -------------------------------------------------------------------------------
-
-  cvx_2d->setInitialState(x);
-  cvx_2d->setLimits(max_speed_xy, max_acc_xy);
-  cvx_2d->loadReference(reference);
-  iters_XY += cvx_2d->solveCvx();
-  cvx_2d->getStates(predicted_future_trajectory);
-  cvx_u(0) = cvx_2d->getFirstControlInputX();
-  cvx_u(1) = cvx_2d->getFirstControlInputY();
-
   // cvxgen Z axis -------------------------------------------------------------------------------------
   cvx_1d->setInitialState(x);
   cvx_1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
@@ -1106,6 +1107,16 @@ void MpcTracker::calculateMPC() {
   iters_Z += cvx_1d->solveCvx();
   cvx_1d->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_1d->getFirstControlInput();
+
+  // cvxgen X and Y axis -------------------------------------------------------------------------------
+
+  cvx_2d->setInitialState(x);
+  cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
+  cvx_2d->loadReference(reference);
+  iters_XY += cvx_2d->solveCvx();
+  cvx_2d->getStates(predicted_future_trajectory);
+  cvx_u(0) = cvx_2d->getFirstControlInputX();
+  cvx_u(1) = cvx_2d->getFirstControlInputY();
 
   // cvxgen yaw ----------------------------------------------------------------------------------------
   cvx_yaw->setInitialState(x_yaw);
@@ -1605,7 +1616,7 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
   double abs_y   = x(3, 0) + set_y;
   double abs_z   = x(6, 0) + set_z;
   double abs_yaw = x_yaw(0, 0) + set_yaw;
-  
+
   if (set_use_yaw) {
     des_yaw_mutex.lock();
     desired_yaw = abs_yaw;

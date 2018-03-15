@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-03-14 11:03:42 -0400.  */
+/* Produced by CVXGEN, 2018-03-15 09:49:06 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -11,7 +11,7 @@ double eval_gap(void) {
   int i;
   double gap;
   gap = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     gap += work.z[i]*work.s[i];
   return gap;
 }
@@ -31,7 +31,7 @@ void set_defaults(void) {
 void setup_pointers(void) {
   work.y = work.x + 240;
   work.s = work.x + 400;
-  work.z = work.x + 1120;
+  work.z = work.x + 1040;
   vars.u_0 = work.x + 0;
   vars.u_1 = work.x + 2;
   vars.u_2 = work.x + 4;
@@ -163,6 +163,86 @@ void setup_indexed_params(void) {
   params.x_ss[39] = params.x_ss_39;
   params.x_ss[40] = params.x_ss_40;
   params.x[0] = params.x_0;
+  params.x_max_2[1] = params.x_max_2_1;
+  params.x_max_2[2] = params.x_max_2_2;
+  params.x_max_2[3] = params.x_max_2_3;
+  params.x_max_2[4] = params.x_max_2_4;
+  params.x_max_2[5] = params.x_max_2_5;
+  params.x_max_2[6] = params.x_max_2_6;
+  params.x_max_2[7] = params.x_max_2_7;
+  params.x_max_2[8] = params.x_max_2_8;
+  params.x_max_2[9] = params.x_max_2_9;
+  params.x_max_2[10] = params.x_max_2_10;
+  params.x_max_2[11] = params.x_max_2_11;
+  params.x_max_2[12] = params.x_max_2_12;
+  params.x_max_2[13] = params.x_max_2_13;
+  params.x_max_2[14] = params.x_max_2_14;
+  params.x_max_2[15] = params.x_max_2_15;
+  params.x_max_2[16] = params.x_max_2_16;
+  params.x_max_2[17] = params.x_max_2_17;
+  params.x_max_2[18] = params.x_max_2_18;
+  params.x_max_2[19] = params.x_max_2_19;
+  params.x_max_2[20] = params.x_max_2_20;
+  params.x_max_2[21] = params.x_max_2_21;
+  params.x_max_2[22] = params.x_max_2_22;
+  params.x_max_2[23] = params.x_max_2_23;
+  params.x_max_2[24] = params.x_max_2_24;
+  params.x_max_2[25] = params.x_max_2_25;
+  params.x_max_2[26] = params.x_max_2_26;
+  params.x_max_2[27] = params.x_max_2_27;
+  params.x_max_2[28] = params.x_max_2_28;
+  params.x_max_2[29] = params.x_max_2_29;
+  params.x_max_2[30] = params.x_max_2_30;
+  params.x_max_2[31] = params.x_max_2_31;
+  params.x_max_2[32] = params.x_max_2_32;
+  params.x_max_2[33] = params.x_max_2_33;
+  params.x_max_2[34] = params.x_max_2_34;
+  params.x_max_2[35] = params.x_max_2_35;
+  params.x_max_2[36] = params.x_max_2_36;
+  params.x_max_2[37] = params.x_max_2_37;
+  params.x_max_2[38] = params.x_max_2_38;
+  params.x_max_2[39] = params.x_max_2_39;
+  params.x_max_2[40] = params.x_max_2_40;
+  params.x_max_3[0] = params.x_max_3_0;
+  params.x_max_3[1] = params.x_max_3_1;
+  params.x_max_3[2] = params.x_max_3_2;
+  params.x_max_3[3] = params.x_max_3_3;
+  params.x_max_3[4] = params.x_max_3_4;
+  params.x_max_3[5] = params.x_max_3_5;
+  params.x_max_3[6] = params.x_max_3_6;
+  params.x_max_3[7] = params.x_max_3_7;
+  params.x_max_3[8] = params.x_max_3_8;
+  params.x_max_3[9] = params.x_max_3_9;
+  params.x_max_3[10] = params.x_max_3_10;
+  params.x_max_3[11] = params.x_max_3_11;
+  params.x_max_3[12] = params.x_max_3_12;
+  params.x_max_3[13] = params.x_max_3_13;
+  params.x_max_3[14] = params.x_max_3_14;
+  params.x_max_3[15] = params.x_max_3_15;
+  params.x_max_3[16] = params.x_max_3_16;
+  params.x_max_3[17] = params.x_max_3_17;
+  params.x_max_3[18] = params.x_max_3_18;
+  params.x_max_3[19] = params.x_max_3_19;
+  params.x_max_3[20] = params.x_max_3_20;
+  params.x_max_3[21] = params.x_max_3_21;
+  params.x_max_3[22] = params.x_max_3_22;
+  params.x_max_3[23] = params.x_max_3_23;
+  params.x_max_3[24] = params.x_max_3_24;
+  params.x_max_3[25] = params.x_max_3_25;
+  params.x_max_3[26] = params.x_max_3_26;
+  params.x_max_3[27] = params.x_max_3_27;
+  params.x_max_3[28] = params.x_max_3_28;
+  params.x_max_3[29] = params.x_max_3_29;
+  params.x_max_3[30] = params.x_max_3_30;
+  params.x_max_3[31] = params.x_max_3_31;
+  params.x_max_3[32] = params.x_max_3_32;
+  params.x_max_3[33] = params.x_max_3_33;
+  params.x_max_3[34] = params.x_max_3_34;
+  params.x_max_3[35] = params.x_max_3_35;
+  params.x_max_3[36] = params.x_max_3_36;
+  params.x_max_3[37] = params.x_max_3_37;
+  params.x_max_3[38] = params.x_max_3_38;
+  params.x_max_3[39] = params.x_max_3_39;
 }
 void setup_indexed_optvars(void) {
   /* In CVXGEN, you can say */
@@ -265,9 +345,9 @@ void set_start(void) {
     work.x[i] = 0;
   for (i = 0; i < 160; i++)
     work.y[i] = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     work.s[i] = (work.h[i] > 0) ? work.h[i] : settings.s_init;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     work.z[i] = settings.z_init;
 }
 double eval_objv(void) {
@@ -289,8 +369,8 @@ void fillrhs_aff(void) {
   double *r1, *r2, *r3, *r4;
   r1 = work.rhs;
   r2 = work.rhs + 240;
-  r3 = work.rhs + 960;
-  r4 = work.rhs + 1680;
+  r3 = work.rhs + 880;
+  r4 = work.rhs + 1520;
   /* r1 = -A^Ty - G^Tz - Px - q. */
   multbymAT(r1, work.y);
   multbymGT(work.buffer, work.z);
@@ -300,11 +380,11 @@ void fillrhs_aff(void) {
   for (i = 0; i < 240; i++)
     r1[i] -= work.buffer[i] + work.q[i];
   /* r2 = -z. */
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     r2[i] = -work.z[i];
   /* r3 = -Gx - s + h. */
   multbymG(r3, work.x);
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     r3[i] += -work.s[i] + work.h[i];
   /* r4 = -Ax + b. */
   multbymA(r4, work.x);
@@ -322,17 +402,17 @@ void fillrhs_cc(void) {
   double minval;
   r2 = work.rhs + 240;
   ds_aff = work.lhs_aff + 240;
-  dz_aff = work.lhs_aff + 960;
+  dz_aff = work.lhs_aff + 880;
   mu = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     mu += work.s[i]*work.z[i];
   /* Don't finish calculating mu quite yet. */
   /* Find min(min(ds./s), min(dz./z)). */
   minval = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     if (ds_aff[i] < minval*work.s[i])
       minval = ds_aff[i]/work.s[i];
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     if (dz_aff[i] < minval*work.z[i])
       minval = dz_aff[i]/work.z[i];
   /* Find alpha. */
@@ -341,20 +421,20 @@ void fillrhs_cc(void) {
   else
       alpha = -1/minval;
   sigma = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     sigma += (work.s[i] + alpha*ds_aff[i])*
       (work.z[i] + alpha*dz_aff[i]);
   sigma /= mu;
   sigma = sigma*sigma*sigma;
   /* Finish calculating mu now. */
-  mu *= 0.001388888888888889;
+  mu *= 0.0015625;
   smu = sigma*mu;
   /* Fill-in the rhs. */
   for (i = 0; i < 240; i++)
     work.rhs[i] = 0;
-  for (i = 960; i < 1840; i++)
+  for (i = 880; i < 1680; i++)
     work.rhs[i] = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     r2[i] = work.s_inv[i]*(smu - ds_aff[i]*dz_aff[i]);
 }
 void refine(double *target, double *var) {
@@ -365,7 +445,7 @@ void refine(double *target, double *var) {
   for (j = 0; j < settings.refine_steps; j++) {
     norm2 = 0;
     matrix_multiply(residual, var);
-    for (i = 0; i < 1840; i++) {
+    for (i = 0; i < 1680; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
     }
@@ -380,7 +460,7 @@ void refine(double *target, double *var) {
     /* Solve to find new_var = KKT \ (target - A*var). */
     ldl_solve(residual, new_var);
     /* Update var += new_var, or var += KKT \ (target - A*var). */
-    for (i = 0; i < 1840; i++) {
+    for (i = 0; i < 1680; i++) {
       var[i] -= new_var[i];
     }
   }
@@ -390,7 +470,7 @@ void refine(double *target, double *var) {
     /* it's expensive. */
     norm2 = 0;
     matrix_multiply(residual, var);
-    for (i = 0; i < 1840; i++) {
+    for (i = 0; i < 1680; i++) {
       residual[i] = residual[i] - target[i];
       norm2 += residual[i]*residual[i];
     }
@@ -408,11 +488,11 @@ double calc_ineq_resid_squared(void) {
   /* Find -Gx. */
   multbymG(work.buffer, work.x);
   /* Add -s + h. */
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     work.buffer[i] += -work.s[i] + work.h[i];
   /* Now find the squared norm. */
   norm2_squared = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     norm2_squared += work.buffer[i]*work.buffer[i];
   return norm2_squared;
 }
@@ -439,7 +519,7 @@ void better_start(void) {
   double alpha;
   work.block_33[0] = -1;
   /* Make sure sinvz is 1 to make hijacked KKT system ok. */
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     work.s_inv_z[i] = 1;
   fill_KKT();
   ldl_factor();
@@ -449,8 +529,8 @@ void better_start(void) {
   /* Don't do any refinement for now. Precision doesn't matter too much. */
   x = work.lhs_aff;
   s = work.lhs_aff + 240;
-  z = work.lhs_aff + 960;
-  y = work.lhs_aff + 1680;
+  z = work.lhs_aff + 880;
+  y = work.lhs_aff + 1520;
   /* Just set x and y as is. */
   for (i = 0; i < 240; i++)
     work.x[i] = x[i];
@@ -459,29 +539,29 @@ void better_start(void) {
   /* Now complete the initialization. Start with s. */
   /* Must have alpha > max(z). */
   alpha = -1e99;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     if (alpha < z[i])
       alpha = z[i];
   if (alpha < 0) {
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.s[i] = -z[i];
   } else {
     alpha += 1;
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.s[i] = -z[i] + alpha;
   }
   /* Now initialize z. */
   /* Now must have alpha > max(-z). */
   alpha = -1e99;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     if (alpha < -z[i])
       alpha = -z[i];
   if (alpha < 0) {
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.z[i] = z[i];
   } else {
     alpha += 1;
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.z[i] = z[i] + alpha;
   }
 }
@@ -491,13 +571,13 @@ void fillrhs_start(void) {
   double *r1, *r2, *r3, *r4;
   r1 = work.rhs;
   r2 = work.rhs + 240;
-  r3 = work.rhs + 960;
-  r4 = work.rhs + 1680;
+  r3 = work.rhs + 880;
+  r4 = work.rhs + 1520;
   for (i = 0; i < 240; i++)
     r1[i] = -work.q[i];
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     r2[i] = 0;
-  for (i = 0; i < 720; i++)
+  for (i = 0; i < 640; i++)
     r3[i] = work.h[i];
   for (i = 0; i < 160; i++)
     r4[i] = work.b[i];
@@ -523,7 +603,7 @@ long solve(void) {
   else
     set_start();
   for (iter = 0; iter < settings.max_iters; iter++) {
-    for (i = 0; i < 720; i++) {
+    for (i = 0; i < 640; i++) {
       work.s_inv[i] = 1.0 / work.s[i];
       work.s_inv_z[i] = work.s_inv[i]*work.z[i];
     }
@@ -539,19 +619,19 @@ long solve(void) {
     ldl_solve(work.rhs, work.lhs_cc);
     refine(work.rhs, work.lhs_cc);
     /* Add the two together and store in aff. */
-    for (i = 0; i < 1840; i++)
+    for (i = 0; i < 1680; i++)
       work.lhs_aff[i] += work.lhs_cc[i];
     /* Rename aff to reflect its new meaning. */
     dx = work.lhs_aff;
     ds = work.lhs_aff + 240;
-    dz = work.lhs_aff + 960;
-    dy = work.lhs_aff + 1680;
+    dz = work.lhs_aff + 880;
+    dy = work.lhs_aff + 1520;
     /* Find min(min(ds./s), min(dz./z)). */
     minval = 0;
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       if (ds[i] < minval*work.s[i])
         minval = ds[i]/work.s[i];
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       if (dz[i] < minval*work.z[i])
         minval = dz[i]/work.z[i];
     /* Find alpha. */
@@ -562,9 +642,9 @@ long solve(void) {
     /* Update the primal and dual variables. */
     for (i = 0; i < 240; i++)
       work.x[i] += alpha*dx[i];
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.s[i] += alpha*ds[i];
-    for (i = 0; i < 720; i++)
+    for (i = 0; i < 640; i++)
       work.z[i] += alpha*dz[i];
     for (i = 0; i < 160; i++)
       work.y[i] += alpha*dy[i];

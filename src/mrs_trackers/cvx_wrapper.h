@@ -13,11 +13,12 @@ public:
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);
-  void setLimits(double max_speed, double max_acc);
-  int solveCvx();
+  void setLimits(Eigen::VectorXd &max_speed, Eigen::VectorXd &max_acc);
+  int  solveCvx();
   void getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInputX();
   double getFirstControlInputY();
+
 private:
 };
 
