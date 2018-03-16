@@ -81,7 +81,7 @@ cvxgenMpc:
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
-  maxNumOfIterations: 25
+  maxNumOfIterations: 15
   Q: [5000, 0, 5000, 0]
   R: [500, 500]
 

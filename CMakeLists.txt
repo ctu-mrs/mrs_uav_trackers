@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
+set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)

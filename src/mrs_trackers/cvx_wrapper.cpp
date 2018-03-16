@@ -27,10 +27,12 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
     ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 25 set instead");
-    max_iters = 25;
+    max_iters = 15;
   }
   settings.max_iters = max_iters;
-
+  settings.eps = 0.0001;
+  settings.resid_tol = 0.001;
+  
   if (tempQ.size() == 4) {
     for (int i = 0; i < 4; i++) {
       if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
@@ -270,6 +272,7 @@ int CvxWrapper::solveCvx() {
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {
+  /* ROS_INFO_STREAM_THROTTLE(0.1, "Us: " << *(vars.u_0) << " " << *(vars.u_1) << " " << *(vars.u_2)); */
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.u_0);

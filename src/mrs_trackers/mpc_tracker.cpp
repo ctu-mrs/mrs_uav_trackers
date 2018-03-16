@@ -1125,11 +1125,17 @@ void MpcTracker::calculateMPC() {
   iters_yaw += cvx_yaw->solveCvx();
   cvx_yaw->getStates(predicted_future_yaw);
 
+  if (cvx_u(0) > max_horizontal_acceleration) {
+    ROS_ERROR_STREAM_THROTTLE(0.1, "Exceeding: " << cvx_u(0));
+  }
+
+  if (cvx_u(1) > max_horizontal_acceleration) {
+    ROS_ERROR_STREAM_THROTTLE(0.1, "Exceeding: " << cvx_u(1));
+  }
   /* ROS_WARN_STREAM("yaw set: " << predicted_future_yaw(0, 0)); */
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
-  ROS_INFO_STREAM_THROTTLE(2.0, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY
-                                                  << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_yaw << "/" << max_iters_yaw);
+  ROS_INFO_STREAM_THROTTLE(0.5, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_yaw << "/" << max_iters_yaw);
 
   future_was_predicted = true;
 

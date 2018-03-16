@@ -31,6 +31,8 @@ CvxWrapper1d::CvxWrapper1d(bool verbose, int max_iters, std::vector<double> temp
     max_iters = 25;
   }
   settings1d.max_iters = max_iters;
+  /* settings1d.eps = 0.01; */
+  /* settings1d.resid_tol = 0.1; */
 
   if (tempQ.size() == 3) {
     for (int i = 0; i < 3; i++) {
