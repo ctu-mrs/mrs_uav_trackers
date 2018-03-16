@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-03-16 09:00:08 -0400.  */
+/* Produced by CVXGEN, 2018-03-16 11:59:28 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -260,7 +260,7 @@ typedef struct Workspace_t {
   double buffer[1680];
   double buffer2[1680];
   double KKT[3592];
-  double L[2798];
+  double L[2836];
   double d[1680];
   double v[1680];
   double d_inv[1680];
