@@ -68,11 +68,11 @@ cvxgenMpc:
   maxHorizontalSpeed: 9.0
   maxHorizontalAcceleration: 3.0
 
-  maxVerticalAscendingSpeed: 2.0
-  maxVerticalAscendingAcceleration: 1.5
+  maxVerticalAscendingSpeed: 4.0
+  maxVerticalAscendingAcceleration: 3.0
 
-  maxVerticalDescendingSpeed: 1.5
-  maxVerticalDescendingAcceleration: 1.0
+  maxVerticalDescendingSpeed: 5.0
+  maxVerticalDescendingAcceleration: 3.0
 
   maxYawRate: 3.0
   maxYawAcceleration: 5.0

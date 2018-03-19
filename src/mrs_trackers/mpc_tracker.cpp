@@ -380,7 +380,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     ROS_ERROR("Exception caught. Wrong number of columns was supplied to the safety area.");
   }
 
-  // pload parameters for yaw_tracker
+  // load parameters for yaw_tracker
   nh.param("yawTracker/maxYawRate", max_yaw_rate_old, 0.0);
   nh.param("yawTracker/yawGain", yaw_gain, 0.0);
   desired_yaw = 0;
@@ -1069,10 +1069,6 @@ void MpcTracker::calculateMPC() {
 
 
   // Prepare constraints for velocity and acceleration in X/Y
-  for (int i = 0; i < horizon_len; i++) {
-    cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
-    cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
-  }
 
 
   // prepare reference vector for XYZ
@@ -1108,7 +1104,36 @@ void MpcTracker::calculateMPC() {
   cvx_1d->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_1d->getFirstControlInput();
 
+
   // cvxgen X and Y axis -------------------------------------------------------------------------------
+
+  for (int i = 0; i < horizon_len; i++) {
+    if (predicted_future_trajectory(7 + (i * n), 0) > 0) {
+      double tmpz;
+      predicted_future_trajectory(7 + (i * n), 0) > max_speed_z ? tmpz = max_speed_z : tmpz = predicted_future_trajectory(7 + (i * n));
+      cvxgen_horizontal_vel_constraint(i) = max_speed_xy * sqrt(1 - (tmpz / max_speed_z) * (tmpz / max_speed_z));
+      if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) {
+        cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2;
+      }
+      predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n));
+      tmpz = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
+      if (tmpz < cvxgen_horizontal_vel_constraint(i)) {
+        cvxgen_horizontal_vel_constraint(i) = tmpz;
+      }
+      /* if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy/2) { */
+      /* cvxgen_horizontal_vel_constraint(i) = max_speed_xy/2; */
+      /* } */
+    } else {
+      cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
+    }
+
+    /*   predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpza = max_acc_z : tmpza = predicted_future_trajectory(8 + (i * n)); */
+    /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy * sqrt(1 - (tmpza / max_acc_z) * (tmpza / max_acc_z)); */
+    /*   ROS_INFO_STREAM(cvxgen_horizontal_acc_constraint(i)); */
+    /* } else { */
+    cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
+    /* } */
+  }
 
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
