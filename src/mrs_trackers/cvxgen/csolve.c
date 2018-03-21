@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-03-20 10:50:50 -0400.  */
+/* Produced by CVXGEN, 2018-03-21 18:55:07 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -268,6 +268,93 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
           src++;
         }
       }
+      valid_vars++;
+    }
+  }
+  this_var_errors = 0;
+  xm = mxGetField(prhs[0], 0, "u_last");
+  if (xm == NULL) {
+    printf("could not find params.u_last.\n");
+  } else {
+    if (!((mxGetM(xm) == 2) && (mxGetN(xm) == 1))) {
+      printf("u_last must be size (2,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+      this_var_errors++;
+    }
+    if (mxIsComplex(xm)) {
+      printf("parameter u_last must be real.\n");
+      this_var_errors++;
+    }
+    if (!mxIsClass(xm, "double")) {
+      printf("parameter u_last must be a full matrix of doubles.\n");
+      this_var_errors++;
+    }
+    if (mxIsSparse(xm)) {
+      printf("parameter u_last must be a full matrix.\n");
+      this_var_errors++;
+    }
+    if (this_var_errors == 0) {
+      dest = params.u_last;
+      src = mxGetPr(xm);
+      for (i = 0; i < 2; i++)
+        *dest++ = *src++;
+      valid_vars++;
+    }
+  }
+  this_var_errors = 0;
+  xm = mxGetField(prhs[0], 0, "u_max1");
+  if (xm == NULL) {
+    printf("could not find params.u_max1.\n");
+  } else {
+    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
+      printf("u_max1 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+      this_var_errors++;
+    }
+    if (mxIsComplex(xm)) {
+      printf("parameter u_max1 must be real.\n");
+      this_var_errors++;
+    }
+    if (!mxIsClass(xm, "double")) {
+      printf("parameter u_max1 must be a full matrix of doubles.\n");
+      this_var_errors++;
+    }
+    if (mxIsSparse(xm)) {
+      printf("parameter u_max1 must be a full matrix.\n");
+      this_var_errors++;
+    }
+    if (this_var_errors == 0) {
+      dest = params.u_max1;
+      src = mxGetPr(xm);
+      for (i = 0; i < 1; i++)
+        *dest++ = *src++;
+      valid_vars++;
+    }
+  }
+  this_var_errors = 0;
+  xm = mxGetField(prhs[0], 0, "u_max2");
+  if (xm == NULL) {
+    printf("could not find params.u_max2.\n");
+  } else {
+    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
+      printf("u_max2 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+      this_var_errors++;
+    }
+    if (mxIsComplex(xm)) {
+      printf("parameter u_max2 must be real.\n");
+      this_var_errors++;
+    }
+    if (!mxIsClass(xm, "double")) {
+      printf("parameter u_max2 must be a full matrix of doubles.\n");
+      this_var_errors++;
+    }
+    if (mxIsSparse(xm)) {
+      printf("parameter u_max2 must be a full matrix.\n");
+      this_var_errors++;
+    }
+    if (this_var_errors == 0) {
+      dest = params.u_max2;
+      src = mxGetPr(xm);
+      for (i = 0; i < 1; i++)
+        *dest++ = *src++;
       valid_vars++;
     }
   }
@@ -4494,8 +4581,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       valid_vars++;
     }
   }
-  if (valid_vars != 127) {
-    printf("Error: %d parameters are invalid.\n", 127 - valid_vars);
+  if (valid_vars != 130) {
+    printf("Error: %d parameters are invalid.\n", 130 - valid_vars);
     mexErrMsgTxt("invalid parameters found.");
   }
   if (prepare_for_c) {
@@ -4594,6 +4681,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       printf("  params.A[%d] = %.6g;\n", i, params.A[i]);
     for (i = 0; i < 2; i++)
       printf("  params.B[%d] = %.6g;\n", i, params.B[i]);
+    for (i = 0; i < 2; i++)
+      printf("  params.u_last[%d] = %.6g;\n", i, params.u_last[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.u_max1[%d] = %.6g;\n", i, params.u_max1[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.u_max2[%d] = %.6g;\n", i, params.u_max2[i]);
     for (i = 0; i < 1; i++)
       printf("  params.x_max_2_1[%d] = %.6g;\n", i, params.x_max_2_1[i]);
     for (i = 0; i < 1; i++)

@@ -1138,7 +1138,7 @@ void MpcTracker::calculateMPC() {
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
   cvx_2d->loadReference(reference);
-  iters_XY += cvx_2d->solveCvx();
+  iters_XY += cvx_2d->solveCvx(cvx_u(0), cvx_u(1));
   cvx_2d->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_2d->getFirstControlInputX();
   cvx_u(1) = cvx_2d->getFirstControlInputY();

@@ -30,8 +30,6 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
     max_iters = 15;
   }
   settings.max_iters = max_iters;
-  settings.eps = 0.0001;
-  settings.resid_tol = 0.001;
   
   if (tempQ.size() == 4) {
     for (int i = 0; i < 4; i++) {
@@ -82,6 +80,15 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[4] = dt2;
   params.A[5] = dt2;
 
+  /* params.S[0] = 3000; */
+  /* params.S[1] = 3000; */
+  /* params.S2[0] = 20000; */
+  /* params.S2[1] = 20000; */
+  params.u_max1[0] = 300*dt;  
+  params.u_max1[1] = 300*dt;  
+  params.u_max2[0] = 300*dt2;  
+  params.u_max2[1] = 300*dt2;  
+  
   params.Af[0] = 1;
   params.Af[1] = 1;
   params.Af[2] = 1;
@@ -268,7 +275,9 @@ void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_40[0] = reference(39 * n + 0, 0);
   params.x_ss_40[2] = reference(39 * n + 3, 0);
 }
-int CvxWrapper::solveCvx() {
+int CvxWrapper::solveCvx(double u0, double u1) {
+  params.u_last[0] = u0;
+  params.u_last[1] = u1;
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {

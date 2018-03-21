@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-03-20 10:52:03 -0400.  */
+/* Produced by CVXGEN, 2018-03-21 18:56:08 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -75,6 +75,9 @@ typedef struct Params_t {
   double Bf[2];
   double A[6];
   double B[2];
+  double u_last[2];
+  double u_max1[1];
+  double u_max2[1];
   double x_max_2_1[1];
   double x_max_2_2[1];
   double x_max_2_3[1];
@@ -259,8 +262,8 @@ typedef struct Workspace_t {
   double lhs_cc[1680];
   double buffer[1680];
   double buffer2[1680];
-  double KKT[3592];
-  double L[2798];
+  double KKT[3588];
+  double L[2962];
   double d[1680];
   double v[1680];
   double d_inv[1680];

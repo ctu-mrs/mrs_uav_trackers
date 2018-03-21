@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-03-20 10:50:52 -0400.
+# Produced by CVXGEN, 2018-03-21 18:55:09 -0400.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -21,10 +21,15 @@ parameters
 
   Q (n,n) psd diagonal nonnegative    # state cost.
   R (m,m) psd diagonal nonnegative  # input cost.
+  S (m,m) psd diagonal nonnegative  # input cost.
+  S2 (m,m) psd diagonal nonnegative  # input cost.
 
   x[0] (n) # initial state.
   x_max_2[t], t=1..T
   x_max_3[t], t=0..T-1
+  u_max1
+  u_max2
+  u_last (m)
 
   x_ss[t] (n), t=1..T
 end
@@ -40,13 +45,17 @@ subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
 
+  u[0]-u_last <= u_max1
+  u[0]-u_last >= -u_max1
+
+  u[t]-u[t-1] <= u_max2, t=1..T-1
+  u[t]-u[t-1] >= -u_max2, t=1..T-1
 
   x[t][2] <= x_max_2[t], t=1..T
   x[t][2] >= -x_max_2[t], t=1..T
 
-  x[t][4] <= x_max_2[t], t=1..T
+  x[t][4] <= x_max_2[t],t=1..T
   x[t][4] >= -x_max_2[t], t=1..T
-
 
   u[t][1] <= x_max_3[t], t=0..T-1
   u[t][1] >= -x_max_3[t], t=0..T-1
@@ -54,11 +63,11 @@ subject to
   u[t][2] <= x_max_3[t], t=0..T-1
   u[t][2] >= -x_max_3[t], t=0..T-1
 
-  (0.7071*u[t][1] + 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
-  (0.7071*u[t][1] + 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] + 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] + 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
 
-  (0.7071*u[t][1] - 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
-  (0.7071*u[t][1] - 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] - 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] - 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
 
   #(0.866*u[t][2] + 0.5*u[t][1]) <= x_max_3, t=0..T-1
   #(0.866*u[t][2] + 0.5*u[t][1]) >= x_min_3 , t=0..T-1
