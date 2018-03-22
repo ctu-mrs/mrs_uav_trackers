@@ -14,7 +14,7 @@ Workspace work;
 Settings  settings;
 int       n = 9;
 
-CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2) {
+CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2, double hjerk) {
 
   set_defaults();
   setup_indexing();
@@ -70,7 +70,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   if (dt2 <= 0 || !std::isfinite(dt2)) {
     ROS_ERROR_STREAM("CvxWrapper - dt2 parameter wrong " << dt2 << " !!! Safe value of 0.2 set instead");
-    dt = 0.01;
+    dt = 0.2;
   }
 
   params.A[0] = 1;
@@ -80,14 +80,8 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[4] = dt2;
   params.A[5] = dt2;
 
-  /* params.S[0] = 3000; */
-  /* params.S[1] = 3000; */
-  /* params.S2[0] = 20000; */
-  /* params.S2[1] = 20000; */
-  params.u_max1[0] = 300*dt;  
-  params.u_max1[1] = 300*dt;  
-  params.u_max2[0] = 300*dt2;  
-  params.u_max2[1] = 300*dt2;  
+  params.u_max1[0] = hjerk*dt;  
+  params.u_max2[0] = hjerk*dt2;  
   
   params.Af[0] = 1;
   params.Af[1] = 1;
@@ -276,12 +270,12 @@ void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_40[2] = reference(39 * n + 3, 0);
 }
 int CvxWrapper::solveCvx(double u0, double u1) {
-  params.u_last[0] = u0;
-  params.u_last[1] = u1;
+  params.u_last[0] = *(vars.u_0);
+  params.u_last[1] = *(vars.u_0 + 1);
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {
-  /* ROS_INFO_STREAM_THROTTLE(0.1, "Us: " << *(vars.u_0) << " " << *(vars.u_1) << " " << *(vars.u_2)); */
+  ROS_INFO_STREAM("Us: " << *(vars.u_0) << " " << *(vars.u_1) << " " << *(vars.u_2) <<" " << *(vars.u_3));
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.u_0);

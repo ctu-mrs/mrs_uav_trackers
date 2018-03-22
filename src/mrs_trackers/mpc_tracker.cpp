@@ -108,15 +108,16 @@ private:
   bool being_avoided;
 
   int    max_iters_XY, max_iters_Z, max_iters_yaw;
-  int    iters_Z      = 0;
-  int    iters_XY     = 0;
-  int    iters_yaw    = 0;
-  double max_speed_xy = 0;
-  double max_acc_xy   = 0;
-  double max_speed_z  = 0;
-  double max_acc_z    = 0;
-  double min_speed_z  = 0;
-  double min_acc_z    = 0;
+  int    iters_Z             = 0;
+  int    iters_XY            = 0;
+  int    iters_yaw           = 0;
+  double max_speed_xy        = 0;
+  double max_acc_xy          = 0;
+  double max_speed_z         = 0;
+  double max_acc_z           = 0;
+  double min_speed_z         = 0;
+  double min_acc_z           = 0;
+  double max_horizontal_jerk = 0;
 
 
   double diagnostic_tracking_threshold;
@@ -481,10 +482,11 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   nh.param("cvxWrapper/verbose", verbose, false);
   nh.param("cvxWrapper/maxNumOfIterations", max_iters_XY, 25);
+  nh.param("cvxWrapper/maxHorizontalJerk", max_horizontal_jerk, 5.0);
   nh.getParam("cvxWrapper/Q", tempList);
   nh.getParam("cvxWrapper/R", tempList2);
 
-  cvx_2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2);
+  cvx_2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, max_horizontal_jerk);
 
   nh.param("cvxWrapper1d/verbose", verbose, false);
   nh.param("cvxWrapper1d/maxNumOfIterations", max_iters_Z, 25);

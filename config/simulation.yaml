@@ -81,9 +81,16 @@ cvxgenMpc:
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
+
+  # If you want to use low jerk values, increase the number of iterations, otherwise the jerk will not be satisfied
+  maxHorizontalJerk: 5.0
   maxNumOfIterations: 30
-  Q: [5000, 0, 5000, 0]
-  R: [5000, 5000]
+  # No overshoots:
+  Q: [5000, 7000, 5000, 7000]
+  # With overshoots:
+  # Q: [5000, 0, 5000, 0]
+  R: [10000, 10000]
+
 
 cvxWrapper1d:
   verbose: false # cvxgen's debug output
