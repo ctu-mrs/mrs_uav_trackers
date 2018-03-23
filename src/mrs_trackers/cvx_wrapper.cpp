@@ -275,7 +275,6 @@ int CvxWrapper::solveCvx(double u0, double u1) {
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {
-  ROS_INFO_STREAM("Us: " << *(vars.u_0) << " " << *(vars.u_1) << " " << *(vars.u_2) <<" " << *(vars.u_3));
   future_traj(0 + (0 * 9))  = *(vars.x_1);
   future_traj(1 + (0 * 9))  = *(vars.x_1 + 1);
   future_traj(2 + (0 * 9))  = *(vars.u_0);

@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-03-22 10:04:04 -0400.
+# Produced by CVXGEN, 2018-03-23 06:23:01 -0400.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -21,9 +21,6 @@ parameters
 
   Q (n,n) psd diagonal nonnegative    # state cost.
   R (m,m) psd diagonal nonnegative  # input cost.
-  #R2 (m,m) psd diagonal nonnegative  # input cost.
-  #S (m,m) psd diagonal nonnegative  # input cost.
-  #S2 (m,m) psd diagonal nonnegative  # input cost.
 
   x[0] (n) # initial state.
   x_max_2[t], t=1..T
@@ -70,11 +67,11 @@ subject to
   u[t][2] <= x_max_3[t], t=0..T-1
   u[t][2] >= -x_max_3[t], t=0..T-1
 
-  #(0.7071*u[t][1] + 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
-  #(0.7071*u[t][1] + 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] + 0.7071*u[t][2]) <= x_max_3[t], t=0..19
+  #(0.7071*u[t][1] + 0.7071*u[t][2]) >= -x_max_3[t], t=0..19
 
-  #(0.7071*u[t][1] - 0.7071*u[t][2]) <= x_max_3[t], t=0..T-1
-  #(0.7071*u[t][1] - 0.7071*u[t][2]) >= -x_max_3[t], t=0..T-1
+  #(0.7071*u[t][1] - 0.7071*u[t][2]) <= x_max_3[t], t=0..19
+  #(0.7071*u[t][1] - 0.7071*u[t][2]) >= -x_max_3[t], t=0..19
 
   #(0.866*u[t][2] + 0.5*u[t][1]) <= x_max_3, t=0..T-1
   #(0.866*u[t][2] + 0.5*u[t][1]) >= x_min_3 , t=0..T-1
