@@ -83,7 +83,7 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
 
-  maxNumOfIterations: 100
+  maxNumOfIterations: 30
   # No overshoots:
   # Q: [5000, 7000, 5000, 7000]
   # With overshoots:
