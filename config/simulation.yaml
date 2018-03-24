@@ -67,6 +67,7 @@ cvxgenMpc:
 
   maxHorizontalSpeed: 10.0
   maxHorizontalAcceleration: 3.0
+  maxHorizontalJerk: 6.0
 
   maxVerticalAscendingSpeed: 4.0
   maxVerticalAscendingAcceleration: 3.0
@@ -82,9 +83,7 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
 
-  # If you want to use low jerk values, increase the number of iterations, otherwise the jerk will not be satisfied
-  maxHorizontalJerk: 6.0
-  maxNumOfIterations: 30
+  maxNumOfIterations: 100
   # No overshoots:
   # Q: [5000, 7000, 5000, 7000]
   # With overshoots:

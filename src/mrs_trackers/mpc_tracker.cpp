@@ -484,7 +484,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   nh.param("cvxWrapper/verbose", verbose, false);
   nh.param("cvxWrapper/maxNumOfIterations", max_iters_XY, 25);
-  nh.param("cvxWrapper/maxHorizontalJerk", max_horizontal_jerk, 5.0);
+  nh.param("cvxgenMpc/maxHorizontalJerk", max_horizontal_jerk, 5.0);
   nh.getParam("cvxWrapper/Q", tempList);
   nh.getParam("cvxWrapper/R", tempList2);
 
@@ -1200,12 +1200,7 @@ if (fabs(cvx_u(1)) - fabs(cvx_u_last(1)) > max_horizontal_jerk * 0.0102) {
 
   future_was_predicted = true;
 
-  // use the first control input from cvxgen to drive the virtual UAV
-  x(1,0) += 0.01*cvx_u(0);
-  x(4,0) += 0.01*cvx_u(1);
-  cvx_u(0) = 0;
-  cvx_u(1) = 0;
-  x_mutex.lock();
+    x_mutex.lock();
   {
     x     = A * x + B * cvx_u;
     x_yaw = A_yaw * x_yaw + B_yaw * cvx_u_yaw;

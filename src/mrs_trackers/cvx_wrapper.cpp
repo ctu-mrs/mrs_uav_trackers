@@ -81,7 +81,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[5] = dt2;
 
   params.u_max1[0] = hjerk*dt;  
-  params.u_max2[0] = hjerk*dt2;  
+  params.u_max2[0] = hjerk*dt2*0.5;  
   
   params.Af[0] = 1;
   params.Af[1] = 1;
