@@ -84,10 +84,8 @@ cvxWrapper:
   verbose: false # cvxgen's debug output
 
   maxNumOfIterations: 30
-  # No overshoots:
-  # Q: [5000, 7000, 5000, 7000]
-  # With overshoots:
-  Q: [5000, 0, 5000, 0]
+  # Q: [5000, 0, 5000, 0]
+  Q: [5000, 1500, 5000, 1500]
   # R: [10000, 10000]
   R: [500, 500]
 
