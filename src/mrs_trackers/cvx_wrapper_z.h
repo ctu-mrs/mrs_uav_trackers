@@ -1,15 +1,15 @@
-#ifndef CVX_WRAPPER1D
-#define CVX_WRAPPER1D
+#ifndef CVX_WRAPPERZ
+#define CVX_WRAPPERZ
 
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
 
 /* author: Daniel Hert */
 
-class CvxWrapper1d {
+class CvxWrapperZ {
 
 public:
-  CvxWrapper1d(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2);
+  CvxWrapperZ(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2, double asc_jerk, double des_jerk);
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);

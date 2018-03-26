@@ -71,9 +71,11 @@ cvxgenMpc:
 
   maxVerticalAscendingSpeed: 4.0
   maxVerticalAscendingAcceleration: 3.0
+  maxVerticalAscendingJerk: 3.0
 
   maxVerticalDescendingSpeed: 5.0
   maxVerticalDescendingAcceleration: 3.0
+  maxVerticalDescendingJerk: 5.0
 
   maxYawRate: 3.0
   maxYawAcceleration: 5.0

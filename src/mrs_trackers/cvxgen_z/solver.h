@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-02-09 07:26:25 -0500.  */
+/* Produced by CVXGEN, 2018-03-26 17:47:50 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -21,13 +21,13 @@
 #endif
 #endif
 /* Space must be allocated somewhere (testsolver.c, csolve.c or your own */
-/* program) for the global variables vars1d, params1d, work1d and settings1d. */
+/* program) for the global variables varsZ, paramsZ, workZ and settingsZ. */
 /* At the bottom of this file, they are externed. */
 #ifndef ZERO_LIBRARY_MODE
 #include <math.h>
-#define pm(A, m, n) printmatrix1d(#A, A, m, n, 1)
+#define pm(A, m, n) printmatrixd_z(#A, A, m, n, 1)
 #endif
-typedef struct Params1d_t {
+typedef struct ParamsZ_t {
   double x_ss_1[3];
   double Q[3];
   double x_ss_2[3];
@@ -70,19 +70,22 @@ typedef struct Params1d_t {
   double x_ss_39[3];
   double x_ss_40[3];
   double R[1];
+  double R2[1];
   double Af[5];
   double x_0[3];
   double Bf[1];
   double A[5];
   double B[1];
   double x_max_2[1];
-  double x_max_3[1];
   double x_min_2[1];
+  double x_max_3[1];
   double x_min_3[1];
+  double u_max[1];
+  double u_min[1];
   double *x_ss[41];
   double *x[1];
-} Params1d;
-typedef struct Vars1d_t {
+} ParamsZ;
+typedef struct VarsZ_t {
   double *x_1; /* 3 rows. */
   double *x_2; /* 3 rows. */
   double *x_3; /* 3 rows. */
@@ -162,31 +165,30 @@ typedef struct Vars1d_t {
   double *u_37; /* 1 rows. */
   double *u_38; /* 1 rows. */
   double *u_39; /* 1 rows. */
-  double *u_40; /* 1 rows. */
   double *u_0; /* 1 rows. */
   double *x[41];
-  double *u[41];
-} Vars1d;
-typedef struct Workspace1d_t {
-  double h[160];
-  double s_inv[160];
-  double s_inv_z[160];
+  double *u[40];
+} VarsZ;
+typedef struct WorkspaceZ_t {
+  double h[240];
+  double s_inv[240];
+  double s_inv_z[240];
   double b[120];
-  double q[161];
-  double rhs[601];
-  double x[601];
+  double q[160];
+  double rhs[760];
+  double x[760];
   double *s;
   double *z;
   double *y;
-  double lhs_aff[601];
-  double lhs_cc[601];
-  double buffer[601];
-  double buffer2[601];
-  double KKT[1155];
-  double L[976];
-  double d[601];
-  double v[601];
-  double d_inv[601];
+  double lhs_aff[760];
+  double lhs_cc[760];
+  double buffer[760];
+  double buffer2[760];
+  double KKT[1475];
+  double L[1136];
+  double d[760];
+  double v[760];
+  double d_inv[760];
   double gap;
   double optval;
   double ineq_resid_squared;
@@ -234,8 +236,8 @@ typedef struct Workspace1d_t {
   double quad_637564002304[1];
   double quad_646561718272[1];
   int converged;
-} Workspace1d;
-typedef struct Settings1d_t {
+} WorkspaceZ;
+typedef struct SettingsZ_t {
   double resid_tol;
   double eps;
   int max_iters;
@@ -250,61 +252,61 @@ typedef struct Settings1d_t {
   int debug;
   /* For regularization. Minimum value of abs(D_ii) in the kkt D factor. */
   double kkt_reg;
-} Settings1d;
-extern Vars1d vars1d;
-extern Params1d params1d;
-extern Workspace1d work1d;
-extern Settings1d settings1d;
+} SettingsZ;
+extern VarsZ varsZ;
+extern ParamsZ paramsZ;
+extern WorkspaceZ workZ;
+extern SettingsZ settingsZ;
 /* Function definitions in ldl.c: */
-void ldl_solve1d(double *target, double *var);
-void ldl_factor1d(void);
-double check_factorization1d(void);
-void matrix_multiply1d(double *result, double *source);
-double check_residual1d(double *target, double *multiplicand);
-void fill_KKT1d(void);
+void ldl_solve_z(double *target, double *var);
+void ldl_factor_z(void);
+double check_factorization_z(void);
+void matrix_multiply_z(double *result, double *source);
+double check_residual_z(double *target, double *multiplicand);
+void fill_KKT_z(void);
 
 /* Function definitions in matrix_support.c: */
-void multbymA1d(double *lhs, double *rhs);
-void multbymAT1d(double *lhs, double *rhs);
-void multbymG1d(double *lhs, double *rhs);
-void multbymGT1d(double *lhs, double *rhs);
-void multbyP1d(double *lhs, double *rhs);
-void fillq1d(void);
-void fillh1d(void);
-void fillb1d(void);
-void pre_ops1d(void);
+void multbymA_z(double *lhs, double *rhs);
+void multbymAT_z(double *lhs, double *rhs);
+void multbymG_z(double *lhs, double *rhs);
+void multbymGT_z(double *lhs, double *rhs);
+void multbyP_z(double *lhs, double *rhs);
+void fillq_z(void);
+void fillh_z(void);
+void fillb_z(void);
+void pre_ops_z(void);
 
 /* Function definitions in solver.c: */
-double eval_gap1d(void);
-void set_defaults1d(void);
-void setup_pointers1d(void);
-void setup_indexed_params1d1d(void);
-void setup_indexed_optvars1d1d(void);
-void setup_indexing1d(void);
-void set_start1d(void);
-double eval_objv1d(void);
-void fillrhs_aff1d(void);
-void fillrhs_cc1d(void);
-void refine1d(double *target, double *var);
-double calc_ineq_resid_squared1d(void);
-double calc_eq_resid_squared1d(void);
-void better_start1d(void);
-void fillrhs_start1d(void);
-long solve1d(void);
+double eval_gap_z(void);
+void set_defaults_z(void);
+void setup_pointers_z(void);
+void setup_indexed_paramsZ_z(void);
+void setup_indexed_optvarsZ_z(void);
+void setup_indexing_z(void);
+void set_start_z(void);
+double eval_objv_z(void);
+void fillrhs_aff_z(void);
+void fillrhs_cc_z(void);
+void refine_z(double *target, double *var);
+double calc_ineq_resid_squared_z(void);
+double calc_eq_resid_squared_z(void);
+void better_start_z(void);
+void fillrhs_start_z(void);
+long solve_z(void);
 
 /* Function definitions in testsolver.c: */
-int main1d(int argc, char **argv);
-void load_default_data1d(void);
+int main_z(int argc, char **argv);
+void load_default_data_z(void);
 
 /* Function definitions in util.c: */
-void tic1d(void);
-float toc1d(void);
-float tocq1d(void);
-void printmatrix1d(char *name, double *A, int m, int n, int sparse);
-double unif1d(double lower, double upper);
-float ran11d(long*idum, int reset);
-float randn_internal1d(long *idum, int reset);
-double randn1d(void);
-void reset_rand1d(void);
+void tic_z(void);
+float toc_z(void);
+float tocq_z(void);
+void printmatrixd_z(char *name, double *A, int m, int n, int sparse);
+double unif_z(double lower, double upper);
+float ran1d_z(long*idum, int reset);
+float randn_internal_z(long *idum, int reset);
+double randn_z(void);
+void reset_rand_z(void);
 
 #endif

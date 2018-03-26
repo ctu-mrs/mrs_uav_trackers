@@ -24,8 +24,8 @@
 #include <thread>
 
 #include "cvx_wrapper.h"
-#include "cvx_wrapper1d.h"
 #include "cvx_wrapper_yaw.h"
+#include "cvx_wrapper_z.h"
 
 
 using namespace Eigen;
@@ -88,17 +88,19 @@ private:
   bool           use_safety_area;
 
   // variables regarding the MPC controller
-  int    n;                                    // number of states
-  int    m;                                    // number of inputs
-  int    n_yaw;                                // number of states - yaw
-  int    m_yaw;                                // number of inputs - yaw
-  int    horizon_len;                          // lenght of the prediction horizon
-  double max_vertical_ascending_speed;         // maximum allowed horizontal speed for the mpc controller
-  double max_horizontal_speed;                 // maximum allowed vertical speed for the mpc controller
-  double max_vertical_ascending_acceleration;  // maximum allowed horizontal acceleration
-  double max_horizontal_acceleration;          // maximum allowed vertical acceleration
-  double max_vertical_descending_acceleration;
+  int    n;            // number of states
+  int    m;            // number of inputs
+  int    n_yaw;        // number of states - yaw
+  int    m_yaw;        // number of inputs - yaw
+  int    horizon_len;  // lenght of the prediction horizon
+  double max_horizontal_speed;
+  double max_horizontal_acceleration;
+  double max_vertical_ascending_acceleration;
+  double max_vertical_ascending_speed;
+  double max_vertical_ascending_jerk;
   double max_vertical_descending_speed;
+  double max_vertical_descending_acceleration;
+  double max_vertical_descending_jerk;
   double max_yaw_rate;
   double max_yaw_acceleration;
   double max_altitude;
@@ -122,7 +124,7 @@ private:
   double diagnostic_tracking_threshold;
 
   CvxWrapper *   cvx_2d;
-  CvxWrapper1d * cvx_1d;
+  CvxWrapperZ *  cvx_z;
   CvxWrapperYaw *cvx_yaw;
 
 
@@ -142,8 +144,8 @@ private:
   MatrixXd des_y_filtered;                    // filtered trajectory reference over the horizon
   MatrixXd des_z_filtered;                    // filtered trajectory reference over the horizon
   VectorXd cvxgen_horizontal_vel_constraint;  // velocity constraint for the XY cvxgen solver
-  VectorXd cvxgen_horizontal_acc_constraint;  // acceleration constraint for the XY cvxgen solv
-  VectorXd des_x_whole_trajectory;            // long trajectory reference
+  VectorXd cvxgen_horizontal_acc_constraint;  // acceleration constraint for the XY cvxgen solver
+    VectorXd des_x_whole_trajectory;            // long trajectory reference
   VectorXd des_y_whole_trajectory;            // long trajectory reference
   VectorXd des_z_whole_trajectory;            // long trajectory reference
   VectorXd des_yaw_whole_trajectory;          // long trajectory reference
@@ -162,7 +164,6 @@ private:
   MatrixXd x;              // current state of the uav
   MatrixXd x_yaw;          // current yaw of the uav
 
-  VectorXd cvx_u_last;
   // yaw tracker
   double yaw_rate;
   double yaw;
@@ -451,23 +452,26 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   // load the MPC parameters
   nh.param("cvxgenMpc/horizon_len", horizon_len, -1);
-  nh.param("cvxgenMpc/maxTrajectorySize", max_trajectory_size, 0);
+  nh.param("cvxgenMpc/maxTrajectorySize", max_trajectory_size, -1);
 
-  nh.param("cvxgenMpc/dt", dt, 0.0);
-  nh.param("cvxgenMpc/dt2", dt2, 0.0);
+  nh.param("cvxgenMpc/dt", dt, -1.0);
+  nh.param("cvxgenMpc/dt2", dt2, -1.0);
 
   nh.param("cvxgenMpc/maxHorizontalSpeed", max_horizontal_speed, 0.0);
   nh.param("cvxgenMpc/maxHorizontalAcceleration", max_horizontal_acceleration, 0.0);
+  nh.param("cvxgenMpc/maxHorizontalJerk", max_horizontal_jerk, 0.0);
 
   nh.param("cvxgenMpc/maxVerticalAscendingSpeed", max_vertical_ascending_speed, 0.0);
   nh.param("cvxgenMpc/maxVerticalAscendingAcceleration", max_vertical_ascending_acceleration, 0.0);
+  nh.param("cvxgenMpc/maxVerticalAscendingJerk", max_vertical_ascending_jerk, 0.0);
   nh.param("cvxgenMpc/maxVerticalDescendingSpeed", max_vertical_descending_speed, 0.0);
   nh.param("cvxgenMpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration, 0.0);
+  nh.param("cvxgenMpc/maxVerticalDescendingJerk", max_vertical_descending_jerk, 0.0);
 
   nh.param("cvxgenMpc/maxYawRate", max_yaw_rate, 0.0);
   nh.param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration, 0.0);
 
-  nh.param("cvxgenMpc/maxAltitude", max_altitude, 10.0);
+  nh.param("cvxgenMpc/maxAltitude", max_altitude, 0.0);
 
   nh.param("diagnostics_rate", diagnostics_rate, 1.0);
   nh.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
@@ -483,18 +487,17 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   nh.param("cvxWrapper/verbose", verbose, false);
   nh.param("cvxWrapper/maxNumOfIterations", max_iters_XY, 25);
-  nh.param("cvxgenMpc/maxHorizontalJerk", max_horizontal_jerk, 5.0);
   nh.getParam("cvxWrapper/Q", tempList);
   nh.getParam("cvxWrapper/R", tempList2);
 
   cvx_2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, max_horizontal_jerk);
 
-  nh.param("cvxWrapper1d/verbose", verbose, false);
-  nh.param("cvxWrapper1d/maxNumOfIterations", max_iters_Z, 25);
-  nh.getParam("cvxWrapper1d/Q", tempList);
-  nh.getParam("cvxWrapper1d/R", tempList2);
+  nh.param("cvxWrapperZ/verbose", verbose, false);
+  nh.param("cvxWrapperZ/maxNumOfIterations", max_iters_Z, 25);
+  nh.getParam("cvxWrapperZ/Q", tempList);
+  nh.getParam("cvxWrapperZ/R", tempList2);
 
-  cvx_1d = new CvxWrapper1d(verbose, max_iters_Z, tempList, tempList2, dt, dt2);
+  cvx_z = new CvxWrapperZ(verbose, max_iters_Z, tempList, tempList2, dt, dt2, max_vertical_ascending_jerk, max_vertical_descending_jerk);
 
   nh.param("cvxWrapperYaw/verbose", verbose, false);
   nh.param("cvxWrapperYaw/maxNumOfIterations", max_iters_yaw, 25);
@@ -507,7 +510,6 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   x                = MatrixXd::Zero(n, 1);
   x_yaw            = MatrixXd::Zero(3, 1);
   outputTrajectory = MatrixXd::Zero(horizon_len * n, 1);
-  cvx_u_last       = VectorXd::Zero(m);
 
   // trajectory tracking
   des_x_whole_trajectory   = VectorXd::Zero(max_trajectory_size);
@@ -1061,9 +1063,9 @@ void MpcTracker::calculateMPC() {
   if (avoiding_someone) {
     // we are avoiding someone, better increase the vertical limits to avoid in time
     max_speed_z = 5.0;
-    max_acc_z   = 5.0;
+    max_acc_z   = 3.0;
     min_speed_z = 5.0;
-    min_acc_z   = 5.0;
+    min_acc_z   = 3.0;
   } else {
     max_speed_z = max_vertical_ascending_speed;
     max_acc_z   = max_vertical_ascending_acceleration;
@@ -1101,16 +1103,18 @@ void MpcTracker::calculateMPC() {
   ros::Time time_begin = ros::Time::now();
 
   // cvxgen Z axis -------------------------------------------------------------------------------------
-  cvx_1d->setInitialState(x);
-  cvx_1d->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
-  cvx_1d->loadReference(reference);
-  iters_Z += cvx_1d->solveCvx();
-  cvx_1d->getStates(predicted_future_trajectory);
-  cvx_u(2) = cvx_1d->getFirstControlInput();
+  
+  cvx_z->setInitialState(x);
+  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
+  cvx_z->loadReference(reference);
+  iters_Z += cvx_z->solveCvx();
+  cvx_z->getStates(predicted_future_trajectory);
+  cvx_u(2) = cvx_z->getFirstControlInput();
 
 
   // cvxgen X and Y axis -------------------------------------------------------------------------------
 
+  // Point of the following for cycle is to reduce maximum speed in XY if the UAV is climbing
   for (int i = 0; i < horizon_len; i++) {
     if (predicted_future_trajectory(7 + (i * n), 0) > 0) {
       double tmpz;
@@ -1124,19 +1128,10 @@ void MpcTracker::calculateMPC() {
       if (tmpz < cvxgen_horizontal_vel_constraint(i)) {
         cvxgen_horizontal_vel_constraint(i) = tmpz;
       }
-      /* if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy/2) { */
-      /* cvxgen_horizontal_vel_constraint(i) = max_speed_xy/2; */
-      /* } */
     } else {
       cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
     }
-
-    /*   predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpza = max_acc_z : tmpza = predicted_future_trajectory(8 + (i * n)); */
-    /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy * sqrt(1 - (tmpza / max_acc_z) * (tmpza / max_acc_z)); */
-    /*   ROS_INFO_STREAM(cvxgen_horizontal_acc_constraint(i)); */
-    /* } else { */
     cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
-    /* } */
   }
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
@@ -1330,7 +1325,6 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
     return quadrotor_msgs::PositionCommand::Ptr();
 
 
-  calculateMPC();
   if (!mpc_computed_) {
 
     // if the tracker is not computed yet
@@ -1649,7 +1643,7 @@ void MpcTracker::mpcThread(void) {
     des_trajectory_mutex.unlock();
 
     // run the mpc
-    /* calculateMPC(); */
+    calculateMPC();
 
     end      = ros::Time::now();
     interval = end - begin;
