@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-03-23 06:23:01 -0400.
+# Produced by CVXGEN, 2018-03-26 08:35:52 -0400.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -9,25 +9,24 @@
 
 dimensions
   m = 2  # inputs.
-  n = 4  # states.
+  n = 6  # states.
   T = 40  # horizon.
 end
 
 parameters
-  A (n,n)  {1,1 2,2 3,3 4,4 1,2 3,4}  # dynamics matrix.
-  B (n,m)  {2,1 4,2} # transfer matrix.
-  Af (n,n) {1,1 2,2 3,3 4,4 1,2 3,4}  # dynamics matrix for first prediction.
-  Bf (n,m) {2,1 4,2} # transfer matrix for first prediction.
+  A (n,n)  {1,1 2,2 3,3 4,4 5,5 6,6 1,2 2,3 4,5 5,6}  # dynamics matrix.
+  B (n,m)  {3,1 6,2} # transfer matrix.
+  Af (n,n) {1,1 2,2 3,3 4,4 5,5 6,6 1,2 2,3 4,5 5,6} # dynamics matrix for first prediction.
+  Bf (n,m) {3,1 6,2} # transfer matrix for first prediction.
 
   Q (n,n) psd diagonal nonnegative    # state cost.
   R (m,m) psd diagonal nonnegative  # input cost.
+  R2 (m,m) psd diagonal nonnegative  # input cost.
 
   x[0] (n) # initial state.
   x_max_2[t], t=1..T
-  x_max_3[t], t=0..T-1
-  u_max1
-  u_max2
-  u_last (m)
+  x_max_3[t], t=1..T
+  u_max
 
   x_ss[t] (n), t=1..T
 end
@@ -38,34 +37,28 @@ variables
 end
 
 minimize
-  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T-1](quad(u[t], R)) + (quad(u[0], R*0.05))
+  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T-1](quad(u[t], R)) + (quad(u[0], R2))
 subject to
   x[1] == Af*x[0] + Bf*u[0]
   x[t+1] == A*x[t] + B*u[t], t=1..T-1 # dynamics constraints
 
-  u[0][1]-u_last[1] <= u_max1
-  u[0][1]-u_last[1] >= -u_max1
+  x[t][3] <= x_max_3[t], t=1..T
+  x[t][3] >= -x_max_3[t], t=1..T
 
-  u[0][2]-u_last[2] <= u_max1
-  u[0][2]-u_last[2] >= -u_max1
-
-  u[t][1]-u[t-1][1] <= u_max2, t=1..T-1
-  u[t][1]-u[t-1][1] >= -u_max2, t=1..T-1
-
-  u[t][2]-u[t-1][2] <= u_max2, t=1..T-1
-  u[t][2]-u[t-1][2] >= -u_max2, t=1..T-1
+  x[t][6] <= x_max_3[t],t=1..T
+  x[t][6] >= -x_max_3[t], t=1..T
 
   x[t][2] <= x_max_2[t], t=1..T
   x[t][2] >= -x_max_2[t], t=1..T
 
-  x[t][4] <= x_max_2[t],t=1..T
-  x[t][4] >= -x_max_2[t], t=1..T
+  x[t][5] <= x_max_2[t],t=1..T
+  x[t][5] >= -x_max_2[t], t=1..T
 
-  u[t][1] <= x_max_3[t], t=0..T-1
-  u[t][1] >= -x_max_3[t], t=0..T-1
+  u[t][1] <= u_max, t=0..T-1
+  u[t][1] >= -u_max, t=0..T-1
 
-  u[t][2] <= x_max_3[t], t=0..T-1
-  u[t][2] >= -x_max_3[t], t=0..T-1
+  u[t][2] <= u_max, t=0..T-1
+  u[t][2] >= -u_max, t=0..T-1
 
   #(0.7071*u[t][1] + 0.7071*u[t][2]) <= x_max_3[t], t=0..19
   #(0.7071*u[t][1] + 0.7071*u[t][2]) >= -x_max_3[t], t=0..19
@@ -79,24 +72,23 @@ subject to
   #(0.866*u[t][2] - 0.5*u[t][1]) <= x_max_3, t=0..T-1
   #(0.866*u[t][2] - 0.5*u[t][1]) >= x_min_3 , t=0..T-1
 
+  #(0.866*x[t][2] + 0.5*x[t][5]) <= x_max_2[t], t=1..T
+  #(0.866*x[t][2] + 0.5*x[t][5]) >= -x_max_2[t], t=1..T
 
-  (0.866*x[t][2] + 0.5*x[t][4]) <= x_max_2[t], t=1..T-20
-  (0.866*x[t][2] + 0.5*x[t][4]) >= -x_max_2[t], t=1..T-20
+  #(0.866*x[t][2] - 0.5*x[t][5]) <= x_max_2[t], t=1..T
+  #(0.866*x[t][2] - 0.5*x[t][5]) >= -x_max_2[t], t=1..T
 
-  (0.866*x[t][2] - 0.5*x[t][4]) <= x_max_2[t], t=1..T-20
-  (0.866*x[t][2] - 0.5*x[t][4]) >= -x_max_2[t], t=1..T-20
+  #(0.866*x[t][5] + 0.5*x[t][2]) <= x_max_2[t], t=1..T
+  #(0.866*x[t][5] + 0.5*x[t][2]) >= -x_max_2[t], t=1..T
 
-  (0.866*x[t][4] + 0.5*x[t][2]) <= x_max_2[t], t=1..T-20
-  (0.866*x[t][4] + 0.5*x[t][2]) >= -x_max_2[t], t=1..T-20
+  #(0.866*x[t][2] - 0.5*x[t][5]) <= x_max_2[t], t=1..T
+  #(0.866*x[t][2] - 0.5*x[t][5]) >= -x_max_2[t], t=1..T
 
-  (0.866*x[t][4] - 0.5*x[t][2]) <= x_max_2[t], t=1..T-20
-  (0.866*x[t][4] - 0.5*x[t][2]) >= -x_max_2[t], t=1..T-20
+  (0.7071*x[t][2] + 0.7071*x[t][5]) <= x_max_2[t], t=1..T
+  (0.7071*x[t][2] + 0.7071*x[t][5]) >= -x_max_2[t], t=1..T
 
-  #(0.7071*x[t][2] + 0.7071*x[t][4]) <= x_max_2[t], t=1..T
-  #(0.7071*x[t][2] + 0.7071*x[t][4]) >= -x_max_2[t], t=1..T
-
-  #(0.7071*x[t][2] - 0.7071*x[t][4]) <= x_max_2[t], t=1..T
-  #(0.7071*x[t][2] - 0.7071*x[t][4]) >= -x_max_2[t], t=1..T
+  (0.7071*x[t][2] - 0.7071*x[t][5]) <= x_max_2[t], t=1..T
+  (0.7071*x[t][2] - 0.7071*x[t][5]) >= -x_max_2[t], t=1..T
 
 
 end

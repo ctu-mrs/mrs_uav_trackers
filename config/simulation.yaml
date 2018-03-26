@@ -33,11 +33,11 @@ dynamicalModel:
       0, 0, 0, 0, 0, 0, 0, 0, 1]
 
   B: [0, 0, 0,
+      0, 0, 0,
       0.01, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0.01, 0,
-      0, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0, 0.01]
@@ -83,9 +83,9 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
 
-  maxNumOfIterations: 30
+  maxNumOfIterations: 20
   # Q: [5000, 0, 5000, 0]
-  Q: [5000, 1500, 5000, 1500]
+  Q: [5000, 0, 0, 5000, 0, 0]
   # R: [10000, 10000]
   R: [500, 500]
 

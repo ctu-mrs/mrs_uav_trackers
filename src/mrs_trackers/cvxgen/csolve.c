@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-03-23 06:22:59 -0400.  */
+/* Produced by CVXGEN, 2018-03-26 08:35:50 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -74,8 +74,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.A.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 4))) {
-      printf("A must be size (4,4), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 6))) {
+      printf("A must be size (6,6), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -94,11 +94,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       dest = params.A;
       src = mxGetPr(xm);
       dest[0] = src[0];  /* (1,1) entry. */
-      dest[1] = src[5];  /* (2,2) entry. */
-      dest[2] = src[10];  /* (3,3) entry. */
-      dest[3] = src[15];  /* (4,4) entry. */
-      dest[4] = src[4];  /* (1,2) entry. */
-      dest[5] = src[14];  /* (3,4) entry. */
+      dest[1] = src[7];  /* (2,2) entry. */
+      dest[2] = src[14];  /* (3,3) entry. */
+      dest[3] = src[21];  /* (4,4) entry. */
+      dest[4] = src[28];  /* (5,5) entry. */
+      dest[5] = src[35];  /* (6,6) entry. */
+      dest[6] = src[6];  /* (1,2) entry. */
+      dest[7] = src[13];  /* (2,3) entry. */
+      dest[8] = src[27];  /* (4,5) entry. */
+      dest[9] = src[34];  /* (5,6) entry. */
       valid_vars++;
     }
   }
@@ -107,8 +111,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.Af.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 4))) {
-      printf("Af must be size (4,4), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 6))) {
+      printf("Af must be size (6,6), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -127,11 +131,15 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       dest = params.Af;
       src = mxGetPr(xm);
       dest[0] = src[0];  /* (1,1) entry. */
-      dest[1] = src[5];  /* (2,2) entry. */
-      dest[2] = src[10];  /* (3,3) entry. */
-      dest[3] = src[15];  /* (4,4) entry. */
-      dest[4] = src[4];  /* (1,2) entry. */
-      dest[5] = src[14];  /* (3,4) entry. */
+      dest[1] = src[7];  /* (2,2) entry. */
+      dest[2] = src[14];  /* (3,3) entry. */
+      dest[3] = src[21];  /* (4,4) entry. */
+      dest[4] = src[28];  /* (5,5) entry. */
+      dest[5] = src[35];  /* (6,6) entry. */
+      dest[6] = src[6];  /* (1,2) entry. */
+      dest[7] = src[13];  /* (2,3) entry. */
+      dest[8] = src[27];  /* (4,5) entry. */
+      dest[9] = src[34];  /* (5,6) entry. */
       valid_vars++;
     }
   }
@@ -140,8 +148,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.B.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 2))) {
-      printf("B must be size (4,2), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 2))) {
+      printf("B must be size (6,2), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -159,8 +167,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.B;
       src = mxGetPr(xm);
-      dest[0] = src[1];  /* (2,1) entry. */
-      dest[1] = src[7];  /* (4,2) entry. */
+      dest[0] = src[2];  /* (3,1) entry. */
+      dest[1] = src[11];  /* (6,2) entry. */
       valid_vars++;
     }
   }
@@ -169,8 +177,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.Bf.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 2))) {
-      printf("Bf must be size (4,2), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 2))) {
+      printf("Bf must be size (6,2), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -188,8 +196,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.Bf;
       src = mxGetPr(xm);
-      dest[0] = src[1];  /* (2,1) entry. */
-      dest[1] = src[7];  /* (4,2) entry. */
+      dest[0] = src[2];  /* (3,1) entry. */
+      dest[1] = src[11];  /* (6,2) entry. */
       valid_vars++;
     }
   }
@@ -198,8 +206,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.Q.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 4))) {
-      printf("Q must be size (4,4), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 6))) {
+      printf("Q must be size (6,6), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -218,8 +226,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
       dest = params.Q;
       src = mxGetPr(xm);
       warned_diags = 0;
-      for (i = 0; i < 4; i++) {
-        for (j = 0; j < 4; j++) {
+      for (i = 0; i < 6; i++) {
+        for (j = 0; j < 6; j++) {
           if (i == j) {
             *dest++ = *src;
           } else if (!warned_diags && (*src != 0)) {
@@ -272,86 +280,67 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     }
   }
   this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "u_last");
+  xm = mxGetField(prhs[0], 0, "R2");
   if (xm == NULL) {
-    printf("could not find params.u_last.\n");
+    printf("could not find params.R2.\n");
   } else {
-    if (!((mxGetM(xm) == 2) && (mxGetN(xm) == 1))) {
-      printf("u_last must be size (2,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 2) && (mxGetN(xm) == 2))) {
+      printf("R2 must be size (2,2), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
-      printf("parameter u_last must be real.\n");
+      printf("parameter R2 must be real.\n");
       this_var_errors++;
     }
     if (!mxIsClass(xm, "double")) {
-      printf("parameter u_last must be a full matrix of doubles.\n");
+      printf("parameter R2 must be a full matrix of doubles.\n");
       this_var_errors++;
     }
     if (mxIsSparse(xm)) {
-      printf("parameter u_last must be a full matrix.\n");
+      printf("parameter R2 must be a full matrix.\n");
       this_var_errors++;
     }
     if (this_var_errors == 0) {
-      dest = params.u_last;
+      dest = params.R2;
       src = mxGetPr(xm);
-      for (i = 0; i < 2; i++)
-        *dest++ = *src++;
+      warned_diags = 0;
+      for (i = 0; i < 2; i++) {
+        for (j = 0; j < 2; j++) {
+          if (i == j) {
+            *dest++ = *src;
+          } else if (!warned_diags && (*src != 0)) {
+            printf("\n!!! Warning: ignoring off-diagonal elements in R2 !!!\n\n");
+            warned_diags = 1;
+          }
+          src++;
+        }
+      }
       valid_vars++;
     }
   }
   this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "u_max1");
+  xm = mxGetField(prhs[0], 0, "u_max");
   if (xm == NULL) {
-    printf("could not find params.u_max1.\n");
+    printf("could not find params.u_max.\n");
   } else {
     if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
-      printf("u_max1 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+      printf("u_max must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
-      printf("parameter u_max1 must be real.\n");
+      printf("parameter u_max must be real.\n");
       this_var_errors++;
     }
     if (!mxIsClass(xm, "double")) {
-      printf("parameter u_max1 must be a full matrix of doubles.\n");
+      printf("parameter u_max must be a full matrix of doubles.\n");
       this_var_errors++;
     }
     if (mxIsSparse(xm)) {
-      printf("parameter u_max1 must be a full matrix.\n");
+      printf("parameter u_max must be a full matrix.\n");
       this_var_errors++;
     }
     if (this_var_errors == 0) {
-      dest = params.u_max1;
-      src = mxGetPr(xm);
-      for (i = 0; i < 1; i++)
-        *dest++ = *src++;
-      valid_vars++;
-    }
-  }
-  this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "u_max2");
-  if (xm == NULL) {
-    printf("could not find params.u_max2.\n");
-  } else {
-    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
-      printf("u_max2 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
-      this_var_errors++;
-    }
-    if (mxIsComplex(xm)) {
-      printf("parameter u_max2 must be real.\n");
-      this_var_errors++;
-    }
-    if (!mxIsClass(xm, "double")) {
-      printf("parameter u_max2 must be a full matrix of doubles.\n");
-      this_var_errors++;
-    }
-    if (mxIsSparse(xm)) {
-      printf("parameter u_max2 must be a full matrix.\n");
-      this_var_errors++;
-    }
-    if (this_var_errors == 0) {
-      dest = params.u_max2;
+      dest = params.u_max;
       src = mxGetPr(xm);
       for (i = 0; i < 1; i++)
         *dest++ = *src++;
@@ -363,8 +352,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_0.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_0 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_0 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -382,7 +371,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_0;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -1788,35 +1777,6 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     }
   }
   this_var_errors = 0;
-  xm = mxGetField(prhs[0], 0, "x_max_3_0");
-  if (xm == NULL) {
-    printf("could not find params.x_max_3_0.\n");
-  } else {
-    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
-      printf("x_max_3_0 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
-      this_var_errors++;
-    }
-    if (mxIsComplex(xm)) {
-      printf("parameter x_max_3_0 must be real.\n");
-      this_var_errors++;
-    }
-    if (!mxIsClass(xm, "double")) {
-      printf("parameter x_max_3_0 must be a full matrix of doubles.\n");
-      this_var_errors++;
-    }
-    if (mxIsSparse(xm)) {
-      printf("parameter x_max_3_0 must be a full matrix.\n");
-      this_var_errors++;
-    }
-    if (this_var_errors == 0) {
-      dest = params.x_max_3_0;
-      src = mxGetPr(xm);
-      for (i = 0; i < 1; i++)
-        *dest++ = *src++;
-      valid_vars++;
-    }
-  }
-  this_var_errors = 0;
   xm = mxGetField(prhs[0], 0, "x_max_3_1");
   if (xm == NULL) {
     /* Attempt to pull x_max_3_1 from a cell array, as an additional option. */
@@ -3182,6 +3142,41 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     }
   }
   this_var_errors = 0;
+  xm = mxGetField(prhs[0], 0, "x_max_3_40");
+  if (xm == NULL) {
+    /* Attempt to pull x_max_3_40 from a cell array, as an additional option. */
+    cell = mxGetField(prhs[0], 0, "x_max_3");
+    if (cell != NULL)
+      xm = mxGetCell(cell, 39);
+  }
+  if (xm == NULL) {
+    printf("could not find params.x_max_3_40 or params.x_max_3{40}.\n");
+  } else {
+    if (!((mxGetM(xm) == 1) && (mxGetN(xm) == 1))) {
+      printf("x_max_3_40 must be size (1,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+      this_var_errors++;
+    }
+    if (mxIsComplex(xm)) {
+      printf("parameter x_max_3_40 must be real.\n");
+      this_var_errors++;
+    }
+    if (!mxIsClass(xm, "double")) {
+      printf("parameter x_max_3_40 must be a full matrix of doubles.\n");
+      this_var_errors++;
+    }
+    if (mxIsSparse(xm)) {
+      printf("parameter x_max_3_40 must be a full matrix.\n");
+      this_var_errors++;
+    }
+    if (this_var_errors == 0) {
+      dest = params.x_max_3_40;
+      src = mxGetPr(xm);
+      for (i = 0; i < 1; i++)
+        *dest++ = *src++;
+      valid_vars++;
+    }
+  }
+  this_var_errors = 0;
   xm = mxGetField(prhs[0], 0, "x_ss_1");
   if (xm == NULL) {
     /* Attempt to pull x_ss_1 from a cell array, as an additional option. */
@@ -3192,8 +3187,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_1 or params.x_ss{1}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_1 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_1 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3211,7 +3206,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_1;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3227,8 +3222,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_2 or params.x_ss{2}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_2 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_2 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3246,7 +3241,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_2;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3262,8 +3257,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_3 or params.x_ss{3}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_3 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_3 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3281,7 +3276,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_3;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3297,8 +3292,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_4 or params.x_ss{4}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_4 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_4 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3316,7 +3311,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_4;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3332,8 +3327,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_5 or params.x_ss{5}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_5 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_5 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3351,7 +3346,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_5;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3367,8 +3362,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_6 or params.x_ss{6}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_6 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_6 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3386,7 +3381,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_6;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3402,8 +3397,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_7 or params.x_ss{7}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_7 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_7 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3421,7 +3416,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_7;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3437,8 +3432,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_8 or params.x_ss{8}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_8 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_8 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3456,7 +3451,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_8;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3472,8 +3467,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_9 or params.x_ss{9}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_9 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_9 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3491,7 +3486,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_9;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3507,8 +3502,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_10 or params.x_ss{10}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_10 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_10 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3526,7 +3521,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_10;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3542,8 +3537,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_11 or params.x_ss{11}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_11 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_11 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3561,7 +3556,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_11;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3577,8 +3572,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_12 or params.x_ss{12}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_12 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_12 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3596,7 +3591,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_12;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3612,8 +3607,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_13 or params.x_ss{13}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_13 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_13 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3631,7 +3626,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_13;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3647,8 +3642,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_14 or params.x_ss{14}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_14 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_14 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3666,7 +3661,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_14;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3682,8 +3677,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_15 or params.x_ss{15}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_15 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_15 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3701,7 +3696,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_15;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3717,8 +3712,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_16 or params.x_ss{16}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_16 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_16 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3736,7 +3731,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_16;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3752,8 +3747,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_17 or params.x_ss{17}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_17 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_17 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3771,7 +3766,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_17;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3787,8 +3782,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_18 or params.x_ss{18}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_18 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_18 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3806,7 +3801,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_18;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3822,8 +3817,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_19 or params.x_ss{19}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_19 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_19 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3841,7 +3836,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_19;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3857,8 +3852,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_20 or params.x_ss{20}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_20 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_20 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3876,7 +3871,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_20;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3892,8 +3887,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_21 or params.x_ss{21}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_21 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_21 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3911,7 +3906,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_21;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3927,8 +3922,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_22 or params.x_ss{22}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_22 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_22 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3946,7 +3941,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_22;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3962,8 +3957,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_23 or params.x_ss{23}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_23 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_23 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -3981,7 +3976,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_23;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -3997,8 +3992,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_24 or params.x_ss{24}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_24 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_24 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4016,7 +4011,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_24;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4032,8 +4027,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_25 or params.x_ss{25}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_25 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_25 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4051,7 +4046,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_25;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4067,8 +4062,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_26 or params.x_ss{26}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_26 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_26 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4086,7 +4081,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_26;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4102,8 +4097,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_27 or params.x_ss{27}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_27 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_27 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4121,7 +4116,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_27;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4137,8 +4132,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_28 or params.x_ss{28}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_28 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_28 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4156,7 +4151,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_28;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4172,8 +4167,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_29 or params.x_ss{29}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_29 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_29 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4191,7 +4186,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_29;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4207,8 +4202,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_30 or params.x_ss{30}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_30 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_30 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4226,7 +4221,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_30;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4242,8 +4237,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_31 or params.x_ss{31}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_31 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_31 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4261,7 +4256,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_31;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4277,8 +4272,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_32 or params.x_ss{32}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_32 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_32 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4296,7 +4291,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_32;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4312,8 +4307,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_33 or params.x_ss{33}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_33 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_33 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4331,7 +4326,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_33;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4347,8 +4342,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_34 or params.x_ss{34}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_34 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_34 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4366,7 +4361,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_34;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4382,8 +4377,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_35 or params.x_ss{35}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_35 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_35 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4401,7 +4396,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_35;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4417,8 +4412,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_36 or params.x_ss{36}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_36 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_36 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4436,7 +4431,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_36;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4452,8 +4447,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_37 or params.x_ss{37}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_37 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_37 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4471,7 +4466,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_37;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4487,8 +4482,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_38 or params.x_ss{38}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_38 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_38 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4506,7 +4501,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_38;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4522,8 +4517,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_39 or params.x_ss{39}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_39 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_39 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4541,7 +4536,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_39;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
@@ -4557,8 +4552,8 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
   if (xm == NULL) {
     printf("could not find params.x_ss_40 or params.x_ss{40}.\n");
   } else {
-    if (!((mxGetM(xm) == 4) && (mxGetN(xm) == 1))) {
-      printf("x_ss_40 must be size (4,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
+    if (!((mxGetM(xm) == 6) && (mxGetN(xm) == 1))) {
+      printf("x_ss_40 must be size (6,1), not (%d,%d).\n", mxGetM(xm), mxGetN(xm));
       this_var_errors++;
     }
     if (mxIsComplex(xm)) {
@@ -4576,117 +4571,193 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     if (this_var_errors == 0) {
       dest = params.x_ss_40;
       src = mxGetPr(xm);
-      for (i = 0; i < 4; i++)
+      for (i = 0; i < 6; i++)
         *dest++ = *src++;
       valid_vars++;
     }
   }
-  if (valid_vars != 130) {
-    printf("Error: %d parameters are invalid.\n", 130 - valid_vars);
+  if (valid_vars != 129) {
+    printf("Error: %d parameters are invalid.\n", 129 - valid_vars);
     mexErrMsgTxt("invalid parameters found.");
   }
   if (prepare_for_c) {
     printf("settings.prepare_for_c == 1. thus, outputting for C.\n");
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_1[%d] = %.6g;\n", i, params.x_ss_1[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.Q[%d] = %.6g;\n", i, params.Q[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_2[%d] = %.6g;\n", i, params.x_ss_2[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_3[%d] = %.6g;\n", i, params.x_ss_3[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_4[%d] = %.6g;\n", i, params.x_ss_4[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_5[%d] = %.6g;\n", i, params.x_ss_5[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_6[%d] = %.6g;\n", i, params.x_ss_6[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_7[%d] = %.6g;\n", i, params.x_ss_7[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_8[%d] = %.6g;\n", i, params.x_ss_8[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_9[%d] = %.6g;\n", i, params.x_ss_9[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_10[%d] = %.6g;\n", i, params.x_ss_10[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_11[%d] = %.6g;\n", i, params.x_ss_11[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_12[%d] = %.6g;\n", i, params.x_ss_12[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_13[%d] = %.6g;\n", i, params.x_ss_13[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_14[%d] = %.6g;\n", i, params.x_ss_14[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_15[%d] = %.6g;\n", i, params.x_ss_15[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_16[%d] = %.6g;\n", i, params.x_ss_16[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_17[%d] = %.6g;\n", i, params.x_ss_17[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_18[%d] = %.6g;\n", i, params.x_ss_18[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_19[%d] = %.6g;\n", i, params.x_ss_19[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_20[%d] = %.6g;\n", i, params.x_ss_20[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_21[%d] = %.6g;\n", i, params.x_ss_21[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_22[%d] = %.6g;\n", i, params.x_ss_22[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_23[%d] = %.6g;\n", i, params.x_ss_23[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_24[%d] = %.6g;\n", i, params.x_ss_24[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_25[%d] = %.6g;\n", i, params.x_ss_25[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_26[%d] = %.6g;\n", i, params.x_ss_26[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_27[%d] = %.6g;\n", i, params.x_ss_27[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_28[%d] = %.6g;\n", i, params.x_ss_28[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_29[%d] = %.6g;\n", i, params.x_ss_29[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_30[%d] = %.6g;\n", i, params.x_ss_30[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_31[%d] = %.6g;\n", i, params.x_ss_31[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_32[%d] = %.6g;\n", i, params.x_ss_32[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_33[%d] = %.6g;\n", i, params.x_ss_33[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_34[%d] = %.6g;\n", i, params.x_ss_34[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_35[%d] = %.6g;\n", i, params.x_ss_35[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_36[%d] = %.6g;\n", i, params.x_ss_36[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_37[%d] = %.6g;\n", i, params.x_ss_37[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_38[%d] = %.6g;\n", i, params.x_ss_38[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_39[%d] = %.6g;\n", i, params.x_ss_39[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_ss_40[%d] = %.6g;\n", i, params.x_ss_40[i]);
     for (i = 0; i < 2; i++)
       printf("  params.R[%d] = %.6g;\n", i, params.R[i]);
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < 2; i++)
+      printf("  params.R2[%d] = %.6g;\n", i, params.R2[i]);
+    for (i = 0; i < 10; i++)
       printf("  params.Af[%d] = %.6g;\n", i, params.Af[i]);
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 6; i++)
       printf("  params.x_0[%d] = %.6g;\n", i, params.x_0[i]);
     for (i = 0; i < 2; i++)
       printf("  params.Bf[%d] = %.6g;\n", i, params.Bf[i]);
-    for (i = 0; i < 6; i++)
+    for (i = 0; i < 10; i++)
       printf("  params.A[%d] = %.6g;\n", i, params.A[i]);
     for (i = 0; i < 2; i++)
       printf("  params.B[%d] = %.6g;\n", i, params.B[i]);
-    for (i = 0; i < 2; i++)
-      printf("  params.u_last[%d] = %.6g;\n", i, params.u_last[i]);
     for (i = 0; i < 1; i++)
-      printf("  params.u_max1[%d] = %.6g;\n", i, params.u_max1[i]);
+      printf("  params.x_max_3_1[%d] = %.6g;\n", i, params.x_max_3_1[i]);
     for (i = 0; i < 1; i++)
-      printf("  params.u_max2[%d] = %.6g;\n", i, params.u_max2[i]);
+      printf("  params.x_max_3_2[%d] = %.6g;\n", i, params.x_max_3_2[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_3[%d] = %.6g;\n", i, params.x_max_3_3[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_4[%d] = %.6g;\n", i, params.x_max_3_4[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_5[%d] = %.6g;\n", i, params.x_max_3_5[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_6[%d] = %.6g;\n", i, params.x_max_3_6[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_7[%d] = %.6g;\n", i, params.x_max_3_7[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_8[%d] = %.6g;\n", i, params.x_max_3_8[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_9[%d] = %.6g;\n", i, params.x_max_3_9[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_10[%d] = %.6g;\n", i, params.x_max_3_10[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_11[%d] = %.6g;\n", i, params.x_max_3_11[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_12[%d] = %.6g;\n", i, params.x_max_3_12[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_13[%d] = %.6g;\n", i, params.x_max_3_13[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_14[%d] = %.6g;\n", i, params.x_max_3_14[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_15[%d] = %.6g;\n", i, params.x_max_3_15[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_16[%d] = %.6g;\n", i, params.x_max_3_16[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_17[%d] = %.6g;\n", i, params.x_max_3_17[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_18[%d] = %.6g;\n", i, params.x_max_3_18[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_19[%d] = %.6g;\n", i, params.x_max_3_19[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_20[%d] = %.6g;\n", i, params.x_max_3_20[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_21[%d] = %.6g;\n", i, params.x_max_3_21[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_22[%d] = %.6g;\n", i, params.x_max_3_22[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_23[%d] = %.6g;\n", i, params.x_max_3_23[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_24[%d] = %.6g;\n", i, params.x_max_3_24[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_25[%d] = %.6g;\n", i, params.x_max_3_25[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_26[%d] = %.6g;\n", i, params.x_max_3_26[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_27[%d] = %.6g;\n", i, params.x_max_3_27[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_28[%d] = %.6g;\n", i, params.x_max_3_28[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_29[%d] = %.6g;\n", i, params.x_max_3_29[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_30[%d] = %.6g;\n", i, params.x_max_3_30[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_31[%d] = %.6g;\n", i, params.x_max_3_31[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_32[%d] = %.6g;\n", i, params.x_max_3_32[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_33[%d] = %.6g;\n", i, params.x_max_3_33[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_34[%d] = %.6g;\n", i, params.x_max_3_34[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_35[%d] = %.6g;\n", i, params.x_max_3_35[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_36[%d] = %.6g;\n", i, params.x_max_3_36[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_37[%d] = %.6g;\n", i, params.x_max_3_37[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_38[%d] = %.6g;\n", i, params.x_max_3_38[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_39[%d] = %.6g;\n", i, params.x_max_3_39[i]);
+    for (i = 0; i < 1; i++)
+      printf("  params.x_max_3_40[%d] = %.6g;\n", i, params.x_max_3_40[i]);
     for (i = 0; i < 1; i++)
       printf("  params.x_max_2_1[%d] = %.6g;\n", i, params.x_max_2_1[i]);
     for (i = 0; i < 1; i++)
@@ -4768,85 +4839,7 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     for (i = 0; i < 1; i++)
       printf("  params.x_max_2_40[%d] = %.6g;\n", i, params.x_max_2_40[i]);
     for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_0[%d] = %.6g;\n", i, params.x_max_3_0[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_1[%d] = %.6g;\n", i, params.x_max_3_1[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_2[%d] = %.6g;\n", i, params.x_max_3_2[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_3[%d] = %.6g;\n", i, params.x_max_3_3[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_4[%d] = %.6g;\n", i, params.x_max_3_4[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_5[%d] = %.6g;\n", i, params.x_max_3_5[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_6[%d] = %.6g;\n", i, params.x_max_3_6[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_7[%d] = %.6g;\n", i, params.x_max_3_7[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_8[%d] = %.6g;\n", i, params.x_max_3_8[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_9[%d] = %.6g;\n", i, params.x_max_3_9[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_10[%d] = %.6g;\n", i, params.x_max_3_10[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_11[%d] = %.6g;\n", i, params.x_max_3_11[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_12[%d] = %.6g;\n", i, params.x_max_3_12[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_13[%d] = %.6g;\n", i, params.x_max_3_13[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_14[%d] = %.6g;\n", i, params.x_max_3_14[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_15[%d] = %.6g;\n", i, params.x_max_3_15[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_16[%d] = %.6g;\n", i, params.x_max_3_16[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_17[%d] = %.6g;\n", i, params.x_max_3_17[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_18[%d] = %.6g;\n", i, params.x_max_3_18[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_19[%d] = %.6g;\n", i, params.x_max_3_19[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_20[%d] = %.6g;\n", i, params.x_max_3_20[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_21[%d] = %.6g;\n", i, params.x_max_3_21[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_22[%d] = %.6g;\n", i, params.x_max_3_22[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_23[%d] = %.6g;\n", i, params.x_max_3_23[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_24[%d] = %.6g;\n", i, params.x_max_3_24[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_25[%d] = %.6g;\n", i, params.x_max_3_25[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_26[%d] = %.6g;\n", i, params.x_max_3_26[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_27[%d] = %.6g;\n", i, params.x_max_3_27[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_28[%d] = %.6g;\n", i, params.x_max_3_28[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_29[%d] = %.6g;\n", i, params.x_max_3_29[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_30[%d] = %.6g;\n", i, params.x_max_3_30[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_31[%d] = %.6g;\n", i, params.x_max_3_31[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_32[%d] = %.6g;\n", i, params.x_max_3_32[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_33[%d] = %.6g;\n", i, params.x_max_3_33[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_34[%d] = %.6g;\n", i, params.x_max_3_34[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_35[%d] = %.6g;\n", i, params.x_max_3_35[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_36[%d] = %.6g;\n", i, params.x_max_3_36[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_37[%d] = %.6g;\n", i, params.x_max_3_37[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_38[%d] = %.6g;\n", i, params.x_max_3_38[i]);
-    for (i = 0; i < 1; i++)
-      printf("  params.x_max_3_39[%d] = %.6g;\n", i, params.x_max_3_39[i]);
+      printf("  params.u_max[%d] = %.6g;\n", i, params.u_max[i]);
   }
   /* Perform the actual solve in here. */
   steps = solve();
@@ -5352,483 +5345,483 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[]) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_1", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 0, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_1;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_2", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 1, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_2;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_3", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 2, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_3;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_4", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 3, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_4;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_5", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 4, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_5;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_6", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 5, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_6;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_7", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 6, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_7;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_8", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 7, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_8;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_9", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 8, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_9;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_10", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 9, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_10;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_11", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 10, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_11;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_12", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 11, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_12;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_13", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 12, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_13;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_14", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 13, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_14;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_15", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 14, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_15;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_16", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 15, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_16;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_17", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 16, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_17;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_18", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 17, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_18;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_19", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 18, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_19;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_20", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 19, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_20;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_21", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 20, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_21;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_22", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 21, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_22;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_23", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 22, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_23;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_24", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 23, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_24;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_25", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 24, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_25;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_26", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 25, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_26;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_27", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 26, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_27;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_28", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 27, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_28;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_29", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 28, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_29;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_30", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 29, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_30;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_31", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 30, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_31;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_32", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 31, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_32;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_33", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 32, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_33;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_34", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 33, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_34;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_35", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 34, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_35;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_36", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 35, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_36;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_37", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 36, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_37;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_38", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 37, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_38;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_39", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 38, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_39;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }
-  xm = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm = mxCreateDoubleMatrix(6, 1, mxREAL);
   mxSetField(plhs[0], 0, "x_40", xm);
-  xm_cell = mxCreateDoubleMatrix(4, 1, mxREAL);
+  xm_cell = mxCreateDoubleMatrix(6, 1, mxREAL);
   cell = mxGetField(plhs[0], 0, "x");
   mxSetCell(cell, 39, xm_cell);
   dest = mxGetPr(xm);
   dest_cell = mxGetPr(xm_cell);
   src = vars.x_40;
-  for (i = 0; i < 4; i++) {
+  for (i = 0; i < 6; i++) {
     *dest++ = *src;
     *dest_cell++ = *src++;
   }

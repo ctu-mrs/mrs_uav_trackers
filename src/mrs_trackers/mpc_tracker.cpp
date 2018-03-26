@@ -1141,14 +1141,10 @@ void MpcTracker::calculateMPC() {
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
   cvx_2d->loadReference(reference);
-  x_mutex.lock();
-  {
-    iters_XY += cvx_2d->solveCvx(cvx_u(0), cvx_u(1));
-    cvx_2d->getStates(predicted_future_trajectory);
-    cvx_u(0) = cvx_2d->getFirstControlInputX();
-    cvx_u(1) = cvx_2d->getFirstControlInputY();
-  }
-  x_mutex.unlock();
+  iters_XY += cvx_2d->solveCvx(cvx_u(0), cvx_u(1));
+  cvx_2d->getStates(predicted_future_trajectory);
+  cvx_u(0) = cvx_2d->getFirstControlInputX();
+  cvx_u(1) = cvx_2d->getFirstControlInputY();
 
   // cvxgen yaw ----------------------------------------------------------------------------------------
   cvx_yaw->setInitialState(x_yaw);
@@ -1157,50 +1153,39 @@ void MpcTracker::calculateMPC() {
   iters_yaw += cvx_yaw->solveCvx();
   cvx_yaw->getStates(predicted_future_yaw);
 
-  
-  if (fabs(cvx_u(0)) - fabs(cvx_u_last(0)) > max_horizontal_jerk * 0.01) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk X");
-    cvx_u(0) > cvx_u_last(0) ? cvx_u(0) = cvx_u_last(0) + max_horizontal_jerk * 0.01 : cvx_u(0) = cvx_u_last(0) - max_horizontal_jerk * 0.01;
+  if (cvx_u(0) > max_horizontal_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk X: " << cvx_u(0));
+    cvx_u(0) = max_horizontal_jerk;
   }
-  if (fabs(cvx_u(1)) - fabs(cvx_u_last(1)) > max_horizontal_jerk * 0.01) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk Y");
-    cvx_u(1) > cvx_u_last(1) ? cvx_u(1) = cvx_u_last(1) + max_horizontal_jerk * 0.01 : cvx_u(1) = cvx_u_last(1) - max_horizontal_jerk * 0.01;
+  if (cvx_u(0) < -max_horizontal_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jert X: " << cvx_u(0));
+    cvx_u(0) = -max_horizontal_jerk;
   }
-  if (cvx_u(0) > max_horizontal_acceleration) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating u(0): " << cvx_u(0));
-    cvx_u(0) = max_horizontal_acceleration;
+  if (cvx_u(1) > max_horizontal_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk Y: " << cvx_u(1));
+    cvx_u(1) = max_horizontal_jerk;
   }
-
-  if (cvx_u(0) < -max_horizontal_acceleration) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating u(0): " << cvx_u(0));
-    cvx_u(0) = -max_horizontal_acceleration;
-  }
-  if (cvx_u(1) > max_horizontal_acceleration) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating u(1): " << cvx_u(1));
-    cvx_u(1) = max_horizontal_acceleration;
-  }
-  if (cvx_u(1) < -max_horizontal_acceleration) {
-    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating u(1): " << cvx_u(1));
-    cvx_u(1) = -max_horizontal_acceleration;
-  }
-  
-  cvx_u_last = cvx_u;
-
-  if (cvx_u(2) > max_vertical_ascending_acceleration * 1.02) {
-    ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2));
-    cvx_u(2) = max_vertical_ascending_acceleration;
+  if (cvx_u(1) < -max_horizontal_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk Y: " << cvx_u(1));
+    cvx_u(1) = -max_horizontal_jerk;
   }
 
-  if (cvx_u(2) < -max_vertical_descending_acceleration * 1.02) {
-    ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2));
-    cvx_u(2) = -max_vertical_descending_acceleration;
-  }
+  /* cvx_u_last = cvx_u; */
+
+  /* if (cvx_u(2) > max_vertical_ascending_acceleration * 1.02) { */
+  /*   ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2)); */
+  /*   cvx_u(2) = max_vertical_ascending_acceleration; */
+  /* } */
+
+  /* if (cvx_u(2) < -max_vertical_descending_acceleration * 1.02) { */
+  /*   ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2)); */
+  /*   cvx_u(2) = -max_vertical_descending_acceleration; */
+  /* } */
 
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
-  ROS_INFO_STREAM_THROTTLE(0.2, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY
+  ROS_INFO_STREAM_THROTTLE(0.5, "Total CVXtime: " << (ros::Time::now() - time_begin).toSec() << " iters XY: " << iters_XY << "/" << max_iters_XY
                                                   << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_yaw << "/" << max_iters_yaw);
-
 
   x_mutex.lock();
   {
@@ -1343,8 +1328,8 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
   if (!active_)
     return quadrotor_msgs::PositionCommand::Ptr();
- 
-  
+
+
   calculateMPC();
   if (!mpc_computed_) {
 
