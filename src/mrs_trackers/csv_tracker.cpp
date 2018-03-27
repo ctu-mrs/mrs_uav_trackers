@@ -17,7 +17,7 @@
 #include "tf/LinearMath/Transform.h"
 #include <std_msgs/Float64.h>
 #include <std_msgs/Float32.h>
-#include <gazebo_ros_link_attacher/Attach.h>
+#include <std_msgs/Int32.h>
 
 using namespace Eigen;
 
@@ -60,13 +60,13 @@ class CsvTracker : public trackers_manager::Tracker {
     // service clients
     ros::ServiceClient service_switch_tracker;
     ros::ServiceClient service_goto;
-    ros::ServiceClient service_drop;
 
     // publishers
     ros::Publisher publisher_odom_pitch_;
     ros::Publisher publisher_desired_pitch_;
     ros::Publisher publisher_desired_zd_;
     ros::Publisher publisher_desired_xd_;
+    ros::Publisher publisher_action;
 
     ros::Publisher pub_weight;
     
@@ -165,7 +165,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   service_switch_tracker = priv_nh.serviceClient<trackers_manager::Transition>("transition_out");
   service_switch_tracker = priv_nh.serviceClient<trackers_manager::Transition>("transition_out");
 
-  service_drop = priv_nh.serviceClient<gazebo_ros_link_attacher::Attach>("drop");
+  publisher_action = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
   pub_weight = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
 
   subscriber_odom = priv_nh.subscribe("/uav1/mrs_odometry/new_odom", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
@@ -334,18 +334,11 @@ void CsvTracker::mainThread(void) {
 
       ROS_ERROR("RELEASING MASS");
 
-      gazebo_ros_link_attacher::Attach drop_ser; 
+      std_msgs::Int32 action; 
 
-      drop_ser.request.model_name_1 = "uav1";
-      drop_ser.request.model_name_2 = "object1";
-      drop_ser.request.link_name_1 = "base_link";
-      drop_ser.request.link_name_2 = "link";
+      action.data = 1;
 
-      service_drop.call(drop_ser);
-
-      std_msgs::Float32 msg;
-      msg.data = 2.5;
-      pub_weight.publish(msg);
+      publisher_action.publish(action);
 
     }
 
