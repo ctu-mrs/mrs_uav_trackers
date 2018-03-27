@@ -1,0 +1,5 @@
+<library path="lib/libcsv_tracker">
+	<class name="mrs_trackers/CsvTracker" type="CsvTracker" base_class_type="trackers_manager::Tracker">
+    		<description>This is CSV tracker.</description>
+  	</class>
+</library>
