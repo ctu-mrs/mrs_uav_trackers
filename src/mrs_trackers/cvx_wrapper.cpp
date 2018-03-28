@@ -285,7 +285,7 @@ void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_40[0] = reference(39 * n + 0, 0);
   params.x_ss_40[3] = reference(39 * n + 3, 0);
 }
-int CvxWrapper::solveCvx(double u0, double u1) {
+int CvxWrapper::solveCvx() {
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {

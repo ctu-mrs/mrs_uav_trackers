@@ -145,7 +145,7 @@ private:
   MatrixXd des_z_filtered;                    // filtered trajectory reference over the horizon
   VectorXd cvxgen_horizontal_vel_constraint;  // velocity constraint for the XY cvxgen solver
   VectorXd cvxgen_horizontal_acc_constraint;  // acceleration constraint for the XY cvxgen solver
-    VectorXd des_x_whole_trajectory;            // long trajectory reference
+  VectorXd des_x_whole_trajectory;            // long trajectory reference
   VectorXd des_y_whole_trajectory;            // long trajectory reference
   VectorXd des_z_whole_trajectory;            // long trajectory reference
   VectorXd des_yaw_whole_trajectory;          // long trajectory reference
@@ -1039,13 +1039,6 @@ void MpcTracker::calculateMPC() {
   // filter desired yaw reference to be feasible and remove pi rollarounds
   filterYawReference();
 
-  /* if (sqrt(pow(x(0, 0) - des_x_filtered(0, 0), 2) + pow(x(3, 0) - des_y_filtered(0, 0), 2) + pow(x(6, 0) - des_z_filtered(0, 0), 2)) < 2.0) { */
-  /*   params.Q[4] = 0; */
-  /* } else { */
-  /*   params.Q[4] = 0; */
-  /* } */
-
-
   avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
   being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
   iters_Z          = 0;
@@ -1073,10 +1066,6 @@ void MpcTracker::calculateMPC() {
     min_acc_z   = max_vertical_descending_acceleration;
   }
 
-
-  // Prepare constraints for velocity and acceleration in X/Y
-
-
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
     reference(i * n, 0)     = des_x_filtered(i, 0);
@@ -1103,7 +1092,7 @@ void MpcTracker::calculateMPC() {
   ros::Time time_begin = ros::Time::now();
 
   // cvxgen Z axis -------------------------------------------------------------------------------------
-  
+
   cvx_z->setInitialState(x);
   cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
   cvx_z->loadReference(reference);
@@ -1127,6 +1116,9 @@ void MpcTracker::calculateMPC() {
       tmpz = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
       if (tmpz < cvxgen_horizontal_vel_constraint(i)) {
         cvxgen_horizontal_vel_constraint(i) = tmpz;
+        if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) {
+          cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2;
+        }
       }
     } else {
       cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
@@ -1136,7 +1128,7 @@ void MpcTracker::calculateMPC() {
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
   cvx_2d->loadReference(reference);
-  iters_XY += cvx_2d->solveCvx(cvx_u(0), cvx_u(1));
+  iters_XY += cvx_2d->solveCvx();
   cvx_2d->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_2d->getFirstControlInputX();
   cvx_u(1) = cvx_2d->getFirstControlInputY();
@@ -1165,17 +1157,15 @@ void MpcTracker::calculateMPC() {
     cvx_u(1) = -max_horizontal_jerk;
   }
 
-  /* cvx_u_last = cvx_u; */
+  if (cvx_u(2) > max_vertical_ascending_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk Z: " << cvx_u(2));
+    cvx_u(2) = max_vertical_ascending_jerk;
+  }
 
-  /* if (cvx_u(2) > max_vertical_ascending_acceleration * 1.02) { */
-  /*   ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2)); */
-  /*   cvx_u(2) = max_vertical_ascending_acceleration; */
-  /* } */
-
-  /* if (cvx_u(2) < -max_vertical_descending_acceleration * 1.02) { */
-  /*   ROS_ERROR_STREAM("Saturating u(2): " << cvx_u(2)); */
-  /*   cvx_u(2) = -max_vertical_descending_acceleration; */
-  /* } */
+  if (cvx_u(2) < -max_vertical_descending_jerk) {
+    ROS_WARN_STREAM_THROTTLE(0.2, "Saturating jerk Z: " << cvx_u(2));
+    cvx_u(2) = -max_vertical_descending_jerk;
+  }
 
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
@@ -1420,11 +1410,14 @@ const quadrotor_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msg
   }
 
   if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
-
-    // set the yaw output - old PD controller
+    // set the yaw output - PD controller
     /* position_cmd_.yaw_dot = yaw_rate; */
     /* position_cmd_.yaw     = yaw; */
+  } else {
+    ROS_INFO("Output YAW is not finite!");
+  }
 
+  if (std::isfinite(x_yaw(0, 0)) && std::isfinite(x_yaw(1, 0))) {
     // set the yaw output - cvxgen MPC controller
     position_cmd_.yaw     = x_yaw(0, 0);
     position_cmd_.yaw_dot = x_yaw(1, 0);
