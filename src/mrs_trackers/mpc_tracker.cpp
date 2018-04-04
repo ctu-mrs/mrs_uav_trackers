@@ -1726,7 +1726,7 @@ bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_m
     return true;
   }
 
-  if (!set_goal(x(0, 0), x(3, 0), req.goal, 0, false)) {
+  if (!set_goal(x(0, 0), x(3, 0), req.goal, x_yaw(0, 0), false)) {
 
     res.success = false;
     res.message = "Cannot set the goal. It is probably outside of the safety area.";
