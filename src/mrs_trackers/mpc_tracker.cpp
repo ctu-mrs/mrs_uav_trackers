@@ -103,7 +103,8 @@ private:
   double max_vertical_descending_jerk;
   double max_yaw_rate;
   double max_yaw_acceleration;
-  double max_altitude;
+  double max_altitude_;
+  double min_altitude_;
 
   bool avoiding_someone;
   bool being_avoided;
@@ -471,7 +472,8 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   nh.param("cvxgenMpc/maxYawRate", max_yaw_rate, 0.0);
   nh.param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration, 0.0);
 
-  nh.param("cvxgenMpc/maxAltitude", max_altitude, 0.0);
+  nh.param("cvxgenMpc/maxAltitude", max_altitude_, 0.0);
+  nh.param("cvxgenMpc/minAltitude", min_altitude_, 1.0);
 
   nh.param("diagnostics_rate", diagnostics_rate, 1.0);
   nh.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
@@ -965,8 +967,12 @@ void MpcTracker::filterReference(void) {
     }
 
     // saturate to maxAltitude
-    if (des_z_filtered(i, 0) > max_altitude) {
-      des_z_filtered(i, 0) = max_altitude;
+    if (des_z_filtered(i, 0) > max_altitude_) {
+      des_z_filtered(i, 0) = max_altitude_;
+    }
+
+    if (des_z_filtered(i, 0) < min_altitude_) {
+      des_z_filtered(i, 0) = min_altitude_;
     }
   }
   trajectory_setpoint_mutex.unlock();
@@ -1726,7 +1732,7 @@ bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_m
     return true;
   }
 
-  if (!set_goal(x(0, 0), x(3, 0), req.goal, 0, false)) {
+  if (!set_goal(x(0, 0), x(3, 0), req.goal, x_yaw(0, 0), false)) {
 
     res.success = false;
     res.message = "Cannot set the goal. It is probably outside of the safety area.";
