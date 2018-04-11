@@ -81,6 +81,7 @@ cvxgenMpc:
   maxYawAcceleration: 2.0
 
   maxAltitude: 20.0
+  minAltitude: 1.0
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
