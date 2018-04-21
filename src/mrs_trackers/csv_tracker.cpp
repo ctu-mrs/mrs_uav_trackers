@@ -315,9 +315,9 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   ser_scales_ = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
 
   // load params
-  nh.param("offset/x", x_offset_, -1.0);
-  nh.param("offset/y", y_offset_, -1.0);
-  nh.param("offset/z", z_offset_, -1.0);
+  nh.param("offset/x", x_offset_, 10000.0);
+  nh.param("offset/y", y_offset_, 10000.0);
+  nh.param("offset/z", z_offset_, 10000.0);
 
   nh.param("scale/x", x_scale_, -1.0);
   nh.param("scale/y", y_scale_, -1.0);
@@ -333,7 +333,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   ROS_WARN("scale/z: %2.2f", z_scale_);
   ROS_WARN("yaw: %2.2f", yaw_);
 
-  if (x_offset_ < 0 || y_offset_ < 0 || z_offset_ < 0) {
+  if (x_offset_ > 1000 || y_offset_ > 1000 || z_offset_ > 1000) {
     ROS_ERROR("Offsets were not loaded from the config file!");
     ros::shutdown();
   }
