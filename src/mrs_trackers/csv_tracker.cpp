@@ -300,7 +300,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   pub_weight = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
   publisher_trajectory_ = priv_nh.advertise<mrs_msgs::TrackerTrajectory>("desired_trajectory", 1);
 
-  subscriber_odom = priv_nh.subscribe("/uav1/mrs_odometry/new_odom", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
+  subscriber_odom = priv_nh.subscribe("odom_in", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
   
   publisher_odom_pitch_ = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
