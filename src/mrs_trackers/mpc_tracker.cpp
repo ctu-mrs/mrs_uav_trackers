@@ -1765,6 +1765,7 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
   if (failsafe_triggered) {
 
     message = "Failsafe is active!";
+    ROS_WARN("%s", message.c_str());
     return false;
   }
 
@@ -1779,11 +1780,8 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
 
   } else if (msg.points.size() == 0) {
 
-    ROS_WARN("Cannot load trajectory with size 0.");
-
-    char buffer[60];
-    sprintf(buffer, "Cannot load trajectory with size 0.");
-    message = buffer;
+    message = "Cannot load trajectory with size 0.";
+    ROS_WARN("%s", message.c_str());
     return false;
 
   } else {
@@ -1826,6 +1824,7 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
       loop = false;
     }
 
+    bool trajectory_is_ok = true;
     // check the safety area
     if (use_safety_area) {
 
@@ -1837,6 +1836,7 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
         if (!safety_area->isPointIn(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
           ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+          trajectory_is_ok = false;
 
           // we found the left point
           if (first_invalid_idx == -1) {
@@ -1980,7 +1980,11 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     publishDiagnostics();
 
-    message = "Trajectory loaded.";
+    if (trajectory_is_ok) {
+      message = "The trajectory successfully loaded.";
+    } else {
+      message = "The trajectory was modified because it contains points outside of the safety area!";
+    }
     return true;
   }
 }
