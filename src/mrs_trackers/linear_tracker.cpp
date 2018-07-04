@@ -1,14 +1,14 @@
-#include <ros/ros.h>
 #include <ros/package.h>
+#include <ros/ros.h>
 
 #include <tf/transform_datatypes.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 
-#include <mrs_uav_manager/Tracker.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
+#include <mrs_uav_manager/Tracker.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -17,6 +17,7 @@
 
 class LinearTracker : public mrs_uav_manager::Tracker {
 public:
+
   LinearTracker(void);
 
   void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
@@ -30,13 +31,13 @@ public:
   const mrs_msgs::TrackerStatus::Ptr status();
 
 private:
-  bool                            active;
-  double                          speed;
-  double                          x, y, z;
-  double                          desX = 0, desY = 20, desZ = 5, desYaw = 0;
-  bool                            useYaw;
+  bool                      active;
+  double                    speed;
+  double                    x, y, z;
+  double                    desX = 0, desY = 20, desZ = 5, desYaw = 0;
+  bool                      useYaw;
   mrs_msgs::PositionCommand position_output;
-  ros::Subscriber                 desPosition;
+  ros::Subscriber           desPosition;
 
   void desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
 };
@@ -114,11 +115,12 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
 }
 
 const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
+
   if (!active)
     return mrs_msgs::TrackerStatus::Ptr();
 
   mrs_msgs::TrackerStatus::Ptr msg(new mrs_msgs::TrackerStatus);
-  msg->status = mrs_msgs::TrackerStatus::succeeded;
+  msg->status = mrs_msgs::TrackerStatus::SUCCEEDED;
   return msg;
 }
 

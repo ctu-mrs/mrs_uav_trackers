@@ -1,129 +1,130 @@
 #include <ros/ros.h>
-#include <trackers_manager/Tracker.h>
-#include <quadrotor_msgs/TrackerStatus.h>
-#include <std_srvs/Trigger.h>
-#include <tf/transform_datatypes.h>
-#include <eigen3/Eigen/Eigen>
-#include <nav_msgs/Odometry.h>
-#include <thread>
-#include <mutex>
-#include <cmath>
-#include <math.h>
-#include <std_srvs/SetBool.h>
-#include <iostream>
-#include <fstream>
-#include <mav_manager/Vec4.h>
-#include <trackers_manager/Transition.h>
+
 #include "tf/LinearMath/Transform.h"
-#include <std_msgs/Float64.h>
-#include <std_msgs/Float32.h>
-#include <std_msgs/Int32.h>
+#include <tf/transform_datatypes.h>
+
 #include <mrs_msgs/TrackerPoint.h>
+#include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/Vec1.h>
+#include <mrs_msgs/Transition.h>
+
+#include <mav_manager/Vec4.h>
+#include <mrs_uav_manager/Tracker.h>
+
+#include <std_msgs/Float32.h>
+#include <std_msgs/Float64.h>
+#include <std_msgs/Int32.h>
+#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
+#include <nav_msgs/Odometry.h>
+
+#include <cmath>
+#include <eigen3/Eigen/Eigen>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <thread>
+#include <math.h>
 
 using namespace Eigen;
 
-class CsvTracker : public trackers_manager::Tracker {
-  public:
+class CsvTracker : public mrs_uav_manager::Tracker {
+public:
+  CsvTracker(void);
 
-    CsvTracker(void);
+  void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
+  bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  void Deactivate(void);
 
-    void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
-    bool Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd);
-    void Deactivate(void);
+  const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  const mrs_msgs::TrackerStatus::Ptr status();
 
-    const quadrotor_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-    const quadrotor_msgs::TrackerStatus::Ptr status();
+  bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
-    bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void odometryCallback(const nav_msgs::OdometryConstPtr &msg);
 
-    void odometryCallback(const nav_msgs::OdometryConstPtr &msg);
+  bool setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
 
-    bool setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-    bool setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-    bool setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-    bool setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  void setInitPoint(void);
 
-    void setInitPoint(void);
+private:
 
-  private:
+  ros::NodeHandle nh_;
 
-    ros::NodeHandle nh_;
+  nav_msgs::Odometry odom;
+  ros::Time          odomLastTime;
 
-    nav_msgs::Odometry odom;
-    ros::Time odomLastTime;
+  std::thread main_thread;
 
-    std::thread main_thread;
+  mrs_msgs::PositionCommand position_cmd;
+  mrs_msgs::PositionCommand last_position_cmd;
 
-    quadrotor_msgs::PositionCommand position_cmd;
-    quadrotor_msgs::PositionCommand last_position_cmd;
+  std::mutex mutex_position_cmd, mutex_odom;
 
-    std::mutex mutex_position_cmd, mutex_odom;
+  // subscriber
+  ros::Subscriber subscriber_odom;
 
-    // subscriber
-    ros::Subscriber subscriber_odom;
+  // service servers
+  ros::ServiceServer service_start;
 
-    // service servers
-    ros::ServiceServer service_start;
+  // service clients
+  ros::ServiceClient service_switch_tracker;
+  ros::ServiceClient service_goto;
 
-    // service clients
-    ros::ServiceClient service_switch_tracker;
-    ros::ServiceClient service_goto;
+  // publishers
+  ros::Publisher publisher_odom_pitch_;
+  ros::Publisher publisher_desired_pitch_;
+  ros::Publisher publisher_desired_zd_;
+  ros::Publisher publisher_desired_xd_;
+  ros::Publisher publisher_action;
+  ros::Publisher publisher_trajectory_;
 
-    // publishers
-    ros::Publisher publisher_odom_pitch_;
-    ros::Publisher publisher_desired_pitch_;
-    ros::Publisher publisher_desired_zd_;
-    ros::Publisher publisher_desired_xd_;
-    ros::Publisher publisher_action;
-    ros::Publisher publisher_trajectory_;
+  ros::Publisher pub_weight;
 
-    ros::Publisher pub_weight;
-    
-    ros::Publisher publisher_desired_thrust_;
+  ros::Publisher publisher_desired_thrust_;
 
-    ros::ServiceServer ser_x_scale_;
-    ros::ServiceServer ser_y_scale_;
-    ros::ServiceServer ser_z_scale_;
-    ros::ServiceServer ser_scales_;
+  ros::ServiceServer ser_x_scale_;
+  ros::ServiceServer ser_y_scale_;
+  ros::ServiceServer ser_z_scale_;
+  ros::ServiceServer ser_scales_;
 
-    std::thread mpc_thread;
+  std::thread mpc_thread;
 
-    bool odom_set = false;
-    bool active = false;
-    bool got_odom = false;
+  bool odom_set = false;
+  bool active   = false;
+  bool got_odom = false;
 
-    // for tracking
-    bool tracking = false;
-    int tracking_idx = 0;
-    MatrixXd trajectory;
-    int trajectory_len = 0;
+  // for tracking
+  bool     tracking     = false;
+  int      tracking_idx = 0;
+  MatrixXd trajectory;
+  int      trajectory_len = 0;
 
-    // for debugging
-    double last_odom_pitch = 0;
+  // for debugging
+  double last_odom_pitch = 0;
 
-    // methods
-    void mainThread(void);
+  // methods
+  void mainThread(void);
 
-    // params
-    std::string filename_;
+  // params
+  std::string filename_;
 
-    double x_offset_ = 0;
-    double y_offset_ = 0;
-    double z_offset_ = 0;
+  double x_offset_ = 0;
+  double y_offset_ = 0;
+  double z_offset_ = 0;
 
-    double x_scale_ = 1;
-    double y_scale_ = 1;
-    double z_scale_ = 1;
+  double x_scale_ = 1;
+  double y_scale_ = 1;
+  double z_scale_ = 1;
 
-    double yaw_ = 0;
+  double yaw_ = 0;
 };
 
-CsvTracker::CsvTracker(void) :
-  odom_set(false),
-  active(false)
-{
+CsvTracker::CsvTracker(void) : odom_set(false), active(false) {
 }
 
 void CsvTracker::setInitPoint(void) {
@@ -131,15 +132,15 @@ void CsvTracker::setInitPoint(void) {
   // publish the first point as a trajectory
   mrs_msgs::TrackerTrajectory init_trajectory;
 
-  init_trajectory.header.stamp = ros::Time::now();
+  init_trajectory.header.stamp    = ros::Time::now();
   init_trajectory.header.frame_id = "local_origin";
-  init_trajectory.fly_now = false;
-  init_trajectory.use_yaw = true; // TODO
-  
+  init_trajectory.fly_now         = false;
+  init_trajectory.use_yaw         = true;  // TODO
+
   mrs_msgs::TrackerPoint point;
-  point.x = x_scale_*trajectory(0, 0) + x_offset_;
-  point.y = y_offset_;
-  point.z = z_scale_*trajectory(0, 1) + z_offset_;
+  point.x   = x_scale_ * trajectory(0, 0) + x_offset_;
+  point.y   = y_offset_;
+  point.z   = z_scale_ * trajectory(0, 1) + z_offset_;
   point.yaw = yaw_;
 
   init_trajectory.points.push_back(point);
@@ -161,7 +162,7 @@ bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     setInitPoint();
 
   } else {
-  
+
     res.success = false;
     res.message = "Scale out of bound!";
   }
@@ -181,7 +182,7 @@ bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     CsvTracker::setInitPoint();
 
   } else {
-  
+
     res.success = false;
     res.message = "Scale out of bound!";
   }
@@ -201,7 +202,7 @@ bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     CsvTracker::setInitPoint();
 
   } else {
-  
+
     res.success = false;
     res.message = "Scale out of bound!";
   }
@@ -223,7 +224,7 @@ bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     CsvTracker::setInitPoint();
 
   } else {
-  
+
     res.success = false;
     res.message = "Scale out of bound!";
   }
@@ -248,7 +249,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   nh.param("filename", filename_, std::string());
 
   if (filename_.empty()) {
-    ROS_ERROR("The file name has not been filled!"); 
+    ROS_ERROR("The file name has not been filled!");
     ros::shutdown();
     return;
   }
@@ -293,26 +294,26 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     ROS_INFO("Trajectory loaded, len = %d", trajectory_len);
   }
 
-  service_goto = priv_nh.serviceClient<mav_manager::Vec4>("goto_out");
-  service_switch_tracker = priv_nh.serviceClient<trackers_manager::Transition>("transition_out");
+  service_goto           = priv_nh.serviceClient<mav_manager::Vec4>("goto_out");
+  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::Transition>("transition_out");
 
-  publisher_action = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
-  pub_weight = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
+  publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
+  pub_weight            = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
   publisher_trajectory_ = priv_nh.advertise<mrs_msgs::TrackerTrajectory>("desired_trajectory", 1);
 
   subscriber_odom = priv_nh.subscribe("odom_in", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
-  
-  publisher_odom_pitch_ = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
+
+  publisher_odom_pitch_    = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
-  publisher_desired_zd_ = priv_nh.advertise<std_msgs::Float64>("desired_zd", 1, false);
-  publisher_desired_xd_ = priv_nh.advertise<std_msgs::Float64>("desired_xd", 1, false);
+  publisher_desired_zd_    = priv_nh.advertise<std_msgs::Float64>("desired_zd", 1, false);
+  publisher_desired_xd_    = priv_nh.advertise<std_msgs::Float64>("desired_xd", 1, false);
 
   publisher_desired_thrust_ = priv_nh.advertise<std_msgs::Float64>("desired_thrust", 1, false);
 
   ser_x_scale_ = priv_nh.advertiseService("set_x_scale", &CsvTracker::setXScale, this);
   ser_y_scale_ = priv_nh.advertiseService("set_y_scale", &CsvTracker::setYScale, this);
   ser_z_scale_ = priv_nh.advertiseService("set_z_scale", &CsvTracker::setZScale, this);
-  ser_scales_ = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
+  ser_scales_  = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
 
   // load params
   nh.param("offset/x", x_offset_, 10000.0);
@@ -352,7 +353,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
     ROS_ERROR("Yaw was not set in the config file!");
     ros::shutdown();
   }
-  
+
   CsvTracker::setInitPoint();
 
   main_thread = std::thread(&CsvTracker::mainThread, this);
@@ -364,13 +365,11 @@ void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
   // tady tim to neni
   mutex_odom.lock();
-  {
-    odom = *msg;
-  }
+  { odom = *msg; }
   mutex_odom.unlock();
 }
 
-bool CsvTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) {
+bool CsvTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odom) {
 
@@ -385,10 +384,11 @@ bool CsvTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) 
   position_cmd = *cmd;
 
   // if we are too far from the initial point
-  double distance = sqrt(pow(odom.pose.pose.position.x - (x_scale_*trajectory(0, 0)+x_offset_), 2) + pow(odom.pose.pose.position.y - y_offset_, 2) + pow(odom.pose.pose.position.z - (z_scale_*trajectory(0, 1)+z_offset_), 2));
+  double distance = sqrt(pow(odom.pose.pose.position.x - (x_scale_ * trajectory(0, 0) + x_offset_), 2) + pow(odom.pose.pose.position.y - y_offset_, 2) +
+                         pow(odom.pose.pose.position.z - (z_scale_ * trajectory(0, 1) + z_offset_), 2));
 
   ROS_INFO("Distance: %2.2f", distance);
-  ROS_INFO("Z_start: %2.2f", z_scale_*trajectory(0, 1)+z_offset_);
+  ROS_INFO("Z_start: %2.2f", z_scale_ * trajectory(0, 1) + z_offset_);
   ROS_INFO("Z_scale: %2.2f", z_scale_);
 
   if (distance > 1.0) {
@@ -400,7 +400,7 @@ bool CsvTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) 
   } else {
 
     ROS_INFO("CSV tracker activated");
-    active = true;
+    active   = true;
     tracking = true;
   }
 
@@ -409,33 +409,31 @@ bool CsvTracker::Activate(const quadrotor_msgs::PositionCommand::ConstPtr &cmd) 
 
 void CsvTracker::Deactivate(void) {
 
-  active = false;
+  active   = false;
   odom_set = false;
 
   ROS_INFO("CSV tracker deactivated");
 }
 
 // if the tracker is active, this mehod is called on every odometry update, even if the tracker is not active
-const quadrotor_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if(!active)
-    return quadrotor_msgs::PositionCommand::Ptr();
+  if (!active)
+    return mrs_msgs::PositionCommand::Ptr();
 
   // calculate the current angle
-  double odom_roll, odom_pitch, odom_yaw;
+  double                    odom_roll, odom_pitch, odom_yaw;
   geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
-  tf::Quaternion qt(odom_quat.x, odom_quat.y, odom_quat.z, odom_quat.w);
+  tf::Quaternion            qt(odom_quat.x, odom_quat.y, odom_quat.z, odom_quat.w);
   tf::Matrix3x3(qt).getRPY(odom_roll, odom_pitch, odom_yaw);
 
   last_odom_pitch = odom_pitch;
 
-  quadrotor_msgs::PositionCommand::ConstPtr out;
+  mrs_msgs::PositionCommand::ConstPtr out;
 
   mutex_position_cmd.lock();
-  {
-    out = quadrotor_msgs::PositionCommand::ConstPtr(new quadrotor_msgs::PositionCommand(position_cmd));
-  }
+  { out = mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd)); }
   mutex_position_cmd.unlock();
 
   return out;
@@ -464,23 +462,23 @@ void CsvTracker::mainThread(void) {
     mutex_position_cmd.lock();
     {
       // set the message according to the file
-      position_cmd.header.stamp = ros::Time::now();
+      position_cmd.header.stamp    = ros::Time::now();
       position_cmd.header.frame_id = "local_origin";
-      
-      position_cmd.position.x = x_scale_*trajectory(tracking_idx, 0) + x_offset_;
-      position_cmd.position.z = z_scale_*trajectory(tracking_idx, 1) + z_offset_;
 
-      position_cmd.velocity.x = x_scale_*trajectory(tracking_idx, 2);
-      position_cmd.velocity.z = z_scale_*trajectory(tracking_idx, 3);
+      position_cmd.position.x = x_scale_ * trajectory(tracking_idx, 0) + x_offset_;
+      position_cmd.position.z = z_scale_ * trajectory(tracking_idx, 1) + z_offset_;
 
-      position_cmd.acceleration.x = x_scale_*trajectory(tracking_idx, 4);
-      position_cmd.acceleration.z = z_scale_*trajectory(tracking_idx, 5);
+      position_cmd.velocity.x = x_scale_ * trajectory(tracking_idx, 2);
+      position_cmd.velocity.z = z_scale_ * trajectory(tracking_idx, 3);
 
-      position_cmd.position.y = y_offset_;
-      position_cmd.velocity.y = 0;
+      position_cmd.acceleration.x = x_scale_ * trajectory(tracking_idx, 4);
+      position_cmd.acceleration.z = z_scale_ * trajectory(tracking_idx, 5);
+
+      position_cmd.position.y     = y_offset_;
+      position_cmd.velocity.y     = 0;
       position_cmd.acceleration.y = 0;
-      
-      position_cmd.yaw = yaw_;
+
+      position_cmd.yaw     = yaw_;
       position_cmd.yaw_dot = 0;
     }
     mutex_position_cmd.unlock();
@@ -510,21 +508,20 @@ void CsvTracker::mainThread(void) {
 
       ROS_ERROR("RELEASING MASS");
 
-      std_msgs::Int32 action; 
+      std_msgs::Int32 action;
 
       action.data = 1;
 
       publisher_action.publish(action);
-
     }
 
     // debugging desired thrust
     std_msgs::Float64 desired_thrust_msg;
-    desired_thrust_msg.data = trajectory(tracking_idx, 7)/34.3233;
+    desired_thrust_msg.data = trajectory(tracking_idx, 7) / 34.3233;
 
     publisher_desired_thrust_.publish(desired_thrust_msg);
 
-    if (tracking_idx < (trajectory_len-1)) {
+    if (tracking_idx < (trajectory_len - 1)) {
 
       tracking_idx = tracking_idx + 1;
 
@@ -532,25 +529,24 @@ void CsvTracker::mainThread(void) {
 
       ROS_INFO_THROTTLE(1, "Trajectory has finished, replaying the last poing...");
 
-      trackers_manager::Transition transition;
+      mrs_msgs::Transition transition;
       transition.request.tracker = "mrs_trackers/MpcTracker";
       service_switch_tracker.call(transition);
-
     }
 
     r.sleep();
   }
 }
 
-const quadrotor_msgs::TrackerStatus::Ptr CsvTracker::status() {
+const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
 
-  if(!active)
-    return quadrotor_msgs::TrackerStatus::Ptr();
+  if (!active)
+    return mrs_msgs::TrackerStatus::Ptr();
 
-  quadrotor_msgs::TrackerStatus::Ptr msg(new quadrotor_msgs::TrackerStatus);
-  msg->status = quadrotor_msgs::TrackerStatus::SUCCEEDED;
+  mrs_msgs::TrackerStatus::Ptr msg(new mrs_msgs::TrackerStatus);
+  msg->status = mrs_msgs::TrackerStatus::SUCCEEDED;
   return msg;
 }
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(CsvTracker, trackers_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(CsvTracker, mrs_uav_manager::Tracker)
