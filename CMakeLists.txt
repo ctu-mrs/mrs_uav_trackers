@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_estimation
   mrs_msgs
+  mrs_uav_manager
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
@@ -25,7 +26,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation
+  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_uav_manager
   DEPENDS Eigen
   )
 
@@ -35,12 +36,14 @@ catkin_package(INCLUDE_DIRS
 
 include_directories(
   include
-  ${EIGEN_INCLUDE_DIR} 
+  ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   src/${PROJECT_NAME}/cvxgen
   src/${PROJECT_NAME}/cvxgen_z
   src/${PROJECT_NAME}/cvxgen_yaw
   )
+
+# MPC Tracker
 
 add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp)
 
@@ -72,12 +75,23 @@ add_dependencies(mpc_tracker
 
 target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper_z cvx_wrapper_yaw)
 
+# CSV Tracker
+
 add_library(csv_tracker src/${PROJECT_NAME}/csv_tracker.cpp)
 add_dependencies(csv_tracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 target_link_libraries(csv_tracker ${catkin_LIBRARIES})
+
+# Linear Tracker
+
+add_library(linear_tracker src/${PROJECT_NAME}/linear_tracker.cpp)
+add_dependencies(linear_tracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(linear_tracker ${catkin_LIBRARIES})
 
 #############
 ## Install ##
@@ -86,6 +100,7 @@ target_link_libraries(csv_tracker ${catkin_LIBRARIES})
 install(TARGETS
   mpc_tracker
   csv_tracker
+  linear_tracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -97,4 +112,4 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mrs_trackers.xml csv_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES mrs_trackers.xml csv_tracker.xml linear_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})

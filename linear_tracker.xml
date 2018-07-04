@@ -1,0 +1,5 @@
+<library path="lib/liblinear_tracker">
+  <class name="mrs_trackers/LinearTracker" type="LinearTracker" base_class_type="mrs_uav_manager::Tracker">
+    <description>This is Linear tracker.</description>
+  </class>
+</library>
