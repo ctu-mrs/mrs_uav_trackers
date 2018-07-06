@@ -1,33 +1,36 @@
 #include <ros/ros.h>
 
-#include "tf/LinearMath/Transform.h"
 #include <tf/transform_datatypes.h>
+#include "tf/LinearMath/Transform.h"
 
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/Transition.h>
+#include <mrs_msgs/Vec1.h>
 
 #include <mav_manager/Vec4.h>
 #include <mrs_uav_manager/Tracker.h>
 
+#include <nav_msgs/Odometry.h>
 #include <std_msgs/Float32.h>
 #include <std_msgs/Float64.h>
 #include <std_msgs/Int32.h>
 #include <std_srvs/SetBool.h>
 #include <std_srvs/Trigger.h>
-#include <nav_msgs/Odometry.h>
 
+#include <math.h>
 #include <cmath>
 #include <eigen3/Eigen/Eigen>
 #include <fstream>
 #include <iostream>
 #include <mutex>
 #include <thread>
-#include <math.h>
 
 using namespace Eigen;
+
+namespace mrs_trackers
+{
 
 class CsvTracker : public mrs_uav_manager::Tracker {
 public:
@@ -52,7 +55,6 @@ public:
   void setInitPoint(void);
 
 private:
-
   ros::NodeHandle nh_;
 
   nav_msgs::Odometry odom;
@@ -548,5 +550,7 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
   return msg;
 }
 
+}
+
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(CsvTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_uav_manager::Tracker)
