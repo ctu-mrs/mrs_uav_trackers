@@ -1,5 +1,6 @@
-#include <ros/package.h>
 #include <ros/ros.h>
+
+#include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
 
@@ -8,17 +9,15 @@
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
-#include <mrs_uav_manager/Tracker.h>
 
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <mutex>
 
-class LinearTracker : public mrs_uav_manager::Tracker {
+class LinTracker : public mrs_uav_manager::Tracker {
 public:
-
-  LinearTracker(void);
+  LinTracker(void);
 
   void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
 
@@ -42,25 +41,25 @@ private:
   void desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
 };
 
-LinearTracker::LinearTracker(void) : active(false) {
+LinTracker::LinTracker(void) : active(false) {
 }
 
-void LinearTracker::desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
+void LinTracker::desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
   desX   = msg->position.x;
   desY   = msg->position.y;
   desZ   = msg->position.z;
   desYaw = msg->position.yaw;
 }
 
-void LinearTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
+void LinTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle priv_nh(nh, "linear_tracker");
-  desPosition = priv_nh.subscribe("desired_position", 1, &LinearTracker::desPositionHandle, this, ros::TransportHints().tcpNoDelay());
+  desPosition = priv_nh.subscribe("desired_position", 1, &LinTracker::desPositionHandle, this, ros::TransportHints().tcpNoDelay());
   nh.param("speed", speed, 1.0);
   nh.param("useyaw", useYaw, true);
 }
 
-bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool LinTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   active = true;
   desX   = cmd->position.x;
   desY   = cmd->position.y;
@@ -68,11 +67,11 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return true;
 }
 
-void LinearTracker::Deactivate(void) {
+void LinTracker::Deactivate(void) {
   active = false;
 }
 
-const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LinTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   x = msg->pose.pose.position.x;
   y = msg->pose.pose.position.y;
@@ -114,7 +113,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
 
-const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
+const mrs_msgs::TrackerStatus::Ptr LinTracker::status() {
 
   if (!active)
     return mrs_msgs::TrackerStatus::Ptr();
@@ -125,5 +124,4 @@ const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
 }
 
 #include <pluginlib/class_list_macros.h>
-
-PLUGINLIB_EXPORT_CLASS(LinearTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(LinTracker, mrs_uav_manager::Tracker)

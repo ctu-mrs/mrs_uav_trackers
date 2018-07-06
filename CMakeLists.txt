@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_estimation
   mrs_msgs
   mrs_uav_manager
+  quadrotor_msgs
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
@@ -26,7 +27,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_uav_manager
+  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_uav_manager quadrotor_msgs
   DEPENDS Eigen
   )
 
@@ -86,12 +87,12 @@ target_link_libraries(csv_tracker ${catkin_LIBRARIES})
 
 # Linear Tracker
 
-add_library(linear_tracker src/${PROJECT_NAME}/linear_tracker.cpp)
-add_dependencies(linear_tracker
+add_library(lin_tracker src/${PROJECT_NAME}/linear_tracker.cpp)
+add_dependencies(lin_tracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(linear_tracker ${catkin_LIBRARIES})
+target_link_libraries(lin_tracker ${catkin_LIBRARIES})
 
 #############
 ## Install ##
@@ -100,7 +101,7 @@ target_link_libraries(linear_tracker ${catkin_LIBRARIES})
 install(TARGETS
   mpc_tracker
   csv_tracker
-  linear_tracker
+  lin_tracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -112,4 +113,4 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mrs_trackers.xml csv_tracker.xml linear_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES mrs_trackers.xml new_trackers.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
