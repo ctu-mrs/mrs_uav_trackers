@@ -2,7 +2,7 @@
 #include <math.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/package.h>
 #include <ros/ros.h>
@@ -16,7 +16,7 @@
 
 namespace mrs_trackers
 {
-class LinearTracker : public mrs_uav_manager::Tracker {
+class LinearTracker : public mrs_mav_manager::Tracker {
 public:
   LinearTracker(void);
 
@@ -31,7 +31,7 @@ public:
   const mrs_msgs::TrackerStatus::Ptr status();
 
 private:
-  bool                      odom_set = false;
+  bool                      got_odometry = false;
   nav_msgs::Odometry        odometry;
   bool                      active, firstime;
   double                    speed_, time, dtime;
@@ -82,10 +82,14 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
 bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
+  if (!got_odometry) {
+    ROS_WARN("LinearTracker: can't Activate, odometry not set yet");
+    return false;
+  }
+
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
     // the last command is usable
-
     desX   = cmd->position.x;
     desY   = cmd->position.y;
     desZ   = cmd->position.z;
@@ -93,7 +97,17 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   } else {
 
-    // TODO: take the setpoint from odom
+    ROS_WARN("LinearTracker: the previous command is not usable for activation, using Odometry instead.");
+    desX = odometry.pose.pose.position.x;
+    desY = odometry.pose.pose.position.y;
+    desZ = odometry.pose.pose.position.z;
+
+    double         yaw, pitch, roll;
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(roll, pitch, yaw);
+    desYaw = yaw;
   }
 
   active = true;
@@ -109,7 +123,7 @@ void LinearTracker::Deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  odometry = *msg;
+  odometry                        = *msg;
   x                               = msg->pose.pose.position.x;
   y                               = msg->pose.pose.position.y;
   z                               = msg->pose.pose.position.z;
@@ -117,13 +131,13 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
 
-  odom_set = true;
+  got_odometry = true;
 
   if (!active) {
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  ROS_INFO("LinearTracker's update() is called");
+  ROS_INFO_THROTTLE(1.0, "LinearTracker's update() is called");
 
   // set positions from odom
   double vectorLength = sqrt((desX - x) * (desX - x) + (desY - y) * (desY - y) + (desZ - z) * (desZ - z));
@@ -186,7 +200,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   // |                 publish odom for debugging                 |
   // --------------------------------------------------------------
   //
-  nav_msgs::Odometry        outPose;
+  nav_msgs::Odometry outPose;
   outPose.header.stamp    = ros::Time::now();
   outPose.header.frame_id = "local_origin";
 
@@ -214,4 +228,4 @@ const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
 }
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::LinearTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::LinearTracker, mrs_mav_manager::Tracker)

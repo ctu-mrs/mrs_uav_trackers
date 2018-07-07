@@ -13,7 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_estimation
   mrs_msgs
-  mrs_uav_manager
+  mrs_mav_manager
   quadrotor_msgs
   )
 
@@ -27,7 +27,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_uav_manager quadrotor_msgs
+  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_mav_manager quadrotor_msgs
   DEPENDS Eigen
   )
 

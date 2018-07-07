@@ -6,11 +6,11 @@
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/Transition.h>
+#include <mrs_msgs/SwitchTracker.h>
 #include <mrs_msgs/Vec1.h>
 
 #include <mav_manager/Vec4.h>
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_mav_manager/Tracker.h>
 
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Float32.h>
@@ -32,7 +32,7 @@ using namespace Eigen;
 namespace mrs_trackers
 {
 
-class CsvTracker : public mrs_uav_manager::Tracker {
+class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
@@ -297,7 +297,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
   }
 
   service_goto           = priv_nh.serviceClient<mav_manager::Vec4>("goto_out");
-  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::Transition>("transition_out");
+  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::SwitchTracker>("SwitchTracker_out");
 
   publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
   pub_weight            = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
@@ -531,9 +531,9 @@ void CsvTracker::mainThread(void) {
 
       ROS_INFO_THROTTLE(1, "Trajectory has finished, replaying the last poing...");
 
-      mrs_msgs::Transition transition;
-      transition.request.tracker = "mrs_trackers/MpcTracker";
-      service_switch_tracker.call(transition);
+      mrs_msgs::SwitchTracker SwitchTracker;
+      SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";
+      service_switch_tracker.call(SwitchTracker);
     }
 
     r.sleep();
@@ -553,4 +553,4 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
 }
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_mav_manager::Tracker)
