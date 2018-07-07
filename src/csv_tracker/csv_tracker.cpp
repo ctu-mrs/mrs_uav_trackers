@@ -36,7 +36,7 @@ class CsvTracker : public mrs_uav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
+  void Initialize(const ros::NodeHandle &parent_nh);
   bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   void Deactivate(void);
 
@@ -245,10 +245,10 @@ double dist(double ax, double ay, double az, double bx, double by, double bz) {
 }
 
 // called once at the very beginning
-void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
-  ros::NodeHandle priv_nh(nh, "csv_tracker");
+void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
+  ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
-  nh.param("filename", filename_, std::string());
+  priv_nh.param("filename", filename_, std::string());
 
   if (filename_.empty()) {
     ROS_ERROR("The file name has not been filled!");
@@ -318,15 +318,15 @@ void CsvTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
   ser_scales_  = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
 
   // load params
-  nh.param("offset/x", x_offset_, 10000.0);
-  nh.param("offset/y", y_offset_, 10000.0);
-  nh.param("offset/z", z_offset_, 10000.0);
+  priv_nh.param("offset/x", x_offset_, 10000.0);
+  priv_nh.param("offset/y", y_offset_, 10000.0);
+  priv_nh.param("offset/z", z_offset_, 10000.0);
 
-  nh.param("scale/x", x_scale_, -1.0);
-  nh.param("scale/y", y_scale_, -1.0);
-  nh.param("scale/z", z_scale_, -1.0);
+  priv_nh.param("scale/x", x_scale_, -1.0);
+  priv_nh.param("scale/y", y_scale_, -1.0);
+  priv_nh.param("scale/z", z_scale_, -1.0);
 
-  nh.param("yaw", yaw_, -1.0);
+  priv_nh.param("yaw", yaw_, -1.0);
 
   ROS_WARN("offset/x: %2.2f", x_offset_);
   ROS_WARN("offset/y: %2.2f", y_offset_);

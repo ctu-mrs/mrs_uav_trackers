@@ -334,6 +334,8 @@ void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &pa
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
+  ros::Time::waitForValid();
+
   failsafe_triggered = false;
 
   std::vector<double> tempList, tempList2, UvaluesList;
