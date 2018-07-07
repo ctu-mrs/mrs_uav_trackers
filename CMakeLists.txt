@@ -74,7 +74,12 @@ add_dependencies(mpc_tracker
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper_z cvx_wrapper_yaw)
+target_link_libraries(mpc_tracker
+  ${catkin_LIBRARIES}
+  cvx_wrapper
+  cvx_wrapper_z
+  cvx_wrapper_yaw
+  )
 
 # CSV Tracker
 
@@ -83,7 +88,9 @@ add_dependencies(CsvTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(CsvTracker ${catkin_LIBRARIES})
+target_link_libraries(CsvTracker
+  ${catkin_LIBRARIES}
+  )
 
 # Linear Tracker
 
@@ -92,7 +99,9 @@ add_dependencies(LinearTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(LinearTracker ${catkin_LIBRARIES})
+target_link_libraries(LinearTracker
+  ${catkin_LIBRARIES}
+  )
 
 #############
 ## Install ##
@@ -113,4 +122,10 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mrs_trackers.xml csv_tracker.xml linear_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES
+  mrs_trackers.xml
+  csv_tracker.xml
+  linear_tracker.xml
+  DESTINATION
+  ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
