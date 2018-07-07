@@ -83,7 +83,9 @@ target_link_libraries(mpc_tracker
 
 # CSV Tracker
 
-add_library(CsvTracker src/csv_tracker/csv_tracker.cpp)
+add_library(CsvTracker
+  src/csv_tracker/csv_tracker.cpp
+  )
 add_dependencies(CsvTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
@@ -94,7 +96,9 @@ target_link_libraries(CsvTracker
 
 # Linear Tracker
 
-add_library(LinearTracker src/linear_tracker/linear_tracker.cpp)
+add_library(LinearTracker
+  src/linear_tracker/linear_tracker.cpp
+  )
 add_dependencies(LinearTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}

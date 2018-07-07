@@ -27,11 +27,11 @@
 #include "cvx_wrapper_yaw.h"
 #include "cvx_wrapper_z.h"
 
-
 using namespace Eigen;
 
 class MpcTracker : public trackers_manager::Tracker {
 public:
+
   MpcTracker(void);
 
   void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
@@ -332,7 +332,6 @@ void MpcTracker::futureTrajectoryThread(void) {
 
 // called once at the very beginning
 void MpcTracker::Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh) {
-
 
   ros::NodeHandle priv_nh(nh, "mpc_tracker");
 
