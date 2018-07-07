@@ -31,7 +31,6 @@ using namespace Eigen;
 
 class MpcTracker : public trackers_manager::Tracker {
 public:
-
   MpcTracker(void);
 
   void Initialize(const ros::NodeHandle &nh, const ros::NodeHandle &parent_nh);
