@@ -13,6 +13,7 @@
 
 #include <mrs_msgs/PositionCommand.h>
 #include <mrs_msgs/TrackerStatus.h>
+#include <mrs_msgs/Vec4.h>
 
 namespace mrs_trackers
 {
@@ -21,29 +22,37 @@ public:
   LinearTracker(void);
 
   void Initialize(const ros::NodeHandle &parent_nh);
-
   bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-
   void Deactivate(void);
-
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-
   const mrs_msgs::TrackerStatus::Ptr status();
 
 private:
-  bool                      got_odometry = false;
-  nav_msgs::Odometry        odometry;
-  bool                      active, firstime;
-  double                    speed_, time, dtime;
-  double                    x, y, z;
-  double                    xc, yc, zc;
-  double                    desX = 0, desY = 20, desZ = 5, desYaw = 0;
+  nav_msgs::Odometry odometry;
+  bool               got_odometry = false;
+
+private:
+  bool   active, first_iter;
+  double speed_, time, dtime;
+
+  double x, y, z;
+  double xc, yc, zc;
+
+  double desX   = 0;
+  double desY   = 0;
+  double desZ   = 2;
+  double desYaw = 0;
+
   bool                      use_yaw_;
   mrs_msgs::PositionCommand position_output;
-  ros::Subscriber           desPosition;
 
-  ros::Publisher publisher_cmd_pose;
-  void desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+private:
+  ros::Subscriber subscriberDesiredPosition;
+  ros::Publisher  publisher_cmd_pose;
+  ros::ServiceServer service_goto;
+
+  void callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  bool callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
 };
 
 LinearTracker::LinearTracker(void) : active(false) {
@@ -51,12 +60,24 @@ LinearTracker::LinearTracker(void) : active(false) {
 
 bool newCommand = false;
 
-void LinearTracker::desPositionHandle(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
+void LinearTracker::callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
   desX       = msg->position.x;
   desY       = msg->position.y;
   desZ       = msg->position.z;
   desYaw     = msg->position.yaw;
   newCommand = true;
+}
+
+bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
+
+  desX       = req.goal[0];
+  desY       = req.goal[1];
+  desZ       = req.goal[2];
+  desYaw     = req.goal[3];
+
+  res.success = true;
+  res.message = "setpoint set";
+  return true;
 }
 
 void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
@@ -69,13 +90,28 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
-  desPosition = priv_nh.subscribe("desired_position", 1, &LinearTracker::desPositionHandle, this, ros::TransportHints().tcpNoDelay());
+  subscriberDesiredPosition = priv_nh.subscribe("desired_position", 1, &LinearTracker::callbackDesiredPosition, this, ros::TransportHints().tcpNoDelay());
+
+  // --------------------------------------------------------------
+  // |                         publishers                         |
+  // --------------------------------------------------------------
 
   publisher_cmd_pose = priv_nh.advertise<nav_msgs::Odometry>("cmd_pose", 1);
 
+  // --------------------------------------------------------------
+  // |                          services                          |
+  // --------------------------------------------------------------
+
+  service_goto = priv_nh.advertiseService("goTo", &LinearTracker::callbackGoto, this);
+
+  // --------------------------------------------------------------
+  // |                       load parameters                      |
+  // --------------------------------------------------------------
+
   priv_nh.param("speed", speed_, 1.0);
   priv_nh.param("use_yaw", use_yaw_, true);
-  firstime = false;
+
+  first_iter = false;
 
   ROS_INFO("LinearTracker initialized");
 }
@@ -151,7 +187,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
       newCommand = false;
     }
 
-    if (!firstime) {
+    if (!first_iter) {
 
       position_output.position.x = xc + ((desX - xc) / vectorLength) * speed_ * dtime;
       position_output.position.y = yc + ((desY - yc) / vectorLength) * speed_ * dtime;
@@ -175,8 +211,6 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
     position_output.position.y = desY;
     position_output.position.z = desZ;
   }
-
-  /* ROS_INFO_THROTTLE(2, "LI our: %f %f %f %f", vectorLength, position_output.position.x, position_output.position.y, position_output.position.z); */
 
   // set velocities from odom
   position_output.velocity.x = msg->twist.twist.linear.x;
