@@ -46,7 +46,7 @@ include_directories(
 
 # MPC Tracker
 
-add_library(mpc_tracker src/mpc_tracker/mpc_tracker.cpp)
+add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
 
 add_library(cvx_wrapper src/mpc_tracker/cvx_wrapper.cpp
   src/mpc_tracker/cvxgen/ldl.c
@@ -69,12 +69,12 @@ add_library(cvx_wrapper_yaw src/mpc_tracker/cvx_wrapper_yaw.cpp
   src/mpc_tracker/cvxgen_yaw/util.c
   )
 
-add_dependencies(mpc_tracker
+add_dependencies(MpcTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(mpc_tracker
+target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
   cvx_wrapper
   cvx_wrapper_z
@@ -112,7 +112,7 @@ target_link_libraries(LinearTracker
 #############
 
 install(TARGETS
-  mpc_tracker
+  MpcTracker
   CsvTracker
   LinearTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

@@ -39,7 +39,7 @@
   <!-- The export tag contains other, unspecified, tags -->
   <export>
     <!-- Other tools can request additional information be placed here -->
-    <trackers_manger plugin="${prefix}/mpc_tracker.xml" />
+    <mrs_mav_manager plugin="${prefix}/mpc_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/csv_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/linear_tracker.xml" />
   </export>
