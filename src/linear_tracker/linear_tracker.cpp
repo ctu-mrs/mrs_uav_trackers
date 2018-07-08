@@ -61,10 +61,12 @@ LinearTracker::LinearTracker(void) : active(false) {
 bool newCommand = false;
 
 void LinearTracker::callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
+
   desX       = msg->position.x;
   desY       = msg->position.y;
   desZ       = msg->position.z;
   desYaw     = msg->position.yaw;
+
   newCommand = true;
 }
 
@@ -77,6 +79,9 @@ bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::R
 
   res.success = true;
   res.message = "setpoint set";
+
+  newCommand = true;
+
   return true;
 }
 
@@ -145,6 +150,8 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     m.getRPY(roll, pitch, yaw);
     desYaw = yaw;
   }
+
+  time = ros::Time::now().toSec();
 
   active = true;
   ROS_INFO("LinearTracker was activated.");
@@ -228,6 +235,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
     position_output.yaw     = desYaw;
     position_output.yaw_dot = 0;
   }
+
   time = ros::Time::now().toSec();
 
   // --------------------------------------------------------------
