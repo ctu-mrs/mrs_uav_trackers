@@ -1193,7 +1193,7 @@ void MpcTracker::calculateMPC() {
   future_was_predicted = true;
 }
 
-// the trackers_manager call this once when it wants to start using this tracker
+// the control_manager call this once when it wants to start using this tracker
 // the position command in the argument is the last position command used by a previous tracker
 bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -1259,7 +1259,7 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return active_;
 }
 
-// trackers_manager calls this when it wants to stop using this tracker
+// control_manager calls this when it wants to stop using this tracker
 void MpcTracker::Deactivate(void) {
 
   active_   = false;
