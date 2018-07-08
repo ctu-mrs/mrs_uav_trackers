@@ -32,7 +32,7 @@ private:
   bool               got_odometry = false;
 
 private:
-  bool   active, first_iter;
+  bool   is_initialized, is_active, first_iter;
   double speed_, time, dtime;
 
   double x, y, z;
@@ -55,7 +55,7 @@ private:
   bool callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
 };
 
-LinearTracker::LinearTracker(void) : active(false) {
+LinearTracker::LinearTracker(void) : is_initialized(false), is_active(false) {
 }
 
 bool newCommand = false;
@@ -118,6 +118,8 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
   first_iter = false;
 
+  is_initialized = true;
+
   ROS_INFO("LinearTracker initialized");
 }
 
@@ -153,15 +155,17 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   time = ros::Time::now().toSec();
 
-  active = true;
+  is_active = true;
+
   ROS_INFO("LinearTracker was activated.");
+
   return true;
 }
 
 void LinearTracker::Deactivate(void) {
 
   ROS_INFO("LinearTracker was deactivated.");
-  active = false;
+  is_active = false;
 }
 
 const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
@@ -176,7 +180,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
 
   got_odometry = true;
 
-  if (!active) {
+  if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
   }
 
@@ -260,12 +264,21 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
 
 const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
 
-  if (!active)
-    return mrs_msgs::TrackerStatus::Ptr();
+  if (is_initialized) {
 
-  mrs_msgs::TrackerStatus::Ptr msg(new mrs_msgs::TrackerStatus);
-  msg->status = mrs_msgs::TrackerStatus::SUCCEEDED;
-  return msg;
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
 }
 }
 

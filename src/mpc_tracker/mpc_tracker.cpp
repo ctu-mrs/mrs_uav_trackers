@@ -75,7 +75,7 @@ private:
 
   mrs_msgs::PositionCommand position_cmd_;  // message being returned
 
-  bool      odom_set_, active_;
+  bool      odom_set_, is_active, is_initialized;
   double    kx_[3], kv_[3];
   double    new_kx_[3], new_kv_[3];
   double    cur_yaw_;
@@ -256,7 +256,7 @@ private:
   const double pi = 3.1415926535897;
 };
 
-MpcTracker::MpcTracker(void) : odom_set_(false), active_(false), mpc_computed_(false) {
+MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
 }
 
 void MpcTracker::futureTrajectoryThread(void) {
@@ -266,7 +266,7 @@ void MpcTracker::futureTrajectoryThread(void) {
 
   while (ros::ok()) {
 
-    while (!active_ && ros::ok()) {
+    while (!is_active && ros::ok()) {
       r.sleep();
     }
 
@@ -678,6 +678,10 @@ void MpcTracker::Initialize(const ros::NodeHandle &parent_nh) {
   mpc_thread                  = std::thread(&MpcTracker::mpcThread, this);
   diagnostics_thread          = std::thread(&MpcTracker::diagnosticsThread, this);
   predicted_trajectory_thread = std::thread(&MpcTracker::futureTrajectoryThread, this);
+
+  is_initialized = true;
+
+  ROS_INFO("MpcTracker initialized");
 }
 
 void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
@@ -1237,7 +1241,7 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
 
     ROS_INFO("MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
-    active_ = true;
+    is_active = true;
   }
 
   // if we dont, stay where you are
@@ -1247,7 +1251,7 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation);
 
     ROS_INFO("MPC tracker activated with no setpoint, staying where we are.");
-    active_ = true;
+    is_active = true;
   }
 
   mpc_start_time  = ros::Time::now();
@@ -1256,13 +1260,13 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   publishDiagnostics();
 
   // can return false
-  return active_;
+  return is_active;
 }
 
 // control_manager calls this when it wants to stop using this tracker
 void MpcTracker::Deactivate(void) {
 
-  active_   = false;
+  is_active   = false;
   odom_set_ = false;
 
   // turn off trajectory tracking
@@ -1316,7 +1320,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   odom_set_ = true;
 
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!active_)
+  if (!is_active)
     return mrs_msgs::PositionCommand::Ptr();
 
 
@@ -1524,7 +1528,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.header.stamp    = ros::Time::now();
   diagnostics.header.frame_id = "local_origin";
 
-  diagnostics.tracker_active = active_;
+  diagnostics.tracker_active = is_active;
 
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
@@ -1588,7 +1592,7 @@ void MpcTracker::mpcThread(void) {
 
   while (ros::ok()) {
 
-    while (!active_ && ros::ok()) {
+    while (!is_active && ros::ok()) {
       r.sleep();
     }
 
@@ -2237,12 +2241,21 @@ bool MpcTracker::resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &
 
 const mrs_msgs::TrackerStatus::Ptr MpcTracker::status() {
 
-  if (!active_)
-    return mrs_msgs::TrackerStatus::Ptr();
+  if (is_initialized) {
 
-  mrs_msgs::TrackerStatus::Ptr msg(new mrs_msgs::TrackerStatus);
-  msg->status = mrs_msgs::TrackerStatus::SUCCEEDED;
-  return msg;
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
 }
 
 bool MpcTracker::failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {

@@ -96,9 +96,10 @@ private:
 
   std::thread mpc_thread;
 
-  bool odom_set = false;
-  bool active   = false;
-  bool got_odom = false;
+  bool odom_set       = false;
+  bool is_active      = false;
+  bool is_initialized = false;
+  bool got_odom       = false;
 
   // for tracking
   bool     tracking     = false;
@@ -126,7 +127,7 @@ private:
   double yaw_ = 0;
 };
 
-CsvTracker::CsvTracker(void) : odom_set(false), active(false) {
+CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 }
 
 void CsvTracker::setInitPoint(void) {
@@ -246,6 +247,7 @@ double dist(double ax, double ay, double az, double bx, double by, double bz) {
 
 // called once at the very beginning
 void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
+
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
   priv_nh.param("filename", filename_, std::string());
@@ -359,6 +361,10 @@ void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
   CsvTracker::setInitPoint();
 
   main_thread = std::thread(&CsvTracker::mainThread, this);
+
+  is_initialized = true;
+
+  ROS_INFO("CsvTracker initialized");
 }
 
 void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
@@ -397,22 +403,22 @@ bool CsvTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     ROS_ERROR("Cannon activate, to far from the initial point!");
 
-    active = false;
+    is_active = false;
 
   } else {
 
     ROS_INFO("CSV tracker activated");
-    active   = true;
-    tracking = true;
+    is_active = true;
+    tracking  = true;
   }
 
-  return active;
+  return is_active;
 }
 
 void CsvTracker::Deactivate(void) {
 
-  active   = false;
-  odom_set = false;
+  is_active = false;
+  odom_set  = false;
 
   ROS_INFO("CSV tracker deactivated");
 }
@@ -421,7 +427,7 @@ void CsvTracker::Deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!active)
+  if (!is_active)
     return mrs_msgs::PositionCommand::Ptr();
 
   // calculate the current angle
@@ -455,7 +461,7 @@ void CsvTracker::mainThread(void) {
       r.sleep();
     }
 
-    while (!active && ros::ok()) {
+    while (!is_active && ros::ok()) {
       r.sleep();
     }
 
@@ -542,14 +548,22 @@ void CsvTracker::mainThread(void) {
 
 const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
 
-  if (!active)
+  if (is_initialized) {
+
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
     return mrs_msgs::TrackerStatus::Ptr();
-
-  mrs_msgs::TrackerStatus::Ptr msg(new mrs_msgs::TrackerStatus);
-  msg->status = mrs_msgs::TrackerStatus::SUCCEEDED;
-  return msg;
+  }
 }
-
 }
 
 #include <pluginlib/class_list_macros.h>
