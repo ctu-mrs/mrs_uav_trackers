@@ -1,7 +1,7 @@
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
 #include <math.h>
-#include <mav_manager/Vec4.h>
+#include <mrs_msgs/Vec4.h>
 #include <mavros_msgs/RCIn.h>
 #include <mrs_estimation/convex_polygon.h>
 #include <mrs_msgs/FuturePoint.h>
@@ -242,10 +242,10 @@ private:
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   void validateYawSetpoint();
   bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool gotorelative_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
+  bool gotorelative_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   bool set_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool goto_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res);
+  bool goto_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void rc_cb(const mavros_msgs::RCInConstPtr &msg);
   bool   trigger_failsafe();
@@ -671,8 +671,7 @@ void MpcTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
     ROS_INFO("subscribing to %s", topic_name.c_str());
 
-    other_drones_subscribers.push_back(
-        nh_.subscribe(topic_name, 1, &MpcTracker::otherDronesTrajectoriesCallback, this, ros::TransportHints().tcpNoDelay()));
+    other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::otherDronesTrajectoriesCallback, this, ros::TransportHints().tcpNoDelay()));
   }
 
   // create threads and mutexes
@@ -1106,7 +1105,6 @@ void MpcTracker::calculateMPC() {
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
-
 
   // cvxgen X and Y axis -------------------------------------------------------------------------------
 
@@ -1699,7 +1697,7 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
 }
 
 // callback for goToRelative service
-bool MpcTracker::gotorelative_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res) {
+bool MpcTracker::gotorelative_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
 
   if (failsafe_triggered) {
 
@@ -2042,7 +2040,7 @@ bool MpcTracker::set_goal(double set_x, double set_y, double set_z, double set_y
 }
 
 // callback for goTo service
-bool MpcTracker::goto_service_cmd_cb(mav_manager::Vec4::Request &req, mav_manager::Vec4::Response &res) {
+bool MpcTracker::goto_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
 
   if (failsafe_triggered) {
 

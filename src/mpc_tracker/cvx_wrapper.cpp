@@ -30,7 +30,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
     max_iters = 15;
   }
   settings.max_iters = max_iters;
-  
+
   if (tempQ.size() == 6) {
     for (int i = 0; i < 6; i++) {
       if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
@@ -53,21 +53,20 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   if (tempR.size() == 2) {
     for (int i = 0; i < 2; i++) {
       if (tempR[i] >= 0 && std::isfinite(tempR[i])) {
-        params.R[i] = tempR[i];
-        params.R2[i] = tempR[i]/20;
+        params.R[i]  = tempR[i];
+        params.R2[i] = tempR[i] / 20;
       } else {
         ROS_ERROR_STREAM("CvxWrapper - R matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
-        params.R[i] = 500;
-        params.R2[i] = 500/20;
+        params.R[i]  = 500;
+        params.R2[i] = 500 / 20;
       }
     }
   } else {
     ROS_ERROR_STREAM("CvxWrapper - R matrix wrong size " << tempR.size() << " !!! Safe values set instead");
-    params.R[0] = 500;
-    params.R[1] = 500;
-    params.R2[0] = 500/20;
-    params.R2[1] = 500/20;
-
+    params.R[0]  = 500;
+    params.R[1]  = 500;
+    params.R2[0] = 500 / 20;
+    params.R2[1] = 500 / 20;
   }
 
   if (dt <= 0 || !std::isfinite(dt)) {
@@ -91,8 +90,8 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[8] = dt2;
   params.A[9] = dt2;
 
-  params.u_max[0] = hjerk;  
-  
+  params.u_max[0] = hjerk;
+
   params.Af[0] = 1;
   params.Af[1] = 1;
   params.Af[2] = 1;
@@ -121,15 +120,15 @@ void CvxWrapper::setInitialState(MatrixXd& x) {
   params.x_0[5] = x(5, 0);
 }
 void CvxWrapper::setLimits(VectorXd& max_speed, VectorXd& max_acc) {
-  params.x_max_2_1[0] = max_speed(0);
-  params.x_max_2_2[0] = max_speed(1);
-  params.x_max_2_3[0] = max_speed(2);
-  params.x_max_2_4[0] = max_speed(3);
-  params.x_max_2_5[0] = max_speed(4);
-  params.x_max_2_6[0] = max_speed(5);
-  params.x_max_2_7[0] = max_speed(6);
-  params.x_max_2_8[0] = max_speed(7);
-  params.x_max_2_9[0] = max_speed(8);
+  params.x_max_2_1[0]  = max_speed(0);
+  params.x_max_2_2[0]  = max_speed(1);
+  params.x_max_2_3[0]  = max_speed(2);
+  params.x_max_2_4[0]  = max_speed(3);
+  params.x_max_2_5[0]  = max_speed(4);
+  params.x_max_2_6[0]  = max_speed(5);
+  params.x_max_2_7[0]  = max_speed(6);
+  params.x_max_2_8[0]  = max_speed(7);
+  params.x_max_2_9[0]  = max_speed(8);
   params.x_max_2_10[0] = max_speed(9);
   params.x_max_2_11[0] = max_speed(10);
   params.x_max_2_12[0] = max_speed(11);
@@ -161,16 +160,16 @@ void CvxWrapper::setLimits(VectorXd& max_speed, VectorXd& max_acc) {
   params.x_max_2_38[0] = max_speed(37);
   params.x_max_2_39[0] = max_speed(38);
   params.x_max_2_40[0] = max_speed(39);
-  
-  params.x_max_3_1[0] = max_acc(0);
-  params.x_max_3_2[0] = max_acc(1);
-  params.x_max_3_3[0] = max_acc(2);
-  params.x_max_3_4[0] = max_acc(3);
-  params.x_max_3_5[0] = max_acc(4);
-  params.x_max_3_6[0] = max_acc(5);
-  params.x_max_3_7[0] = max_acc(6);
-  params.x_max_3_8[0] = max_acc(7);
-  params.x_max_3_9[0] = max_acc(8);
+
+  params.x_max_3_1[0]  = max_acc(0);
+  params.x_max_3_2[0]  = max_acc(1);
+  params.x_max_3_3[0]  = max_acc(2);
+  params.x_max_3_4[0]  = max_acc(3);
+  params.x_max_3_5[0]  = max_acc(4);
+  params.x_max_3_6[0]  = max_acc(5);
+  params.x_max_3_7[0]  = max_acc(6);
+  params.x_max_3_8[0]  = max_acc(7);
+  params.x_max_3_9[0]  = max_acc(8);
   params.x_max_3_10[0] = max_acc(9);
   params.x_max_3_11[0] = max_acc(10);
   params.x_max_3_12[0] = max_acc(11);

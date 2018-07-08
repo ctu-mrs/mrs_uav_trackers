@@ -1,7 +1,7 @@
 #include <ros/ros.h>
 
 #include <tf/transform_datatypes.h>
-#include "tf/LinearMath/Transform.h"
+#include <tf/LinearMath/Transform.h>
 
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/TrackerStatus.h>
@@ -9,7 +9,7 @@
 #include <mrs_msgs/SwitchTracker.h>
 #include <mrs_msgs/Vec1.h>
 
-#include <mav_manager/Vec4.h>
+#include <mrs_msgs/Vec4.h>
 #include <mrs_mav_manager/Tracker.h>
 
 #include <nav_msgs/Odometry.h>
@@ -296,7 +296,7 @@ void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
     ROS_INFO("Trajectory loaded, len = %d", trajectory_len);
   }
 
-  service_goto           = priv_nh.serviceClient<mav_manager::Vec4>("goto_out");
+  service_goto           = priv_nh.serviceClient<mrs_msgs::Vec4>("goto_out");
   service_switch_tracker = priv_nh.serviceClient<mrs_msgs::SwitchTracker>("SwitchTracker_out");
 
   publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);

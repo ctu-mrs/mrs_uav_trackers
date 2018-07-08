@@ -5,16 +5,13 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   geometry_msgs
   tf
-  trackers_manager
   std_msgs
   message_generation
-  mav_manager
   roscpp
   rospy
   mrs_estimation
   mrs_msgs
   mrs_mav_manager
-  quadrotor_msgs
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
@@ -27,7 +24,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(INCLUDE_DIRS
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation mrs_mav_manager quadrotor_msgs
+  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_estimation mrs_mav_manager mrs_msgs
   DEPENDS Eigen
   )
 
