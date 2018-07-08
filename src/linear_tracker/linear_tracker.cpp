@@ -15,6 +15,9 @@
 #include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/Vec4.h>
 
+#define PI 3.141592653
+/* #define SAFE 1 */
+
 namespace mrs_trackers
 {
 class LinearTracker : public mrs_mav_manager::Tracker {
@@ -23,64 +26,78 @@ public:
 
   void Initialize(const ros::NodeHandle &parent_nh);
   bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void Deactivate(void);
+  void                                      Deactivate(void);
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
 
 private:
   nav_msgs::Odometry odometry;
   bool               got_odometry = false;
+  double             odom_x;
+  double             odom_y;
+  double             odom_z;
+  double             odom_yaw;
+  double             odom_roll;
+  double             odom_pitch;
 
 private:
   bool   is_initialized, is_active, first_iter;
-  double speed_, time, dtime;
+  double horizontal_speed_, vertical_speed_, yaw_rate_, max_acceleration_;
 
-  double x, y, z;
-  double xc, yc, zc;
+  ros::Time last_update;
+  double    time_difference;
 
-  double desX   = 0;
-  double desY   = 0;
-  double desZ   = 2;
-  double desYaw = 0;
+  // desired goal
+  double des_x, des_y, des_z, des_yaw;
 
-  bool                      use_yaw_;
+  // last position
+  double last_x, last_y, last_z, last_yaw;
+
   mrs_msgs::PositionCommand position_output;
 
 private:
-  ros::Subscriber subscriberDesiredPosition;
-  ros::Publisher  publisher_cmd_pose;
+  ros::Subscriber    subscriberDesiredPosition;
   ros::ServiceServer service_goto;
+  ros::ServiceServer service_goto_relative;
 
   void callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
   bool callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
+  bool callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
 };
 
 LinearTracker::LinearTracker(void) : is_initialized(false), is_active(false) {
 }
 
-bool newCommand = false;
-
 void LinearTracker::callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
 
-  desX       = msg->position.x;
-  desY       = msg->position.y;
-  desZ       = msg->position.z;
-  desYaw     = msg->position.yaw;
-
-  newCommand = true;
+  des_x   = msg->position.x;
+  des_y   = msg->position.y;
+  des_z   = msg->position.z;
+  des_yaw = msg->position.yaw;
 }
 
 bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
 
-  desX       = req.goal[0];
-  desY       = req.goal[1];
-  desZ       = req.goal[2];
-  desYaw     = req.goal[3];
+  des_x   = req.goal[0];
+  des_y   = req.goal[1];
+  des_z   = req.goal[2];
+  des_yaw = req.goal[3];
 
   res.success = true;
   res.message = "setpoint set";
 
-  newCommand = true;
+  return true;
+}
+
+bool LinearTracker::callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
+
+  des_x   = odom_x + req.goal[0];
+  des_y   = odom_y + req.goal[1];
+  des_z   = odom_z + req.goal[2];
+  des_yaw = odom_yaw + req.goal[3];
+
+  res.success = true;
+  res.message = "setpoint set";
 
   return true;
 }
@@ -98,25 +115,40 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
   subscriberDesiredPosition = priv_nh.subscribe("desired_position", 1, &LinearTracker::callbackDesiredPosition, this, ros::TransportHints().tcpNoDelay());
 
   // --------------------------------------------------------------
-  // |                         publishers                         |
-  // --------------------------------------------------------------
-
-  publisher_cmd_pose = priv_nh.advertise<nav_msgs::Odometry>("cmd_pose", 1);
-
-  // --------------------------------------------------------------
   // |                          services                          |
   // --------------------------------------------------------------
 
-  service_goto = priv_nh.advertiseService("goTo", &LinearTracker::callbackGoto, this);
+  service_goto          = priv_nh.advertiseService("goTo", &LinearTracker::callbackGoto, this);
+  service_goto_relative = priv_nh.advertiseService("goToRelative", &LinearTracker::callbackGotoRelative, this);
 
   // --------------------------------------------------------------
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  priv_nh.param("speed", speed_, 1.0);
-  priv_nh.param("use_yaw", use_yaw_, true);
+  priv_nh.param("horizontal_speed", horizontal_speed_, -1.0);
+  priv_nh.param("vertical_speed", vertical_speed_, -1.0);
+  priv_nh.param("yaw_rate", yaw_rate_, -1.0);
+  priv_nh.param("max_acceleration", max_acceleration_, -1.0);
 
-  first_iter = false;
+  if (horizontal_speed_ < 0) {
+    ROS_ERROR("LinearTracker: horizontal_speed is not specified!");
+    ros::shutdown();
+  }
+
+  if (vertical_speed_ < 0) {
+    ROS_ERROR("LinearTracker: vertical_speed is not specified!");
+    ros::shutdown();
+  }
+
+  if (yaw_rate_ < 0) {
+    ROS_ERROR("LinearTracker: yaw_rate is not specified!");
+    ros::shutdown();
+  }
+
+  if (max_acceleration_ < 0) {
+    ROS_ERROR("LinearTracker: max_acceleration is not specified!");
+    ros::shutdown();
+  }
 
   is_initialized = true;
 
@@ -133,27 +165,26 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
     // the last command is usable
-    desX   = cmd->position.x;
-    desY   = cmd->position.y;
-    desZ   = cmd->position.z;
-    desYaw = cmd->yaw;
+    des_x   = cmd->position.x;
+    des_y   = cmd->position.y;
+    des_z   = cmd->position.z;
+    des_yaw = cmd->yaw;
 
   } else {
 
     ROS_WARN("LinearTracker: the previous command is not usable for activation, using Odometry instead.");
-    desX = odometry.pose.pose.position.x;
-    desY = odometry.pose.pose.position.y;
-    desZ = odometry.pose.pose.position.z;
-
-    double         yaw, pitch, roll;
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(roll, pitch, yaw);
-    desYaw = yaw;
+    des_x   = odometry.pose.pose.position.x;
+    des_y   = odometry.pose.pose.position.y;
+    des_z   = odometry.pose.pose.position.z;
+    des_yaw = odom_yaw;
   }
 
-  time = ros::Time::now().toSec();
+  last_x   = odometry.pose.pose.position.x;
+  last_y   = odometry.pose.pose.position.y;
+  last_z   = odometry.pose.pose.position.z;
+  last_yaw = odom_yaw;
+
+  /* last_update = ros::Time::now(); */
 
   is_active = true;
 
@@ -164,100 +195,139 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 void LinearTracker::Deactivate(void) {
 
-  ROS_INFO("LinearTracker was deactivated.");
   is_active = false;
+
+  ROS_INFO("LinearTracker was deactivated.");
 }
 
 const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  odometry                        = *msg;
-  x                               = msg->pose.pose.position.x;
-  y                               = msg->pose.pose.position.y;
-  z                               = msg->pose.pose.position.z;
-  dtime                           = ros::Time::now().toSec() - time;
-  position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
+  odometry = *msg;
+  odom_x   = odometry.pose.pose.position.x;
+  odom_y   = odometry.pose.pose.position.y;
+  odom_z   = odometry.pose.pose.position.z;
 
   got_odometry = true;
 
   if (!is_active) {
+
+    last_update = ros::Time::now();
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  ROS_INFO_THROTTLE(1.0, "LinearTracker's update() is called");
+  // calculate the yaw from odometry
+  tf::Quaternion quaternion_odometry;
+  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+  tf::Matrix3x3 m(quaternion_odometry);
+  m.getRPY(odom_roll, odom_pitch, odom_yaw);
 
-  // set positions from odom
-  double vectorLength = sqrt((desX - x) * (desX - x) + (desY - y) * (desY - y) + (desZ - z) * (desZ - z));
+  time_difference = (ros::Time::now() - last_update).toSec();
+  last_update     = ros::Time::now();
 
-  if (vectorLength > 1) {
+  /* #ifdef SAFE */
+  /*   last_x   = odometry.pose.pose.position.x; */
+  /*   last_y   = odometry.pose.pose.position.y; */
+  /*   last_z   = odometry.pose.pose.position.z; */
+  /*   last_yaw = odom_yaw; */
+  /*   time_difference = 0.2; */
+  /* #endif */
 
-    if (newCommand) {
-      xc         = x + ((desX - x) / vectorLength) * speed_ * dtime;
-      yc         = y + ((desY - y) / vectorLength) * speed_ * dtime;
-      zc         = z + ((desZ - z) / vectorLength) * speed_ * dtime;
-      newCommand = false;
-    }
+  position_output.header.stamp    = ros::Time::now();
+  position_output.header.frame_id = "local_origin";
 
-    if (!first_iter) {
+  // determine the vector to the target
+  double tar_x, tar_y, tar_z;
+  tar_x = des_x - last_x;
+  tar_y = des_y - last_y;
+  tar_z = des_z - last_z;
 
-      position_output.position.x = xc + ((desX - xc) / vectorLength) * speed_ * dtime;
-      position_output.position.y = yc + ((desY - yc) / vectorLength) * speed_ * dtime;
-      position_output.position.z = zc + ((desZ - zc) / vectorLength) * speed_ * dtime;
-      xc                         = position_output.position.x;
-      yc                         = position_output.position.y;
-      zc                         = position_output.position.z;
+  // determine the heading to the target
+  double desired_heading    = atan2(tar_y, tar_x);
+  double vertical_direction = (tar_z > 0 ? 1.0 : -1.0);
 
-    } else {
+  double horizontal_distance = sqrt(pow(tar_x, 2) + pow(tar_y, 2));
+  double vertical_distance   = fabs(tar_z);
 
-      position_output.position.x = xc + ((desX - xc) / vectorLength) * speed_;
-      position_output.position.y = yc + ((desY - yc) / vectorLength) * speed_;
-      position_output.position.z = zc + ((desZ - zc) / vectorLength) * speed_;
-      xc                         = position_output.position.x;
-      yc                         = position_output.position.y;
-      zc                         = position_output.position.z;
-    }
+  // --------------------------------------------------------------
+  // |                         horizontal                         |
+  // --------------------------------------------------------------
 
+  // if the goasl is far away, calculate the next step
+  if (horizontal_distance > (horizontal_speed_ * time_difference)) {
+
+    double step_x = cos(desired_heading) * horizontal_speed_ * time_difference;
+    double step_y = sin(desired_heading) * horizontal_speed_ * time_difference;
+
+    /* if (step_x > odometry.twist.twist.linear.x * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting + x"); */
+    /*   step_x = odometry.twist.twist.linear.x * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } else if (step_x < odometry.twist.twist.linear.x * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting - x"); */
+    /*   step_x = odometry.twist.twist.linear.x * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } */
+
+    /* if (step_y > odometry.twist.twist.linear.y * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting + y"); */
+    /*   step_y = odometry.twist.twist.linear.y * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } else if (step_y < odometry.twist.twist.linear.y * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting - y"); */
+    /*   step_y = odometry.twist.twist.linear.y * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } */
+
+    last_x += step_x;
+    last_y += step_y;
+
+    position_output.velocity.x = cos(desired_heading) * horizontal_speed_;
+    position_output.velocity.y = sin(desired_heading) * horizontal_speed_;
+
+    // if the goal is closer than one step at nominal horizontal_speed_, set it as the output
   } else {
-    position_output.position.x = desX;
-    position_output.position.y = desY;
-    position_output.position.z = desZ;
+
+    last_x = des_x;
+    last_y = des_y;
+
+    position_output.velocity.x = 0;
+    position_output.velocity.y = 0;
   }
 
-  // set velocities from odom
-  position_output.velocity.x = msg->twist.twist.linear.x;
-  position_output.velocity.y = msg->twist.twist.linear.y;
-  position_output.velocity.z = msg->twist.twist.linear.z;
+  // --------------------------------------------------------------
+  // |                          vertical                          |
+  // --------------------------------------------------------------
+
+  if (vertical_distance > (vertical_speed_ * time_difference)) {
+
+    double step_z = vertical_direction * vertical_speed_ * time_difference;
+
+    /* if (step_z > odometry.twist.twist.linear.z * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting + z"); */
+    /*   step_z = odometry.twist.twist.linear.z * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } else if (step_z < odometry.twist.twist.linear.z * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
+    /*   ROS_INFO_THROTTLE(1.0, "Limiting - z"); */
+    /*   step_z = odometry.twist.twist.linear.z * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
+    /* } */
+
+    last_z += step_z;
+
+    position_output.velocity.z = vertical_direction * vertical_speed_;
+
+  } else {
+
+    last_z = des_z;
+
+    position_output.velocity.z = 0;
+  }
+
+  // set the positions
+  position_output.position.x = last_x;
+  position_output.position.y = last_y;
+  position_output.position.z = last_z;
+  position_output.yaw        = odom_yaw;
+  position_output.yaw_dot    = 0;
 
   // set zero accelerations
   position_output.acceleration.x = 0;
   position_output.acceleration.y = 0;
   position_output.acceleration.z = 0;
-
-  // set yaw based on current odom
-  if (use_yaw_) {
-
-    position_output.yaw     = desYaw;
-    position_output.yaw_dot = 0;
-  }
-
-  time = ros::Time::now().toSec();
-
-  // --------------------------------------------------------------
-  // |                 publish odom for debugging                 |
-  // --------------------------------------------------------------
-  //
-  nav_msgs::Odometry outPose;
-  outPose.header.stamp    = ros::Time::now();
-  outPose.header.frame_id = "local_origin";
-
-  outPose.pose.pose.position = position_output.position;
-  tf::Quaternion orientation;
-  orientation.setEuler(0, 0, desYaw);
-  outPose.pose.pose.orientation.x = msg->pose.pose.orientation.x;
-  outPose.pose.pose.orientation.y = msg->pose.pose.orientation.y;
-  outPose.pose.pose.orientation.z = msg->pose.pose.orientation.z;
-  outPose.pose.pose.orientation.w = msg->pose.pose.orientation.w;
-  publisher_cmd_pose.publish(outPose);
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }

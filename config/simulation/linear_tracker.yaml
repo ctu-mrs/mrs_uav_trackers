@@ -1,9 +1,4 @@
-arrayLength: 10
-
-X: [5, 6, 7, 8, 9, 9, 9, 9, 9, 9, 10]
-Y: [5, 5, 5, 5, 5, 5, 7, 8, 9, 10, 11]
-Z: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
-
-colider: 0.3
-speed: 1.0
-use_yaw: true
+horizontal_speed: 1.0
+vertical_speed: 1.0
+yaw_rate: 0.2
+max_acceleration: 0.1
