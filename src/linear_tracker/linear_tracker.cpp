@@ -16,7 +16,6 @@
 #include <mrs_msgs/Vec4.h>
 
 #define PI 3.141592653
-/* #define SAFE 1 */
 
 namespace mrs_trackers
 {
@@ -30,32 +29,50 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
 
-private:
+private:  // Odometry stuff
   nav_msgs::Odometry odometry;
   bool               got_odometry = false;
-  double             odom_x;
-  double             odom_y;
-  double             odom_z;
-  double             odom_yaw;
-  double             odom_roll;
-  double             odom_pitch;
+
+  double odom_x;
+  double odom_y;
+  double odom_z;
+  double odom_yaw;
+  double odom_roll;
+  double odom_pitch;
 
 private:
-  bool   is_initialized, is_active, first_iter;
-  double horizontal_speed_, vertical_speed_, yaw_rate_, max_acceleration_;
+  // tracker's inner states
+  bool is_initialized;
+  bool is_active;
+  bool first_iter;
 
   ros::Time last_update;
   double    time_difference;
 
+private:
+  // dynamical constraints
+  double horizontal_speed_;
+  double vertical_speed_;
+  double horizontal_acceleration_;
+  double vertical_acceleration_;
+  double yaw_rate_;
+
+private:
   // desired goal
   double des_x, des_y, des_z, des_yaw;
 
-  // last position
+  // last output position
   double last_x, last_y, last_z, last_yaw;
+
+  // internal speed
+  double speed_x, speed_y;
+  double current_horizontal_speed;
+  double current_vertical_speed;
 
   mrs_msgs::PositionCommand position_output;
 
 private:
+  // subscribers+publishers+services
   ros::Subscriber    subscriberDesiredPosition;
   ros::ServiceServer service_goto;
   ros::ServiceServer service_goto_relative;
@@ -127,8 +144,9 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
   priv_nh.param("horizontal_speed", horizontal_speed_, -1.0);
   priv_nh.param("vertical_speed", vertical_speed_, -1.0);
+  priv_nh.param("horizontal_acceleration", horizontal_acceleration_, -1.0);
+  priv_nh.param("vertical_acceleration", vertical_acceleration_, -1.0);
   priv_nh.param("yaw_rate", yaw_rate_, -1.0);
-  priv_nh.param("max_acceleration", max_acceleration_, -1.0);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("LinearTracker: horizontal_speed is not specified!");
@@ -140,15 +158,26 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
     ros::shutdown();
   }
 
+  if (horizontal_acceleration_ < 0) {
+    ROS_ERROR("LinearTracker: horizontal_acceleration is not specified!");
+    ros::shutdown();
+  }
+
+  if (vertical_acceleration_ < 0) {
+    ROS_ERROR("LinearTracker: vertical_acceleration is not specified!");
+    ros::shutdown();
+  }
+
   if (yaw_rate_ < 0) {
     ROS_ERROR("LinearTracker: yaw_rate is not specified!");
     ros::shutdown();
   }
 
-  if (max_acceleration_ < 0) {
-    ROS_ERROR("LinearTracker: max_acceleration is not specified!");
-    ros::shutdown();
-  }
+  speed_x = 0;
+  speed_y = 0;
+
+  current_horizontal_speed = 0;
+  current_vertical_speed   = 0;
 
   is_initialized = true;
 
@@ -170,6 +199,12 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     des_z   = cmd->position.z;
     des_yaw = cmd->yaw;
 
+    speed_x                  = cmd->velocity.x;
+    speed_y                  = cmd->velocity.y;
+    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+
+    current_vertical_speed = cmd->velocity.z;
+
   } else {
 
     ROS_WARN("LinearTracker: the previous command is not usable for activation, using Odometry instead.");
@@ -177,6 +212,12 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     des_y   = odometry.pose.pose.position.y;
     des_z   = odometry.pose.pose.position.z;
     des_yaw = odom_yaw;
+
+    speed_x                  = odometry.twist.twist.linear.x;
+    speed_y                  = odometry.twist.twist.linear.y;
+    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+
+    current_vertical_speed = odometry.twist.twist.linear.z;
   }
 
   last_x   = odometry.pose.pose.position.x;
@@ -224,14 +265,6 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   time_difference = (ros::Time::now() - last_update).toSec();
   last_update     = ros::Time::now();
 
-  /* #ifdef SAFE */
-  /*   last_x   = odometry.pose.pose.position.x; */
-  /*   last_y   = odometry.pose.pose.position.y; */
-  /*   last_z   = odometry.pose.pose.position.z; */
-  /*   last_yaw = odom_yaw; */
-  /*   time_difference = 0.2; */
-  /* #endif */
-
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
 
@@ -252,70 +285,86 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   // |                         horizontal                         |
   // --------------------------------------------------------------
 
-  // if the goasl is far away, calculate the next step
-  if (horizontal_distance > (horizontal_speed_ * time_difference)) {
+  // if the goal is far away, calculate the next step
 
-    double step_x = cos(desired_heading) * horizontal_speed_ * time_difference;
-    double step_y = sin(desired_heading) * horizontal_speed_ * time_difference;
+  double t_stop      = current_horizontal_speed / horizontal_acceleration_;
+  double stop_dist   = (t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x = cos(desired_heading) * stop_dist;
+  double stop_dist_y = sin(desired_heading) * stop_dist;
 
-    /* if (step_x > odometry.twist.twist.linear.x * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting + x"); */
-    /*   step_x = odometry.twist.twist.linear.x * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } else if (step_x < odometry.twist.twist.linear.x * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting - x"); */
-    /*   step_x = odometry.twist.twist.linear.x * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } */
+  if (horizontal_distance < 0.1) {
 
-    /* if (step_y > odometry.twist.twist.linear.y * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting + y"); */
-    /*   step_y = odometry.twist.twist.linear.y * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } else if (step_y < odometry.twist.twist.linear.y * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting - y"); */
-    /*   step_y = odometry.twist.twist.linear.y * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } */
+    current_horizontal_speed = 0;
+    last_x                   = 0.95 * last_x + 0.05 * des_x;
+    last_y                   = 0.95 * last_y + 0.05 * des_y;
 
-    last_x += step_x;
-    last_y += step_y;
+  } else if (sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
 
-    position_output.velocity.x = cos(desired_heading) * horizontal_speed_;
-    position_output.velocity.y = sin(desired_heading) * horizontal_speed_;
+    current_horizontal_speed -= horizontal_acceleration_ * time_difference;
 
-    // if the goal is closer than one step at nominal horizontal_speed_, set it as the output
-  } else {
 
-    last_x = des_x;
-    last_y = des_y;
+    if (current_horizontal_speed < 0) {
 
-    position_output.velocity.x = 0;
-    position_output.velocity.y = 0;
+      current_horizontal_speed = 0;
+    }
+
+  } else if (current_horizontal_speed < horizontal_speed_) {
+
+    current_horizontal_speed += horizontal_acceleration_ * time_difference;
+
+    if (current_horizontal_speed > horizontal_speed_) {
+      current_horizontal_speed = horizontal_speed_;
+    } else if (current_horizontal_speed < -horizontal_speed_) {
+      current_horizontal_speed = -horizontal_speed_;
+    }
   }
+
+  double step_x = cos(desired_heading) * current_horizontal_speed * time_difference;
+  double step_y = sin(desired_heading) * current_horizontal_speed * time_difference;
+
+  last_x += step_x;
+  last_y += step_y;
+
+  position_output.velocity.x = cos(desired_heading) * current_horizontal_speed;
+  position_output.velocity.y = sin(desired_heading) * current_horizontal_speed;
 
   // --------------------------------------------------------------
   // |                          vertical                          |
   // --------------------------------------------------------------
 
-  if (vertical_distance > (vertical_speed_ * time_difference)) {
+  t_stop             = current_vertical_speed / vertical_acceleration_;
+  double stop_dist_z = (t_stop * vertical_direction * current_vertical_speed) / 2;
 
-    double step_z = vertical_direction * vertical_speed_ * time_difference;
+  if (vertical_distance < 0.1) {
 
-    /* if (step_z > odometry.twist.twist.linear.z * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting + z"); */
-    /*   step_z = odometry.twist.twist.linear.z * time_difference + 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } else if (step_z < odometry.twist.twist.linear.z * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2)) { */
-    /*   ROS_INFO_THROTTLE(1.0, "Limiting - z"); */
-    /*   step_z = odometry.twist.twist.linear.z * time_difference - 0.5 * max_acceleration_ * pow(time_difference, 2); */
-    /* } */
+    current_vertical_speed = 0;
+    last_z                 = 0.95 * last_z + 0.05 * des_z;
 
-    last_z += step_z;
+  } else if (fabs(last_z + stop_dist_z - des_z) < 0.05) {
 
-    position_output.velocity.z = vertical_direction * vertical_speed_;
+    current_vertical_speed -= vertical_acceleration_ * time_difference;
 
-  } else {
+    if (current_vertical_speed < 0) {
 
-    last_z = des_z;
+      current_vertical_speed = 0;
+    }
 
-    position_output.velocity.z = 0;
+  } else if (current_vertical_speed < vertical_speed_) {
+
+    current_vertical_speed += vertical_acceleration_ * time_difference;
+
+    if (current_vertical_speed > vertical_speed_) {
+      current_vertical_speed = vertical_speed_;
+    } else if (current_vertical_speed < -vertical_speed_) {
+      current_vertical_speed = -vertical_speed_;
+    }
   }
+
+  double step_z = vertical_direction * current_vertical_speed * time_difference;
+
+  last_z += step_z;
+
+  position_output.velocity.z = vertical_direction * current_vertical_speed;
 
   // set the positions
   position_output.position.x = last_x;

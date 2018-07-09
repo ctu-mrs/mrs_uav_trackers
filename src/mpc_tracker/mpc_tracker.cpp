@@ -1266,7 +1266,7 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 // control_manager calls this when it wants to stop using this tracker
 void MpcTracker::Deactivate(void) {
 
-  is_active   = false;
+  is_active = false;
   odom_set_ = false;
 
   // turn off trajectory tracking
@@ -1322,7 +1322,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
   if (!is_active)
     return mrs_msgs::PositionCommand::Ptr();
-
 
   if (!mpc_computed_) {
 
