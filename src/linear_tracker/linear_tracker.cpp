@@ -303,17 +303,16 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
     last_x                   = 0.95 * last_x + 0.05 * des_x;
     last_y                   = 0.95 * last_y + 0.05 * des_y;
 
-  } else if (sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
+  } else if (fabs(current_horizontal_speed) < 0.1 && sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
 
     current_horizontal_speed -= horizontal_acceleration_ * time_difference;
-
 
     if (current_horizontal_speed < 0) {
 
       current_horizontal_speed = 0;
     }
 
-  } else if (current_horizontal_speed < horizontal_speed_) {
+  } else if (fabs(current_horizontal_speed) < horizontal_speed_) {
 
     current_horizontal_speed += horizontal_acceleration_ * time_difference;
 
