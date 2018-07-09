@@ -199,6 +199,11 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     des_z   = cmd->position.z;
     des_yaw = cmd->yaw;
 
+    last_x   = des_x;
+    last_y   = des_y;
+    last_z   = des_z;
+    last_yaw = cmd->yaw;
+
     speed_x                  = cmd->velocity.x;
     speed_y                  = cmd->velocity.y;
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
@@ -218,12 +223,12 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
     current_vertical_speed = odometry.twist.twist.linear.z;
-  }
 
-  last_x   = odometry.pose.pose.position.x;
-  last_y   = odometry.pose.pose.position.y;
-  last_z   = odometry.pose.pose.position.z;
-  last_yaw = odom_yaw;
+    last_x   = odometry.pose.pose.position.x;
+    last_y   = odometry.pose.pose.position.y;
+    last_z   = odometry.pose.pose.position.z;
+    last_yaw = odom_yaw;
+  }
 
   /* last_update = ros::Time::now(); */
 
