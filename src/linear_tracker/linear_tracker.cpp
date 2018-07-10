@@ -194,14 +194,11 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
     // the last command is usable
-    des_x   = cmd->position.x;
-    des_y   = cmd->position.y;
-    des_z   = cmd->position.z;
     des_yaw = cmd->yaw;
 
-    last_x   = des_x;
-    last_y   = des_y;
-    last_z   = des_z;
+    last_x   = odometry.pose.pose.position.x;
+    last_y   = odometry.pose.pose.position.y;
+    last_z   = odometry.pose.pose.position.z;
     last_yaw = cmd->yaw;
 
     speed_x                  = cmd->velocity.x;
@@ -209,13 +206,11 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
     current_vertical_speed = cmd->velocity.z;
+    ROS_INFO("Activated with horizontal speed %f, heading %f", current_horizontal_speed, atan2(speed_y, speed_x));
 
   } else {
 
     ROS_WARN("LinearTracker: the previous command is not usable for activation, using Odometry instead.");
-    des_x   = odometry.pose.pose.position.x;
-    des_y   = odometry.pose.pose.position.y;
-    des_z   = odometry.pose.pose.position.z;
     des_yaw = odom_yaw;
 
     speed_x                  = odometry.twist.twist.linear.x;
@@ -229,6 +224,19 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     last_z   = odometry.pose.pose.position.z;
     last_yaw = odom_yaw;
   }
+
+  double horizontal_t_stop      = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist   = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double current_heading = atan2(speed_y, speed_x);
+  double stop_dist_x = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y = sin(current_heading) * horizontal_stop_dist;
+
+  double vertical_t_stop      = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist   = (vertical_t_stop * current_vertical_speed) / 2;
+
+  des_x = last_x + stop_dist_x;
+  des_y = last_y + stop_dist_y;
+  des_z = last_z + vertical_stop_dist;
 
   /* last_update = ros::Time::now(); */
 
@@ -261,14 +269,14 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
     return mrs_msgs::PositionCommand::Ptr();
   }
 
+  time_difference = (ros::Time::now() - last_update).toSec();
+  last_update     = ros::Time::now();
+
   // calculate the yaw from odometry
   tf::Quaternion quaternion_odometry;
   quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
   tf::Matrix3x3 m(quaternion_odometry);
   m.getRPY(odom_roll, odom_pitch, odom_yaw);
-
-  time_difference = (ros::Time::now() - last_update).toSec();
-  last_update     = ros::Time::now();
 
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
@@ -297,13 +305,15 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   double stop_dist_x = cos(desired_heading) * stop_dist;
   double stop_dist_y = sin(desired_heading) * stop_dist;
 
-  if (horizontal_distance < 0.1) {
+  if ((current_horizontal_speed < 0.2) && (horizontal_distance < 0.1)) {
 
     current_horizontal_speed = 0;
     last_x                   = 0.95 * last_x + 0.05 * des_x;
     last_y                   = 0.95 * last_y + 0.05 * des_y;
 
-  } else if (fabs(current_horizontal_speed) < 0.1 && sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
+  } else if (sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
+
+    ROS_INFO_THROTTLE(0.2, "slowing down");
 
     current_horizontal_speed -= horizontal_acceleration_ * time_difference;
 
@@ -312,7 +322,9 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
       current_horizontal_speed = 0;
     }
 
-  } else if (fabs(current_horizontal_speed) < horizontal_speed_) {
+  } else if (current_horizontal_speed < horizontal_speed_) {
+
+    ROS_INFO_THROTTLE(0.2, "accelerating");
 
     current_horizontal_speed += horizontal_acceleration_ * time_difference;
 
@@ -339,7 +351,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   t_stop             = current_vertical_speed / vertical_acceleration_;
   double stop_dist_z = (t_stop * vertical_direction * current_vertical_speed) / 2;
 
-  if (vertical_distance < 0.1) {
+  if (fabs(vertical_distance) < 0.1) {
 
     current_vertical_speed = 0;
     last_z                 = 0.95 * last_z + 0.05 * des_z;
