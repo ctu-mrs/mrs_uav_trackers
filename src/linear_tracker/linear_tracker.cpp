@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <tf/transform_datatypes.h>
-#include <mutex>
 
 #include <mrs_msgs/PositionCommand.h>
 #include <mrs_msgs/TrackerStatus.h>
@@ -67,6 +66,7 @@ private:
   // internal speed
   double speed_x, speed_y;
   double current_horizontal_speed;
+  double current_heading;
   double current_vertical_speed;
 
   mrs_msgs::PositionCommand position_output;
@@ -100,6 +100,8 @@ bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::R
   des_z   = req.goal[2];
   des_yaw = req.goal[3];
 
+  ROS_INFO("LinearTracker: received new setpoint %f, %f, %f, %f", des_x, des_y, des_z, des_yaw);
+
   res.success = true;
   res.message = "setpoint set";
 
@@ -107,6 +109,8 @@ bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::R
 }
 
 bool LinearTracker::callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
+
+  ROS_INFO("LinearTracker: received new relative setpoint");
 
   des_x   = odom_x + req.goal[0];
   des_y   = odom_y + req.goal[1];
@@ -203,6 +207,7 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     speed_x                  = cmd->velocity.x;
     speed_y                  = cmd->velocity.y;
+    current_heading          = atan2(speed_y, speed_x);
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
     current_vertical_speed = cmd->velocity.z;
@@ -215,6 +220,7 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     speed_x                  = odometry.twist.twist.linear.x;
     speed_y                  = odometry.twist.twist.linear.y;
+    current_heading          = atan2(speed_y, speed_x);
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
     current_vertical_speed = odometry.twist.twist.linear.z;
@@ -225,14 +231,13 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     last_yaw = odom_yaw;
   }
 
-  double horizontal_t_stop      = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist   = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double current_heading = atan2(speed_y, speed_x);
-  double stop_dist_x = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y = sin(current_heading) * horizontal_stop_dist;
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
-  double vertical_t_stop      = current_vertical_speed / vertical_acceleration_;
-  double vertical_stop_dist   = (vertical_t_stop * current_vertical_speed) / 2;
+  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
 
   des_x = last_x + stop_dist_x;
   des_y = last_y + stop_dist_y;
@@ -288,7 +293,8 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   tar_z = des_z - last_z;
 
   // determine the heading to the target
-  double desired_heading    = atan2(tar_y, tar_x);
+  double target_heading = atan2(tar_y, tar_x);
+
   double vertical_direction = (tar_z > 0 ? 1.0 : -1.0);
 
   double horizontal_distance = sqrt(pow(tar_x, 2) + pow(tar_y, 2));
@@ -302,47 +308,78 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
 
   double t_stop      = current_horizontal_speed / horizontal_acceleration_;
   double stop_dist   = (t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x = cos(desired_heading) * stop_dist;
-  double stop_dist_y = sin(desired_heading) * stop_dist;
+  double stop_dist_x = cos(current_heading) * stop_dist;
+  double stop_dist_y = sin(current_heading) * stop_dist;
 
-  if ((current_horizontal_speed < 0.2) && (horizontal_distance < 0.1)) {
+  double scalar_tar_speed = tar_x * speed_x + tar_x * speed_y;
+
+  ROS_INFO_THROTTLE(0.2, "des_x %f", des_x);
+  ROS_INFO_THROTTLE(0.2, "last_x %f", last_x);
+  ROS_INFO_THROTTLE(0.2, "tar_x %f", tar_x);
+  ROS_INFO_THROTTLE(0.2, "stop_dist_x %f", stop_dist_x);
+  ROS_INFO_THROTTLE(0.2, "scalar %f", scalar_tar_speed);
+  ROS_INFO_THROTTLE(0.2, "current heading %f", current_heading);
+  ROS_INFO_THROTTLE(0.2, "target heading %f", target_heading);
+
+  double horizontal_distance_thr = 0.2;
+
+  double desired_heading = current_heading;
+
+  if ((horizontal_distance > horizontal_distance_thr) && (scalar_tar_speed >= -10e-3) && fabs(horizontal_distance - stop_dist) > 0.1) {
+
+    if (current_horizontal_speed < horizontal_speed_) {
+
+      ROS_WARN("accelerating");
+
+      current_horizontal_speed += horizontal_acceleration_ * time_difference;
+
+      desired_heading = target_heading;
+
+      if (current_horizontal_speed > horizontal_speed_) {
+        current_horizontal_speed = horizontal_speed_;
+      }
+    }
+  } else if ((current_horizontal_speed <= 0.2) && (horizontal_distance <= horizontal_distance_thr)) {
+
+    ROS_WARN("stopped");
 
     current_horizontal_speed = 0;
-    last_x                   = 0.95 * last_x + 0.05 * des_x;
-    last_y                   = 0.95 * last_y + 0.05 * des_y;
+    last_x                   = 0.99 * last_x + 0.01 * des_x;
+    last_y                   = 0.99 * last_y + 0.01 * des_y;
 
-  } else if (sqrt(pow(last_x + stop_dist_x - des_x, 2) + pow(last_y + stop_dist_y - des_y, 2)) < 0.05) {
+  } else if (current_horizontal_speed > 0.1 && fabs(horizontal_distance - stop_dist) < 0.1) {
 
-    ROS_INFO_THROTTLE(0.2, "slowing down");
+    ROS_WARN("slowing down");
+
+    if (scalar_tar_speed < -1e-3) {
+
+      desired_heading = current_heading;
+      ROS_WARN_THROTTLE(0.2, "using original heading");
+    } else {
+
+      desired_heading = target_heading;
+    }
 
     current_horizontal_speed -= horizontal_acceleration_ * time_difference;
 
     if (current_horizontal_speed < 0) {
-
       current_horizontal_speed = 0;
-    }
-
-  } else if (current_horizontal_speed < horizontal_speed_) {
-
-    ROS_INFO_THROTTLE(0.2, "accelerating");
-
-    current_horizontal_speed += horizontal_acceleration_ * time_difference;
-
-    if (current_horizontal_speed > horizontal_speed_) {
-      current_horizontal_speed = horizontal_speed_;
-    } else if (current_horizontal_speed < -horizontal_speed_) {
-      current_horizontal_speed = -horizontal_speed_;
     }
   }
 
-  double step_x = cos(desired_heading) * current_horizontal_speed * time_difference;
-  double step_y = sin(desired_heading) * current_horizontal_speed * time_difference;
+  ROS_INFO_THROTTLE(0.2, "desired heading %f", desired_heading);
+
+  speed_x = cos(desired_heading) * current_horizontal_speed;
+  speed_y = sin(desired_heading) * current_horizontal_speed;
+
+  double step_x = speed_x * time_difference;
+  double step_y = speed_y * time_difference;
 
   last_x += step_x;
   last_y += step_y;
 
-  position_output.velocity.x = cos(desired_heading) * current_horizontal_speed;
-  position_output.velocity.y = sin(desired_heading) * current_horizontal_speed;
+  /* position_output.velocity.x = cos(desired_heading) * current_horizontal_speed; */
+  /* position_output.velocity.y = sin(desired_heading) * current_horizontal_speed; */
 
   // --------------------------------------------------------------
   // |                          vertical                          |

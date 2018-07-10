@@ -66,16 +66,16 @@ cvxgenMpc:
   dt2: 0.2
 
   maxHorizontalSpeed: 4.0
-  maxHorizontalAcceleration: 2.0
-  maxHorizontalJerk: 3.0
+  maxHorizontalAcceleration: 1.0
+  maxHorizontalJerk: 2.0
 
   maxVerticalAscendingSpeed: 2.0
-  maxVerticalAscendingAcceleration: 1.5
-  maxVerticalAscendingJerk: 1.5
+  maxVerticalAscendingAcceleration: 1.0
+  maxVerticalAscendingJerk: 1.0
 
   maxVerticalDescendingSpeed: 1.0
-  maxVerticalDescendingAcceleration: 1.5
-  maxVerticalDescendingJerk: 1.5
+  maxVerticalDescendingAcceleration: 1.0
+  maxVerticalDescendingJerk: 1.0
 
   maxYawRate: 1.0
   maxYawAcceleration: 2.0
