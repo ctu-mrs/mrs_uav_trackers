@@ -15,6 +15,7 @@
 #include <mrs_msgs/Vec4.h>
 
 #include <thread>
+#include <mutex>
 
 #define PI 3.141592653
 
@@ -50,6 +51,7 @@ public:
 private:
   nav_msgs::Odometry odometry;
   bool               got_odometry = false;
+  std::mutex         mutex_odometry;
 
   double odometry_x;
   double odometry_y;
@@ -60,7 +62,7 @@ private:
 
 private:
   // tracker's inner states
-  int tracker_loop_rate_;
+  int    tracker_loop_rate_;
   double tracker_dt_;
   bool   is_initialized;
   bool   is_active;
@@ -179,10 +181,14 @@ bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::R
 
 bool LinearTracker::callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
 
-  goal_x   = odometry_x + req.goal[0];
-  goal_y   = odometry_y + req.goal[1];
-  goal_z   = odometry_z + req.goal[2];
-  goal_yaw = odometry_yaw + req.goal[3];
+  mutex_odometry.lock();
+  {
+    goal_x   = odometry_x + req.goal[0];
+    goal_y   = odometry_y + req.goal[1];
+    goal_z   = odometry_z + req.goal[2];
+    goal_yaw = odometry_yaw + req.goal[3];
+  }
+  mutex_odometry.unlock();
 
   ROS_INFO("[LinearTracker]: received new relative setpoint, flying to %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -272,6 +278,8 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
   current_horizontal_speed = 0;
   current_vertical_speed   = 0;
 
+  current_vertical_direction = 0;
+
   is_initialized = true;
 
   current_state  = IDLE_STATE;
@@ -284,24 +292,19 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
 void LinearTracker::stopMotion(void) {
 
-  // slow down horizontally
-  if (current_horizontal_speed > 0) {
+  /* ROS_INFO("[LinearTracker]: before stopMotion hspeed %f", current_horizontal_speed); */
+  /* ROS_INFO("[LinearTracker]: before stopMotion vspeed %f", current_vertical_speed); */
 
-    current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
-    if (current_horizontal_speed < 0) {
-      current_horizontal_speed = 0;
-    }
+  if (current_horizontal_speed < 0) {
+    current_horizontal_speed = 0;
   }
 
-  // slow down vertically
-  if (current_vertical_speed > 0) {
+  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
-    current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
-
-    if (current_vertical_speed < 0) {
-      current_vertical_speed = 0;
-    }
+  if (current_vertical_speed < 0) {
+    current_vertical_speed = 0;
   }
 
   // if we are stationary, switch to hover
@@ -313,9 +316,16 @@ void LinearTracker::stopMotion(void) {
       changeState(HOVER_STATE);
     }
   }
+
+  /* ROS_INFO("[LinearTracker]: after stopMotion hspeed %f", current_horizontal_speed); */
+  /* ROS_INFO("[LinearTracker]: after stopMotion vspeed %f", current_vertical_speed); */
+
 }
 
 void LinearTracker::accelerate(void) {
+
+  /* ROS_INFO("[LinearTracker]: before accelerate hspeed %f", current_horizontal_speed); */
+  /* ROS_INFO("[LinearTracker]: before accelerate vspeed %f", current_vertical_speed); */
 
   // set the right heading
   double tar_x          = goal_x - state_x;
@@ -347,14 +357,26 @@ void LinearTracker::accelerate(void) {
   double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
   double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: horizontal_stop_dist=%f", horizontal_stop_dist);
+
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
   double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
   double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
 
-  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2) + pow(state_z + stop_dist_z - goal_z, 3) < 0.1)) {
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: current_vertical_speed: %f", current_vertical_speed);
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vertical_t_stop: %f", vertical_t_stop);
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vertical_stop_dist: %f", vertical_stop_dist);
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: current_vertical_direction: %f", current_vertical_direction);
+  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vert_stop_dist=%f", vertical_stop_dist);
+
+  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2) + pow(state_z + stop_dist_z - goal_z, 2)) < 0.2) {
     changeState(DECELERATING_STATE);
   }
+
+  /* ROS_INFO("[LinearTracker]: after accelerate hspeed %f", current_horizontal_speed); */
+  /* ROS_INFO("[LinearTracker]: after accelerate vspeed %f", current_vertical_speed); */
+
 }
 
 void LinearTracker::decelerate(void) {
@@ -378,11 +400,12 @@ void LinearTracker::decelerate(void) {
 
 void LinearTracker::stop(void) {
 
-  state_x = 0.99 * state_x + 0.01 * goal_x;
-  state_y = 0.99 * state_y + 0.01 * goal_y;
-  state_z = 0.99 * state_z + 0.01 * goal_z;
+  state_x = 0.95 * state_x + 0.05 * goal_x;
+  state_y = 0.95 * state_y + 0.05 * goal_y;
+  state_z = 0.95 * state_z + 0.05 * goal_z;
 
-  if (fabs(state_x - goal_x) < 1e-5 && fabs(state_y - goal_y) < 1e-5 && fabs(state_z - goal_z) < 1e-5) {
+  if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
+
     state_x = goal_x;
     state_y = goal_y;
     state_z = goal_z;
@@ -450,39 +473,47 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     return false;
   }
 
-  if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+  mutex_odometry.lock();
+  {
+    if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
-    // the last command is usable
-    state_x   = odometry.pose.pose.position.x;
-    state_y   = odometry.pose.pose.position.y;
-    state_z   = odometry.pose.pose.position.z;
-    state_yaw = cmd->yaw;
+      // the last command is usable
+      state_x   = odometry.pose.pose.position.x;
+      state_y   = odometry.pose.pose.position.y;
+      state_z   = odometry.pose.pose.position.z;
+      state_yaw = cmd->yaw;
 
-    speed_x         = cmd->velocity.x;
-    speed_y         = cmd->velocity.y;
-    current_heading = atan2(speed_y, speed_x);
+      speed_x         = cmd->velocity.x;
+      speed_y         = cmd->velocity.y;
+      current_heading = atan2(speed_y, speed_x);
 
-    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-    current_vertical_speed   = cmd->velocity.z;
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      current_vertical_speed   = cmd->velocity.z;
 
-    ROS_INFO("[LinearTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+      ROS_INFO("[LinearTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+               cmd->yaw);
 
-  } else {
+    } else {
 
-    ROS_WARN("[LinearTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+      ROS_WARN("[LinearTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
 
-    state_x   = odometry.pose.pose.position.x;
-    state_y   = odometry.pose.pose.position.y;
-    state_z   = odometry.pose.pose.position.z;
-    state_yaw = odometry_yaw;
+      state_x   = odometry.pose.pose.position.x;
+      state_y   = odometry.pose.pose.position.y;
+      state_z   = odometry.pose.pose.position.z;
+      state_yaw = odometry_yaw;
 
-    speed_x                  = odometry.twist.twist.linear.x;
-    speed_y                  = odometry.twist.twist.linear.y;
-    current_heading          = atan2(speed_y, speed_x);
-    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      speed_x                  = odometry.twist.twist.linear.x;
+      speed_y                  = odometry.twist.twist.linear.y;
+      current_heading          = atan2(speed_y, speed_x);
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-    current_vertical_speed = odometry.twist.twist.linear.z;
+      current_vertical_speed = odometry.twist.twist.linear.z;
+
+      ROS_INFO("[LinearTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
+      ROS_INFO("[LinearTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
+    }
   }
+  mutex_odometry.unlock();
 
   double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
   double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
@@ -514,18 +545,22 @@ void LinearTracker::Deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  odometry   = *msg;
-  odometry_x = odometry.pose.pose.position.x;
-  odometry_y = odometry.pose.pose.position.y;
-  odometry_z = odometry.pose.pose.position.z;
+  mutex_odometry.lock();
+  {
+    odometry   = *msg;
+    odometry_x = odometry.pose.pose.position.x;
+    odometry_y = odometry.pose.pose.position.y;
+    odometry_z = odometry.pose.pose.position.z;
 
-  // calculate the euler angles
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
 
-  got_odometry = true;
+    got_odometry = true;
+  }
+  mutex_odometry.unlock();
 
   if (!is_active) {
 
@@ -540,9 +575,9 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   position_output.position.z = state_z;
   position_output.yaw        = state_yaw;
 
-  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
-  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
-  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
+  position_output.velocity.x = cos(current_heading) * current_horizontal_speed * tracker_dt_;
+  position_output.velocity.y = sin(current_heading) * current_horizontal_speed * tracker_dt_;
+  position_output.velocity.z = current_vertical_direction * current_vertical_speed * tracker_dt_;
   position_output.yaw_dot    = speed_yaw;
 
   position_output.acceleration.x = 0;
