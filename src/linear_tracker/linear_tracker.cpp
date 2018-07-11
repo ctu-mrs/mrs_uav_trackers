@@ -18,6 +18,8 @@
 #include <mutex>
 
 #define PI 3.141592653
+#define STOP_THR 1e-3
+#define DECELERATING_THR 0.2
 
 namespace mrs_trackers
 {
@@ -73,15 +75,25 @@ private:
   std::thread main_thread;
 
 private:
-  States_t current_state;
-  States_t previous_state;
+  States_t current_state_vertical;
+  States_t previous_state_vertical;
+  States_t current_state_horizontal;
+  States_t previous_state_horizontal;
+  ;
+
+  void changeStateHorizontal(States_t new_state);
+  void changeStateVertical(States_t new_state);
   void changeState(States_t new_state);
 
 private:
-  void stopMotion(void);
-  void accelerate(void);
-  void decelerate(void);
-  void stop(void);
+  void stopHorizontalMotion(void);
+  void stopVerticalMotion(void);
+  void accelerateHorizontal(void);
+  void accelerateVertical(void);
+  void decelerateHorizontal(void);
+  void decelerateVertical(void);
+  void stopHorizontal(void);
+  void stopVertical(void);
 
 private:
   // dynamical constraints
@@ -113,34 +125,35 @@ private:
   bool callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
 };
 
-void LinearTracker::changeState(States_t new_state) {
+void LinearTracker::changeStateHorizontal(States_t new_state) {
 
-  previous_state = current_state;
-  current_state  = new_state;
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
 
   // just for ROS_INFO
-  ROS_WARN("[LinearTracker]: Switching states %s -> %s", state_names[previous_state], state_names[current_state]);
+  ROS_WARN("[LinearTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+}
 
-  switch (new_state) {
+void LinearTracker::changeStateVertical(States_t new_state) {
 
-    case IDLE_STATE:
-      break;
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
 
-    case HOVER_STATE:
-      break;
+  // just for ROS_INFO
+  ROS_WARN("[LinearTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+}
 
-    case STOP_MOTION_STATE:
-      break;
+void LinearTracker::changeState(States_t new_state) {
 
-    case ACCELERATING_STATE:
-      break;
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
 
-    case DECELERATING_STATE:
-      break;
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
 
-    case STOPPING_STATE:
-      break;
-  }
+  // just for ROS_INFO
+  ROS_WARN("[LinearTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical],
+           state_names[previous_state_horizontal], state_names[current_state_vertical]);
 }
 
 LinearTracker::LinearTracker(void) : is_initialized(false), is_active(false) {
@@ -282,73 +295,38 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
   is_initialized = true;
 
-  current_state  = IDLE_STATE;
-  previous_state = IDLE_STATE;
+  current_state_vertical  = IDLE_STATE;
+  previous_state_vertical = IDLE_STATE;
+
+  current_state_horizontal  = IDLE_STATE;
+  previous_state_horizontal = IDLE_STATE;
 
   main_thread = std::thread(&LinearTracker::mainThread, this);
 
   ROS_INFO("[LinearTracker]: initialized");
 }
 
-void LinearTracker::stopMotion(void) {
-
-  /* ROS_INFO("[LinearTracker]: before stopMotion hspeed %f", current_horizontal_speed); */
-  /* ROS_INFO("[LinearTracker]: before stopMotion vspeed %f", current_vertical_speed); */
+void LinearTracker::stopHorizontalMotion(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
   if (current_horizontal_speed < 0) {
     current_horizontal_speed = 0;
   }
+}
+
+void LinearTracker::stopVerticalMotion(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
   }
-
-  // if we are stationary, switch to hover
-  if (current_horizontal_speed == 0 && current_vertical_speed == 0) {
-
-    if (have_goal) {
-      changeState(ACCELERATING_STATE);
-    } else {
-      changeState(HOVER_STATE);
-    }
-  }
-
-  /* ROS_INFO("[LinearTracker]: after stopMotion hspeed %f", current_horizontal_speed); */
-  /* ROS_INFO("[LinearTracker]: after stopMotion vspeed %f", current_vertical_speed); */
-
 }
 
-void LinearTracker::accelerate(void) {
+void LinearTracker::accelerateHorizontal(void) {
 
-  /* ROS_INFO("[LinearTracker]: before accelerate hspeed %f", current_horizontal_speed); */
-  /* ROS_INFO("[LinearTracker]: before accelerate vspeed %f", current_vertical_speed); */
-
-  // set the right heading
-  double tar_x          = goal_x - state_x;
-  double tar_y          = goal_y - state_y;
-  double tar_z          = goal_z - state_z;
-  double target_heading = atan2(tar_y, tar_x);
-
-  current_heading = target_heading;
-
-  // set the right vertical direction
-  current_vertical_direction = (tar_z > 0) ? 1.0 : -1.0;
-
-  current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
-
-  if (current_horizontal_speed >= horizontal_speed_) {
-    current_horizontal_speed = horizontal_speed_;
-  }
-
-  current_vertical_speed += vertical_acceleration_ * tracker_dt_;
-
-  if (current_vertical_speed >= vertical_speed_) {
-    current_vertical_speed = vertical_speed_;
-  }
+  current_heading = atan2(goal_y - state_y, goal_x - state_x);
 
   // decelerationg condition
   // calculate the time to stop and the distance it will take to stop [horizontal]
@@ -357,29 +335,42 @@ void LinearTracker::accelerate(void) {
   double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
   double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: horizontal_stop_dist=%f", horizontal_stop_dist);
+  current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
+
+  if (current_horizontal_speed >= horizontal_speed_) {
+    current_horizontal_speed = horizontal_speed_;
+  }
+
+  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < DECELERATING_THR) {
+    changeStateHorizontal(DECELERATING_STATE);
+  }
+}
+
+void LinearTracker::accelerateVertical(void) {
+
+  // set the right heading
+  double tar_z = goal_z - state_z;
+
+  // set the right vertical direction
+  current_vertical_direction = (tar_z > 0) ? 1.0 : -1.0;
 
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
   double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
   double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
 
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: current_vertical_speed: %f", current_vertical_speed);
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vertical_t_stop: %f", vertical_t_stop);
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vertical_stop_dist: %f", vertical_stop_dist);
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: current_vertical_direction: %f", current_vertical_direction);
-  ROS_INFO_THROTTLE(0.2, "[LinearTracker]: vert_stop_dist=%f", vertical_stop_dist);
+  current_vertical_speed += vertical_acceleration_ * tracker_dt_;
 
-  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2) + pow(state_z + stop_dist_z - goal_z, 2)) < 0.2) {
-    changeState(DECELERATING_STATE);
+  if (current_vertical_speed >= vertical_speed_) {
+    current_vertical_speed = vertical_speed_;
   }
 
-  /* ROS_INFO("[LinearTracker]: after accelerate hspeed %f", current_horizontal_speed); */
-  /* ROS_INFO("[LinearTracker]: after accelerate vspeed %f", current_vertical_speed); */
-
+  if (fabs(state_z + stop_dist_z - goal_z) < DECELERATING_THR) {
+    changeStateVertical(DECELERATING_STATE);
+  }
 }
 
-void LinearTracker::decelerate(void) {
+void LinearTracker::decelerateHorizontal(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -387,31 +378,33 @@ void LinearTracker::decelerate(void) {
     current_horizontal_speed = 0;
   }
 
+  if (current_horizontal_speed == 0) {
+    changeStateHorizontal(STOPPING_STATE);
+  }
+}
+
+void LinearTracker::decelerateVertical(void) {
+
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
   }
 
-  if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
-    changeState(STOPPING_STATE);
+  if (current_vertical_speed == 0) {
+    changeStateVertical(STOPPING_STATE);
   }
 }
 
-void LinearTracker::stop(void) {
+void LinearTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
+}
+
+void LinearTracker::stopVertical(void) {
+
   state_z = 0.95 * state_z + 0.05 * goal_z;
-
-  if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
-
-    state_x = goal_x;
-    state_y = goal_y;
-    state_z = goal_z;
-
-    changeState(HOVER_STATE);
-  }
 }
 
 void LinearTracker::mainThread(void) {
@@ -421,7 +414,7 @@ void LinearTracker::mainThread(void) {
 
   while (ros::ok()) {
 
-    switch (current_state) {
+    switch (current_state_horizontal) {
 
       case IDLE_STATE:
 
@@ -433,34 +426,92 @@ void LinearTracker::mainThread(void) {
 
       case STOP_MOTION_STATE:
 
-        stopMotion();
+        stopHorizontalMotion();
 
         break;
 
       case ACCELERATING_STATE:
 
-        accelerate();
+        accelerateHorizontal();
 
         break;
 
       case DECELERATING_STATE:
 
-        decelerate();
+        decelerateHorizontal();
 
         break;
 
       case STOPPING_STATE:
 
-        stop();
+        stopHorizontal();
 
         break;
+    }
+
+    switch (current_state_vertical) {
+
+      case IDLE_STATE:
+
+        break;
+
+      case HOVER_STATE:
+
+        break;
+
+      case STOP_MOTION_STATE:
+
+        stopVerticalMotion();
+
+        break;
+
+      case ACCELERATING_STATE:
+
+        accelerateVertical();
+
+        break;
+
+      case DECELERATING_STATE:
+
+        decelerateVertical();
+
+        break;
+
+      case STOPPING_STATE:
+
+        stopVertical();
+
+        break;
+    }
+
+    if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
+
+      if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
+        if (have_goal) {
+          changeState(ACCELERATING_STATE);
+        } else {
+          changeState(STOPPING_STATE);
+        }
+      }
+    }
+
+    if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
+
+      if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
+
+        state_x = goal_x;
+        state_y = goal_y;
+        state_z = goal_z;
+
+        changeState(HOVER_STATE);
+      }
     }
 
     state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
     state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
     state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
 
-    ROS_INFO_THROTTLE(0.1, "[LinearTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z);
+    /* ROS_INFO_THROTTLE(0.5, "[LinearTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z); */
 
     r.sleep();
   }
