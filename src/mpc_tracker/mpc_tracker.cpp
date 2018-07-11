@@ -1786,6 +1786,8 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
     ROS_WARN("%s", message.c_str());
     return false;
 
+    ROS_INFO("MpcTracker: ");
+
   } else {
 
     if (debug_) {
