@@ -17,9 +17,11 @@
 #include <thread>
 #include <mutex>
 
-#define PI 3.141592653
+#include <nodelet/nodelet.h>
+
+#include "commons.h"
+
 #define STOP_THR 1e-3
-#define DECELERATING_THR 0.2
 
 namespace mrs_trackers
 {
@@ -102,6 +104,7 @@ private:
   double horizontal_acceleration_;
   double vertical_acceleration_;
   double yaw_rate_;
+  double yaw_gain_;
 
 private:
   // desired goal
@@ -164,7 +167,7 @@ void LinearTracker::callbackDesiredPosition(const mrs_msgs::TrackerPointStamped:
   goal_x   = msg->position.x;
   goal_y   = msg->position.y;
   goal_z   = msg->position.z;
-  goal_yaw = msg->position.yaw;
+  goal_yaw = validateYawSetpoint(msg->position.yaw);
 
   have_goal = true;
 
@@ -178,7 +181,7 @@ bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::R
   goal_x   = req.goal[0];
   goal_y   = req.goal[1];
   goal_z   = req.goal[2];
-  goal_yaw = req.goal[3];
+  goal_yaw = validateYawSetpoint(req.goal[3]);
 
   ROS_INFO("[LinearTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -199,7 +202,7 @@ bool LinearTracker::callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs:
     goal_x   = odometry_x + req.goal[0];
     goal_y   = odometry_y + req.goal[1];
     goal_z   = odometry_z + req.goal[2];
-    goal_yaw = odometry_yaw + req.goal[3];
+    goal_yaw = validateYawSetpoint(odometry_yaw + req.goal[3]);
   }
   mutex_odometry.unlock();
 
@@ -238,11 +241,15 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  priv_nh.param("horizontal_speed", horizontal_speed_, -1.0);
-  priv_nh.param("vertical_speed", vertical_speed_, -1.0);
-  priv_nh.param("horizontal_acceleration", horizontal_acceleration_, -1.0);
-  priv_nh.param("vertical_acceleration", vertical_acceleration_, -1.0);
-  priv_nh.param("yaw_rate", yaw_rate_, -1.0);
+  priv_nh.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
+  priv_nh.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
+
+  priv_nh.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
+  priv_nh.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
+
+  priv_nh.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
+  priv_nh.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
+
   priv_nh.param("tracker_loop_rate", tracker_loop_rate_, -1);
 
   if (horizontal_speed_ < 0) {
@@ -267,6 +274,11 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
   if (yaw_rate_ < 0) {
     ROS_ERROR("[LinearTracker]: yaw_rate was not specified!");
+    ros::shutdown();
+  }
+
+  if (yaw_gain_ < 0) {
+    ROS_ERROR("[LinearTracker]: yaw_gain was not specified!");
     ros::shutdown();
   }
 
@@ -341,7 +353,7 @@ void LinearTracker::accelerateHorizontal(void) {
     current_horizontal_speed = horizontal_speed_;
   }
 
-  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < DECELERATING_THR) {
+  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
     changeStateHorizontal(DECELERATING_STATE);
   }
 }
@@ -352,7 +364,7 @@ void LinearTracker::accelerateVertical(void) {
   double tar_z = goal_z - state_z;
 
   // set the right vertical direction
-  current_vertical_direction = (tar_z > 0) ? 1.0 : -1.0;
+  current_vertical_direction = sign(tar_z);
 
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
@@ -365,7 +377,7 @@ void LinearTracker::accelerateVertical(void) {
     current_vertical_speed = vertical_speed_;
   }
 
-  if (fabs(state_z + stop_dist_z - goal_z) < DECELERATING_THR) {
+  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
     changeStateVertical(DECELERATING_STATE);
   }
 }
@@ -510,6 +522,36 @@ void LinearTracker::mainThread(void) {
     state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
     state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
     state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
+
+    // --------------------------------------------------------------
+    // |                        yaw tracking                        |
+    // --------------------------------------------------------------
+
+    // compute the desired yaw rate
+    double current_yaw_rate;
+    if (fabs(goal_yaw - state_yaw) > PI)
+      current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
+    else
+      current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
+
+    if (current_yaw_rate > yaw_rate_) {
+      current_yaw_rate = yaw_rate_;
+    } else if (current_yaw_rate < -yaw_rate_) {
+      current_yaw_rate = -yaw_rate_;
+    }
+
+    // flap the resulted state_yaw aroud PI
+    state_yaw = state_yaw + current_yaw_rate * tracker_dt_;
+
+    if (state_yaw > PI) {
+      state_yaw -= 2 * PI;
+    } else if (state_yaw < -PI) {
+      state_yaw += 2 * PI;
+    }
+
+    if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
+      state_yaw = goal_yaw;
+    }
 
     /* ROS_INFO_THROTTLE(0.5, "[LinearTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z); */
 

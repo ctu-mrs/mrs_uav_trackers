@@ -1,9 +1,13 @@
-yaw_rate: 0.2
-
-horizontal_speed: 3.0
-horizontal_acceleration: 1.0
-
-vertical_speed: 1.0
-vertical_acceleration: 1.0
-
 tracker_loop_rate: 100 # [Hz]
+
+horizontal_tracker:
+  horizontal_speed: 4.0
+  horizontal_acceleration: 1.0
+
+vertical_tracker:
+  vertical_speed: 1.0
+  vertical_acceleration: 1.0
+
+yaw_tracker:
+  yaw_gain: 0.2
+  yaw_rate: 1.0

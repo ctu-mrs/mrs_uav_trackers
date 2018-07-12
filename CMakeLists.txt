@@ -22,7 +22,8 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
-catkin_package(INCLUDE_DIRS
+catkin_package(
+  INCLUDE_DIRS include
   LIBRARIES
   CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_estimation mrs_mav_manager mrs_msgs
   DEPENDS Eigen

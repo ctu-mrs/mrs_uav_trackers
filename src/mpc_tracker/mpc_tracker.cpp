@@ -27,6 +27,8 @@
 #include "cvx_wrapper_yaw.h"
 #include "cvx_wrapper_z.h"
 
+#include "commons.h"
+
 using namespace Eigen;
 
 namespace mrs_trackers
@@ -240,7 +242,6 @@ private:
   void     filterReference(void);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-  void validateYawSetpoint();
   bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
   bool gotorelative_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
@@ -252,8 +253,6 @@ private:
   void   publishDiagnostics();
   double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
   bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
-
-  const double pi = 3.1415926535897;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -991,27 +990,27 @@ void MpcTracker::filterYawReference(void) {
 
 
   // check the first trajectory member for yaw overflow
-  while (des_yaw_trajectory(0, 0) - x_yaw(0) < -pi) {
+  while (des_yaw_trajectory(0, 0) - x_yaw(0) < -PI) {
     for (int i = 0; i < horizon_len; i++) {
-      des_yaw_trajectory(i, 0) += 2 * pi;
+      des_yaw_trajectory(i, 0) += 2 * PI;
     }
   }
-  while (des_yaw_trajectory(0, 0) - x_yaw(0) > pi) {
+  while (des_yaw_trajectory(0, 0) - x_yaw(0) > PI) {
     for (int i = 0; i < horizon_len; i++) {
-      des_yaw_trajectory(i, 0) -= 2 * pi;
+      des_yaw_trajectory(i, 0) -= 2 * PI;
     }
   }
 
   // check the rest of the trajectory for yaw overflow
   for (int i = 1; i < horizon_len; i++) {
-    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) < -pi) {
+    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) < -PI) {
       for (int j = i; j < horizon_len; j++) {
-        des_yaw_trajectory(j, 0) += 2 * pi;
+        des_yaw_trajectory(j, 0) += 2 * PI;
       }
     }
-    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) > pi) {
+    while (des_yaw_trajectory(i, 0) - des_yaw_trajectory(i - 1, 0) > PI) {
       for (int j = i; j < horizon_len; j++) {
-        des_yaw_trajectory(j, 0) -= 2 * pi;
+        des_yaw_trajectory(j, 0) -= 2 * PI;
       }
     }
   }
@@ -1046,7 +1045,7 @@ void MpcTracker::calculateMPC() {
 
   // filter the desired trajectory to be feasible
   filterReference();
-  // filter desired yaw reference to be feasible and remove pi rollarounds
+  // filter desired yaw reference to be feasible and remove PI rollarounds
   filterYawReference();
 
   avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
@@ -1186,11 +1185,11 @@ void MpcTracker::calculateMPC() {
     x     = A * x + B * cvx_u;
     x_yaw = A_yaw * x_yaw + B_yaw * cvx_u_yaw;
 
-    // fix possible pi overflows
-    if (x_yaw(0) > pi) {
-      x_yaw(0) -= 2 * pi;
-    } else if (x_yaw(0) < -pi) {
-      x_yaw(0) += 2 * pi;
+    // fix possible PI overflows
+    if (x_yaw(0) > PI) {
+      x_yaw(0) -= 2 * PI;
+    } else if (x_yaw(0) < -PI) {
+      x_yaw(0) += 2 * PI;
     }
   }
   x_mutex.unlock();
@@ -1280,36 +1279,6 @@ void MpcTracker::Deactivate(void) {
   publishDiagnostics();
 }
 
-// check the yaw setpoint
-void MpcTracker::validateYawSetpoint() {
-
-  des_yaw_mutex.lock();
-
-  if (!std::isfinite(desired_yaw)) {
-
-    desired_yaw = 0;
-    ROS_ERROR("Desired YAW is not finite number!");
-  }
-
-  if (fabs(desired_yaw) > 1000) {
-
-    ROS_WARN("Desired YAW is > 1000");
-  }
-  // if desired yaw is grater then 2*pi mod it
-  if (fabs(desired_yaw) > 2 * pi) {
-    desired_yaw = fmod(desired_yaw, 2 * pi);
-  }
-
-  // move it to its place
-  if (desired_yaw > pi) {
-    desired_yaw -= 2 * pi;
-  } else if (desired_yaw < -pi) {
-    desired_yaw += 2 * pi;
-  }
-
-  des_yaw_mutex.unlock();
-}
-
 // if the tracker is active, this mehod is called on every odometry update, even if the tracker is not active
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -1392,11 +1361,15 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
     position_cmd_.acceleration.z = 0;
   }
 
-  validateYawSetpoint();
+  des_yaw_mutex.lock();
+  {
+    desired_yaw = validateYawSetpoint(desired_yaw);
+  }
+  des_yaw_mutex.unlock();
 
   // compute the desired yaw rate
   des_yaw_mutex.lock();
-  if (fabs(desired_yaw - yaw) > pi) {
+  if (fabs(desired_yaw - yaw) > PI) {
     yaw_rate = -yaw_gain * (desired_yaw - yaw);
   } else {
     yaw_rate = yaw_gain * (desired_yaw - yaw);
@@ -1409,12 +1382,12 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
     yaw_rate = -max_yaw_rate_old;
   }
 
-  // flap the resulted yaw aroud pi
+  // flap the resulted yaw aroud PI
   yaw = yaw + dt * yaw_rate;
-  if (yaw > pi) {
-    yaw -= 2 * pi;
-  } else if (yaw < -pi) {
-    yaw += 2 * pi;
+  if (yaw > PI) {
+    yaw -= 2 * PI;
+  } else if (yaw < -PI) {
+    yaw += 2 * PI;
   }
 
   if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
