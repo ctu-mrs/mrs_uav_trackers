@@ -1,0 +1,5 @@
+<library path="lib/libLineTracker">
+  <class name="mrs_trackers/LineTracker" type="mrs_trackers::LineTracker" base_class_type="mrs_mav_manager::Tracker">
+    <description>This is Line tracker.</description>
+  </class>
+</library>

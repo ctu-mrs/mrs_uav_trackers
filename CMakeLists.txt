@@ -92,16 +92,16 @@ target_link_libraries(CsvTracker
   ${catkin_LIBRARIES}
   )
 
-# Linear Tracker
+# Line Tracker
 
-add_library(LinearTracker
-  src/linear_tracker/linear_tracker.cpp
+add_library(LineTracker
+  src/line_tracker/line_tracker.cpp
   )
-add_dependencies(LinearTracker
+add_dependencies(LineTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(LinearTracker
+target_link_libraries(LineTracker
   ${catkin_LIBRARIES}
   )
 
@@ -112,7 +112,7 @@ target_link_libraries(LinearTracker
 install(TARGETS
   MpcTracker
   CsvTracker
-  LinearTracker
+  LineTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -127,7 +127,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
 install(FILES
   mrs_trackers.xml
   csv_tracker.xml
-  linear_tracker.xml
+  line_tracker.xml
   DESTINATION
   ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )

@@ -8,6 +8,8 @@
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/SwitchTracker.h>
 #include <mrs_msgs/Vec1.h>
+#include <mrs_msgs/Vec4Request.h>
+#include <mrs_msgs/Vec4Response.h>
 
 #include <mrs_msgs/Vec4.h>
 #include <mrs_mav_manager/Tracker.h>
@@ -42,6 +44,9 @@ public:
 
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
+
+  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
 
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
@@ -563,6 +568,13 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
 
     return mrs_msgs::TrackerStatus::Ptr();
   }
+}
+
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
+}
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
 }
 }
 

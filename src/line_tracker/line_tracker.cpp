@@ -13,6 +13,8 @@
 #include <mrs_msgs/PositionCommand.h>
 #include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/Vec4.h>
+#include <mrs_msgs/Vec4Request.h>
+#include <mrs_msgs/Vec4Response.h>
 
 #include <thread>
 #include <mutex>
@@ -42,15 +44,19 @@ const char *state_names[6] = {
 
     "IDLING", "STOP_MOTION_STATE", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
-class LinearTracker : public mrs_mav_manager::Tracker {
+class LineTracker : public mrs_mav_manager::Tracker {
 public:
-  LinearTracker(void);
+  LineTracker(void);
 
   void Initialize(const ros::NodeHandle &parent_nh);
   bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void                                      Deactivate(void);
+  void Deactivate(void);
+
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
+
+  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
 
 private:
   nav_msgs::Odometry odometry;
@@ -117,36 +123,27 @@ private:
   double current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
 
   mrs_msgs::PositionCommand position_output;
-
-private:
-  ros::Subscriber    subscriberDesiredPosition;
-  ros::ServiceServer service_goto;
-  ros::ServiceServer service_goto_relative;
-
-  void callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  bool callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-  bool callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
 };
 
-void LinearTracker::changeStateHorizontal(States_t new_state) {
+void LineTracker::changeStateHorizontal(States_t new_state) {
 
   previous_state_horizontal = current_state_horizontal;
   current_state_horizontal  = new_state;
 
   // just for ROS_INFO
-  ROS_WARN("[LinearTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+  ROS_INFO("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
 }
 
-void LinearTracker::changeStateVertical(States_t new_state) {
+void LineTracker::changeStateVertical(States_t new_state) {
 
   previous_state_vertical = current_state_vertical;
   current_state_vertical  = new_state;
 
   // just for ROS_INFO
-  ROS_WARN("[LinearTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+  ROS_INFO("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
 }
 
-void LinearTracker::changeState(States_t new_state) {
+void LineTracker::changeState(States_t new_state) {
 
   previous_state_horizontal = current_state_horizontal;
   current_state_horizontal  = new_state;
@@ -155,141 +152,72 @@ void LinearTracker::changeState(States_t new_state) {
   current_state_vertical  = new_state;
 
   // just for ROS_INFO
-  ROS_WARN("[LinearTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical],
-           state_names[previous_state_horizontal], state_names[current_state_vertical]);
+  ROS_INFO("[LineTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical], state_names[previous_state_horizontal],
+           state_names[current_state_vertical]);
 }
 
-LinearTracker::LinearTracker(void) : is_initialized(false), is_active(false) {
+LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 }
 
-void LinearTracker::callbackDesiredPosition(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
+void LineTracker::Initialize(const ros::NodeHandle &parent_nh) {
 
-  goal_x   = msg->position.x;
-  goal_y   = msg->position.y;
-  goal_z   = msg->position.z;
-  goal_yaw = validateYawSetpoint(msg->position.yaw);
-
-  have_goal = true;
-
-  ROS_INFO("[LinearTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
-
-  changeState(STOP_MOTION_STATE);
-}
-
-bool LinearTracker::callbackGoto(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
-
-  goal_x   = req.goal[0];
-  goal_y   = req.goal[1];
-  goal_z   = req.goal[2];
-  goal_yaw = validateYawSetpoint(req.goal[3]);
-
-  ROS_INFO("[LinearTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-bool LinearTracker::callbackGotoRelative(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res) {
-
-  mutex_odometry.lock();
-  {
-    goal_x   = odometry_x + req.goal[0];
-    goal_y   = odometry_y + req.goal[1];
-    goal_z   = odometry_z + req.goal[2];
-    goal_yaw = validateYawSetpoint(odometry_yaw + req.goal[3]);
-  }
-  mutex_odometry.unlock();
-
-  ROS_INFO("[LinearTracker]: received new relative setpoint, flying to %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
-
-  ros::NodeHandle priv_nh(parent_nh, "linear_tracker");
+  ros::NodeHandle nh_(parent_nh, "line_tracker");
 
   ros::Time::waitForValid();
-
-  // --------------------------------------------------------------
-  // |                         subscribers                        |
-  // --------------------------------------------------------------
-
-  subscriberDesiredPosition = priv_nh.subscribe("desired_position", 1, &LinearTracker::callbackDesiredPosition, this, ros::TransportHints().tcpNoDelay());
-
-  // --------------------------------------------------------------
-  // |                          services                          |
-  // --------------------------------------------------------------
-
-  service_goto          = priv_nh.advertiseService("goTo", &LinearTracker::callbackGoto, this);
-  service_goto_relative = priv_nh.advertiseService("goToRelative", &LinearTracker::callbackGotoRelative, this);
 
   // --------------------------------------------------------------
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  priv_nh.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
-  priv_nh.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
+  nh_.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
+  nh_.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
 
-  priv_nh.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
-  priv_nh.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
+  nh_.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
+  nh_.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
 
-  priv_nh.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
-  priv_nh.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
+  nh_.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
+  nh_.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
 
-  priv_nh.param("tracker_loop_rate", tracker_loop_rate_, -1);
+  nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
 
   if (horizontal_speed_ < 0) {
-    ROS_ERROR("[LinearTracker]: horizontal_speed was not specified!");
+    ROS_ERROR("[LineTracker]: horizontal_speed was not specified!");
     ros::shutdown();
   }
 
   if (vertical_speed_ < 0) {
-    ROS_ERROR("[LinearTracker]: vertical_speed was not specified!");
+    ROS_ERROR("[LineTracker]: vertical_speed was not specified!");
     ros::shutdown();
   }
 
   if (horizontal_acceleration_ < 0) {
-    ROS_ERROR("[LinearTracker]: horizontal_acceleration was not specified!");
+    ROS_ERROR("[LineTracker]: horizontal_acceleration was not specified!");
     ros::shutdown();
   }
 
   if (vertical_acceleration_ < 0) {
-    ROS_ERROR("[LinearTracker]: vertical_acceleration was not specified!");
+    ROS_ERROR("[LineTracker]: vertical_acceleration was not specified!");
     ros::shutdown();
   }
 
   if (yaw_rate_ < 0) {
-    ROS_ERROR("[LinearTracker]: yaw_rate was not specified!");
+    ROS_ERROR("[LineTracker]: yaw_rate was not specified!");
     ros::shutdown();
   }
 
   if (yaw_gain_ < 0) {
-    ROS_ERROR("[LinearTracker]: yaw_gain was not specified!");
+    ROS_ERROR("[LineTracker]: yaw_gain was not specified!");
     ros::shutdown();
   }
 
   if (tracker_loop_rate_ < 0) {
-    ROS_ERROR("[LinearTracker]: tracker_loop_rate was not specified!");
+    ROS_ERROR("[LineTracker]: tracker_loop_rate was not specified!");
     ros::shutdown();
   }
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
-  ROS_INFO("[LinearTracker]: tracker_dt: %f", tracker_dt_);
+  ROS_INFO("[LineTracker]: tracker_dt: %f", tracker_dt_);
 
   state_x   = 0;
   state_y   = 0;
@@ -313,12 +241,12 @@ void LinearTracker::Initialize(const ros::NodeHandle &parent_nh) {
   current_state_horizontal  = IDLE_STATE;
   previous_state_horizontal = IDLE_STATE;
 
-  main_thread = std::thread(&LinearTracker::mainThread, this);
+  main_thread = std::thread(&LineTracker::mainThread, this);
 
-  ROS_INFO("[LinearTracker]: initialized");
+  ROS_INFO("[LineTracker]: initialized");
 }
 
-void LinearTracker::stopHorizontalMotion(void) {
+void LineTracker::stopHorizontalMotion(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -327,7 +255,7 @@ void LinearTracker::stopHorizontalMotion(void) {
   }
 }
 
-void LinearTracker::stopVerticalMotion(void) {
+void LineTracker::stopVerticalMotion(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
@@ -336,7 +264,7 @@ void LinearTracker::stopVerticalMotion(void) {
   }
 }
 
-void LinearTracker::accelerateHorizontal(void) {
+void LineTracker::accelerateHorizontal(void) {
 
   current_heading = atan2(goal_y - state_y, goal_x - state_x);
 
@@ -358,7 +286,7 @@ void LinearTracker::accelerateHorizontal(void) {
   }
 }
 
-void LinearTracker::accelerateVertical(void) {
+void LineTracker::accelerateVertical(void) {
 
   // set the right heading
   double tar_z = goal_z - state_z;
@@ -382,7 +310,7 @@ void LinearTracker::accelerateVertical(void) {
   }
 }
 
-void LinearTracker::decelerateHorizontal(void) {
+void LineTracker::decelerateHorizontal(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -395,7 +323,7 @@ void LinearTracker::decelerateHorizontal(void) {
   }
 }
 
-void LinearTracker::decelerateVertical(void) {
+void LineTracker::decelerateVertical(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
@@ -408,20 +336,20 @@ void LinearTracker::decelerateVertical(void) {
   }
 }
 
-void LinearTracker::stopHorizontal(void) {
+void LineTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
 }
 
-void LinearTracker::stopVertical(void) {
+void LineTracker::stopVertical(void) {
 
   state_z = 0.95 * state_z + 0.05 * goal_z;
 }
 
-void LinearTracker::mainThread(void) {
+void LineTracker::mainThread(void) {
 
-  ROS_INFO("[LinearTracker]: mainThread has started");
+  ROS_INFO("[LineTracker]: mainThread has started");
   ros::Rate r(tracker_loop_rate_);
 
   while (ros::ok()) {
@@ -553,16 +481,16 @@ void LinearTracker::mainThread(void) {
       state_yaw = goal_yaw;
     }
 
-    /* ROS_INFO_THROTTLE(0.5, "[LinearTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z); */
+    /* ROS_INFO_THROTTLE(0.5, "[LineTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z); */
 
     r.sleep();
   }
 }
 
-bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool LineTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odometry) {
-    ROS_WARN("[LinearTracker]: can't activate(), odometry not set");
+    ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
     return false;
   }
 
@@ -583,12 +511,11 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
       current_vertical_speed   = cmd->velocity.z;
 
-      ROS_INFO("[LinearTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-               cmd->yaw);
+      ROS_INFO("[LineTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
 
     } else {
 
-      ROS_WARN("[LinearTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+      ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
 
       state_x   = odometry.pose.pose.position.x;
       state_y   = odometry.pose.pose.position.y;
@@ -602,8 +529,8 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       current_vertical_speed = odometry.twist.twist.linear.z;
 
-      ROS_INFO("[LinearTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
-      ROS_INFO("[LinearTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
+      ROS_INFO("[LineTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
+      ROS_INFO("[LineTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
     }
   }
   mutex_odometry.unlock();
@@ -622,21 +549,21 @@ bool LinearTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   is_active = true;
 
-  ROS_INFO("[LinearTracker]: activated");
+  ROS_INFO("[LineTracker]: activated");
 
   changeState(STOP_MOTION_STATE);
 
   return true;
 }
 
-void LinearTracker::Deactivate(void) {
+void LineTracker::Deactivate(void) {
 
   is_active = false;
 
-  ROS_INFO("[LinearTracker]: deactivated");
+  ROS_INFO("[LineTracker]: deactivated");
 }
 
-const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   mutex_odometry.lock();
   {
@@ -668,9 +595,9 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   position_output.position.z = state_z;
   position_output.yaw        = state_yaw;
 
-  position_output.velocity.x = cos(current_heading) * current_horizontal_speed * tracker_dt_;
-  position_output.velocity.y = sin(current_heading) * current_horizontal_speed * tracker_dt_;
-  position_output.velocity.z = current_vertical_direction * current_vertical_speed * tracker_dt_;
+  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
+  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
+  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
   position_output.yaw_dot    = speed_yaw;
 
   position_output.acceleration.x = 0;
@@ -680,7 +607,7 @@ const mrs_msgs::PositionCommand::ConstPtr LinearTracker::update(const nav_msgs::
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
 
-const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
+const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
 
   if (is_initialized) {
 
@@ -698,7 +625,52 @@ const mrs_msgs::TrackerStatus::Ptr LinearTracker::status() {
     return mrs_msgs::TrackerStatus::Ptr();
   }
 }
+
+const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  goal_x   = cmd->goal[0];
+  goal_y   = cmd->goal[1];
+  goal_z   = cmd->goal[2];
+  goal_yaw = validateYawSetpoint(cmd->goal[3]);
+
+  ROS_INFO("[LineTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  mutex_odometry.lock();
+  {
+    goal_x   = state_x + cmd->goal[0];
+    goal_y   = state_y + cmd->goal[1];
+    goal_z   = state_z + cmd->goal[2];
+    goal_yaw = validateYawSetpoint(state_yaw + cmd->goal[3]);
+  }
+  mutex_odometry.unlock();
+
+  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
 }
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::LinearTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::LineTracker, mrs_mav_manager::Tracker)
