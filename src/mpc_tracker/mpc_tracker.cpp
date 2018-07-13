@@ -1,17 +1,18 @@
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseArray.h>
-#include <math.h>
-#include <mavros_msgs/RCIn.h>
-#include <mrs_estimation/convex_polygon.h>
 #include <ros/ros.h>
-#include <std_srvs/SetBool.h>
-#include <std_srvs/Trigger.h>
-#include <tf/transform_datatypes.h>
-#include <mrs_mav_manager/Tracker.h>
+
+#include <math.h>
 #include <cmath>
-#include <eigen3/Eigen/Eigen>
 #include <mutex>
 #include <thread>
+#include <tf/transform_datatypes.h>
+#include <eigen3/Eigen/Eigen>
+
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseArray.h>
+#include <std_srvs/SetBool.h>
+#include <std_srvs/Trigger.h>
+#include <mavros_msgs/RCIn.h>
+#include <nav_msgs/Odometry.h>
 
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
@@ -19,12 +20,15 @@
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
-#include <nav_msgs/Odometry.h>
 #include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/Vec4.h>
 #include <mrs_msgs/Vec4Request.h>
 #include <mrs_msgs/Vec4Response.h>
+
+#include <mrs_mav_manager/Tracker.h>
+
+#include <mrs_estimation/convex_polygon.h>
 
 #include "cvx_wrapper.h"
 #include "cvx_wrapper_yaw.h"

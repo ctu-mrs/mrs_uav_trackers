@@ -469,7 +469,7 @@ void LineTracker::mainThread(void) {
     }
 
     // flap the resulted state_yaw aroud PI
-    state_yaw = state_yaw + current_yaw_rate * tracker_dt_;
+    state_yaw += current_yaw_rate * tracker_dt_;
 
     if (state_yaw > PI) {
       state_yaw -= 2 * PI;
