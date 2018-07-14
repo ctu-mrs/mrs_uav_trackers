@@ -45,9 +45,9 @@ class MpcTracker : public mrs_mav_manager::Tracker {
 public:
   MpcTracker(void);
 
-  void Initialize(const ros::NodeHandle &parent_nh);
-  bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void Deactivate(void);
+  void initialize(const ros::NodeHandle &parent_nh);
+  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  void deactivate(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
@@ -338,7 +338,7 @@ void MpcTracker::futureTrajectoryThread(void) {
 }
 
 // called once at the very beginning
-void MpcTracker::Initialize(const ros::NodeHandle &parent_nh) {
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
 
@@ -1204,7 +1204,7 @@ void MpcTracker::calculateMPC() {
 
 // the control_manager call this once when it wants to start using this tracker
 // the position command in the argument is the last position command used by a previous tracker
-bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (odom_set_) {
 
@@ -1270,7 +1270,7 @@ bool MpcTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 }
 
 // control_manager calls this when it wants to stop using this tracker
-void MpcTracker::Deactivate(void) {
+void MpcTracker::deactivate(void) {
 
   is_active = false;
   odom_set_ = false;

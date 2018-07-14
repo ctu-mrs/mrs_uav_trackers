@@ -65,8 +65,8 @@ cvxgenMpc:
   dt: 0.01
   dt2: 0.2
 
-  maxHorizontalSpeed: 4.0
-  maxHorizontalAcceleration: 1.0
+  maxHorizontalSpeed: 5.0
+  maxHorizontalAcceleration: 1.5
   maxHorizontalJerk: 2.0
 
   maxVerticalAscendingSpeed: 1.0

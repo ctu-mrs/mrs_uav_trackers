@@ -1,8 +1,8 @@
 tracker_loop_rate: 100 # [Hz]
 
 horizontal_tracker:
-  horizontal_speed: 4.0
-  horizontal_acceleration: 1.0
+  horizontal_speed: 5.0
+  horizontal_acceleration: 1.5
 
 vertical_tracker:
   vertical_speed: 1.0

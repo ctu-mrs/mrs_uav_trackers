@@ -38,9 +38,9 @@ class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  void Initialize(const ros::NodeHandle &parent_nh);
-  bool Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void Deactivate(void);
+  void initialize(const ros::NodeHandle &parent_nh);
+  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  void deactivate(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   const mrs_msgs::TrackerStatus::Ptr status();
@@ -251,7 +251,7 @@ double dist(double ax, double ay, double az, double bx, double by, double bz) {
 }
 
 // called once at the very beginning
-void CsvTracker::Initialize(const ros::NodeHandle &parent_nh) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
@@ -382,7 +382,7 @@ void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
   mutex_odom.unlock();
 }
 
-bool CsvTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odom) {
 
@@ -420,7 +420,7 @@ bool CsvTracker::Activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return is_active;
 }
 
-void CsvTracker::Deactivate(void) {
+void CsvTracker::deactivate(void) {
 
   is_active = false;
   odom_set  = false;
