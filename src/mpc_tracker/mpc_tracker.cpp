@@ -3,7 +3,6 @@
 #include <math.h>
 #include <cmath>
 #include <mutex>
-#include <thread>
 #include <tf/transform_datatypes.h>
 #include <eigen3/Eigen/Eigen>
 
@@ -34,7 +33,7 @@
 #include "cvx_wrapper_yaw.h"
 #include "cvx_wrapper_z.h"
 
-#include "commons.h"
+#include <commons.h>
 
 using namespace Eigen;
 
@@ -194,9 +193,7 @@ private:
   double                       predicted_trajectory_publish_rate;
   double                       mrs_collision_avoidance_radius;
   double                       mrs_collision_avoidance_correction;
-  std::thread                  predicted_trajectory_thread;
   std::mutex                   mutex_predicted_trajectory;
-  void                         futureTrajectoryThread(void);
   std::string                  predicted_trajectory_topic;
   void otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg);
   bool   future_was_predicted;
@@ -213,14 +210,22 @@ private:
   int    earliest_collision_idx;
   double collision_trajectory_timeout;
 
+private:
+  ros::Timer future_trajectory_timer;
+  void futureTrajectoryTimer(const ros::TimerEvent &event);
+
+private:
+  ros::Timer diagnostics_timer;
+  double     diagnostics_rate;
+  void diagnosticsTimer(const ros::TimerEvent &event);
+
+private:
   MatrixXd   outputTrajectory;
   std::mutex x_mutex, trajectory_setpoint_mutex, des_yaw_mutex, des_trajectory_mutex;
 
-  std::thread mpc_thread, diagnostics_thread;
+  ros::Timer mpc_timer;
 
   bool mpc_computed_;
-
-  double diagnostics_rate;
 
   // failsafe
   bool      failsafe_triggered    = false;
@@ -234,8 +239,7 @@ private:
   double    mpc_total_delay = 0;
 
   // methods
-  void mpcThread(void);
-  void diagnosticsThread(void);
+  void mpcTimer(const ros::TimerEvent &event);
   void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
   void pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
   void trajectory_cmd_cb(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
@@ -266,78 +270,75 @@ private:
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
 }
 
-void MpcTracker::futureTrajectoryThread(void) {
+//{ futureTrajectoryTimer()
 
-  ros::Rate r(predicted_trajectory_publish_rate);
-  /* ros::Rate r(100); */
+void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 
-  while (ros::ok()) {
+  if (!is_active) {
+    return;
+  }
 
-    while (!is_active && ros::ok()) {
-      r.sleep();
-    }
+  if (future_was_predicted) {
 
-    if (future_was_predicted) {
+    mrs_msgs::FutureTrajectory newTrajectory;
+    newTrajectory.stamp    = ros::Time::now();
+    newTrajectory.uav_name = uav_name_;
 
-      mrs_msgs::FutureTrajectory newTrajectory;
-      newTrajectory.stamp    = ros::Time::now();
-      newTrajectory.uav_name = uav_name_;
+    newTrajectory.collision_avoidance = mrs_collision_avoidance;
 
-      newTrajectory.collision_avoidance = mrs_collision_avoidance;
+    geometry_msgs::PoseArray debugTrajectory;
+    debugTrajectory.header.stamp    = ros::Time::now();
+    debugTrajectory.header.frame_id = "local_origin";
 
-      geometry_msgs::PoseArray debugTrajectory;
-      debugTrajectory.header.stamp    = ros::Time::now();
-      debugTrajectory.header.frame_id = "local_origin";
+    // fill the trajectory
+    mutex_predicted_trajectory.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
 
-      // fill the trajectory
-      mutex_predicted_trajectory.lock();
-      {
-        for (int i = 0; i < horizon_len; i++) {
+        mrs_msgs::FuturePoint newPoint;
 
-          mrs_msgs::FuturePoint newPoint;
+        newPoint.x = predicted_future_trajectory(i * n);
+        newPoint.y = predicted_future_trajectory(i * n + 3);
+        newPoint.z = predicted_future_trajectory(i * n + 6);
 
-          newPoint.x = predicted_future_trajectory(i * n);
-          newPoint.y = predicted_future_trajectory(i * n + 3);
-          newPoint.z = predicted_future_trajectory(i * n + 6);
+        newTrajectory.points.push_back(newPoint);
 
-          newTrajectory.points.push_back(newPoint);
+        geometry_msgs::Pose newPose;
 
-          geometry_msgs::Pose newPose;
+        newPose.position.x = newPoint.x;
+        newPose.position.y = newPoint.y;
+        newPose.position.z = newPoint.z;
+        tf::Quaternion orientation;
+        orientation.setEuler(0, 0, desired_yaw);
+        newPose.orientation.x = orientation.x();
+        newPose.orientation.y = orientation.y();
+        newPose.orientation.z = orientation.z();
+        newPose.orientation.w = orientation.w();
 
-          newPose.position.x = newPoint.x;
-          newPose.position.y = newPoint.y;
-          newPose.position.z = newPoint.z;
-          tf::Quaternion orientation;
-          orientation.setEuler(0, 0, desired_yaw);
-          newPose.orientation.x = orientation.x();
-          newPose.orientation.y = orientation.y();
-          newPose.orientation.z = orientation.z();
-          newPose.orientation.w = orientation.w();
-
-          debugTrajectory.poses.push_back(newPose);
-        }
-      }
-      mutex_predicted_trajectory.unlock();
-
-      try {
-        predicted_trajectory_publisher.publish(newTrajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
-      }
-      try {
-        debug_predicted_trajectory_publisher.publish(debugTrajectory);
-      }
-      catch (...) {
-        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+        debugTrajectory.poses.push_back(newPose);
       }
     }
+    mutex_predicted_trajectory.unlock();
 
-    r.sleep();
+    try {
+      predicted_trajectory_publisher.publish(newTrajectory);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
+    }
+    try {
+      debug_predicted_trajectory_publisher.publish(debugTrajectory);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+    }
   }
 }
 
-// called once at the very beginning
+//}
+
+//{ initialize()
+
 void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
@@ -675,15 +676,20 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
     other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::otherDronesTrajectoriesCallback, this, ros::TransportHints().tcpNoDelay()));
   }
 
-  // create threads and mutexes
-  mpc_thread                  = std::thread(&MpcTracker::mpcThread, this);
-  diagnostics_thread          = std::thread(&MpcTracker::diagnosticsThread, this);
-  predicted_trajectory_thread = std::thread(&MpcTracker::futureTrajectoryThread, this);
-
   is_initialized = true;
+
+  // --------------------------------------------------------------
+  // |                           timers                           |
+  // --------------------------------------------------------------
+
+  future_trajectory_timer = nh_.createTimer(ros::Rate(predicted_trajectory_publish_rate), &MpcTracker::futureTrajectoryTimer, this);
+  diagnostics_timer       = nh_.createTimer(ros::Rate(diagnostics_rate), &MpcTracker::diagnosticsTimer, this);
+  mpc_timer               = nh_.createTimer(ros::Rate(1.0 / dt), &MpcTracker::mpcTimer, this);
 
   ROS_INFO("[MpcTracker]: MpcTracker initialized");
 }
+
+//}
 
 void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
@@ -691,8 +697,6 @@ void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajector
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
-
-  /* ROS_INFO_THROTTLE(1, "Getting trajectory from drone %s", msg->uav_name.c_str()); */
 }
 
 bool MpcTracker::collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
@@ -1544,98 +1548,82 @@ void MpcTracker::publishDiagnostics(void) {
 }
 
 // published diagnostics in reguar intervals
-void MpcTracker::diagnosticsThread(void) {
+void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
-  ROS_INFO("[MpcTracker]: Diagnostics thread started.");
-  ros::Rate r(diagnostics_rate);
-
-  while (ros::ok()) {
-
-    publishDiagnostics();
-    r.sleep();
-  }
+  publishDiagnostics();
 }
 
-// TODO split mpcThread to simulation thread
-void MpcTracker::mpcThread(void) {
+void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
-  ROS_INFO("[MpcTracker]: Mpc thread started.");
   ros::Time     begin, end;
   ros::Duration interval;
 
-  ros::Rate r(1 / dt);
-
   int timer = 0;
 
-  while (ros::ok()) {
+  if (!is_active) {
+    return;
+  }
 
-    while (!is_active && ros::ok()) {
-      r.sleep();
-    }
+  begin = ros::Time::now();
 
-    begin = ros::Time::now();
+  des_trajectory_mutex.lock();
+  {
+    // if we are tracking trajectory, copy the setpoint
+    if (tracking_trajectory_ && timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
-    des_trajectory_mutex.lock();
-    {
-      // if we are tracking trajectory, copy the setpoint
-      if (tracking_trajectory_ && timer++ == 20 && trajectory_idx < (trajectory_size)) {
+      timer = 0;
 
-        timer = 0;
+      // fill the prediction horizon with the desired trajectory
+      for (int i = 0; i < horizon_len; i++) {
 
-        // fill the prediction horizon with the desired trajectory
-        for (int i = 0; i < horizon_len; i++) {
+        int tempIdx = i + trajectory_idx;
+        if (loop) {
 
-          int tempIdx = i + trajectory_idx;
-          if (loop) {
+          if (tempIdx >= trajectory_size) {
 
-            if (tempIdx >= trajectory_size) {
-
-              tempIdx = tempIdx % trajectory_size;
-            }
+            tempIdx = tempIdx % trajectory_size;
           }
-
-          des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
-          des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
-          des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
-          des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
         }
 
-        if (use_yaw_in_trajectory)
-          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+        des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
+        des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
+        des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
+        des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
+      }
 
-        if (loop) {  // if we are looping, the loop it
-          if (++trajectory_idx == trajectory_size) {
-            trajectory_idx = 0;
-          }
-        } else {
-          // if we are at the end, select the last point as a constant setpoint
-          if (++trajectory_idx == (trajectory_size)) {
+      if (use_yaw_in_trajectory)
+        desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
 
-            tracking_trajectory_ = false;
-            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-            publishDiagnostics();
-          }
+      if (loop) {  // if we are looping, the loop it
+        if (++trajectory_idx == trajectory_size) {
+          trajectory_idx = 0;
+        }
+      } else {
+        // if we are at the end, select the last point as a constant setpoint
+        if (++trajectory_idx == (trajectory_size)) {
+
+          tracking_trajectory_ = false;
+          ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+          publishDiagnostics();
         }
       }
     }
-
-    des_trajectory_mutex.unlock();
-
-    // run the mpc
-    calculateMPC();
-
-    end      = ros::Time::now();
-    interval = end - begin;
-    if (interval.toSec() > dt) {
-
-      mpc_total_delay += interval.toSec() - dt;
-      ROS_WARN_THROTTLE(10.0, "MPC is Running %2.2f%% slower than it should.", 100 * mpc_total_delay / (ros::Time::now() - mpc_start_time).toSec());
-    }
-
-    mpc_computed_ = true;
-
-    r.sleep();
   }
+
+  des_trajectory_mutex.unlock();
+
+  // run the mpc
+  calculateMPC();
+
+  end      = ros::Time::now();
+  interval = end - begin;
+  if (interval.toSec() > dt) {
+
+    mpc_total_delay += interval.toSec() - dt;
+    ROS_WARN_THROTTLE(10.0, "MPC is Running %2.2f%% slower than it should.", 100 * mpc_total_delay / (ros::Time::now() - mpc_start_time).toSec());
+  }
+
+  mpc_computed_ = true;
 }
 
 bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {
