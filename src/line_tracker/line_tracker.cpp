@@ -16,7 +16,6 @@
 #include <mrs_msgs/Vec4Request.h>
 #include <mrs_msgs/Vec4Response.h>
 
-#include <thread>
 #include <mutex>
 
 #include <nodelet/nodelet.h>
@@ -79,15 +78,14 @@ private:
   bool   first_iter;
 
 private:
-  void        mainThread(void);
-  std::thread main_thread;
+  void mainTimer(const ros::TimerEvent &event);
+  ros::Timer main_timer;
 
 private:
   States_t current_state_vertical;
   States_t previous_state_vertical;
   States_t current_state_horizontal;
   States_t previous_state_horizontal;
-  ;
 
   void changeStateHorizontal(States_t new_state);
   void changeStateVertical(States_t new_state);
@@ -241,7 +239,11 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
   current_state_horizontal  = IDLE_STATE;
   previous_state_horizontal = IDLE_STATE;
 
-  main_thread = std::thread(&LineTracker::mainThread, this);
+  // --------------------------------------------------------------
+  // |                           timers                           |
+  // --------------------------------------------------------------
+
+  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   ROS_INFO("[LineTracker]: initialized");
 }
@@ -347,143 +349,133 @@ void LineTracker::stopVertical(void) {
   state_z = 0.95 * state_z + 0.05 * goal_z;
 }
 
-void LineTracker::mainThread(void) {
+void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
-  ROS_INFO("[LineTracker]: mainThread has started");
-  ros::Rate r(tracker_loop_rate_);
+  switch (current_state_horizontal) {
 
-  while (ros::ok()) {
+    case IDLE_STATE:
 
-    switch (current_state_horizontal) {
+      break;
 
-      case IDLE_STATE:
+    case HOVER_STATE:
 
-        break;
+      break;
 
-      case HOVER_STATE:
+    case STOP_MOTION_STATE:
 
-        break;
+      stopHorizontalMotion();
 
-      case STOP_MOTION_STATE:
+      break;
 
-        stopHorizontalMotion();
+    case ACCELERATING_STATE:
 
-        break;
+      accelerateHorizontal();
 
-      case ACCELERATING_STATE:
+      break;
 
-        accelerateHorizontal();
+    case DECELERATING_STATE:
 
-        break;
+      decelerateHorizontal();
 
-      case DECELERATING_STATE:
+      break;
 
-        decelerateHorizontal();
+    case STOPPING_STATE:
 
-        break;
+      stopHorizontal();
 
-      case STOPPING_STATE:
+      break;
+  }
 
-        stopHorizontal();
+  switch (current_state_vertical) {
 
-        break;
-    }
+    case IDLE_STATE:
 
-    switch (current_state_vertical) {
+      break;
 
-      case IDLE_STATE:
+    case HOVER_STATE:
 
-        break;
+      break;
 
-      case HOVER_STATE:
+    case STOP_MOTION_STATE:
 
-        break;
+      stopVerticalMotion();
 
-      case STOP_MOTION_STATE:
+      break;
 
-        stopVerticalMotion();
+    case ACCELERATING_STATE:
 
-        break;
+      accelerateVertical();
 
-      case ACCELERATING_STATE:
+      break;
 
-        accelerateVertical();
+    case DECELERATING_STATE:
 
-        break;
+      decelerateVertical();
 
-      case DECELERATING_STATE:
+      break;
 
-        decelerateVertical();
+    case STOPPING_STATE:
 
-        break;
+      stopVertical();
 
-      case STOPPING_STATE:
+      break;
+  }
 
-        stopVertical();
+  if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
 
-        break;
-    }
-
-    if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
-
-      if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
-        if (have_goal) {
-          changeState(ACCELERATING_STATE);
-        } else {
-          changeState(STOPPING_STATE);
-        }
+    if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
+      if (have_goal) {
+        changeState(ACCELERATING_STATE);
+      } else {
+        changeState(STOPPING_STATE);
       }
     }
+  }
 
-    if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
+  if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
 
-      if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
+    if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
 
-        state_x = goal_x;
-        state_y = goal_y;
-        state_z = goal_z;
+      state_x = goal_x;
+      state_y = goal_y;
+      state_z = goal_z;
 
-        changeState(HOVER_STATE);
-      }
+      changeState(HOVER_STATE);
     }
+  }
 
-    state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
+  state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
+  state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
+  state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
 
-    // --------------------------------------------------------------
-    // |                        yaw tracking                        |
-    // --------------------------------------------------------------
+  // --------------------------------------------------------------
+  // |                        yaw tracking                        |
+  // --------------------------------------------------------------
 
-    // compute the desired yaw rate
-    double current_yaw_rate;
-    if (fabs(goal_yaw - state_yaw) > PI)
-      current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
-    else
-      current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
+  // compute the desired yaw rate
+  double current_yaw_rate;
+  if (fabs(goal_yaw - state_yaw) > PI)
+    current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
+  else
+    current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
 
-    if (current_yaw_rate > yaw_rate_) {
-      current_yaw_rate = yaw_rate_;
-    } else if (current_yaw_rate < -yaw_rate_) {
-      current_yaw_rate = -yaw_rate_;
-    }
+  if (current_yaw_rate > yaw_rate_) {
+    current_yaw_rate = yaw_rate_;
+  } else if (current_yaw_rate < -yaw_rate_) {
+    current_yaw_rate = -yaw_rate_;
+  }
 
-    // flap the resulted state_yaw aroud PI
-    state_yaw += current_yaw_rate * tracker_dt_;
+  // flap the resulted state_yaw aroud PI
+  state_yaw += current_yaw_rate * tracker_dt_;
 
-    if (state_yaw > PI) {
-      state_yaw -= 2 * PI;
-    } else if (state_yaw < -PI) {
-      state_yaw += 2 * PI;
-    }
+  if (state_yaw > PI) {
+    state_yaw -= 2 * PI;
+  } else if (state_yaw < -PI) {
+    state_yaw += 2 * PI;
+  }
 
-    if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
-      state_yaw = goal_yaw;
-    }
-
-    /* ROS_INFO_THROTTLE(0.5, "[LineTracker]: x: %f, y: %f, z: %f", state_x, state_y, state_z); */
-
-    r.sleep();
+  if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
+    state_yaw = goal_yaw;
   }
 }
 
