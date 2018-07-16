@@ -1557,16 +1557,15 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
-  ros::Time     begin, end;
-  ros::Duration interval;
-
-  int timer = 0;
-
   if (!is_active) {
     return;
   }
 
-  begin = ros::Time::now();
+  ros::Time     begin = ros::Time::now();
+  ros::Time     end;
+  ros::Duration interval;
+
+  int timer = 0;
 
   des_trajectory_mutex.lock();
   {
