@@ -27,7 +27,6 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
-#include <thread>
 
 using namespace Eigen;
 
@@ -48,6 +47,8 @@ public:
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
 
+  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   void odometryCallback(const nav_msgs::OdometryConstPtr &msg);
@@ -60,12 +61,13 @@ public:
   void setInitPoint(void);
 
 private:
+
   ros::NodeHandle nh_;
 
   nav_msgs::Odometry odom;
   ros::Time          odomLastTime;
 
-  std::thread main_thread;
+  ros::Timer main_timer;
 
   mrs_msgs::PositionCommand position_cmd;
   mrs_msgs::PositionCommand last_position_cmd;
@@ -99,8 +101,6 @@ private:
   ros::ServiceServer ser_z_scale_;
   ros::ServiceServer ser_scales_;
 
-  std::thread mpc_thread;
-
   bool odom_set       = false;
   bool is_active      = false;
   bool is_initialized = false;
@@ -116,7 +116,7 @@ private:
   double last_odom_pitch = 0;
 
   // methods
-  void mainThread(void);
+  void mainTimer(const ros::TimerEvent &event);
 
   // params
   std::string filename_;
@@ -365,7 +365,11 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   CsvTracker::setInitPoint();
 
-  main_thread = std::thread(&CsvTracker::mainThread, this);
+  // --------------------------------------------------------------
+  // |                           timers                           |
+  // --------------------------------------------------------------
+
+  main_timer = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this);
 
   is_initialized = true;
 
@@ -452,102 +456,91 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
   return out;
 }
 
-void CsvTracker::mainThread(void) {
+void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
-  ROS_INFO("Main thread has started");
+  if (!got_odom) {
 
-  ros::Rate r(100);
+    ROS_WARN_THROTTLE(1.0, "Waiting for odometry");
+    return;
+  }
 
-  while (ros::ok()) {
+  if (!is_active) {
+    return;
+  }
 
-    while (!got_odom && ros::ok()) {
+  mutex_position_cmd.lock();
+  {
+    // set the message according to the file
+    position_cmd.header.stamp    = ros::Time::now();
+    position_cmd.header.frame_id = "local_origin";
 
-      ROS_WARN_THROTTLE(1.0, "Waiting for odometry");
-      r.sleep();
-    }
+    position_cmd.position.x = x_scale_ * trajectory(tracking_idx, 0) + x_offset_;
+    position_cmd.position.z = z_scale_ * trajectory(tracking_idx, 1) + z_offset_;
 
-    while (!is_active && ros::ok()) {
-      r.sleep();
-    }
+    position_cmd.velocity.x = x_scale_ * trajectory(tracking_idx, 2);
+    position_cmd.velocity.z = z_scale_ * trajectory(tracking_idx, 3);
 
-    ROS_INFO_THROTTLE(1, "Thread is spinning, idx=%d", tracking_idx);
+    position_cmd.acceleration.x = x_scale_ * trajectory(tracking_idx, 4);
+    position_cmd.acceleration.z = z_scale_ * trajectory(tracking_idx, 5);
 
-    mutex_position_cmd.lock();
-    {
-      // set the message according to the file
-      position_cmd.header.stamp    = ros::Time::now();
-      position_cmd.header.frame_id = "local_origin";
+    position_cmd.position.y     = y_offset_;
+    position_cmd.velocity.y     = 0;
+    position_cmd.acceleration.y = 0;
 
-      position_cmd.position.x = x_scale_ * trajectory(tracking_idx, 0) + x_offset_;
-      position_cmd.position.z = z_scale_ * trajectory(tracking_idx, 1) + z_offset_;
+    position_cmd.yaw     = yaw_;
+    position_cmd.yaw_dot = 0;
+  }
+  mutex_position_cmd.unlock();
 
-      position_cmd.velocity.x = x_scale_ * trajectory(tracking_idx, 2);
-      position_cmd.velocity.z = z_scale_ * trajectory(tracking_idx, 3);
+  // debugging current pitch
+  std_msgs::Float64 odom_pitch_msg;
+  odom_pitch_msg.data = last_odom_pitch;
 
-      position_cmd.acceleration.x = x_scale_ * trajectory(tracking_idx, 4);
-      position_cmd.acceleration.z = z_scale_ * trajectory(tracking_idx, 5);
+  // debugging desired pitch
+  std_msgs::Float64 desired_pitch_msg;
+  desired_pitch_msg.data = -trajectory(tracking_idx, 6);
 
-      position_cmd.position.y     = y_offset_;
-      position_cmd.velocity.y     = 0;
-      position_cmd.acceleration.y = 0;
+  // debugging desired zd
+  std_msgs::Float64 desired_zd_msg;
+  desired_zd_msg.data = trajectory(tracking_idx, 3);
 
-      position_cmd.yaw     = yaw_;
-      position_cmd.yaw_dot = 0;
-    }
-    mutex_position_cmd.unlock();
+  // debugging desired xd
+  std_msgs::Float64 desired_xd_msg;
+  desired_xd_msg.data = trajectory(tracking_idx, 2);
 
-    // debugging current pitch
-    std_msgs::Float64 odom_pitch_msg;
-    odom_pitch_msg.data = last_odom_pitch;
+  publisher_odom_pitch_.publish(odom_pitch_msg);
+  publisher_desired_pitch_.publish(desired_pitch_msg);
+  publisher_desired_zd_.publish(desired_zd_msg);
+  publisher_desired_xd_.publish(desired_xd_msg);
 
-    // debugging desired pitch
-    std_msgs::Float64 desired_pitch_msg;
-    desired_pitch_msg.data = -trajectory(tracking_idx, 6);
+  if (trajectory(tracking_idx, 8) == 1) {
 
-    // debugging desired zd
-    std_msgs::Float64 desired_zd_msg;
-    desired_zd_msg.data = trajectory(tracking_idx, 3);
+    ROS_ERROR("RELEASING MASS");
 
-    // debugging desired xd
-    std_msgs::Float64 desired_xd_msg;
-    desired_xd_msg.data = trajectory(tracking_idx, 2);
+    std_msgs::Int32 action;
 
-    publisher_odom_pitch_.publish(odom_pitch_msg);
-    publisher_desired_pitch_.publish(desired_pitch_msg);
-    publisher_desired_zd_.publish(desired_zd_msg);
-    publisher_desired_xd_.publish(desired_xd_msg);
+    action.data = 1;
 
-    if (trajectory(tracking_idx, 8) == 1) {
+    publisher_action.publish(action);
+  }
 
-      ROS_ERROR("RELEASING MASS");
+  // debugging desired thrust
+  std_msgs::Float64 desired_thrust_msg;
+  desired_thrust_msg.data = trajectory(tracking_idx, 7) / 34.3233;
 
-      std_msgs::Int32 action;
+  publisher_desired_thrust_.publish(desired_thrust_msg);
 
-      action.data = 1;
+  if (tracking_idx < (trajectory_len - 1)) {
 
-      publisher_action.publish(action);
-    }
+    tracking_idx = tracking_idx + 1;
 
-    // debugging desired thrust
-    std_msgs::Float64 desired_thrust_msg;
-    desired_thrust_msg.data = trajectory(tracking_idx, 7) / 34.3233;
+  } else {
 
-    publisher_desired_thrust_.publish(desired_thrust_msg);
+    ROS_INFO_THROTTLE(1, "Trajectory has finished, replaying the last poing...");
 
-    if (tracking_idx < (trajectory_len - 1)) {
-
-      tracking_idx = tracking_idx + 1;
-
-    } else {
-
-      ROS_INFO_THROTTLE(1, "Trajectory has finished, replaying the last poing...");
-
-      mrs_msgs::SwitchTracker SwitchTracker;
-      SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";
-      service_switch_tracker.call(SwitchTracker);
-    }
-
-    r.sleep();
+    mrs_msgs::SwitchTracker SwitchTracker;
+    SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";
+    service_switch_tracker.call(SwitchTracker);
   }
 }
 
@@ -573,8 +566,13 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
 const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
   return mrs_msgs::Vec4Response::Ptr();
 }
+
 const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
   return mrs_msgs::Vec4Response::Ptr();
+}
+
+const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
 }
 }
 

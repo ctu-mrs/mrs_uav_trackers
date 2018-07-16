@@ -54,6 +54,8 @@ public:
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
 
+  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+
 private:
   ros::NodeHandle nh_;
   // nodelet variables
@@ -2239,6 +2241,10 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
   }
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
 }
 }
 

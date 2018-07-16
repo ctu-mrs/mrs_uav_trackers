@@ -1,26 +1,18 @@
+#include <ros/ros.h>
+
 #include <geometry_msgs/PoseStamped.h>
-#include <math.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
-#include <ros/package.h>
-#include <ros/ros.h>
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <tf/transform_datatypes.h>
-
-#include <mrs_msgs/PositionCommand.h>
-#include <mrs_msgs/TrackerStatus.h>
-#include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/Vec4Request.h>
-#include <mrs_msgs/Vec4Response.h>
-
 #include <mutex>
 
-#include <nodelet/nodelet.h>
-
-#include "commons.h"
+#include <commons.h>
 
 #define STOP_THR 1e-3
 
@@ -56,6 +48,8 @@ public:
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+
+  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
   nav_msgs::Odometry odometry;
@@ -350,6 +344,8 @@ void LineTracker::stopVertical(void) {
 }
 
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
+
+  /* ROS_INFO("[LineTracker]: %f", event.current_real.toSec()); */
 
   switch (current_state_horizontal) {
 
@@ -677,6 +673,46 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
   changeState(STOP_MOTION_STATE);
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+
+  std_srvs::TriggerResponse res;
+
+  // --------------------------------------------------------------
+  // |          horizontal initial conditions prediction          |
+  // --------------------------------------------------------------
+  mutex_odometry.lock();
+  {
+    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+    current_vertical_speed   = odometry.twist.twist.linear.z;
+  }
+  mutex_odometry.unlock();
+
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+  // --------------------------------------------------------------
+  // |           vertical initial conditions prediction           |
+  // --------------------------------------------------------------
+
+  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+
+  // --------------------------------------------------------------
+  // |                        set the goal                        |
+  // --------------------------------------------------------------
+
+  goal_x = state_x + stop_dist_x;
+  goal_y = state_y + stop_dist_y;
+  goal_z = state_z + vertical_stop_dist;
+
+  res.message = "Hover initiated.";
+  res.success = true;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
 }
 
