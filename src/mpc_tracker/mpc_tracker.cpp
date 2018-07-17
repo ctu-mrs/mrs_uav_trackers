@@ -27,7 +27,7 @@
 
 #include <mrs_mav_manager/Tracker.h>
 
-#include <mrs_estimation/convex_polygon.h>
+#include <mrs_lib/ConvexPolygon.h>
 
 #include "cvx_wrapper.h"
 #include "cvx_wrapper_yaw.h"
@@ -98,7 +98,7 @@ private:
   double yaw_gain;
 
   // safety area
-  ConvexPolygon *safety_area;
+  mrs_lib::ConvexPolygon *safety_area;
   bool           use_safety_area;
 
   // variables regarding the MPC controller
@@ -379,19 +379,19 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   try {
 
-    safety_area = new ConvexPolygon(tempMatrix);
+    safety_area = new mrs_lib::ConvexPolygon(tempMatrix);
   }
-  catch (ConvexPolygon::WrongNumberOfVertices) {
+  catch (mrs_lib::ConvexPolygon::WrongNumberOfVertices) {
 
     ROS_ERROR("[MpcTracker]: Exception caught. Wrong number of vertices was supplied to create the safety area.");
     ros::shutdown();
   }
-  catch (ConvexPolygon::PolygonNotConvexException) {
+  catch (mrs_lib::ConvexPolygon::PolygonNotConvexException) {
 
     ROS_ERROR("[MpcTracker]: Exception caught. Polygon supplied to create the safety area is not convex.");
     ros::shutdown();
   }
-  catch (ConvexPolygon::WrongNumberOfColumns) {
+  catch (mrs_lib::ConvexPolygon::WrongNumberOfColumns) {
     ROS_ERROR("[MpcTracker]: Exception caught. Wrong number of columns was supplied to the safety area.");
   }
 

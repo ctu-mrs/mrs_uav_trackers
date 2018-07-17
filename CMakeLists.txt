@@ -9,7 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   roscpp
   rospy
-  mrs_estimation
+  mrs_lib
   mrs_msgs
   mrs_mav_manager
   )
@@ -25,7 +25,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_estimation mrs_mav_manager mrs_msgs
+  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_lib mrs_mav_manager mrs_msgs
   DEPENDS Eigen
   )
 

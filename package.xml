@@ -19,7 +19,7 @@
   <build_depend>nav_msgs</build_depend>
   <build_depend>tf</build_depend>
   <build_depend>mrs_msgs</build_depend>
-  <build_depend>mrs_estimation</build_depend>
+  <build_depend>mrs_lib</build_depend>
   <build_depend>mrs_cvxy</build_depend>
   <build_depend>mrs_mav_manager</build_depend>
 
@@ -28,7 +28,7 @@
   <run_depend>geometry_msgs</run_depend>
   <run_depend>tf</run_depend>
   <run_depend>message_runtime</run_depend>
-  <run_depend>mrs_estimation</run_depend>
+  <run_depend>mrs_lib</run_depend>
   <run_depend>mrs_mav_manager</run_depend>
   <run_depend>mrs_msgs</run_depend>
 
