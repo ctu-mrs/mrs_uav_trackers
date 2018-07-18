@@ -156,6 +156,8 @@ void LineTracker::changeState(States_t new_state) {
 LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 }
 
+//{ initialize()
+
 void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
@@ -245,10 +247,14 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   profiler = new mrs_lib::Profiler(nh_, "LineTracker");
-  routine_main_timer = profiler->registerRoutine("mainTimer", tracker_loop_rate_, 0.002);
+  routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
 
   ROS_INFO("[LineTracker]: initialized");
 }
+
+//}
+
+//{ stopHorizontalMotion()
 
 void LineTracker::stopHorizontalMotion(void) {
 
@@ -259,6 +265,10 @@ void LineTracker::stopHorizontalMotion(void) {
   }
 }
 
+//}
+
+//{ stopVerticalMotion()
+
 void LineTracker::stopVerticalMotion(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
@@ -267,6 +277,10 @@ void LineTracker::stopVerticalMotion(void) {
     current_vertical_speed = 0;
   }
 }
+
+//}
+
+//{ accelerateHorizontal()
 
 void LineTracker::accelerateHorizontal(void) {
 
@@ -289,6 +303,10 @@ void LineTracker::accelerateHorizontal(void) {
     changeStateHorizontal(DECELERATING_STATE);
   }
 }
+
+//}
+
+//{ accelerateVertical()
 
 void LineTracker::accelerateVertical(void) {
 
@@ -314,6 +332,10 @@ void LineTracker::accelerateVertical(void) {
   }
 }
 
+//}
+
+//{ decelerateHorizontal()
+
 void LineTracker::decelerateHorizontal(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
@@ -326,6 +348,10 @@ void LineTracker::decelerateHorizontal(void) {
     changeStateHorizontal(STOPPING_STATE);
   }
 }
+
+//}
+
+//{ decelerateVertical()
 
 void LineTracker::decelerateVertical(void) {
 
@@ -340,16 +366,28 @@ void LineTracker::decelerateVertical(void) {
   }
 }
 
+//}
+
+//{ stopHorizontal()
+
 void LineTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
 }
 
+//}
+
+//{ stopVertical()
+
 void LineTracker::stopVertical(void) {
 
   state_z = 0.95 * state_z + 0.05 * goal_z;
 }
+
+//}
+
+//{ mainTimer()
 
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
@@ -489,6 +527,10 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
   routine_main_timer->end();
 }
 
+//}
+
+//{ activate()
+
 bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odometry) {
@@ -574,12 +616,20 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return true;
 }
 
+//}
+
+//{ deactivate()
+
 void LineTracker::deactivate(void) {
 
   is_active = false;
 
   ROS_INFO("[LineTracker]: deactivated");
 }
+
+//}
+
+//{ update()
 
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -625,6 +675,10 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
 
+//}
+
+//{ status()
+
 const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
 
   if (is_initialized) {
@@ -643,6 +697,10 @@ const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
     return mrs_msgs::TrackerStatus::Ptr();
   }
 }
+
+//}
+
+//{ goTo()
 
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -664,6 +722,11 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
+
+//}
+
+//{ goToRelative()
+
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   mrs_msgs::Vec4Response res;
@@ -688,6 +751,10 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
+
+//}
+
+//{ hover()
 
 const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
@@ -728,6 +795,8 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::Tri
 
   return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
+
+//}
 }
 
 #include <pluginlib/class_list_macros.h>
