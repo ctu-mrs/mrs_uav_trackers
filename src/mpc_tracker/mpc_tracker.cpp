@@ -28,6 +28,7 @@
 #include <mrs_mav_manager/Tracker.h>
 
 #include <mrs_lib/ConvexPolygon.h>
+#include <mrs_lib/Profiler.h>
 
 #include "cvx_wrapper.h"
 #include "cvx_wrapper_yaw.h"
@@ -99,7 +100,7 @@ private:
 
   // safety area
   mrs_lib::ConvexPolygon *safety_area;
-  bool           use_safety_area;
+  bool                    use_safety_area;
 
   // variables regarding the MPC controller
   int    n;            // number of states
@@ -267,6 +268,10 @@ private:
   void   publishDiagnostics();
   double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
   bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+
+private:
+  mrs_lib::Profiler *profiler;
+  mrs_lib::Routine * routine_mpc_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -458,10 +463,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
     }
   }
 
-
-  ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
-  ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
-
   // load the MPC parameters
   nh_.param("cvxgenMpc/horizon_len", horizon_len, -1);
   nh_.param("cvxgenMpc/maxTrajectorySize", max_trajectory_size, -1);
@@ -518,6 +519,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.getParam("cvxWrapperYaw/R", tempList2);
 
   cvx_yaw = new CvxWrapperYaw(verbose, max_iters_yaw, tempList, tempList2, dt, dt2);
+
+  ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
+  ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
 
   // initialize other matrices
   x                = MatrixXd::Zero(n, 1);
@@ -679,6 +683,13 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   }
 
   is_initialized = true;
+
+  // --------------------------------------------------------------
+  // |                          profilers                         |
+  // --------------------------------------------------------------
+
+  profiler           = new mrs_lib::Profiler(nh_, "MpcTracker");
+  routine_mpc_timer = profiler->registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -1561,6 +1572,8 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     return;
   }
 
+  routine_mpc_timer->start(event);
+
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
   ros::Duration interval;
@@ -1625,6 +1638,8 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   }
 
   mpc_computed_ = true;
+
+  routine_mpc_timer->end();
 }
 
 bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {

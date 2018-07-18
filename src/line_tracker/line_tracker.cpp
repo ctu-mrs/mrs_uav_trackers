@@ -5,6 +5,7 @@
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
+#include <mrs_lib/Profiler.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -115,6 +116,10 @@ private:
   double current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
 
   mrs_msgs::PositionCommand position_output;
+
+private:
+  mrs_lib::Profiler *profiler;
+  mrs_lib::Routine * routine_main_timer;
 };
 
 void LineTracker::changeStateHorizontal(States_t new_state) {
@@ -239,6 +244,9 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
+  profiler = new mrs_lib::Profiler(nh_, "LineTracker");
+  routine_main_timer = profiler->registerRoutine("mainTimer", tracker_loop_rate_, 0.002);
+
   ROS_INFO("[LineTracker]: initialized");
 }
 
@@ -345,7 +353,11 @@ void LineTracker::stopVertical(void) {
 
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
-  /* ROS_INFO("[LineTracker]: %f", event.current_real.toSec()); */
+  if (!is_active) {
+    return; 
+  }
+
+  routine_main_timer->start(event);
 
   switch (current_state_horizontal) {
 
@@ -473,6 +485,8 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
   if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
     state_yaw = goal_yaw;
   }
+
+  routine_main_timer->end();
 }
 
 bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
