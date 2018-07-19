@@ -63,6 +63,7 @@ private:
   ros::NodeHandle nh_;
   // nodelet variables
   ros::Subscriber    sub_pos_cmd_;                      // desired position command
+  ros::Subscriber    sub_desired_yaw;                   // desired position command
   ros::Subscriber    sub_pos_rel_cmd_;                  // desired position relative command
   ros::Subscriber    sub_trajectory_;                   // desired trajectory
   ros::Subscriber    sub_rc_;                           // rc transmitter
@@ -73,6 +74,7 @@ private:
   ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
   ros::ServiceServer goto_service_cmd_cb_;
   ros::ServiceServer gotoaltitude_service_cmd_cb_;
+  ros::ServiceServer set_yaw_service_cmd_cb;
   ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
   ros::ServiceServer collision_avoidance_service;
 
@@ -271,9 +273,12 @@ private:
   double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
   bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
+  bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
+
 private:
-  mrs_lib::Profiler profiler;
-  mrs_lib::Routine *routine_mpc_timer;
+  mrs_lib::Profiler *profiler;
+  mrs_lib::Routine * routine_mpc_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -565,6 +570,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   // subscriber for setting the position setpoint
   sub_pos_cmd_ = nh_.subscribe("desired_position", 1, &MpcTracker::pos_cmd_cb, this, ros::TransportHints().tcpNoDelay());
 
+  sub_desired_yaw = nh_.subscribe("desired_yaw", 1, &MpcTracker::desired_yaw_cmd_cb, this, ros::TransportHints().tcpNoDelay());
+
   // subscriber for setting the relative setpoint
   sub_pos_rel_cmd_ = nh_.subscribe("desired_relative_position", 1, &MpcTracker::callbackDesiredPositionRelative, this, ros::TransportHints().tcpNoDelay());
 
@@ -595,6 +602,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   // service goToAltitude service
   gotoaltitude_service_cmd_cb_ = nh_.advertiseService("goto_altitude", &MpcTracker::gotoaltitude_service_cmd_cb, this);
+
+  // service for setYaw
+  set_yaw_service_cmd_cb = nh_.advertiseService("set_yaw", &MpcTracker::callbackSetYaw, this);
 
   // service for triggering failsafe
   failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe", &MpcTracker::failsafe_trigger_service_cmd_cb, this);
@@ -692,8 +702,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   // |                          profilers                         |
   // --------------------------------------------------------------
 
-  mrs_lib::Profiler profiler(nh_, "MpcTracker");
-  routine_mpc_timer = profiler.registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
+  profiler          = new mrs_lib::Profiler(nh_, "MpcTracker");
+  routine_mpc_timer = profiler->registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -1776,6 +1786,70 @@ bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_m
   res.success = true;
   char tempStr[100];
   sprintf((char *)&tempStr, "Going to altitude: %2.2f", req.goal);
+  res.message = tempStr;
+
+  return true;
+}
+
+//}
+
+//{ callbackSetYaw()
+
+void MpcTracker::desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg) {
+
+  if (failsafe_triggered) {
+
+    return;
+  }
+
+  if (tracking_trajectory_) {
+
+    des_trajectory_mutex.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
+        des_yaw_trajectory(i, 0) = msg->yaw;
+      }
+    }
+    des_trajectory_mutex.unlock();
+
+  } else {
+
+    set_goal(x(0, 0), x(3, 0), x(6, 0), msg->yaw, false);
+  }
+}
+
+bool MpcTracker::callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+  if (failsafe_triggered) {
+
+    res.success = false;
+    res.message = "Failsafe is active!";
+    return true;
+  }
+
+  if (tracking_trajectory_) {
+
+    des_trajectory_mutex.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
+        des_yaw_trajectory(i, 0) = req.goal;
+      }
+    }
+    des_trajectory_mutex.unlock();
+
+  } else {
+
+    if (!set_goal(x(0, 0), x(3, 0), x(6, 0), req.goal, false)) {
+
+      res.success = false;
+      res.message = "Cannot set the goal. It is probably outside of the safety area.";
+      return true;
+    }
+  }
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Setting yaw to %2.2f", req.goal);
   res.message = tempStr;
 
   return true;
