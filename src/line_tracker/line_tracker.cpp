@@ -118,8 +118,8 @@ private:
   mrs_msgs::PositionCommand position_output;
 
 private:
-  mrs_lib::Profiler *profiler;
-  mrs_lib::Routine * routine_main_timer;
+  mrs_lib::Profiler profiler;
+  mrs_lib::Routine *routine_main_timer;
 };
 
 void LineTracker::changeStateHorizontal(States_t new_state) {
@@ -246,8 +246,8 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
-  profiler = new mrs_lib::Profiler(nh_, "LineTracker");
-  routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
+  mrs_lib::Profiler profiler(nh_, "LineTracker");
+  routine_main_timer = profiler.registerRoutine("main", tracker_loop_rate_, 0.002);
 
   ROS_INFO("[LineTracker]: initialized");
 }
@@ -392,7 +392,7 @@ void LineTracker::stopVertical(void) {
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
   if (!is_active) {
-    return; 
+    return;
   }
 
   routine_main_timer->start(event);

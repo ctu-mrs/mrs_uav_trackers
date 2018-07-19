@@ -41,6 +41,8 @@ using namespace Eigen;
 namespace mrs_trackers
 {
 
+//{ class MpcTracker
+
 class MpcTracker : public mrs_mav_manager::Tracker {
 public:
   MpcTracker(void);
@@ -244,8 +246,8 @@ private:
   // methods
   void mpcTimer(const ros::TimerEvent &event);
   void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void trajectory_cmd_cb(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  void callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
   bool trajectory_service_cb(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
   bool start_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -254,7 +256,7 @@ private:
   void odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void calculateMPC();
   void setTrajectory(float x, float y, float z, float yaw);
-  bool trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
@@ -270,12 +272,14 @@ private:
   bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
 private:
-  mrs_lib::Profiler *profiler;
-  mrs_lib::Routine * routine_mpc_timer;
+  mrs_lib::Profiler profiler;
+  mrs_lib::Routine *routine_mpc_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
 }
+
+//}
 
 //{ futureTrajectoryTimer()
 
@@ -562,10 +566,10 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   sub_pos_cmd_ = nh_.subscribe("desired_position", 1, &MpcTracker::pos_cmd_cb, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for setting the relative setpoint
-  sub_pos_rel_cmd_ = nh_.subscribe("desired_relative_position", 1, &MpcTracker::pos_rel_cmd_cb, this, ros::TransportHints().tcpNoDelay());
+  sub_pos_rel_cmd_ = nh_.subscribe("desired_relative_position", 1, &MpcTracker::callbackDesiredPositionRelative, this, ros::TransportHints().tcpNoDelay());
 
   // subscriber for desired trajectory
-  sub_trajectory_ = nh_.subscribe("desired_trajectory", 1, &MpcTracker::trajectory_cmd_cb, this, ros::TransportHints().tcpNoDelay());
+  sub_trajectory_ = nh_.subscribe("desired_trajectory", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
 
   if (debug_) {
     pub_debug_trajectory_ = nh_.advertise<mrs_msgs::TrackerTrajectory>("debug_set_trajectory", 1);
@@ -688,8 +692,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   // |                          profilers                         |
   // --------------------------------------------------------------
 
-  profiler           = new mrs_lib::Profiler(nh_, "MpcTracker");
-  routine_mpc_timer = profiler->registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
+  mrs_lib::Profiler profiler(nh_, "MpcTracker");
+  routine_mpc_timer = profiler.registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -704,6 +708,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
 //}
 
+//{ otherDronesTrajectoriesCallback()
+
 void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
   mrs_msgs::FutureTrajectory temp_trajectory = *msg;
@@ -711,6 +717,10 @@ void MpcTracker::otherDronesTrajectoriesCallback(const mrs_msgs::FutureTrajector
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
 }
+
+//}
+
+//{ collision_avoidance_toggle_cb()
 
 bool MpcTracker::collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -728,6 +738,10 @@ bool MpcTracker::collision_avoidance_toggle_cb(std_srvs::SetBool::Request &req, 
 
   return true;
 }
+
+//}
+
+//{ trigger_failsafe()
 
 bool MpcTracker::trigger_failsafe() {
 
@@ -768,10 +782,18 @@ bool MpcTracker::trigger_failsafe() {
   }
 }
 
+//}
+
+//{ dist()
+
 double dist(const double ax, const double ay, const double bx, const double by) {
 
   return sqrt(pow(ax - bx, 2) + pow(ay - by, 2));
 }
+
+//}
+
+//{ checkCollision()
 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
@@ -783,6 +805,10 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
     return false;
   }
 }
+
+//}
+
+//{ rc_cb()
 
 // callback for rc transmitter
 void MpcTracker::rc_cb(const mavros_msgs::RCInConstPtr &msg) {
@@ -808,6 +834,10 @@ void MpcTracker::rc_cb(const mavros_msgs::RCInConstPtr &msg) {
     }
   }
 }
+
+//}
+
+//{ filterReference()
 
 // filters the reference trajectory for maximum speed
 void MpcTracker::filterReference(void) {
@@ -1001,13 +1031,17 @@ void MpcTracker::filterReference(void) {
   trajectory_setpoint_mutex.unlock();
 }
 
+//}
+
+//{ filterYawReference()
+
 void MpcTracker::filterYawReference(void) {
+
   for (int i = 0; i < horizon_len; i++) {
     if (fabs(des_yaw_trajectory(0, 0)) > 1000) {
       ROS_WARN_THROTTLE(0.1, "Desired yaw is greater than 1000 rad!");
     }
   }
-
 
   // check the first trajectory member for yaw overflow
   while (des_yaw_trajectory(0, 0) - x_yaw(0) < -PI) {
@@ -1036,6 +1070,10 @@ void MpcTracker::filterYawReference(void) {
   }
 }
 
+//}
+
+//{ setTrajectory()
+
 // sets the desired trajectory based on a single setpoint
 void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
 
@@ -1046,6 +1084,10 @@ void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
   des_yaw_trajectory.fill(yaw);
   trajectory_setpoint_mutex.unlock();
 }
+
+//}
+
+//{ integrate()
 
 VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_const) {
 
@@ -1060,6 +1102,10 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
   return out;
 }
+
+//}
+
+//{ calculateMPC()
 
 void MpcTracker::calculateMPC() {
 
@@ -1219,8 +1265,10 @@ void MpcTracker::calculateMPC() {
   future_was_predicted = true;
 }
 
-// the control_manager call this once when it wants to start using this tracker
-// the position command in the argument is the last position command used by a previous tracker
+//}
+
+//{ activate()
+
 bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (odom_set_) {
@@ -1286,7 +1334,10 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return is_active;
 }
 
-// control_manager calls this when it wants to stop using this tracker
+//}
+
+//{ deactivate()
+
 void MpcTracker::deactivate(void) {
 
   is_active = false;
@@ -1303,7 +1354,10 @@ void MpcTracker::deactivate(void) {
   publishDiagnostics();
 }
 
-// if the tracker is active, this mehod is called on every odometry update, even if the tracker is not active
+//}
+
+//{ update()
+
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // copy the odometry from the message
@@ -1515,6 +1569,10 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd_));
 }
 
+//}
+
+//{ publishDiagnostics()
+
 void MpcTracker::publishDiagnostics(void) {
 
   mrs_msgs::TrackerDiagnostics diagnostics;
@@ -1560,11 +1618,19 @@ void MpcTracker::publishDiagnostics(void) {
   }
 }
 
+//}
+
+//{ diagnosticsTimer()
+
 // published diagnostics in reguar intervals
 void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
   publishDiagnostics();
 }
+
+//}
+
+//{ mpcTimer()
 
 void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
@@ -1642,6 +1708,10 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   routine_mpc_timer->end();
 }
 
+//}
+
+//{ set_rel_goal()
+
 bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {
 
   double abs_x   = x(0, 0) + set_x;
@@ -1682,6 +1752,10 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
   return true;
 }
 
+//}
+
+//{ gotoaltitude_service_cmd_cb()
+
 // callback for goToAltitude service
 bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -1707,8 +1781,12 @@ bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_m
   return true;
 }
 
+//}
+
+//{ callbackDesiredPositionRelative()
+
 // callback got goToRelative
-void MpcTracker::pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
+void MpcTracker::callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
 
   if (failsafe_triggered) {
 
@@ -1718,9 +1796,12 @@ void MpcTracker::pos_rel_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &m
   set_rel_goal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 }
 
+//}
+
+//{ loadTrajectory()
 
 // method for setting desired trajectory
-bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::string &message) {
+bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message) {
 
   if (failsafe_triggered) {
 
@@ -1951,21 +2032,33 @@ bool MpcTracker::trajectoryLoad(const mrs_msgs::TrackerTrajectory &msg, std::str
   }
 }
 
+//}
+
+//{ callbackDesiredTrajectory()
+
 // callback for loading desired trajectory
-void MpcTracker::trajectory_cmd_cb(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
+void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
 
   std::string message;
-  trajectoryLoad(*msg, message);
+  loadTrajectory(*msg, message);
 }
+
+//}
+
+//{ trajectory_service_cb()
 
 // service for setting desired trajectory
 bool MpcTracker::trajectory_service_cb(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res) {
 
   std::string message;
-  res.success = trajectoryLoad(req.trajectory_msg, message);
+  res.success = loadTrajectory(req.trajectory_msg, message);
   res.message = message;
   return true;
 }
+
+//}
+
+//{ set_goal()
 
 // set absolute goal
 bool MpcTracker::set_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {
@@ -2002,6 +2095,10 @@ bool MpcTracker::set_goal(double set_x, double set_y, double set_z, double set_y
   return true;
 }
 
+//}
+
+//{ pos_cmd_cb()
+
 // callback for goTo
 void MpcTracker::pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
 
@@ -2012,6 +2109,10 @@ void MpcTracker::pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) 
 
   set_goal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 }
+
+//}
+
+//{ start_trajectory_following_cmd_cb()
 
 bool MpcTracker::start_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -2045,6 +2146,10 @@ bool MpcTracker::start_trajectory_following_cmd_cb(std_srvs::Trigger::Request &r
 
   return true;
 }
+
+//}
+
+//{ stop_trajectory_following_cmd_cb()
 
 bool MpcTracker::stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -2083,6 +2188,10 @@ bool MpcTracker::stop_trajectory_following_cmd_cb(std_srvs::Trigger::Request &re
 
   return true;
 }
+
+//}
+
+//{ fly_to_trajectory_start_cmd_cb()
 
 bool MpcTracker::fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -2136,6 +2245,10 @@ bool MpcTracker::fly_to_trajectory_start_cmd_cb(std_srvs::Trigger::Request &req,
   return true;
 }
 
+//}
+
+//{ resume_trajectory_following_cmd_cb()
+
 bool MpcTracker::resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (failsafe_triggered) {
@@ -2174,6 +2287,10 @@ bool MpcTracker::resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &
   return true;
 }
 
+//}
+
+//{ status()
+
 const mrs_msgs::TrackerStatus::Ptr MpcTracker::status() {
 
   if (is_initialized) {
@@ -2193,6 +2310,10 @@ const mrs_msgs::TrackerStatus::Ptr MpcTracker::status() {
   }
 }
 
+//}
+
+//{ failsafe_trigger_service_cmd_cb()
+
 bool MpcTracker::failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (trigger_failsafe()) {
@@ -2209,6 +2330,10 @@ bool MpcTracker::failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req
 
   return true;
 }
+
+//}
+
+//{ goTo()
 
 const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -2234,6 +2359,10 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Requ
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
 
+//}
+
+//{ goToRelative()
+
 const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   mrs_msgs::Vec4Response res;
@@ -2257,9 +2386,15 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
 
+//}
+
+//{ hover()
+
 const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
+
+//}
 }
 
 #include <pluginlib/class_list_macros.h>
