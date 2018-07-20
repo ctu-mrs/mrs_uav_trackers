@@ -641,9 +641,9 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
       // the last command is usable
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
+      state_x   = cmd->position.x;
+      state_y   = cmd->position.y;
+      state_z   = cmd->position.z;
       state_yaw = cmd->yaw;
 
       speed_x         = cmd->velocity.x;
@@ -707,11 +707,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   ROS_INFO("[LandoffTracker]: activated");
 
-  if (odometry_z > 0.5) {
-    changeState(STOP_MOTION_STATE);
-  } else {
-    changeState(LANDED_STATE);
-  }
+  changeState(STOP_MOTION_STATE);
 
   return true;
 }
@@ -904,19 +900,19 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
     return true;
   }
 
-  landing = true;
+  /* mutex_odometry.lock(); */
+  /* { */
+  /*   goal_x   = odometry_x; */
+  /*   goal_y   = odometry_y; */
+  /*   goal_yaw = odometry_yaw; */
+  /* } */
+  /* mutex_odometry.unlock(); */
 
-  mutex_odometry.lock();
-  {
-    goal_x   = odometry_x;
-    goal_y   = odometry_y;
-    goal_z   = landing_height_;
-    goal_yaw = odometry_yaw;
-  }
-  mutex_odometry.unlock();
+  goal_z   = landing_height_;
 
   ROS_INFO("[LandoffTracker]: landing");
 
+  landing = true;
   have_goal = true;
 
   res.success = true;
