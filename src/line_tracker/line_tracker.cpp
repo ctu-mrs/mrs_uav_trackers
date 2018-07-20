@@ -120,6 +120,7 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   mrs_lib::Routine * routine_main_timer;
+  mrs_lib::Routine * routine_update;
 };
 
 void LineTracker::changeStateHorizontal(States_t new_state) {
@@ -241,6 +242,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   profiler           = new mrs_lib::Profiler(nh_, "LineTracker");
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
+  routine_update     = profiler->registerRoutine("update");
 
   ROS_INFO("[LineTracker]: initialized");
 }
@@ -601,6 +603,8 @@ void LineTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  routine_update->start();
+
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -639,6 +643,8 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   position_output.acceleration.x = 0;
   position_output.acceleration.y = 0;
   position_output.acceleration.z = 0;
+
+  routine_update->end();
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
@@ -679,7 +685,7 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
   goal_z   = cmd->goal[2];
   goal_yaw = validateYawSetpoint(cmd->goal[3]);
 
-  ROS_INFO("[LineTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
+  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
   have_goal = true;
 
@@ -708,7 +714,7 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
   }
   mutex_odometry.unlock();
 
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
+  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
   have_goal = true;
 
