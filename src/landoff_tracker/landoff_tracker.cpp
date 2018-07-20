@@ -23,7 +23,7 @@ namespace mrs_trackers
 // state machine
 typedef enum {
 
-  IDLE_STATE,
+  LANDED_STATE,
   STOP_MOTION_STATE,
   HOVER_STATE,
   ACCELERATING_STATE,
@@ -34,11 +34,11 @@ typedef enum {
 
 const char *state_names[6] = {
 
-    "IDLING", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
+    "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
-class LineTracker : public mrs_mav_manager::Tracker {
+class LandoffTracker : public mrs_mav_manager::Tracker {
 public:
-  LineTracker(void);
+  LandoffTracker(void);
 
   void initialize(const ros::NodeHandle &parent_nh);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
@@ -67,6 +67,7 @@ private:
 private:
   // tracker's inner states
   int    tracker_loop_rate_;
+  double takeoff_height_;
   double tracker_dt_;
   bool   is_initialized;
   bool   is_active;
@@ -75,6 +76,10 @@ private:
 private:
   void mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer;
+
+private:
+  ros::ServiceServer service_takeoff;
+  ros::ServiceServer service_land;
 
 private:
   States_t current_state_vertical;
@@ -86,6 +91,9 @@ private:
   void changeStateVertical(States_t new_state);
   void changeState(States_t new_state);
 
+  bool taking_off = false;
+  bool landing    = false;
+
 private:
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
@@ -95,13 +103,20 @@ private:
   void decelerateVertical(void);
   void stopHorizontal(void);
   void stopVertical(void);
+  bool callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
 private:
-  // dynamical constraints
   double horizontal_speed_;
   double vertical_speed_;
+  double takeoff_speed_;
+  double landing_speed_;
+
   double horizontal_acceleration_;
   double vertical_acceleration_;
+  double takeoff_acceleration_;
+  double landing_acceleration_;
+
   double yaw_rate_;
   double yaw_gain_;
 
@@ -122,45 +137,9 @@ private:
   mrs_lib::Routine * routine_main_timer;
 };
 
-void LineTracker::changeStateHorizontal(States_t new_state) {
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
-}
-
-void LineTracker::changeStateVertical(States_t new_state) {
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
-}
-
-void LineTracker::changeState(States_t new_state) {
-
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical], state_names[previous_state_horizontal],
-           state_names[current_state_vertical]);
-}
-
-LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
-}
-
-//{ initialize()
-
-void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
-
-  ros::NodeHandle nh_(parent_nh, "line_tracker");
+  ros::NodeHandle nh_(parent_nh, "landoff_tracker");
 
   ros::Time::waitForValid();
 
@@ -174,49 +153,82 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
   nh_.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
 
+  nh_.param("vertical_tracker/takeoff_speed", takeoff_speed_, -1.0);
+  nh_.param("vertical_tracker/takeoff_acceleration", takeoff_acceleration_, -1.0);
+
+  nh_.param("vertical_tracker/landing_speed", landing_speed_, -1.0);
+  nh_.param("vertical_tracker/landing_acceleration", landing_acceleration_, -1.0);
+
   nh_.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
   nh_.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
 
   nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
 
+  nh_.param("takeoff_height", takeoff_height_, -1.0);
+
   if (horizontal_speed_ < 0) {
-    ROS_ERROR("[LineTracker]: horizontal_speed was not specified!");
+    ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
     ros::shutdown();
   }
 
   if (vertical_speed_ < 0) {
-    ROS_ERROR("[LineTracker]: vertical_speed was not specified!");
+    ROS_ERROR("[LandoffTracker]: vertical_speed was not specified!");
     ros::shutdown();
   }
 
   if (horizontal_acceleration_ < 0) {
-    ROS_ERROR("[LineTracker]: horizontal_acceleration was not specified!");
+    ROS_ERROR("[LandoffTracker]: horizontal_acceleration was not specified!");
     ros::shutdown();
   }
 
   if (vertical_acceleration_ < 0) {
-    ROS_ERROR("[LineTracker]: vertical_acceleration was not specified!");
+    ROS_ERROR("[LandoffTracker]: vertical_acceleration was not specified!");
     ros::shutdown();
   }
 
   if (yaw_rate_ < 0) {
-    ROS_ERROR("[LineTracker]: yaw_rate was not specified!");
+    ROS_ERROR("[LandoffTracker]: yaw_rate was not specified!");
     ros::shutdown();
   }
 
   if (yaw_gain_ < 0) {
-    ROS_ERROR("[LineTracker]: yaw_gain was not specified!");
+    ROS_ERROR("[LandoffTracker]: yaw_gain was not specified!");
     ros::shutdown();
   }
 
   if (tracker_loop_rate_ < 0) {
-    ROS_ERROR("[LineTracker]: tracker_loop_rate was not specified!");
+    ROS_ERROR("[LandoffTracker]: tracker_loop_rate was not specified!");
+    ros::shutdown();
+  }
+
+  if (takeoff_speed_ < 0) {
+    ROS_ERROR("[LandoffTracker]: takeoff_speed was not specified!");
+    ros::shutdown();
+  }
+
+  if (takeoff_acceleration_ < 0) {
+    ROS_ERROR("[LandoffTracker]: takeoff_acceleration was not specified!");
+    ros::shutdown();
+  }
+
+  if (landing_speed_ < 0) {
+    ROS_ERROR("[LandoffTracker]: landing_speed was not specified!");
+    ros::shutdown();
+  }
+
+  if (landing_acceleration_ < 0) {
+    ROS_ERROR("[LandoffTracker]: landing_acceleration was not specified!");
+    ros::shutdown();
+  }
+
+  if (takeoff_height_ < 0) {
+    ROS_ERROR("[LandoffTracker]: takeoff_height was not specified!");
     ros::shutdown();
   }
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
-  ROS_INFO("[LineTracker]: tracker_dt: %f", tracker_dt_);
+  ROS_INFO("[LandoffTracker]: tracker_dt: %f", tracker_dt_);
 
   state_x   = 0;
   state_y   = 0;
@@ -234,29 +246,73 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   is_initialized = true;
 
-  current_state_vertical  = IDLE_STATE;
-  previous_state_vertical = IDLE_STATE;
+  current_state_vertical  = LANDED_STATE;
+  previous_state_vertical = LANDED_STATE;
 
-  current_state_horizontal  = IDLE_STATE;
-  previous_state_horizontal = IDLE_STATE;
+  current_state_horizontal  = LANDED_STATE;
+  previous_state_horizontal = LANDED_STATE;
+
+  // --------------------------------------------------------------
+  // |                          services                          |
+  // --------------------------------------------------------------
+
+  service_takeoff = nh_.advertiseService("takeoff", &LandoffTracker::callbackTakeoff, this);
+  service_land    = nh_.advertiseService("land", &LandoffTracker::callbackLand, this);
 
   // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
+  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this);
 
-  profiler           = new mrs_lib::Profiler(nh_, "LineTracker");
+  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker");
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
 
-  ROS_INFO("[LineTracker]: initialized");
+  ROS_INFO("[LandoffTracker]: initialized");
 }
 
-//}
+void LandoffTracker::changeStateHorizontal(States_t new_state) {
+
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
+
+  // just for ROS_INFO
+  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+}
+
+void LandoffTracker::changeStateVertical(States_t new_state) {
+
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
+
+  if (new_state == HOVER_STATE) {
+    landing    = false;
+    taking_off = false;
+  }
+
+  // just for ROS_INFO
+  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+}
+
+void LandoffTracker::changeState(States_t new_state) {
+
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
+
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
+
+  // just for ROS_INFO
+  ROS_INFO("[LandoffTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical],
+           state_names[previous_state_horizontal], state_names[current_state_vertical]);
+}
+
+LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
+}
 
 //{ stopHorizontalMotion()
 
-void LineTracker::stopHorizontalMotion(void) {
+void LandoffTracker::stopHorizontalMotion(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -269,7 +325,7 @@ void LineTracker::stopHorizontalMotion(void) {
 
 //{ stopVerticalMotion()
 
-void LineTracker::stopVerticalMotion(void) {
+void LandoffTracker::stopVerticalMotion(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
@@ -282,7 +338,7 @@ void LineTracker::stopVerticalMotion(void) {
 
 //{ accelerateHorizontal()
 
-void LineTracker::accelerateHorizontal(void) {
+void LandoffTracker::accelerateHorizontal(void) {
 
   current_heading = atan2(goal_y - state_y, goal_x - state_x);
 
@@ -308,7 +364,21 @@ void LineTracker::accelerateHorizontal(void) {
 
 //{ accelerateVertical()
 
-void LineTracker::accelerateVertical(void) {
+void LandoffTracker::accelerateVertical(void) {
+
+  double used_acceleration;
+  double used_speed;
+
+  if (taking_off) {
+    used_speed        = takeoff_speed_;
+    used_acceleration = takeoff_acceleration_;
+  } else if (landing) {
+    used_speed        = landing_speed_;
+    used_acceleration = landing_acceleration_;
+  } else {
+    used_speed        = vertical_speed_;
+    used_acceleration = vertical_acceleration_;
+  }
 
   // set the right heading
   double tar_z = goal_z - state_z;
@@ -317,17 +387,17 @@ void LineTracker::accelerateVertical(void) {
   current_vertical_direction = sign(tar_z);
 
   // calculate the time to stop and the distance it will take to stop [vertical]
-  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_t_stop    = current_vertical_speed / used_acceleration;
   double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
   double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
 
-  current_vertical_speed += vertical_acceleration_ * tracker_dt_;
+  current_vertical_speed += used_acceleration * tracker_dt_;
 
-  if (current_vertical_speed >= vertical_speed_) {
-    current_vertical_speed = vertical_speed_;
+  if (current_vertical_speed >= used_speed) {
+    current_vertical_speed = used_speed;
   }
 
-  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
+  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
     changeStateVertical(DECELERATING_STATE);
   }
 }
@@ -336,7 +406,7 @@ void LineTracker::accelerateVertical(void) {
 
 //{ decelerateHorizontal()
 
-void LineTracker::decelerateHorizontal(void) {
+void LandoffTracker::decelerateHorizontal(void) {
 
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -353,7 +423,7 @@ void LineTracker::decelerateHorizontal(void) {
 
 //{ decelerateVertical()
 
-void LineTracker::decelerateVertical(void) {
+void LandoffTracker::decelerateVertical(void) {
 
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
@@ -370,7 +440,7 @@ void LineTracker::decelerateVertical(void) {
 
 //{ stopHorizontal()
 
-void LineTracker::stopHorizontal(void) {
+void LandoffTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
@@ -380,7 +450,7 @@ void LineTracker::stopHorizontal(void) {
 
 //{ stopVertical()
 
-void LineTracker::stopVertical(void) {
+void LandoffTracker::stopVertical(void) {
 
   state_z = 0.95 * state_z + 0.05 * goal_z;
 }
@@ -389,7 +459,7 @@ void LineTracker::stopVertical(void) {
 
 //{ mainTimer()
 
-void LineTracker::mainTimer(const ros::TimerEvent &event) {
+void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
   if (!is_active) {
     return;
@@ -399,7 +469,14 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
   switch (current_state_horizontal) {
 
-    case IDLE_STATE:
+    case LANDED_STATE:
+
+      mutex_odometry.lock();
+      {
+        state_x = odometry_x;
+        state_y = odometry_y;
+      }
+      mutex_odometry.unlock();
 
       break;
 
@@ -434,7 +511,14 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
   switch (current_state_vertical) {
 
-    case IDLE_STATE:
+    case LANDED_STATE:
+
+      mutex_odometry.lock();
+      {
+        state_z   = odometry_z;
+        state_yaw = odometry_yaw;
+      }
+      mutex_odometry.unlock();
 
       break;
 
@@ -531,10 +615,10 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
 //{ activate()
 
-bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odometry) {
-    ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
+    ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
     return false;
   }
 
@@ -557,11 +641,12 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = cmd->yaw;
 
-      ROS_INFO("[LineTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+      ROS_INFO("[LandoffTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+               cmd->yaw);
 
     } else {
 
-      ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+      ROS_WARN("[LandoffTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
 
       state_x   = odometry.pose.pose.position.x;
       state_y   = odometry.pose.pose.position.y;
@@ -577,8 +662,8 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = odometry_yaw;
 
-      ROS_INFO("[LineTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
-      ROS_INFO("[LineTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
+      ROS_INFO("[LandoffTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
+      ROS_INFO("[LandoffTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
     }
   }
   mutex_odometry.unlock();
@@ -609,9 +694,13 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   is_active = true;
 
-  ROS_INFO("[LineTracker]: activated");
+  ROS_INFO("[LandoffTracker]: activated");
 
-  changeState(STOP_MOTION_STATE);
+  if (odometry_z > 0.5) {
+    changeState(STOP_MOTION_STATE);
+  } else {
+    changeState(LANDED_STATE);
+  }
 
   return true;
 }
@@ -620,18 +709,18 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 //{ deactivate()
 
-void LineTracker::deactivate(void) {
+void LandoffTracker::deactivate(void) {
 
   is_active = false;
 
-  ROS_INFO("[LineTracker]: deactivated");
+  ROS_INFO("[LandoffTracker]: deactivated");
 }
 
 //}
 
 //{ update()
 
-const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   mutex_odometry.lock();
   {
@@ -679,7 +768,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
 //{ status()
 
-const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
+const mrs_msgs::TrackerStatus::Ptr LandoffTracker::status() {
 
   if (is_initialized) {
 
@@ -702,102 +791,101 @@ const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
 
 //{ goTo()
 
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  goal_x   = cmd->goal[0];
-  goal_y   = cmd->goal[1];
-  goal_z   = cmd->goal[2];
-  goal_yaw = validateYawSetpoint(cmd->goal[3]);
-
-  ROS_INFO("[LineTracker]: received new setpoint %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
 }
 
 //}
 
 //{ goToRelative()
 
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  mutex_odometry.lock();
-  {
-    goal_x   = state_x + cmd->goal[0];
-    goal_y   = state_y + cmd->goal[1];
-    goal_z   = state_z + cmd->goal[2];
-    goal_yaw = validateYawSetpoint(state_yaw + cmd->goal[3]);
-  }
-  mutex_odometry.unlock();
-
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %f, %f, %f, %f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
 }
 
 //}
 
 //{ hover()
 
-const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
 
-  std_srvs::TriggerResponse res;
+//}
 
-  // --------------------------------------------------------------
-  // |          horizontal initial conditions prediction          |
-  // --------------------------------------------------------------
+//{ callbackTakeoff()
+
+bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  char message[100];
+
+  if (!is_active) {
+
+    sprintf((char *)&message, "Can't take off, the tracker is not active.");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  if (odometry_z > 0.5) {
+
+    sprintf((char *)&message, "Can't take off, already in the air!");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  taking_off = true;
+
   mutex_odometry.lock();
   {
-    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-    current_vertical_speed   = odometry.twist.twist.linear.z;
+    state_x = odometry_x;
+    goal_x  = odometry_x;
+
+    goal_y  = odometry_y;
+    state_y = odometry_y;
+
+    goal_z   = takeoff_height_;
+    goal_yaw = odometry_yaw;
   }
   mutex_odometry.unlock();
 
-  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+  ROS_INFO("[LandoffTracker]: taking off");
 
-  // --------------------------------------------------------------
-  // |           vertical initial conditions prediction           |
-  // --------------------------------------------------------------
+  have_goal = true;
 
-  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-
-  // --------------------------------------------------------------
-  // |                        set the goal                        |
-  // --------------------------------------------------------------
-
-  goal_x = state_x + stop_dist_x;
-  goal_y = state_y + stop_dist_y;
-  goal_z = state_z + vertical_stop_dist;
-
-  res.message = "Hover initiated.";
   res.success = true;
+  res.message = "taking off";
 
-  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+  changeState(ACCELERATING_STATE);
+
+  return true;
+}
+
+//}
+
+//{ callbackLand()
+
+bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  char message[100];
+
+  if (!is_active) {
+
+    sprintf((char *)&message, "Can't land, the tracker is not active.");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  return true;
 }
 
 //}
 }
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::LineTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::LandoffTracker, mrs_mav_manager::Tracker)

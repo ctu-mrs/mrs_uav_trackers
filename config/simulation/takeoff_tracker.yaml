@@ -1,0 +1,15 @@
+tracker_loop_rate: 100 # [Hz]
+
+takeoff_height: 2.0
+
+horizontal_tracker:
+  horizontal_speed: 4.0
+  horizontal_acceleration: 2.0
+
+vertical_tracker:
+  vertical_speed: 2.0
+  vertical_acceleration: 2.0
+
+yaw_tracker:
+  yaw_gain: 0.4
+  yaw_rate: 1.0
