@@ -68,6 +68,7 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double takeoff_height_;
+  double landing_height_;
   double tracker_dt_;
   bool   is_initialized;
   bool   is_active;
@@ -165,6 +166,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
 
   nh_.param("takeoff_height", takeoff_height_, -1.0);
+  nh_.param("landing_height", landing_height_, -1.0);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
@@ -223,6 +225,11 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   if (takeoff_height_ < 0) {
     ROS_ERROR("[LandoffTracker]: takeoff_height was not specified!");
+    ros::shutdown();
+  }
+
+  if (landing_height_ < 0) {
+    ROS_ERROR("[LandoffTracker]: landing_height was not specified!");
     ros::shutdown();
   }
 
@@ -425,7 +432,17 @@ void LandoffTracker::decelerateHorizontal(void) {
 
 void LandoffTracker::decelerateVertical(void) {
 
-  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
+  double used_acceleration;
+
+  if (taking_off) {
+    used_acceleration = takeoff_acceleration_;
+  } else if (landing) {
+    used_acceleration = landing_acceleration_;
+  } else {
+    used_acceleration = vertical_acceleration_;
+  }
+
+  current_vertical_speed -= used_acceleration * tracker_dt_;
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
@@ -471,13 +488,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
     case LANDED_STATE:
 
-      mutex_odometry.lock();
-      {
-        state_x = odometry_x;
-        state_y = odometry_y;
-      }
-      mutex_odometry.unlock();
-
       break;
 
     case HOVER_STATE:
@@ -512,13 +522,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
   switch (current_state_vertical) {
 
     case LANDED_STATE:
-
-      mutex_odometry.lock();
-      {
-        state_z   = odometry_z;
-        state_yaw = odometry_yaw;
-      }
-      mutex_odometry.unlock();
 
       break;
 
@@ -653,17 +656,14 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       state_z   = odometry.pose.pose.position.z;
       state_yaw = odometry_yaw;
 
-      speed_x                  = odometry.twist.twist.linear.x;
-      speed_y                  = odometry.twist.twist.linear.y;
-      current_heading          = atan2(speed_y, speed_x);
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      speed_x                  = 0;
+      speed_y                  = 0;
+      current_heading          = 0;
+      current_horizontal_speed = 0;
 
       current_vertical_speed = odometry.twist.twist.linear.z;
 
       goal_yaw = odometry_yaw;
-
-      ROS_INFO("[LandoffTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
-      ROS_INFO("[LandoffTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
     }
   }
   mutex_odometry.unlock();
@@ -837,8 +837,6 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     return true;
   }
 
-  taking_off = true;
-
   mutex_odometry.lock();
   {
     state_x = odometry_x;
@@ -852,9 +850,14 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
   }
   mutex_odometry.unlock();
 
+  speed_x = 0;
+  speed_y = 0;
+  current_vertical_speed = 0;
+
   ROS_INFO("[LandoffTracker]: taking off");
 
-  have_goal = true;
+  taking_off = true;
+  have_goal  = true;
 
   res.success = true;
   res.message = "taking off";
@@ -880,6 +883,35 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
     res.message = message;
     return true;
   }
+
+  if (odometry_z < 0.5) {
+
+    sprintf((char *)&message, "Can't land, already on the ground.");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  landing = true;
+
+  mutex_odometry.lock();
+  {
+    goal_x   = odometry_x;
+    goal_y   = odometry_y;
+    goal_z   = landing_height_;
+    goal_yaw = odometry_yaw;
+  }
+  mutex_odometry.unlock();
+
+  ROS_INFO("[LandoffTracker]: landing");
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "landing";
+
+  changeState(STOP_MOTION_STATE);
 
   return true;
 }

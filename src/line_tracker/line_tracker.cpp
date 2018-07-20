@@ -576,9 +576,6 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_vertical_speed = odometry.twist.twist.linear.z;
 
       goal_yaw = odometry_yaw;
-
-      ROS_INFO("[LineTracker]: state_x = %f, state_y = %f, state_z = %f", state_x, state_y, state_z);
-      ROS_INFO("[LineTracker]: speed_x = %f, speed_y = %f, speed_z = %f", speed_x, speed_y, current_vertical_speed);
     }
   }
   mutex_odometry.unlock();
