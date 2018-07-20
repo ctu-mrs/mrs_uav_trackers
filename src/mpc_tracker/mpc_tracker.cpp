@@ -1281,7 +1281,29 @@ void MpcTracker::calculateMPC() {
 
 bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (odom_set_) {
+  if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+    // set the initial condition from the odometry
+    x_mutex.lock();
+    x(0, 0) = cmd->position.x;
+    x(1, 0) = cmd->velocity.x;
+    x(2, 0) = 0;
+
+    x(3, 0) = cmd->position.y;
+    x(4, 0) = cmd->velocity.y;
+    x(5, 0) = 0;
+
+    x(6, 0) = cmd->position.z;
+    x(7, 0) = cmd->velocity.z;
+    x(8, 0) = 0;
+
+    x_yaw(0, 0) = cmd->yaw;
+    x_yaw(1, 0) = cmd->yaw_dot;
+    x_yaw(2, 0) = 0;
+
+    yaw = cur_yaw_;
+    x_mutex.unlock();
+
+  } else {
 
     // set the initial condition from the odometry
     x_mutex.lock();
@@ -1298,14 +1320,11 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     x(8, 0) = 0;
 
     x_yaw(0, 0) = cur_yaw_;
-    x_yaw(1, 0) = odom_.twist.twist.angular.z;
+    x_yaw(1, 0) = 0;
     x_yaw(2, 0) = 0;
 
     yaw = cur_yaw_;
     x_mutex.unlock();
-
-  } else {
-    ROS_ERROR("[MpcTracker]: Odometry not set when activating MPC controller!");
   }
 
   failsafe_triggered   = false;

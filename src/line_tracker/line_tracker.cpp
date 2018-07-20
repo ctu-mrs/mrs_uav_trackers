@@ -533,43 +533,21 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   mutex_odometry.lock();
   {
-    if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+    ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
 
-      // the last command is usable
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = cmd->yaw;
+    state_x   = odometry.pose.pose.position.x;
+    state_y   = odometry.pose.pose.position.y;
+    state_z   = odometry.pose.pose.position.z;
+    state_yaw = odometry_yaw;
 
-      speed_x         = cmd->velocity.x;
-      speed_y         = cmd->velocity.y;
-      current_heading = atan2(speed_y, speed_x);
+    speed_x                  = odometry.twist.twist.linear.x;
+    speed_y                  = odometry.twist.twist.linear.y;
+    current_heading          = atan2(speed_y, speed_x);
+    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-      current_vertical_speed   = cmd->velocity.z;
+    current_vertical_speed = odometry.twist.twist.linear.z;
 
-      goal_yaw = cmd->yaw;
-
-      ROS_INFO("[LineTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
-
-    } else {
-
-      ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
-
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
-
-      speed_x                  = odometry.twist.twist.linear.x;
-      speed_y                  = odometry.twist.twist.linear.y;
-      current_heading          = atan2(speed_y, speed_x);
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-
-      current_vertical_speed = odometry.twist.twist.linear.z;
-
-      goal_yaw = odometry_yaw;
-    }
+    goal_yaw = odometry_yaw;
   }
   mutex_odometry.unlock();
 
