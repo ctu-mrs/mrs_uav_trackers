@@ -292,9 +292,27 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
   previous_state_vertical = current_state_vertical;
   current_state_vertical  = new_state;
 
-  if (new_state == HOVER_STATE) {
-    landing    = false;
-    taking_off = false;
+  switch (current_state_vertical) {
+
+    case LANDED_STATE:
+      break;
+
+    case HOVER_STATE:
+      landing    = false;
+      taking_off = false;
+      break;
+
+    case STOP_MOTION_STATE:
+      break;
+
+    case ACCELERATING_STATE:
+      break;
+
+    case DECELERATING_STATE:
+      break;
+
+    case STOPPING_STATE:
+      break;
   }
 
   // just for ROS_INFO
@@ -303,15 +321,8 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
 
 void LandoffTracker::changeState(States_t new_state) {
 
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LandoffTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical],
-           state_names[previous_state_horizontal], state_names[current_state_vertical]);
+  changeStateVertical(new_state);
+  changeStateHorizontal(new_state);
 }
 
 LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
@@ -850,8 +861,8 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
   }
   mutex_odometry.unlock();
 
-  speed_x = 0;
-  speed_y = 0;
+  speed_x                = 0;
+  speed_y                = 0;
   current_vertical_speed = 0;
 
   ROS_INFO("[LandoffTracker]: taking off");

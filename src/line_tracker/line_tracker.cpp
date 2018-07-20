@@ -142,15 +142,8 @@ void LineTracker::changeStateVertical(States_t new_state) {
 
 void LineTracker::changeState(States_t new_state) {
 
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching vertical and horizontal states %s, %s -> %s", state_names[previous_state_vertical], state_names[previous_state_horizontal],
-           state_names[current_state_vertical]);
+  changeStateVertical(new_state);
+  changeStateHorizontal(new_state);
 }
 
 LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
