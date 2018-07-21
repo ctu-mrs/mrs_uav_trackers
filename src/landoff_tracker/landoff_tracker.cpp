@@ -7,9 +7,6 @@
 #include <nav_msgs/Odometry.h>
 #include <mrs_lib/Profiler.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 #include <tf/transform_datatypes.h>
 #include <mutex>
 
@@ -20,9 +17,12 @@
 namespace mrs_trackers
 {
 
+//{ class LandoffTracker
+
 // state machine
 typedef enum {
 
+  IDLE_STATE,
   LANDED_STATE,
   STOP_MOTION_STATE,
   HOVER_STATE,
@@ -32,9 +32,9 @@ typedef enum {
 
 } States_t;
 
-const char *state_names[6] = {
+const char *state_names[7] = {
 
-    "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
+    "IDLING", "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
 class LandoffTracker : public mrs_mav_manager::Tracker {
 public:
@@ -121,6 +121,9 @@ private:
   double yaw_rate_;
   double yaw_gain_;
 
+  double max_position_difference_;
+  double landing_cutoff_height_;
+
 private:
   // desired goal
   double goal_x, goal_y, goal_z, goal_yaw;
@@ -137,6 +140,13 @@ private:
   mrs_lib::Profiler *profiler;
   mrs_lib::Routine * routine_main_timer;
 };
+
+LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
+}
+
+//}
+
+//{ initialize()
 
 void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
@@ -167,6 +177,10 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_.param("takeoff_height", takeoff_height_, -1.0);
   nh_.param("landing_height", landing_height_, -1.0);
+
+  nh_.param("max_position_difference", max_position_difference_, -1.0);
+
+  nh_.param("landing_cutoff_height", landing_cutoff_height_, -1.0);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
@@ -233,6 +247,16 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
     ros::shutdown();
   }
 
+  if (max_position_difference_ < 0) {
+    ROS_ERROR("[LandoffTracker]: max_position_difference was not specified!");
+    ros::shutdown();
+  }
+
+  if (landing_cutoff_height_ < 0) {
+    ROS_ERROR("[LandoffTracker]: landing_cutoff_height was not specified!");
+    ros::shutdown();
+  }
+
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
   ROS_INFO("[LandoffTracker]: tracker_dt: %f", tracker_dt_);
@@ -278,354 +302,11 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   ROS_INFO("[LandoffTracker]: initialized");
 }
 
-void LandoffTracker::changeStateHorizontal(States_t new_state) {
-
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
-}
-
-void LandoffTracker::changeStateVertical(States_t new_state) {
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  switch (current_state_vertical) {
-
-    case LANDED_STATE:
-      break;
-
-    case HOVER_STATE:
-      landing    = false;
-      taking_off = false;
-      break;
-
-    case STOP_MOTION_STATE:
-      break;
-
-    case ACCELERATING_STATE:
-      break;
-
-    case DECELERATING_STATE:
-      break;
-
-    case STOPPING_STATE:
-      break;
-  }
-
-  // just for ROS_INFO
-  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
-}
-
-void LandoffTracker::changeState(States_t new_state) {
-
-  changeStateVertical(new_state);
-  changeStateHorizontal(new_state);
-}
-
-LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
-}
-
-//{ stopHorizontalMotion()
-
-void LandoffTracker::stopHorizontalMotion(void) {
-
-  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
-
-  if (current_horizontal_speed < 0) {
-    current_horizontal_speed = 0;
-  }
-}
-
 //}
 
-//{ stopVerticalMotion()
-
-void LandoffTracker::stopVerticalMotion(void) {
-
-  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
-
-  if (current_vertical_speed < 0) {
-    current_vertical_speed = 0;
-  }
-}
-
-//}
-
-//{ accelerateHorizontal()
-
-void LandoffTracker::accelerateHorizontal(void) {
-
-  current_heading = atan2(goal_y - state_y, goal_x - state_x);
-
-  // decelerationg condition
-  // calculate the time to stop and the distance it will take to stop [horizontal]
-  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-
-  current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
-
-  if (current_horizontal_speed >= horizontal_speed_) {
-    current_horizontal_speed = horizontal_speed_;
-  }
-
-  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
-    changeStateHorizontal(DECELERATING_STATE);
-  }
-}
-
-//}
-
-//{ accelerateVertical()
-
-void LandoffTracker::accelerateVertical(void) {
-
-  double used_acceleration;
-  double used_speed;
-
-  if (taking_off) {
-    used_speed        = takeoff_speed_;
-    used_acceleration = takeoff_acceleration_;
-  } else if (landing) {
-    used_speed        = landing_speed_;
-    used_acceleration = landing_acceleration_;
-  } else {
-    used_speed        = vertical_speed_;
-    used_acceleration = vertical_acceleration_;
-  }
-
-  // set the right heading
-  double tar_z = goal_z - state_z;
-
-  // set the right vertical direction
-  current_vertical_direction = sign(tar_z);
-
-  // calculate the time to stop and the distance it will take to stop [vertical]
-  double vertical_t_stop    = current_vertical_speed / used_acceleration;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-  double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
-
-  current_vertical_speed += used_acceleration * tracker_dt_;
-
-  if (current_vertical_speed >= used_speed) {
-    current_vertical_speed = used_speed;
-  }
-
-  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
-    changeStateVertical(DECELERATING_STATE);
-  }
-}
-
-//}
-
-//{ decelerateHorizontal()
-
-void LandoffTracker::decelerateHorizontal(void) {
-
-  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
-
-  if (current_horizontal_speed < 0) {
-    current_horizontal_speed = 0;
-  }
-
-  if (current_horizontal_speed == 0) {
-    changeStateHorizontal(STOPPING_STATE);
-  }
-}
-
-//}
-
-//{ decelerateVertical()
-
-void LandoffTracker::decelerateVertical(void) {
-
-  double used_acceleration;
-
-  if (taking_off) {
-    used_acceleration = takeoff_acceleration_;
-  } else if (landing) {
-    used_acceleration = landing_acceleration_;
-  } else {
-    used_acceleration = vertical_acceleration_;
-  }
-
-  current_vertical_speed -= used_acceleration * tracker_dt_;
-
-  if (current_vertical_speed < 0) {
-    current_vertical_speed = 0;
-  }
-
-  if (current_vertical_speed == 0) {
-    changeStateVertical(STOPPING_STATE);
-  }
-}
-
-//}
-
-//{ stopHorizontal()
-
-void LandoffTracker::stopHorizontal(void) {
-
-  state_x = 0.95 * state_x + 0.05 * goal_x;
-  state_y = 0.95 * state_y + 0.05 * goal_y;
-}
-
-//}
-
-//{ stopVertical()
-
-void LandoffTracker::stopVertical(void) {
-
-  state_z = 0.95 * state_z + 0.05 * goal_z;
-}
-
-//}
-
-//{ mainTimer()
-
-void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
-
-  if (!is_active) {
-    return;
-  }
-
-  routine_main_timer->start(event);
-
-  switch (current_state_horizontal) {
-
-    case LANDED_STATE:
-
-      break;
-
-    case HOVER_STATE:
-
-      break;
-
-    case STOP_MOTION_STATE:
-
-      stopHorizontalMotion();
-
-      break;
-
-    case ACCELERATING_STATE:
-
-      accelerateHorizontal();
-
-      break;
-
-    case DECELERATING_STATE:
-
-      decelerateHorizontal();
-
-      break;
-
-    case STOPPING_STATE:
-
-      stopHorizontal();
-
-      break;
-  }
-
-  switch (current_state_vertical) {
-
-    case LANDED_STATE:
-
-      break;
-
-    case HOVER_STATE:
-
-      break;
-
-    case STOP_MOTION_STATE:
-
-      stopVerticalMotion();
-
-      break;
-
-    case ACCELERATING_STATE:
-
-      accelerateVertical();
-
-      break;
-
-    case DECELERATING_STATE:
-
-      decelerateVertical();
-
-      break;
-
-    case STOPPING_STATE:
-
-      stopVertical();
-
-      break;
-  }
-
-  if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
-
-    if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
-      if (have_goal) {
-        changeState(ACCELERATING_STATE);
-      } else {
-        changeState(STOPPING_STATE);
-      }
-    }
-  }
-
-  if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
-
-    if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
-
-      state_x = goal_x;
-      state_y = goal_y;
-      state_z = goal_z;
-
-      changeState(HOVER_STATE);
-    }
-  }
-
-  state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
-  state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
-  state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
-
-  // --------------------------------------------------------------
-  // |                        yaw tracking                        |
-  // --------------------------------------------------------------
-
-  // compute the desired yaw rate
-  double current_yaw_rate;
-  if (fabs(goal_yaw - state_yaw) > PI)
-    current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
-  else
-    current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
-
-  if (current_yaw_rate > yaw_rate_) {
-    current_yaw_rate = yaw_rate_;
-  } else if (current_yaw_rate < -yaw_rate_) {
-    current_yaw_rate = -yaw_rate_;
-  }
-
-  // flap the resulted state_yaw aroud PI
-  state_yaw += current_yaw_rate * tracker_dt_;
-
-  if (state_yaw > PI) {
-    state_yaw -= 2 * PI;
-  } else if (state_yaw < -PI) {
-    state_yaw += 2 * PI;
-  }
-
-  if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
-    state_yaw = goal_yaw;
-  }
-
-  routine_main_timer->end();
-}
-
-//}
+// --------------------------------------------------------------
+// |                tracker's interface routines                |
+// --------------------------------------------------------------
 
 //{ activate()
 
@@ -638,7 +319,25 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   mutex_odometry.lock();
   {
-    if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+    if (cmd == mrs_msgs::PositionCommand::Ptr() || (odometry_z < landing_cutoff_height_)) {
+
+      state_x   = odometry.pose.pose.position.x;
+      state_y   = odometry.pose.pose.position.y;
+      state_z   = odometry.pose.pose.position.z;
+      state_yaw = odometry_yaw;
+
+      speed_x                  = 0;
+      speed_y                  = 0;
+      current_heading          = 0;
+      current_horizontal_speed = 0;
+
+      current_vertical_speed = odometry.twist.twist.linear.z;
+
+      goal_yaw = odometry_yaw;
+
+      ROS_WARN("[LandoffTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+
+    } else {
 
       // the last command is usable
       state_x   = cmd->position.x;
@@ -657,24 +356,6 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       ROS_INFO("[LandoffTracker]: activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
                cmd->yaw);
-
-    } else {
-
-      ROS_WARN("[LandoffTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
-
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
-
-      speed_x                  = 0;
-      speed_y                  = 0;
-      current_heading          = 0;
-      current_horizontal_speed = 0;
-
-      current_vertical_speed = odometry.twist.twist.linear.z;
-
-      goal_yaw = odometry_yaw;
     }
   }
   mutex_odometry.unlock();
@@ -703,9 +384,11 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   goal_y = state_y + stop_dist_y;
   goal_z = state_z + vertical_stop_dist;
 
-  is_active = true;
+  landing    = false;
+  taking_off = false;
+  is_active  = true;
 
-  ROS_INFO("[LandoffTracker]: activated");
+  ROS_INFO("[LandoffTracker]: activated with goal x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", goal_x, goal_y, goal_z, goal_yaw);
 
   changeState(STOP_MOTION_STATE);
 
@@ -718,9 +401,73 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 void LandoffTracker::deactivate(void) {
 
-  is_active = false;
+  is_active                = false;
+  landing                  = false;
+  taking_off               = false;
+  current_state_vertical   = IDLE_STATE;
+  current_state_horizontal = IDLE_STATE;
 
   ROS_INFO("[LandoffTracker]: deactivated");
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                   state machine routines                   |
+// --------------------------------------------------------------
+
+//{ changeStateHorizontal()
+
+void LandoffTracker::changeStateHorizontal(States_t new_state) {
+
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
+
+  // just for ROS_INFO
+  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+}
+
+//}
+
+//{ changeStateVertical()
+
+void LandoffTracker::changeStateVertical(States_t new_state) {
+
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
+
+  switch (current_state_vertical) {
+
+    case IDLE_STATE:
+      break;
+    case LANDED_STATE:
+      break;
+    case HOVER_STATE:
+      landing    = false;
+      taking_off = false;
+      break;
+    case STOP_MOTION_STATE:
+      break;
+    case ACCELERATING_STATE:
+      break;
+    case DECELERATING_STATE:
+      break;
+    case STOPPING_STATE:
+      break;
+  }
+
+  // just for ROS_INFO
+  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+}
+
+//}
+
+//{ changeState()
+
+void LandoffTracker::changeState(States_t new_state) {
+
+  changeStateVertical(new_state);
+  changeStateHorizontal(new_state);
 }
 
 //}
@@ -820,6 +567,347 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::
 
 //}
 
+// --------------------------------------------------------------
+// |                       motion routines                      |
+// --------------------------------------------------------------
+
+//{ stopHorizontalMotion()
+
+void LandoffTracker::stopHorizontalMotion(void) {
+
+  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+
+  if (current_horizontal_speed < 0) {
+    current_horizontal_speed = 0;
+  }
+}
+
+//}
+
+//{ stopVerticalMotion()
+
+void LandoffTracker::stopVerticalMotion(void) {
+
+  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
+
+  if (current_vertical_speed < 0) {
+    current_vertical_speed = 0;
+  }
+}
+
+//}
+
+//{ accelerateHorizontal()
+
+void LandoffTracker::accelerateHorizontal(void) {
+
+  current_heading = atan2(goal_y - state_y, goal_x - state_x);
+
+  // decelerationg condition
+  // calculate the time to stop and the distance it will take to stop [horizontal]
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+  current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
+
+  if (current_horizontal_speed >= horizontal_speed_) {
+    current_horizontal_speed = horizontal_speed_;
+  }
+
+  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
+    changeStateHorizontal(DECELERATING_STATE);
+  }
+}
+
+//}
+
+//{ accelerateVertical()
+
+void LandoffTracker::accelerateVertical(void) {
+
+  double used_acceleration;
+  double used_speed;
+
+  if (taking_off) {
+    used_speed        = takeoff_speed_;
+    used_acceleration = takeoff_acceleration_;
+  } else if (landing) {
+    used_speed        = landing_speed_;
+    used_acceleration = landing_acceleration_;
+  } else {
+    used_speed        = vertical_speed_;
+    used_acceleration = vertical_acceleration_;
+  }
+
+  // set the right heading
+  double tar_z = goal_z - state_z;
+
+  // set the right vertical direction
+  current_vertical_direction = mrs_trackers_commons::sign(tar_z);
+
+  // calculate the time to stop and the distance it will take to stop [vertical]
+  double vertical_t_stop    = current_vertical_speed / used_acceleration;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+  double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
+
+  current_vertical_speed += used_acceleration * tracker_dt_;
+
+  if (current_vertical_speed >= used_speed) {
+    current_vertical_speed = used_speed;
+  }
+
+  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
+    changeStateVertical(DECELERATING_STATE);
+  }
+}
+
+//}
+
+//{ decelerateHorizontal()
+
+void LandoffTracker::decelerateHorizontal(void) {
+
+  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+
+  if (current_horizontal_speed < 0) {
+    current_horizontal_speed = 0;
+  }
+
+  if (current_horizontal_speed == 0) {
+    changeStateHorizontal(STOPPING_STATE);
+  }
+}
+
+//}
+
+//{ decelerateVertical()
+
+void LandoffTracker::decelerateVertical(void) {
+
+  double used_acceleration;
+
+  if (taking_off) {
+    used_acceleration = takeoff_acceleration_;
+  } else if (landing) {
+    used_acceleration = landing_acceleration_;
+  } else {
+    used_acceleration = vertical_acceleration_;
+  }
+
+  current_vertical_speed -= used_acceleration * tracker_dt_;
+
+  if (current_vertical_speed < 0) {
+    current_vertical_speed = 0;
+  }
+
+  if (current_vertical_speed == 0) {
+    changeStateVertical(STOPPING_STATE);
+  }
+}
+
+//}
+
+//{ stopHorizontal()
+
+void LandoffTracker::stopHorizontal(void) {
+
+  state_x = 0.95 * state_x + 0.05 * goal_x;
+  state_y = 0.95 * state_y + 0.05 * goal_y;
+}
+
+//}
+
+//{ stopVertical()
+
+void LandoffTracker::stopVertical(void) {
+
+  state_z = 0.95 * state_z + 0.05 * goal_z;
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                       timer routines                       |
+// --------------------------------------------------------------
+
+//{ mainTimer()
+
+void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
+
+  if (!is_active) {
+    return;
+  }
+
+  routine_main_timer->start(event);
+
+  switch (current_state_horizontal) {
+
+    case IDLE_STATE:
+      break;
+
+    case LANDED_STATE:
+      break;
+
+    case HOVER_STATE:
+      break;
+
+    case STOP_MOTION_STATE:
+
+      stopHorizontalMotion();
+      break;
+
+    case ACCELERATING_STATE:
+
+      accelerateHorizontal();
+      break;
+
+    case DECELERATING_STATE:
+
+      decelerateHorizontal();
+      break;
+
+    case STOPPING_STATE:
+
+      stopHorizontal();
+      break;
+  }
+
+  switch (current_state_vertical) {
+
+    case IDLE_STATE:
+      break;
+
+    case LANDED_STATE:
+      break;
+
+    case HOVER_STATE:
+      break;
+
+    case STOP_MOTION_STATE:
+
+      stopVerticalMotion();
+      break;
+
+    case ACCELERATING_STATE:
+
+      accelerateVertical();
+      break;
+
+    case DECELERATING_STATE:
+
+      decelerateVertical();
+      break;
+
+    case STOPPING_STATE:
+
+      stopVertical();
+      break;
+  }
+
+  if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
+
+    if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
+      if (have_goal) {
+        changeState(ACCELERATING_STATE);
+      } else {
+        changeState(STOPPING_STATE);
+      }
+    }
+  }
+
+  if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
+
+    if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
+
+      state_x = goal_x;
+      state_y = goal_y;
+      state_z = goal_z;
+
+      changeState(HOVER_STATE);
+    }
+  }
+
+  if (current_state_horizontal == LANDED_STATE && current_state_vertical == LANDED_STATE) {
+    mutex_odometry.lock();
+    {
+      state_x = goal_x = odometry_x;
+      state_y = goal_y = odometry_y;
+      state_z = goal_z = odometry_z;
+    }
+    mutex_odometry.unlock();
+  }
+
+  mutex_odometry.lock();
+  {
+    // calculate the vector
+    double err_x      = odometry_x - state_x;
+    double err_y      = odometry_y - state_y;
+    double err_z      = odometry_z - state_z;
+    double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
+
+    if (error_size > max_position_difference_) {
+
+      // calculate the potential next step
+      double future_state_x = state_x + cos(current_heading) * current_horizontal_speed * tracker_dt_;
+      double future_state_y = state_y + sin(current_heading) * current_horizontal_speed * tracker_dt_;
+      double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
+
+      if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
+        current_horizontal_speed = 0;
+        current_vertical_speed   = 0;
+
+        ROS_INFO("[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
+      }
+    }
+  }
+  mutex_odometry.unlock();
+
+  // update the inner states
+  state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
+  state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
+  state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
+
+  // --------------------------------------------------------------
+  // |                        yaw tracking                        |
+  // --------------------------------------------------------------
+
+  // compute the desired yaw rate
+  double current_yaw_rate;
+  if (fabs(goal_yaw - state_yaw) > PI)
+    current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
+  else
+    current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
+
+  if (current_yaw_rate > yaw_rate_) {
+    current_yaw_rate = yaw_rate_;
+  } else if (current_yaw_rate < -yaw_rate_) {
+    current_yaw_rate = -yaw_rate_;
+  }
+
+  // flap the resulted state_yaw aroud PI
+  state_yaw += current_yaw_rate * tracker_dt_;
+
+  if (state_yaw > PI) {
+    state_yaw -= 2 * PI;
+  } else if (state_yaw < -PI) {
+    state_yaw += 2 * PI;
+  }
+
+  if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
+    state_yaw = goal_yaw;
+  }
+
+  routine_main_timer->end();
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                          callbacks                         |
+// --------------------------------------------------------------
+
 //{ callbackTakeoff()
 
 bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
@@ -835,7 +923,7 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     return true;
   }
 
-  if (odometry_z > 0.5) {
+  if (odometry_z > landing_cutoff_height_) {
 
     sprintf((char *)&message, "Can't take off, already in the air!");
     ROS_ERROR("[LandoffTracker]: %s", message);
@@ -864,6 +952,7 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
   ROS_INFO("[LandoffTracker]: taking off");
 
   taking_off = true;
+  landing    = false;
   have_goal  = true;
 
   res.success = true;
@@ -888,32 +977,31 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
     ROS_ERROR("[LandoffTracker]: %s", message);
     res.success = false;
     res.message = message;
+    taking_off  = false;
+    landing     = false;
+    changeState(LANDED_STATE);
     return true;
   }
 
-  if (odometry_z < 0.5) {
+  if (odometry_z < landing_cutoff_height_) {
 
     sprintf((char *)&message, "Can't land, already on the ground.");
     ROS_ERROR("[LandoffTracker]: %s", message);
     res.success = false;
     res.message = message;
+    changeState(LANDED_STATE);
+    taking_off = false;
+    landing    = false;
     return true;
   }
 
-  /* mutex_odometry.lock(); */
-  /* { */
-  /*   goal_x   = odometry_x; */
-  /*   goal_y   = odometry_y; */
-  /*   goal_yaw = odometry_yaw; */
-  /* } */
-  /* mutex_odometry.unlock(); */
-
-  goal_z   = landing_height_;
+  goal_z = landing_height_;
 
   ROS_INFO("[LandoffTracker]: landing");
 
-  landing = true;
-  have_goal = true;
+  landing    = true;
+  taking_off = false;
+  have_goal  = true;
 
   res.success = true;
   res.message = "landing";

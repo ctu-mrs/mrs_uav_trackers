@@ -1469,7 +1469,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   }
 
   des_yaw_mutex.lock();
-  { desired_yaw = validateYawSetpoint(desired_yaw); }
+  { desired_yaw = mrs_trackers_commons::validateYawSetpoint(desired_yaw); }
   des_yaw_mutex.unlock();
 
   // compute the desired yaw rate

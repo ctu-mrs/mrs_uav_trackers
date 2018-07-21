@@ -7,9 +7,6 @@
 #include <nav_msgs/Odometry.h>
 #include <mrs_lib/Profiler.h>
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 #include <tf/transform_datatypes.h>
 #include <mutex>
 
@@ -19,6 +16,8 @@
 
 namespace mrs_trackers
 {
+
+//{ class LandoffTracker
 
 // state machine
 typedef enum {
@@ -123,32 +122,10 @@ private:
   mrs_lib::Routine * routine_update;
 };
 
-void LineTracker::changeStateHorizontal(States_t new_state) {
-
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
-}
-
-void LineTracker::changeStateVertical(States_t new_state) {
-
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
-
-  // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
-}
-
-void LineTracker::changeState(States_t new_state) {
-
-  changeStateVertical(new_state);
-  changeStateHorizontal(new_state);
-}
-
 LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 }
+
+//}
 
 //{ initialize()
 
@@ -249,6 +226,325 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 
 //}
 
+// --------------------------------------------------------------
+// |                tracker's interface routines                |
+// --------------------------------------------------------------
+
+//{ activate()
+
+bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+
+  if (!got_odometry) {
+    ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
+    return false;
+  }
+
+  mutex_odometry.lock();
+  {
+    if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+
+      // the last command is usable
+      state_x   = cmd->position.x;
+      state_y   = cmd->position.y;
+      state_z   = cmd->position.z;
+      state_yaw = cmd->yaw;
+
+      speed_x         = cmd->velocity.x;
+      speed_y         = cmd->velocity.y;
+      current_heading = atan2(speed_y, speed_x);
+
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      current_vertical_speed   = cmd->velocity.z;
+
+      goal_yaw = cmd->yaw;
+
+      ROS_INFO("[LineTracker]: activated with initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+               cmd->yaw);
+
+    } else {
+
+      state_x   = odometry.pose.pose.position.x;
+      state_y   = odometry.pose.pose.position.y;
+      state_z   = odometry.pose.pose.position.z;
+      state_yaw = odometry_yaw;
+
+      speed_x                  = odometry.twist.twist.linear.x;
+      speed_y                  = odometry.twist.twist.linear.y;
+      current_heading          = atan2(speed_y, speed_x);
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+
+      current_vertical_speed = odometry.twist.twist.linear.z;
+
+      goal_yaw = odometry_yaw;
+
+      ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+    }
+  }
+  mutex_odometry.unlock();
+
+  // --------------------------------------------------------------
+  // |          horizontal initial conditions prediction          |
+  // --------------------------------------------------------------
+
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+  // --------------------------------------------------------------
+  // |           vertical initial conditions prediction           |
+  // --------------------------------------------------------------
+
+  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+
+  // --------------------------------------------------------------
+  // |              yaw initial condition  prediction             |
+  // --------------------------------------------------------------
+
+  goal_x = state_x + stop_dist_x;
+  goal_y = state_y + stop_dist_y;
+  goal_z = state_z + vertical_stop_dist;
+
+  is_active = true;
+
+  ROS_INFO("[LineTracker]: activated");
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
+}
+
+//}
+
+//{ deactivate()
+
+void LineTracker::deactivate(void) {
+
+  is_active = false;
+
+  ROS_INFO("[LineTracker]: deactivated");
+}
+
+//}
+
+//{ update()
+
+const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  routine_update->start();
+
+  mutex_odometry.lock();
+  {
+    odometry   = *msg;
+    odometry_x = odometry.pose.pose.position.x;
+    odometry_y = odometry.pose.pose.position.y;
+    odometry_z = odometry.pose.pose.position.z;
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+
+    got_odometry = true;
+  }
+  mutex_odometry.unlock();
+
+  if (!is_active) {
+
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  position_output.header.stamp    = ros::Time::now();
+  position_output.header.frame_id = "local_origin";
+
+  position_output.position.x = state_x;
+  position_output.position.y = state_y;
+  position_output.position.z = state_z;
+  position_output.yaw        = state_yaw;
+
+  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
+  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
+  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
+  position_output.yaw_dot    = speed_yaw;
+
+  position_output.acceleration.x = 0;
+  position_output.acceleration.y = 0;
+  position_output.acceleration.z = 0;
+
+  routine_update->end();
+
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
+}
+
+//}
+
+//{ status()
+
+const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
+
+  if (is_initialized) {
+
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
+}
+
+//}
+
+//{ goTo()
+
+const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  goal_x   = cmd->goal[0];
+  goal_y   = cmd->goal[1];
+  goal_z   = cmd->goal[2];
+  goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal[3]);
+
+  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ goToRelative()
+
+const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  mutex_odometry.lock();
+  {
+    goal_x   = state_x + cmd->goal[0];
+    goal_y   = state_y + cmd->goal[1];
+    goal_z   = state_z + cmd->goal[2];
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
+  }
+  mutex_odometry.unlock();
+
+  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ hover()
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+
+  std_srvs::TriggerResponse res;
+
+  // --------------------------------------------------------------
+  // |          horizontal initial conditions prediction          |
+  // --------------------------------------------------------------
+  mutex_odometry.lock();
+  {
+    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+    current_vertical_speed   = odometry.twist.twist.linear.z;
+  }
+  mutex_odometry.unlock();
+
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+  // --------------------------------------------------------------
+  // |           vertical initial conditions prediction           |
+  // --------------------------------------------------------------
+
+  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+
+  // --------------------------------------------------------------
+  // |                        set the goal                        |
+  // --------------------------------------------------------------
+
+  goal_x = state_x + stop_dist_x;
+  goal_y = state_y + stop_dist_y;
+  goal_z = state_z + vertical_stop_dist;
+
+  res.message = "Hover initiated.";
+  res.success = true;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                   state machine routines                   |
+// --------------------------------------------------------------
+
+//{ changeStateHorizontal()
+
+void LineTracker::changeStateHorizontal(States_t new_state) {
+
+  previous_state_horizontal = current_state_horizontal;
+  current_state_horizontal  = new_state;
+
+  // just for ROS_INFO
+  ROS_INFO("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+}
+
+//}
+
+//{ changeStateVertical()
+
+void LineTracker::changeStateVertical(States_t new_state) {
+
+  previous_state_vertical = current_state_vertical;
+  current_state_vertical  = new_state;
+
+  // just for ROS_INFO
+  ROS_INFO("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+}
+
+//}
+
+//{ changeState()
+
+void LineTracker::changeState(States_t new_state) {
+
+  changeStateVertical(new_state);
+  changeStateHorizontal(new_state);
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                       motion routines                      |
+// --------------------------------------------------------------
+
 //{ stopHorizontalMotion()
 
 void LineTracker::stopHorizontalMotion(void) {
@@ -309,7 +605,7 @@ void LineTracker::accelerateVertical(void) {
   double tar_z = goal_z - state_z;
 
   // set the right vertical direction
-  current_vertical_direction = sign(tar_z);
+  current_vertical_direction = mrs_trackers_commons::sign(tar_z);
 
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
@@ -381,6 +677,10 @@ void LineTracker::stopVertical(void) {
 }
 
 //}
+
+// --------------------------------------------------------------
+// |                       timer routines                       |
+// --------------------------------------------------------------
 
 //{ mainTimer()
 
@@ -524,253 +824,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ activate()
-
-bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
-
-  if (!got_odometry) {
-    ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
-    return false;
-  }
-
-  mutex_odometry.lock();
-  {
-    ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
-
-    state_x   = odometry.pose.pose.position.x;
-    state_y   = odometry.pose.pose.position.y;
-    state_z   = odometry.pose.pose.position.z;
-    state_yaw = odometry_yaw;
-
-    speed_x                  = odometry.twist.twist.linear.x;
-    speed_y                  = odometry.twist.twist.linear.y;
-    current_heading          = atan2(speed_y, speed_x);
-    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-
-    current_vertical_speed = odometry.twist.twist.linear.z;
-
-    goal_yaw = odometry_yaw;
-  }
-  mutex_odometry.unlock();
-
-  // --------------------------------------------------------------
-  // |          horizontal initial conditions prediction          |
-  // --------------------------------------------------------------
-
-  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-
-  // --------------------------------------------------------------
-  // |           vertical initial conditions prediction           |
-  // --------------------------------------------------------------
-
-  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-
-  // --------------------------------------------------------------
-  // |              yaw initial condition  prediction             |
-  // --------------------------------------------------------------
-
-  goal_x = state_x + stop_dist_x;
-  goal_y = state_y + stop_dist_y;
-  goal_z = state_z + vertical_stop_dist;
-
-  is_active = true;
-
-  ROS_INFO("[LineTracker]: activated");
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-//}
-
-//{ deactivate()
-
-void LineTracker::deactivate(void) {
-
-  is_active = false;
-
-  ROS_INFO("[LineTracker]: deactivated");
-}
-
-//}
-
-//{ update()
-
-const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
-
-  routine_update->start();
-
-  mutex_odometry.lock();
-  {
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
-
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
-
-    got_odometry = true;
-  }
-  mutex_odometry.unlock();
-
-  if (!is_active) {
-
-    return mrs_msgs::PositionCommand::Ptr();
-  }
-
-  position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
-
-  position_output.position.x = state_x;
-  position_output.position.y = state_y;
-  position_output.position.z = state_z;
-  position_output.yaw        = state_yaw;
-
-  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
-  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
-  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
-  position_output.yaw_dot    = speed_yaw;
-
-  position_output.acceleration.x = 0;
-  position_output.acceleration.y = 0;
-  position_output.acceleration.z = 0;
-
-  routine_update->end();
-
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
-}
-
-//}
-
-//{ status()
-
-const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
-
-  if (is_initialized) {
-
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
-
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
-}
-
-//}
-
-//{ goTo()
-
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  goal_x   = cmd->goal[0];
-  goal_y   = cmd->goal[1];
-  goal_z   = cmd->goal[2];
-  goal_yaw = validateYawSetpoint(cmd->goal[3]);
-
-  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-//{ goToRelative()
-
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  mutex_odometry.lock();
-  {
-    goal_x   = state_x + cmd->goal[0];
-    goal_y   = state_y + cmd->goal[1];
-    goal_z   = state_z + cmd->goal[2];
-    goal_yaw = validateYawSetpoint(state_yaw + cmd->goal[3]);
-  }
-  mutex_odometry.unlock();
-
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-//{ hover()
-
-const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
-
-  std_srvs::TriggerResponse res;
-
-  // --------------------------------------------------------------
-  // |          horizontal initial conditions prediction          |
-  // --------------------------------------------------------------
-  mutex_odometry.lock();
-  {
-    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-    current_vertical_speed   = odometry.twist.twist.linear.z;
-  }
-  mutex_odometry.unlock();
-
-  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-
-  // --------------------------------------------------------------
-  // |           vertical initial conditions prediction           |
-  // --------------------------------------------------------------
-
-  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-
-  // --------------------------------------------------------------
-  // |                        set the goal                        |
-  // --------------------------------------------------------------
-
-  goal_x = state_x + stop_dist_x;
-  goal_y = state_y + stop_dist_y;
-  goal_z = state_z + vertical_stop_dist;
-
-  res.message = "Hover initiated.";
-  res.success = true;
-
-  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
-}
-
-//}
 }
 
 #include <pluginlib/class_list_macros.h>

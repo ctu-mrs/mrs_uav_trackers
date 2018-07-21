@@ -1,7 +1,14 @@
 #ifndef COMMONS_H
 #define COMMONS_H
 
+#include <ros/ros.h>
+#include <stdlib.h>
+#include <math.h>
+
 #define PI 3.141592653
+
+namespace mrs_trackers_commons
+{
 
 double validateYawSetpoint(const double yaw_in) {
 
@@ -35,6 +42,22 @@ double validateYawSetpoint(const double yaw_in) {
 double sign(const double in) {
 
   return (in > 0) ? 1.0 : -1.0;
+}
+
+double dist2(const double x1, const double x2, const double y1, const double y2) {
+
+  return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2));
+}
+
+double dist3(const double x1, const double x2, const double y1, const double y2, const double z1, const double z2) {
+
+  return sqrt(pow(x1 - x2, 2) + pow(y1 - y2, 2) + pow(z1 - z2, 2));
+}
+
+double size3(const double x, const double y, const double z) {
+
+  return sqrt(pow(x, 2) + pow(y, 2) + pow(z, 2));
+}
 }
 
 #endif
