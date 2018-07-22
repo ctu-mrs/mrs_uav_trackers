@@ -258,7 +258,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = cmd->yaw;
 
-      ROS_INFO("[LineTracker]: activated with initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+      ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
                cmd->yaw);
 
     } else {
@@ -277,7 +277,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = odometry_yaw;
 
-      ROS_WARN("[LineTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
+      ROS_WARN("[LineTracker]: the previous command is not usable for activation, using Odometry instead.");
     }
   }
   mutex_odometry.unlock();
@@ -353,6 +353,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
   if (!is_active) {
 
+    routine_update->end();
     return mrs_msgs::PositionCommand::Ptr();
   }
 
@@ -374,7 +375,6 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   position_output.acceleration.z = 0;
 
   routine_update->end();
-
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
 
@@ -513,7 +513,7 @@ void LineTracker::changeStateHorizontal(States_t new_state) {
   current_state_horizontal  = new_state;
 
   // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+  ROS_DEBUG("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
 }
 
 //}
@@ -526,7 +526,7 @@ void LineTracker::changeStateVertical(States_t new_state) {
   current_state_vertical  = new_state;
 
   // just for ROS_INFO
-  ROS_INFO("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+  ROS_DEBUG("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
 }
 
 //}

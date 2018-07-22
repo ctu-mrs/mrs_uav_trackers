@@ -424,7 +424,7 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
   current_state_horizontal  = new_state;
 
   // just for ROS_INFO
-  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+  ROS_DEBUG("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
 }
 
 //}
@@ -457,7 +457,7 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
   }
 
   // just for ROS_INFO
-  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+  ROS_DEBUG("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
 }
 
 //}
@@ -858,7 +858,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
         current_horizontal_speed = 0;
         current_vertical_speed   = 0;
 
-        ROS_INFO("[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
+        ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
       }
     }
   }
