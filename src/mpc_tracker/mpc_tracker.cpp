@@ -72,7 +72,6 @@ private:
   ros::ServiceServer ser_resume_trajectory_following_;  // resume trajectory following
   ros::ServiceServer ser_fly_to_trajectory_start_;      // fly to the first point of the trajectory
   ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
-  ros::ServiceServer goto_service_cmd_cb_;
   ros::ServiceServer gotoaltitude_service_cmd_cb_;
   ros::ServiceServer set_yaw_service_cmd_cb;
   ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
