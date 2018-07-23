@@ -1,14 +1,15 @@
 tracker_loop_rate: 100 # [Hz]
 
 takeoff_height: 3.0
-landing_height: 0.1
-landing_cutoff_height: 0.25
+landing_fast_height: 1.5
+landing_height: -0.25
+landing_cutoff_height: 0.30
 
 max_position_difference: 0.5
 
 horizontal_tracker:
   horizontal_speed: 4.0
-  horizontal_acceleration: 2.0
+  horizontal_acceleration: 1.0
 
 vertical_tracker:
   vertical_speed: 1.0

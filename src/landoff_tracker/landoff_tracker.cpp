@@ -70,6 +70,7 @@ private:
   int    tracker_loop_rate_;
   double takeoff_height_;
   double landing_height_;
+  double landing_fast_height_;
   double tracker_dt_;
   bool   is_initialized;
   bool   is_active;
@@ -177,10 +178,12 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
 
   nh_.param("takeoff_height", takeoff_height_, -1.0);
-  nh_.param("landing_height", landing_height_, -1.0);
+  nh_.param("landing_height", landing_height_, -1000.0);
+  nh_.param("landing_fast_height", landing_fast_height_, -1.0);
 
   nh_.param("max_position_difference", max_position_difference_, -1.0);
 
+  nh_.param("landing_cutoff_height", landing_cutoff_height_, -1.0);
   nh_.param("landing_cutoff_height", landing_cutoff_height_, -1.0);
 
   if (horizontal_speed_ < 0) {
@@ -243,8 +246,13 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
     ros::shutdown();
   }
 
-  if (landing_height_ < 0) {
+  if (landing_height_ < -999) {
     ROS_ERROR("[LandoffTracker]: landing_height was not specified!");
+    ros::shutdown();
+  }
+
+  if (landing_fast_height_ < -999) {
+    ROS_ERROR("[LandoffTracker]: landing_fast_height was not specified!");
     ros::shutdown();
   }
 
@@ -643,7 +651,7 @@ void LandoffTracker::accelerateVertical(void) {
     used_speed        = takeoff_speed_;
     used_acceleration = takeoff_acceleration_;
   } else if (landing) {
-    if (odometry_z > 1.5) {
+    if (odometry_z > landing_fast_height_) {
       used_speed        = vertical_speed_;
       used_acceleration = vertical_acceleration_;
     } else {
