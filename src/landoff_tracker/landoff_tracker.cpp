@@ -643,8 +643,13 @@ void LandoffTracker::accelerateVertical(void) {
     used_speed        = takeoff_speed_;
     used_acceleration = takeoff_acceleration_;
   } else if (landing) {
-    used_speed        = landing_speed_;
-    used_acceleration = landing_acceleration_;
+    if (odometry_z > 1.5) {
+      used_speed        = vertical_speed_;
+      used_acceleration = vertical_acceleration_;
+    } else {
+      used_speed        = landing_speed_;
+      used_acceleration = landing_acceleration_;
+    }
   } else {
     used_speed        = vertical_speed_;
     used_acceleration = vertical_acceleration_;
