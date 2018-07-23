@@ -20,10 +20,6 @@
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/TrackerStatus.h>
-#include <mrs_msgs/Vec1.h>
-#include <mrs_msgs/Vec4.h>
-#include <mrs_msgs/Vec4Request.h>
-#include <mrs_msgs/Vec4Response.h>
 
 #include <mrs_mav_manager/Tracker.h>
 
@@ -56,6 +52,7 @@ public:
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -72,7 +69,6 @@ private:
   ros::ServiceServer ser_resume_trajectory_following_;  // resume trajectory following
   ros::ServiceServer ser_fly_to_trajectory_start_;      // fly to the first point of the trajectory
   ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
-  ros::ServiceServer gotoaltitude_service_cmd_cb_;
   ros::ServiceServer set_yaw_service_cmd_cb;
   ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
   ros::ServiceServer collision_avoidance_service;
@@ -262,7 +258,6 @@ private:
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   bool set_rel_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   bool set_goal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
   bool goto_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -598,9 +593,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   // service for flying to the trajectory start point
   ser_fly_to_trajectory_start_ = nh_.advertiseService("fly_to_trajectory_start", &MpcTracker::fly_to_trajectory_start_cmd_cb, this);
-
-  // service goToAltitude service
-  gotoaltitude_service_cmd_cb_ = nh_.advertiseService("goto_altitude", &MpcTracker::gotoaltitude_service_cmd_cb, this);
 
   // service for setYaw
   set_yaw_service_cmd_cb = nh_.advertiseService("set_yaw", &MpcTracker::callbackSetYaw, this);
@@ -1785,28 +1777,28 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
 //{ gotoaltitude_service_cmd_cb()
 
 // callback for goToAltitude service
-bool MpcTracker::gotoaltitude_service_cmd_cb(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec1Response res;
 
   if (failsafe_triggered) {
 
     res.success = false;
     res.message = "Failsafe is active!";
-    return true;
-  }
 
-  if (!set_goal(x(0, 0), x(3, 0), req.goal, x_yaw(0, 0), false)) {
+  } else if (!set_goal(x(0, 0), x(3, 0), cmd->goal, x_yaw(0, 0), false)) {
 
     res.success = false;
     res.message = "Cannot set the goal. It is probably outside of the safety area.";
-    return true;
+  } else {
+
+    res.success = true;
+    char tempStr[100];
+    sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
+    res.message = tempStr;
   }
 
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Going to altitude: %2.2f", req.goal);
-  res.message = tempStr;
-
-  return true;
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}

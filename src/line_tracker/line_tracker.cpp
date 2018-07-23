@@ -48,6 +48,7 @@ public:
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -424,6 +425,31 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
   changeState(STOP_MOTION_STATE);
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ goToAltitude()
+
+const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec1Response res;
+
+  goal_x   = state_x;
+  goal_y   = state_y;
+  goal_z   = cmd->goal;
+  goal_yaw = state_yaw;
+
+  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}

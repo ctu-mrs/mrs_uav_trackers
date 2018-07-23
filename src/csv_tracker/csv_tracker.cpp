@@ -46,6 +46,7 @@ public:
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -569,6 +570,10 @@ const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Requ
 
 const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
   return mrs_msgs::Vec4Response::Ptr();
+}
+
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
 }
 
 const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
