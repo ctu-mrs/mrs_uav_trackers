@@ -183,8 +183,8 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_.param("max_position_difference", max_position_difference_, -1.0);
 
-  nh_.param("landing_cutoff_height", landing_cutoff_height_, -1.0);
-  nh_.param("landing_cutoff_height", landing_cutoff_height_, -1.0);
+  nh_.param("landing_threshold_height", landing_cutoff_height_, -1.0);
+  nh_.param("landing_threshold_height", landing_cutoff_height_, -1.0);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
@@ -262,7 +262,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   }
 
   if (landing_cutoff_height_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_cutoff_height was not specified!");
+    ROS_ERROR("[LandoffTracker]: landing_threshold_height was not specified!");
     ros::shutdown();
   }
 
