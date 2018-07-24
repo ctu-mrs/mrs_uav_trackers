@@ -696,7 +696,25 @@ void LandoffTracker::accelerateVertical(void) {
 
 void LandoffTracker::decelerateHorizontal(void) {
 
-  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+  double used_acceleration;
+
+  if (taking_off) {
+    used_acceleration = takeoff_acceleration_;
+  } else if (landing) {
+
+    if (odometry_z > 2 * landing_fast_height_) {
+      used_acceleration = vertical_acceleration_;
+    } else if (odometry_z > landing_fast_height_) {
+      used_acceleration = vertical_acceleration_ / 2.0;
+    } else {
+      used_acceleration = landing_acceleration_;
+    }
+
+  } else {
+    used_acceleration = vertical_acceleration_;
+  }
+
+  current_horizontal_speed -= used_acceleration * tracker_dt_;
 
   if (current_horizontal_speed < 0) {
     current_horizontal_speed = 0;
