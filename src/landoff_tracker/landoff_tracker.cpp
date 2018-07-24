@@ -651,13 +651,18 @@ void LandoffTracker::accelerateVertical(void) {
     used_speed        = takeoff_speed_;
     used_acceleration = takeoff_acceleration_;
   } else if (landing) {
-    if (odometry_z > landing_fast_height_) {
+
+    if (odometry_z > 2 * landing_fast_height_) {
       used_speed        = vertical_speed_;
       used_acceleration = vertical_acceleration_;
+    } else if (odometry_z > landing_fast_height_) {
+      used_speed        = vertical_speed_ / 2.0;
+      used_acceleration = vertical_acceleration_ / 2.0;
     } else {
       used_speed        = landing_speed_;
       used_acceleration = landing_acceleration_;
     }
+
   } else {
     used_speed        = vertical_speed_;
     used_acceleration = vertical_acceleration_;
@@ -677,7 +682,7 @@ void LandoffTracker::accelerateVertical(void) {
   current_vertical_speed += used_acceleration * tracker_dt_;
 
   if (current_vertical_speed >= used_speed) {
-    current_vertical_speed = used_speed;
+    current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
   }
 
   if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
@@ -959,11 +964,14 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     state_x = odometry_x;
     goal_x  = odometry_x;
 
-    goal_y  = odometry_y;
     state_y = odometry_y;
+    goal_y  = odometry_y;
 
-    goal_z   = takeoff_height_;
-    goal_yaw = odometry_yaw;
+    state_z = odometry_z;
+    goal_z  = takeoff_height_;
+
+    state_yaw = odometry_yaw;
+    goal_yaw  = odometry_yaw;
   }
   mutex_odometry.unlock();
 
