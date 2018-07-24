@@ -866,26 +866,34 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
     mutex_odometry.unlock();
   }
 
+  // --------------------------------------------------------------
+  // |              motion saturation during takeoff              |
+  // --------------------------------------------------------------
+
   mutex_odometry.lock();
   {
-    // calculate the vector
-    double err_x      = odometry_x - state_x;
-    double err_y      = odometry_y - state_y;
-    double err_z      = odometry_z - state_z;
-    double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
+    if (taking_off) {
 
-    if (error_size > max_position_difference_) {
+      // calculate the vector
+      double err_x      = odometry_x - state_x;
+      double err_y      = odometry_y - state_y;
+      double err_z      = odometry_z - state_z;
+      double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
 
-      // calculate the potential next step
-      double future_state_x = state_x + cos(current_heading) * current_horizontal_speed * tracker_dt_;
-      double future_state_y = state_y + sin(current_heading) * current_horizontal_speed * tracker_dt_;
-      double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
+      if (error_size > max_position_difference_) {
 
-      if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
-        current_horizontal_speed = 0;
-        current_vertical_speed   = 0;
+        // calculate the potential next step
+        double future_state_x = state_x + cos(current_heading) * current_horizontal_speed * tracker_dt_;
+        double future_state_y = state_y + sin(current_heading) * current_horizontal_speed * tracker_dt_;
+        double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
 
-        ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
+        if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
+
+          current_horizontal_speed = 0;
+          current_vertical_speed   = 0;
+
+          ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
+        }
       }
     }
   }
