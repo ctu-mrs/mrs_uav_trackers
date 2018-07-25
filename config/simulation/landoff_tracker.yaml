@@ -22,5 +22,5 @@ vertical_tracker:
   landing_acceleration: 0.1
 
 yaw_tracker:
-  yaw_gain: 0.4
-  yaw_rate: 1.0
+  yaw_gain: 0.2
+  yaw_rate: 0.5
