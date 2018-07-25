@@ -690,7 +690,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   is_initialized = true;
 
   // --------------------------------------------------------------
-  // |                          profilers                         |
+  // |                          profiler                          |
   // --------------------------------------------------------------
 
   profiler          = new mrs_lib::Profiler(nh_, "MpcTracker");

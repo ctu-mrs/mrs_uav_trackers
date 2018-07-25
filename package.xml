@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <package>
+
   <name>mrs_trackers</name>
   <version>1.0.0</version>
   <description>The mrs_trackers package</description>
@@ -32,9 +33,7 @@
   <run_depend>mrs_mav_manager</run_depend>
   <run_depend>mrs_msgs</run_depend>
 
-  <!-- The export tag contains other, unspecified, tags -->
   <export>
-    <!-- Other tools can request additional information be placed here -->
     <mrs_mav_manager plugin="${prefix}/mpc_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/csv_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/line_tracker.xml" />

@@ -213,14 +213,18 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
   previous_state_horizontal = IDLE_STATE;
 
   // --------------------------------------------------------------
-  // |                           timers                           |
+  // |                          profiler                          |
   // --------------------------------------------------------------
-
-  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   profiler           = new mrs_lib::Profiler(nh_, "LineTracker");
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
   routine_update     = profiler->registerRoutine("update");
+
+  // --------------------------------------------------------------
+  // |                           timers                           |
+  // --------------------------------------------------------------
+
+  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   ROS_INFO("[LineTracker]: initialized");
 }
