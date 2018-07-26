@@ -124,7 +124,7 @@ private:
   double yaw_gain_;
 
   double max_position_difference_;
-  double landing_cutoff_height_;
+  double landed_threshold_height_;
 
 private:
   // desired goal
@@ -183,8 +183,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_.param("max_position_difference", max_position_difference_, -1.0);
 
-  nh_.param("landing_threshold_height", landing_cutoff_height_, -1.0);
-  nh_.param("landing_threshold_height", landing_cutoff_height_, -1.0);
+  nh_.param("landing_threshold_height", landed_threshold_height_, -1.0);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
@@ -261,7 +260,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
     ros::shutdown();
   }
 
-  if (landing_cutoff_height_ < 0) {
+  if (landed_threshold_height_ < 0) {
     ROS_ERROR("[LandoffTracker]: landing_threshold_height was not specified!");
     ros::shutdown();
   }
@@ -328,7 +327,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   mutex_odometry.lock();
   {
-    if (cmd == mrs_msgs::PositionCommand::Ptr() || (odometry_z < landing_cutoff_height_)) {
+    if (cmd == mrs_msgs::PositionCommand::Ptr() || (odometry_z < landed_threshold_height_)) {
 
       state_x   = odometry.pose.pose.position.x;
       state_y   = odometry.pose.pose.position.y;
@@ -976,7 +975,7 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     return true;
   }
 
-  if (odometry_z > landing_cutoff_height_) {
+  if (odometry_z > landed_threshold_height_) {
 
     sprintf((char *)&message, "Can't take off, already in the air!");
     ROS_ERROR("[LandoffTracker]: %s", message);
@@ -1039,7 +1038,7 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
     return true;
   }
 
-  if (odometry_z < landing_cutoff_height_) {
+  if (odometry_z < landed_threshold_height_) {
 
     sprintf((char *)&message, "Can't land, already on the ground.");
     ROS_ERROR("[LandoffTracker]: %s", message);
