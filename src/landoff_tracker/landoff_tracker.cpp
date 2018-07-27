@@ -75,6 +75,7 @@ private:
   bool   is_initialized;
   bool   is_active;
   bool   first_iter;
+  bool   takeoff_disable_lateral_gains_;
 
 private:
   void mainTimer(const ros::TimerEvent &event);
@@ -184,6 +185,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.param("max_position_difference", max_position_difference_, -1.0);
 
   nh_.param("landing_threshold_height", landed_threshold_height_, -1.0);
+  nh_.param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_, false);
 
   if (horizontal_speed_ < 0) {
     ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
@@ -362,8 +364,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = cmd->yaw;
 
-      ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z,
-               state_yaw);
+      ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z, state_yaw);
     }
   }
   mutex_odometry.unlock();
@@ -522,6 +523,14 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   position_output.acceleration.x = 0;
   position_output.acceleration.y = 0;
   position_output.acceleration.z = 0;
+
+  if (takeoff_disable_lateral_gains_) {
+    if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE)) {
+      position_output.disable_position_gains = true;
+    } else {
+      position_output.disable_position_gains = false;
+    }
+  }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
