@@ -86,10 +86,10 @@ private:
   ros::ServiceServer service_land;
 
 private:
-  States_t current_state_vertical;
-  States_t previous_state_vertical;
-  States_t current_state_horizontal;
-  States_t previous_state_horizontal;
+  States_t current_state_vertical    = IDLE_STATE;
+  States_t previous_state_vertical   = IDLE_STATE;
+  States_t current_state_horizontal  = IDLE_STATE;
+  States_t previous_state_horizontal = IDLE_STATE;
 
   void changeStateHorizontal(States_t new_state);
   void changeStateVertical(States_t new_state);

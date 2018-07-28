@@ -62,7 +62,6 @@ public:
   void setInitPoint(void);
 
 private:
-
   ros::NodeHandle nh_;
 
   nav_msgs::Odometry odom;
@@ -156,7 +155,7 @@ void CsvTracker::setInitPoint(void) {
 
   publisher_trajectory_.publish(init_trajectory);
 
-  ROS_INFO("Publishing the first point to the MPC tracker");
+  ROS_INFO("[CsvTracker]: Publishing the first point to the MPC tracker");
 }
 
 bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
@@ -259,7 +258,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
   priv_nh.param("filename", filename_, std::string());
 
   if (filename_.empty()) {
-    ROS_ERROR("The file name has not been filled!");
+    ROS_ERROR("[CsvTracker]: The file name has not been filled!");
     ros::shutdown();
     return;
   }
@@ -271,13 +270,13 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   if (!in) {
 
-    ROS_ERROR("Cannot open %s", filename_.c_str());
+    ROS_ERROR("[CsvTracker]: Cannot open %s", filename_.c_str());
     ros::shutdown();
     return;
 
   } else {
 
-    ROS_INFO("Loading from file: %s", filename_.c_str());
+    ROS_INFO("[CsvTracker]: Loading from file: %s", filename_.c_str());
     std::string line;
 
     while (getline(in, line)) {
@@ -294,14 +293,14 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
       s >> trajectory(trajectory_len, 7);
       s >> trajectory(trajectory_len, 8);
 
-      ROS_INFO("%2.2f %2.2f", trajectory(trajectory_len, 0), trajectory(trajectory_len, 1));
+      ROS_INFO("[CsvTracker]: %2.2f %2.2f", trajectory(trajectory_len, 0), trajectory(trajectory_len, 1));
 
       trajectory_len++;
     }
 
     in.close();
 
-    ROS_INFO("Trajectory loaded, len = %d", trajectory_len);
+    ROS_INFO("[CsvTracker]: Trajectory loaded, len = %d", trajectory_len);
   }
 
   service_goto           = priv_nh.serviceClient<mrs_msgs::Vec4>("goto_out");
@@ -336,31 +335,31 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   priv_nh.param("yaw", yaw_, -1.0);
 
-  ROS_WARN("offset/x: %2.2f", x_offset_);
-  ROS_WARN("offset/y: %2.2f", y_offset_);
-  ROS_WARN("offset/z: %2.2f", z_offset_);
-  ROS_WARN("scale/x: %2.2f", x_scale_);
-  ROS_WARN("scale/y: %2.2f", y_scale_);
-  ROS_WARN("scale/z: %2.2f", z_scale_);
-  ROS_WARN("yaw: %2.2f", yaw_);
+  ROS_WARN("[CsvTracker]: offset/x: %2.2f", x_offset_);
+  ROS_WARN("[CsvTracker]: offset/y: %2.2f", y_offset_);
+  ROS_WARN("[CsvTracker]: offset/z: %2.2f", z_offset_);
+  ROS_WARN("[CsvTracker]: scale/x: %2.2f", x_scale_);
+  ROS_WARN("[CsvTracker]: scale/y: %2.2f", y_scale_);
+  ROS_WARN("[CsvTracker]: scale/z: %2.2f", z_scale_);
+  ROS_WARN("[CsvTracker]: yaw: %2.2f", yaw_);
 
   if (x_offset_ > 1000 || y_offset_ > 1000 || z_offset_ > 1000) {
-    ROS_ERROR("Offsets were not loaded from the config file!");
+    ROS_ERROR("[CsvTracker]: Offsets were not loaded from the config file!");
     ros::shutdown();
   }
 
   if (x_scale_ < 0 || y_scale_ < 0 || z_scale_ < 0) {
-    ROS_ERROR("Scales were not loaded from the config file!");
+    ROS_ERROR("[CsvTracker]: Scales were not loaded from the config file!");
     ros::shutdown();
   }
 
   if (x_scale_ > 1 || y_scale_ > 1 || z_scale_ > 1) {
-    ROS_ERROR("Scales are greater than 1");
+    ROS_ERROR("[CsvTracker]: Scales are greater than 1");
     ros::shutdown();
   }
 
   if (yaw_ < 0) {
-    ROS_ERROR("Yaw was not set in the config file!");
+    ROS_ERROR("[CsvTracker]: Yaw was not set in the config file!");
     ros::shutdown();
   }
 
@@ -374,7 +373,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   is_initialized = true;
 
-  ROS_INFO("CsvTracker initialized");
+  ROS_INFO("[CsvTracker]: CsvTracker initialized");
 }
 
 void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
@@ -391,7 +390,7 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odom) {
 
-    ROS_ERROR("Cannot activate CSV tracker, dont have odometry");
+    ROS_ERROR("[CsvTracker]: Cannot activate CSV tracker, dont have odometry");
     return false;
   }
 
@@ -405,19 +404,19 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   double distance = sqrt(pow(odom.pose.pose.position.x - (x_scale_ * trajectory(0, 0) + x_offset_), 2) + pow(odom.pose.pose.position.y - y_offset_, 2) +
                          pow(odom.pose.pose.position.z - (z_scale_ * trajectory(0, 1) + z_offset_), 2));
 
-  ROS_INFO("Distance: %2.2f", distance);
-  ROS_INFO("Z_start: %2.2f", z_scale_ * trajectory(0, 1) + z_offset_);
-  ROS_INFO("Z_scale: %2.2f", z_scale_);
+  ROS_INFO("[CsvTracker]: Distance: %2.2f", distance);
+  ROS_INFO("[CsvTracker]: Z_start: %2.2f", z_scale_ * trajectory(0, 1) + z_offset_);
+  ROS_INFO("[CsvTracker]: Z_scale: %2.2f", z_scale_);
 
   if (distance > 1.0) {
 
-    ROS_ERROR("Cannon activate, to far from the initial point!");
+    ROS_ERROR("[CsvTracker]: Cannon activate, to far from the initial point!");
 
     is_active = false;
 
   } else {
 
-    ROS_INFO("CSV tracker activated");
+    ROS_INFO("[CsvTracker]: CSV tracker activated");
     is_active = true;
     tracking  = true;
   }
@@ -430,7 +429,7 @@ void CsvTracker::deactivate(void) {
   is_active = false;
   odom_set  = false;
 
-  ROS_INFO("CSV tracker deactivated");
+  ROS_INFO("[CsvTracker]: CSV tracker deactivated");
 }
 
 // if the tracker is active, this mehod is called on every odometry update, even if the tracker is not active
@@ -461,7 +460,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
   if (!got_odom) {
 
-    ROS_WARN_THROTTLE(1.0, "Waiting for odometry");
+    ROS_WARN_THROTTLE(1.0, "[CsvTracker]: Waiting for odometry");
     return;
   }
 
@@ -516,7 +515,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
   if (trajectory(tracking_idx, 8) == 1) {
 
-    ROS_ERROR("RELEASING MASS");
+    ROS_ERROR("[CsvTracker]: RELEASING MASS");
 
     std_msgs::Int32 action;
 
@@ -537,7 +536,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
   } else {
 
-    ROS_INFO_THROTTLE(1, "Trajectory has finished, replaying the last poing...");
+    ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, replaying the last poing...");
 
     mrs_msgs::SwitchTracker SwitchTracker;
     SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";

@@ -77,10 +77,10 @@ private:
   ros::Timer main_timer;
 
 private:
-  States_t current_state_vertical;
-  States_t previous_state_vertical;
-  States_t current_state_horizontal;
-  States_t previous_state_horizontal;
+  States_t current_state_vertical    = IDLE_STATE;
+  States_t previous_state_vertical   = IDLE_STATE;
+  States_t current_state_horizontal  = IDLE_STATE;
+  States_t previous_state_horizontal = IDLE_STATE;
 
   void changeStateHorizontal(States_t new_state);
   void changeStateVertical(States_t new_state);
@@ -263,8 +263,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       goal_yaw = cmd->yaw;
 
-      ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-               cmd->yaw);
+      ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
 
     } else {
 
@@ -853,7 +852,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 }
 
 //}
-
 }
 
 #include <pluginlib/class_list_macros.h>
