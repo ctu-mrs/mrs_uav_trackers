@@ -3,23 +3,14 @@
 #include <tf/transform_datatypes.h>
 #include <tf/LinearMath/Transform.h>
 
-#include <mrs_msgs/TrackerPoint.h>
-#include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/SwitchTracker.h>
-#include <mrs_msgs/Vec1.h>
-#include <mrs_msgs/Vec4Request.h>
-#include <mrs_msgs/Vec4Response.h>
 
-#include <mrs_msgs/Vec4.h>
 #include <mrs_mav_manager/Tracker.h>
 
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Float32.h>
-#include <std_msgs/Float64.h>
 #include <std_msgs/Int32.h>
-#include <std_srvs/SetBool.h>
-#include <std_srvs/Trigger.h>
 
 #include <math.h>
 #include <cmath>
@@ -33,22 +24,33 @@ using namespace Eigen;
 namespace mrs_trackers
 {
 
+//{ class CsvTracker
+
 class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  void initialize(const ros::NodeHandle &parent_nh);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void deactivate(void);
+  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  virtual void deactivate(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  const mrs_msgs::TrackerStatus::Ptr status();
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::TrackerStatus::Ptr                getStatus();
+  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+
+  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
 
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
@@ -135,122 +137,12 @@ private:
 CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 }
 
-void CsvTracker::setInitPoint(void) {
+//}
 
-  // publish the first point as a trajectory
-  mrs_msgs::TrackerTrajectory init_trajectory;
+// | ------------------- tracker's interface ------------------ |
 
-  init_trajectory.header.stamp    = ros::Time::now();
-  init_trajectory.header.frame_id = "local_origin";
-  init_trajectory.fly_now         = false;
-  init_trajectory.use_yaw         = true;  // TODO
+//{ initialize()
 
-  mrs_msgs::TrackerPoint point;
-  point.x   = x_scale_ * trajectory(0, 0) + x_offset_;
-  point.y   = y_offset_;
-  point.z   = z_scale_ * trajectory(0, 1) + z_offset_;
-  point.yaw = yaw_;
-
-  init_trajectory.points.push_back(point);
-
-  publisher_trajectory_.publish(init_trajectory);
-
-  ROS_INFO("[CsvTracker]: Publishing the first point to the MPC tracker");
-}
-
-bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
-
-  if (req.goal >= 0 && req.goal <= 1.0) {
-
-    x_scale_ = req.goal;
-
-    res.success = true;
-    res.message = "OK";
-
-    setInitPoint();
-
-  } else {
-
-    res.success = false;
-    res.message = "Scale out of bound!";
-  }
-
-  return true;
-}
-
-bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
-
-  if (req.goal >= 0 && req.goal <= 1.0) {
-
-    y_scale_ = req.goal;
-
-    res.success = true;
-    res.message = "OK";
-
-    CsvTracker::setInitPoint();
-
-  } else {
-
-    res.success = false;
-    res.message = "Scale out of bound!";
-  }
-
-  return true;
-}
-
-bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
-
-  if (req.goal >= 0 && req.goal <= 1.0) {
-
-    z_scale_ = req.goal;
-
-    res.success = true;
-    res.message = "OK";
-
-    CsvTracker::setInitPoint();
-
-  } else {
-
-    res.success = false;
-    res.message = "Scale out of bound!";
-  }
-
-  return true;
-}
-
-bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
-
-  if (req.goal >= 0 && req.goal <= 1.0) {
-
-    x_scale_ = req.goal;
-    y_scale_ = req.goal;
-    z_scale_ = req.goal;
-
-    res.success = true;
-    res.message = "OK";
-
-    CsvTracker::setInitPoint();
-
-  } else {
-
-    res.success = false;
-    res.message = "Scale out of bound!";
-  }
-
-  return true;
-}
-
-bool CsvTracker::start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-  return true;
-}
-
-double dist(double ax, double ay, double az, double bx, double by, double bz) {
-
-  return sqrt(pow(ax - bx, 2) + pow(ay - by, 2) + pow(az - bz, 2));
-}
-
-// called once at the very beginning
 void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
@@ -376,15 +268,9 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
   ROS_INFO("[CsvTracker]: CsvTracker initialized");
 }
 
-void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
+//}
 
-  got_odom = true;
-
-  // tady tim to neni
-  mutex_odom.lock();
-  { odom = *msg; }
-  mutex_odom.unlock();
-}
+//{ activate()
 
 bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -424,6 +310,10 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   return is_active;
 }
 
+//}
+
+//{ deactivate()
+
 void CsvTracker::deactivate(void) {
 
   is_active = false;
@@ -432,7 +322,10 @@ void CsvTracker::deactivate(void) {
   ROS_INFO("[CsvTracker]: CSV tracker deactivated");
 }
 
-// if the tracker is active, this mehod is called on every odometry update, even if the tracker is not active
+//}
+
+//{ update()
+
 const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // very important, return null pointer when the tracker is not active, but we can still do some stuff
@@ -455,6 +348,287 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
   return out;
 }
+
+//}
+
+//{ getStatus()
+
+const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
+
+  if (is_initialized) {
+
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
+}
+
+//}
+
+//{ enableCallbacks()
+
+const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+
+  return std_srvs::SetBoolResponse::Ptr();
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+//{ goTo() service
+
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec4Response::Ptr();
+}
+
+//}
+
+//{ goTo() topic
+
+const bool CsvTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToRelative() service
+
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec4Response::Ptr();
+}
+
+//}
+
+//{ goToRelative() topic
+
+const bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToAltitude() service
+
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ goToAltitude() topic
+
+const bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYaw() service
+
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYaw() topic
+
+const bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYawRelative() service
+
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYawRelative() topic
+
+const bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ hover()
+
+const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+// | ------------------------ callbacks ----------------------- |
+
+//{ odometryCallbacks()
+
+void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
+
+  got_odom = true;
+
+  // tady tim to neni
+  mutex_odom.lock();
+  { odom = *msg; }
+  mutex_odom.unlock();
+}
+
+//}
+
+//{ start_callback()
+
+bool CsvTracker::start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  return true;
+}
+
+//}
+
+//{ setInitPoint()
+
+void CsvTracker::setInitPoint(void) {
+
+  // publish the first point as a trajectory
+  mrs_msgs::TrackerTrajectory init_trajectory;
+
+  init_trajectory.header.stamp    = ros::Time::now();
+  init_trajectory.header.frame_id = "local_origin";
+  init_trajectory.fly_now         = false;
+  init_trajectory.use_yaw         = true;  // TODO
+
+  mrs_msgs::TrackerPoint point;
+  point.x   = x_scale_ * trajectory(0, 0) + x_offset_;
+  point.y   = y_offset_;
+  point.z   = z_scale_ * trajectory(0, 1) + z_offset_;
+  point.yaw = yaw_;
+
+  init_trajectory.points.push_back(point);
+
+  publisher_trajectory_.publish(init_trajectory);
+
+  ROS_INFO("[CsvTracker]: Publishing the first point to the MPC tracker");
+}
+
+//}
+
+//{ setXYScale()
+
+bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+  if (req.goal >= 0 && req.goal <= 1.0) {
+
+    x_scale_ = req.goal;
+
+    res.success = true;
+    res.message = "OK";
+
+    setInitPoint();
+
+  } else {
+
+    res.success = false;
+    res.message = "Scale out of bound!";
+  }
+
+  return true;
+}
+
+//}
+
+//{ setYScale()
+
+bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+  if (req.goal >= 0 && req.goal <= 1.0) {
+
+    y_scale_ = req.goal;
+
+    res.success = true;
+    res.message = "OK";
+
+    CsvTracker::setInitPoint();
+
+  } else {
+
+    res.success = false;
+    res.message = "Scale out of bound!";
+  }
+
+  return true;
+}
+
+//}
+
+//{ setZScale()
+
+bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+  if (req.goal >= 0 && req.goal <= 1.0) {
+
+    z_scale_ = req.goal;
+
+    res.success = true;
+    res.message = "OK";
+
+    CsvTracker::setInitPoint();
+
+  } else {
+
+    res.success = false;
+    res.message = "Scale out of bound!";
+  }
+
+  return true;
+}
+
+//}
+
+//{ setScales()
+
+bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+  if (req.goal >= 0 && req.goal <= 1.0) {
+
+    x_scale_ = req.goal;
+    y_scale_ = req.goal;
+    z_scale_ = req.goal;
+
+    res.success = true;
+    res.message = "OK";
+
+    CsvTracker::setInitPoint();
+
+  } else {
+
+    res.success = false;
+    res.message = "Scale out of bound!";
+  }
+
+  return true;
+}
+
+//}
+
+// | ------------------------- timers ------------------------- |
+
+//{ mainTimer()
 
 void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
@@ -544,40 +718,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
   }
 }
 
-const mrs_msgs::TrackerStatus::Ptr CsvTracker::status() {
-
-  if (is_initialized) {
-
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
-
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
-}
-
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
-}
-
-const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
-  return std_srvs::TriggerResponse::Ptr();
-}
+//}
 }
 
 #include <pluginlib/class_list_macros.h>

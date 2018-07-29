@@ -43,16 +43,25 @@ class MpcTracker : public mrs_mav_manager::Tracker {
 public:
   MpcTracker(void);
 
-  void initialize(const ros::NodeHandle &parent_nh);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void deactivate(void);
+  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  virtual void deactivate(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  const mrs_msgs::TrackerStatus::Ptr status();
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+
+  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -280,72 +289,7 @@ MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialize
 
 //}
 
-//{ futureTrajectoryTimer()
-
-void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
-
-  if (!is_active) {
-    return;
-  }
-
-  if (future_was_predicted) {
-
-    mrs_msgs::FutureTrajectory newTrajectory;
-    newTrajectory.stamp    = ros::Time::now();
-    newTrajectory.uav_name = uav_name_;
-
-    newTrajectory.collision_avoidance = mrs_collision_avoidance;
-
-    geometry_msgs::PoseArray debugTrajectory;
-    debugTrajectory.header.stamp    = ros::Time::now();
-    debugTrajectory.header.frame_id = "local_origin";
-
-    // fill the trajectory
-    mutex_predicted_trajectory.lock();
-    {
-      for (int i = 0; i < horizon_len; i++) {
-
-        mrs_msgs::FuturePoint newPoint;
-
-        newPoint.x = predicted_future_trajectory(i * n);
-        newPoint.y = predicted_future_trajectory(i * n + 3);
-        newPoint.z = predicted_future_trajectory(i * n + 6);
-
-        newTrajectory.points.push_back(newPoint);
-
-        geometry_msgs::Pose newPose;
-
-        newPose.position.x = newPoint.x;
-        newPose.position.y = newPoint.y;
-        newPose.position.z = newPoint.z;
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, desired_yaw);
-        newPose.orientation.x = orientation.x();
-        newPose.orientation.y = orientation.y();
-        newPose.orientation.z = orientation.z();
-        newPose.orientation.w = orientation.w();
-
-        debugTrajectory.poses.push_back(newPose);
-      }
-    }
-    mutex_predicted_trajectory.unlock();
-
-    try {
-      predicted_trajectory_publisher.publish(newTrajectory);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
-    }
-    try {
-      debug_predicted_trajectory_publisher.publish(debugTrajectory);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
-    }
-  }
-}
-
-//}
+// | -------------- tracker's interface routines -------------- |
 
 //{ initialize()
 
@@ -705,6 +649,579 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   mpc_timer               = nh_.createTimer(ros::Rate(1.0 / dt), &MpcTracker::mpcTimer, this);
 
   ROS_INFO("[MpcTracker]: MpcTracker initialized");
+}
+
+//}
+
+//{ activate()
+
+bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+
+  if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+    // set the initial condition from the odometry
+    x_mutex.lock();
+    x(0, 0) = cmd->position.x;
+    x(1, 0) = cmd->velocity.x;
+    x(2, 0) = 0;
+
+    x(3, 0) = cmd->position.y;
+    x(4, 0) = cmd->velocity.y;
+    x(5, 0) = 0;
+
+    x(6, 0) = cmd->position.z;
+    x(7, 0) = cmd->velocity.z;
+    x(8, 0) = 0;
+
+    x_yaw(0, 0) = cmd->yaw;
+    x_yaw(1, 0) = cmd->yaw_dot;
+    x_yaw(2, 0) = 0;
+
+    yaw = cur_yaw_;
+    x_mutex.unlock();
+
+  } else {
+
+    // set the initial condition from the odometry
+    x_mutex.lock();
+    x(0, 0) = odom_.pose.pose.position.x;
+    x(1, 0) = odom_.twist.twist.linear.x;
+    x(2, 0) = 0;
+
+    x(3, 0) = odom_.pose.pose.position.y;
+    x(4, 0) = odom_.twist.twist.linear.y;
+    x(5, 0) = 0;
+
+    x(6, 0) = odom_.pose.pose.position.z;
+    x(7, 0) = odom_.twist.twist.linear.z;
+    x(8, 0) = 0;
+
+    x_yaw(0, 0) = cur_yaw_;
+    x_yaw(1, 0) = 0;
+    x_yaw(2, 0) = 0;
+
+    yaw = cur_yaw_;
+    x_mutex.unlock();
+  }
+
+  failsafe_triggered   = false;
+  tracking_trajectory_ = false;
+
+  // if we got a setpoint with the actiovation command
+  if (cmd && odom_set_) {
+
+    des_yaw_mutex.lock();
+    desired_yaw = cmd->yaw;
+    des_yaw_mutex.unlock();
+
+    setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+
+    ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+             cmd->yaw);
+    is_active = true;
+  }
+
+  // if we dont, stay where you are
+  else if (odom_set_) {
+
+    setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation));
+    position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation);
+
+    ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are.");
+    is_active = true;
+  }
+
+  mpc_start_time  = ros::Time::now();
+  mpc_total_delay = 0;
+
+  publishDiagnostics();
+
+  // can return false
+  return is_active;
+}
+
+//}
+
+//{ deactivate()
+
+void MpcTracker::deactivate(void) {
+
+  is_active = false;
+  odom_set_ = false;
+
+  // turn off trajectory tracking
+  des_trajectory_mutex.lock();
+  tracking_trajectory_ = false;
+  trajectory_idx       = 0;
+  des_trajectory_mutex.unlock();
+
+  ROS_INFO("[MpcTracker]: MPC tracker deactivated");
+
+  publishDiagnostics();
+}
+
+//}
+
+//{ update()
+
+const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  // copy the odometry from the message
+  odom_    = *msg;
+  cur_yaw_ = tf::getYaw(msg->pose.pose.orientation);
+
+  odom_set_ = true;
+
+  // very important, return null pointer when the tracker is not active, but we can still do some stuff
+  if (!is_active)
+    return mrs_msgs::PositionCommand::Ptr();
+
+  if (!mpc_computed_) {
+
+    // if the tracker is not computed yet
+
+    // set the header
+    position_cmd_.header.stamp    = msg->header.stamp;
+    position_cmd_.header.frame_id = msg->header.frame_id;
+
+    // set positions from odom
+    position_cmd_.position.x = msg->pose.pose.position.x;
+    position_cmd_.position.y = msg->pose.pose.position.y;
+    position_cmd_.position.z = msg->pose.pose.position.z;
+
+    // set velocities from odom
+    position_cmd_.velocity.x = msg->twist.twist.linear.x;
+    position_cmd_.velocity.y = msg->twist.twist.linear.y;
+    position_cmd_.velocity.z = msg->twist.twist.linear.z;
+
+    // set zero accelerations
+    position_cmd_.acceleration.x = 0;
+    position_cmd_.acceleration.y = 0;
+    position_cmd_.acceleration.z = 0;
+
+    // set yaw based on current odom
+    position_cmd_.yaw     = cur_yaw_;
+    position_cmd_.yaw_dot = msg->twist.twist.angular.z;
+
+    ROS_WARN("[MpcTracker]: MPC not ready, reaturning current odom as the command.");
+
+    return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd_));
+  }
+
+  // chech wheather all outputs are finite
+  bool arefinite = true;
+  for (int i = 0; i < 9; i++) {
+    if (!std::isfinite(x(i, 0)))
+      arefinite = false;
+  }
+
+  if (arefinite) {
+    x_mutex.lock();
+    // set the desired states base on the result of the mpc
+    position_cmd_.position.x     = x(0, 0);
+    position_cmd_.velocity.x     = x(1, 0);
+    position_cmd_.acceleration.x = x(2, 0);
+
+    position_cmd_.position.y     = x(3, 0);
+    position_cmd_.velocity.y     = x(4, 0);
+    position_cmd_.acceleration.y = x(5, 0);
+
+    position_cmd_.position.z     = x(6, 0);
+    position_cmd_.velocity.z     = x(7, 0);
+    position_cmd_.acceleration.z = x(8, 0);
+    x_mutex.unlock();
+
+  } else {
+
+    ROS_ERROR("[MpcTracker]: MPC outputs are not finite!");
+
+    position_cmd_.velocity.x     = 0;
+    position_cmd_.acceleration.x = 0;
+
+    position_cmd_.velocity.y     = 0;
+    position_cmd_.acceleration.y = 0;
+
+    position_cmd_.velocity.z     = 0;
+    position_cmd_.acceleration.z = 0;
+  }
+
+  des_yaw_mutex.lock();
+  { desired_yaw = mrs_trackers_commons::validateYawSetpoint(desired_yaw); }
+  des_yaw_mutex.unlock();
+
+  // compute the desired yaw rate
+  des_yaw_mutex.lock();
+  if (fabs(desired_yaw - yaw) > PI) {
+    yaw_rate = -yaw_gain * (desired_yaw - yaw);
+  } else {
+    yaw_rate = yaw_gain * (desired_yaw - yaw);
+  }
+  des_yaw_mutex.unlock();
+
+  if (yaw_rate > max_yaw_rate_old) {
+    yaw_rate = max_yaw_rate_old;
+  } else if (yaw_rate < -max_yaw_rate_old) {
+    yaw_rate = -max_yaw_rate_old;
+  }
+
+  // flap the resulted yaw aroud PI
+  yaw = yaw + dt * yaw_rate;
+  if (yaw > PI) {
+    yaw -= 2 * PI;
+  } else if (yaw < -PI) {
+    yaw += 2 * PI;
+  }
+
+  if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
+    // set the yaw output - PD controller
+    /* position_cmd_.yaw_dot = yaw_rate; */
+    /* position_cmd_.yaw     = yaw; */
+  } else {
+    ROS_INFO("[MpcTracker]: Output YAW is not finite!");
+  }
+
+  if (std::isfinite(x_yaw(0, 0)) && std::isfinite(x_yaw(1, 0))) {
+    // set the yaw output - cvxgen MPC controller
+    position_cmd_.yaw     = x_yaw(0, 0);
+    position_cmd_.yaw_dot = x_yaw(1, 0);
+
+  } else {
+
+    ROS_INFO("[MpcTracker]: Output YAW is not finite!");
+  }
+
+  // set the header
+  position_cmd_.header.stamp    = msg->header.stamp;
+  position_cmd_.header.frame_id = msg->header.frame_id;
+
+  // publish position for debugging purposes
+  nav_msgs::Odometry outPose;
+
+  outPose.header.stamp    = ros::Time::now();
+  outPose.header.frame_id = "local_origin";
+
+  outPose.pose.pose.position = position_cmd_.position;
+  tf::Quaternion orientation;
+  orientation.setEuler(0, 0, yaw);
+  outPose.pose.pose.orientation.x = orientation.x();
+  outPose.pose.pose.orientation.y = orientation.y();
+  outPose.pose.pose.orientation.z = orientation.z();
+  outPose.pose.pose.orientation.w = orientation.w();
+
+  outPose.twist.twist.linear.x = position_cmd_.velocity.x;
+  outPose.twist.twist.linear.y = position_cmd_.velocity.y;
+  outPose.twist.twist.linear.z = position_cmd_.velocity.z;
+
+  try {
+    pub_cmd_pose_.publish(outPose);
+  }
+  catch (...) {
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_pose_.getTopic().c_str());
+  }
+
+  // publish velocity for debugging purposes
+  geometry_msgs::Vector3 outVelocity;
+
+  outVelocity.x = position_cmd_.velocity.x;
+  outVelocity.y = position_cmd_.velocity.y;
+  outVelocity.z = position_cmd_.velocity.z;
+
+  try {
+    pub_cmd_velocity_.publish(outVelocity);
+  }
+  catch (...) {
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_velocity_.getTopic().c_str());
+  }
+
+  // publish acceleration for debugging purposes
+  geometry_msgs::Vector3 outAcceleration;
+
+  outAcceleration.x = position_cmd_.acceleration.x;
+  outAcceleration.y = position_cmd_.acceleration.y;
+  outAcceleration.z = position_cmd_.acceleration.z;
+
+  try {
+    pub_cmd_acceleration_.publish(outAcceleration);
+  }
+  catch (...) {
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_acceleration_.getTopic().c_str());
+  }
+
+  // publish position setpoint for debugging purposes
+  nav_msgs::Odometry outSetpoint;
+
+  outSetpoint.header.stamp    = ros::Time::now();
+  outSetpoint.header.frame_id = "local_origin";
+
+  outSetpoint.pose.pose.position.x = des_x_trajectory(0, 0);
+  outSetpoint.pose.pose.position.y = des_y_trajectory(0, 0);
+  outSetpoint.pose.pose.position.z = des_z_trajectory(0, 0);
+
+  orientation.setEuler(0, 0, desired_yaw);
+  outSetpoint.pose.pose.orientation.x = orientation.x();
+  outSetpoint.pose.pose.orientation.y = orientation.y();
+  outSetpoint.pose.pose.orientation.z = orientation.z();
+  outSetpoint.pose.pose.orientation.w = orientation.w();
+
+  try {
+    pub_setpoint_pose_.publish(outSetpoint);
+  }
+  catch (...) {
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_pose_.getTopic().c_str());
+  }
+
+  // u have to return a position command
+  // can set the jerk to 0
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd_));
+}
+
+//}
+
+//{ getStatus()
+
+const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
+
+  if (is_initialized) {
+
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
+}
+
+//}
+
+//{ enableCallbacks()
+
+const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+
+  return std_srvs::SetBoolResponse::Ptr();
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+//{ goTo() service
+
+const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  if (failsafe_triggered) {
+
+    res.success = false;
+    res.message = "Failsafe is active!";
+
+  } else if (!set_goal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
+
+    res.success = false;
+    res.message = "Cannot set the goal. It is probably outside of the safety area.";
+  } else {
+
+    res.success = true;
+    char tempStr[100];
+    sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
+    res.message = tempStr;
+  }
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ goTo() topic
+
+const bool MpcTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToRelative() service
+
+const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec4Response res;
+
+  if (failsafe_triggered) {
+
+    res.success = false;
+    res.message = "Failsafe is active!";
+  } else if (!set_rel_goal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
+
+    res.success = false;
+    res.message = "Cannot set the goal. It is probably outside of the safety area.";
+  } else {
+
+    res.success = true;
+    char tempStr[100];
+    sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
+    res.message = tempStr;
+  }
+
+  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ goToRelative() topic
+
+const bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToAltitude() service
+
+const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec1Response res;
+
+  if (failsafe_triggered) {
+
+    res.success = false;
+    res.message = "Failsafe is active!";
+
+  } else if (!set_goal(x(0, 0), x(3, 0), cmd->goal, x_yaw(0, 0), false)) {
+
+    res.success = false;
+    res.message = "Cannot set the goal. It is probably outside of the safety area.";
+  } else {
+
+    res.success = true;
+    char tempStr[100];
+    sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
+    res.message = tempStr;
+  }
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+}
+
+//}
+
+//{ goToAltitude() topic
+
+const bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYaw() service
+
+const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYaw() topic
+
+const bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYawRelative() service
+
+const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYawRelative() topic
+
+const bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ hover()
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+// | ---------------- tracker's custom routines --------------- |
+
+//{ futureTrajectoryTimer()
+
+void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
+
+  if (!is_active) {
+    return;
+  }
+
+  if (future_was_predicted) {
+
+    mrs_msgs::FutureTrajectory newTrajectory;
+    newTrajectory.stamp    = ros::Time::now();
+    newTrajectory.uav_name = uav_name_;
+
+    newTrajectory.collision_avoidance = mrs_collision_avoidance;
+
+    geometry_msgs::PoseArray debugTrajectory;
+    debugTrajectory.header.stamp    = ros::Time::now();
+    debugTrajectory.header.frame_id = "local_origin";
+
+    // fill the trajectory
+    mutex_predicted_trajectory.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
+
+        mrs_msgs::FuturePoint newPoint;
+
+        newPoint.x = predicted_future_trajectory(i * n);
+        newPoint.y = predicted_future_trajectory(i * n + 3);
+        newPoint.z = predicted_future_trajectory(i * n + 6);
+
+        newTrajectory.points.push_back(newPoint);
+
+        geometry_msgs::Pose newPose;
+
+        newPose.position.x = newPoint.x;
+        newPose.position.y = newPoint.y;
+        newPose.position.z = newPoint.z;
+        tf::Quaternion orientation;
+        orientation.setEuler(0, 0, desired_yaw);
+        newPose.orientation.x = orientation.x();
+        newPose.orientation.y = orientation.y();
+        newPose.orientation.z = orientation.z();
+        newPose.orientation.w = orientation.w();
+
+        debugTrajectory.poses.push_back(newPose);
+      }
+    }
+    mutex_predicted_trajectory.unlock();
+
+    try {
+      predicted_trajectory_publisher.publish(newTrajectory);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
+    }
+    try {
+      debug_predicted_trajectory_publisher.publish(debugTrajectory);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+    }
+  }
 }
 
 //}
@@ -1268,329 +1785,6 @@ void MpcTracker::calculateMPC() {
 
 //}
 
-//{ activate()
-
-bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
-
-  if (mrs_msgs::PositionCommand::Ptr() != cmd) {
-    // set the initial condition from the odometry
-    x_mutex.lock();
-    x(0, 0) = cmd->position.x;
-    x(1, 0) = cmd->velocity.x;
-    x(2, 0) = 0;
-
-    x(3, 0) = cmd->position.y;
-    x(4, 0) = cmd->velocity.y;
-    x(5, 0) = 0;
-
-    x(6, 0) = cmd->position.z;
-    x(7, 0) = cmd->velocity.z;
-    x(8, 0) = 0;
-
-    x_yaw(0, 0) = cmd->yaw;
-    x_yaw(1, 0) = cmd->yaw_dot;
-    x_yaw(2, 0) = 0;
-
-    yaw = cur_yaw_;
-    x_mutex.unlock();
-
-  } else {
-
-    // set the initial condition from the odometry
-    x_mutex.lock();
-    x(0, 0) = odom_.pose.pose.position.x;
-    x(1, 0) = odom_.twist.twist.linear.x;
-    x(2, 0) = 0;
-
-    x(3, 0) = odom_.pose.pose.position.y;
-    x(4, 0) = odom_.twist.twist.linear.y;
-    x(5, 0) = 0;
-
-    x(6, 0) = odom_.pose.pose.position.z;
-    x(7, 0) = odom_.twist.twist.linear.z;
-    x(8, 0) = 0;
-
-    x_yaw(0, 0) = cur_yaw_;
-    x_yaw(1, 0) = 0;
-    x_yaw(2, 0) = 0;
-
-    yaw = cur_yaw_;
-    x_mutex.unlock();
-  }
-
-  failsafe_triggered   = false;
-  tracking_trajectory_ = false;
-
-  // if we got a setpoint with the actiovation command
-  if (cmd && odom_set_) {
-
-    des_yaw_mutex.lock();
-    desired_yaw = cmd->yaw;
-    des_yaw_mutex.unlock();
-
-    setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
-
-    ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-             cmd->yaw);
-    is_active = true;
-  }
-
-  // if we dont, stay where you are
-  else if (odom_set_) {
-
-    setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation));
-    position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation);
-
-    ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are.");
-    is_active = true;
-  }
-
-  mpc_start_time  = ros::Time::now();
-  mpc_total_delay = 0;
-
-  publishDiagnostics();
-
-  // can return false
-  return is_active;
-}
-
-//}
-
-//{ deactivate()
-
-void MpcTracker::deactivate(void) {
-
-  is_active = false;
-  odom_set_ = false;
-
-  // turn off trajectory tracking
-  des_trajectory_mutex.lock();
-  tracking_trajectory_ = false;
-  trajectory_idx       = 0;
-  des_trajectory_mutex.unlock();
-
-  ROS_INFO("[MpcTracker]: MPC tracker deactivated");
-
-  publishDiagnostics();
-}
-
-//}
-
-//{ update()
-
-const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
-
-  // copy the odometry from the message
-  odom_    = *msg;
-  cur_yaw_ = tf::getYaw(msg->pose.pose.orientation);
-
-  odom_set_ = true;
-
-  // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!is_active)
-    return mrs_msgs::PositionCommand::Ptr();
-
-  if (!mpc_computed_) {
-
-    // if the tracker is not computed yet
-
-    // set the header
-    position_cmd_.header.stamp    = msg->header.stamp;
-    position_cmd_.header.frame_id = msg->header.frame_id;
-
-    // set positions from odom
-    position_cmd_.position.x = msg->pose.pose.position.x;
-    position_cmd_.position.y = msg->pose.pose.position.y;
-    position_cmd_.position.z = msg->pose.pose.position.z;
-
-    // set velocities from odom
-    position_cmd_.velocity.x = msg->twist.twist.linear.x;
-    position_cmd_.velocity.y = msg->twist.twist.linear.y;
-    position_cmd_.velocity.z = msg->twist.twist.linear.z;
-
-    // set zero accelerations
-    position_cmd_.acceleration.x = 0;
-    position_cmd_.acceleration.y = 0;
-    position_cmd_.acceleration.z = 0;
-
-    // set yaw based on current odom
-    position_cmd_.yaw     = cur_yaw_;
-    position_cmd_.yaw_dot = msg->twist.twist.angular.z;
-
-    ROS_WARN("[MpcTracker]: MPC not ready, reaturning current odom as the command.");
-
-    return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd_));
-  }
-
-  // chech wheather all outputs are finite
-  bool arefinite = true;
-  for (int i = 0; i < 9; i++) {
-    if (!std::isfinite(x(i, 0)))
-      arefinite = false;
-  }
-
-  if (arefinite) {
-    x_mutex.lock();
-    // set the desired states base on the result of the mpc
-    position_cmd_.position.x     = x(0, 0);
-    position_cmd_.velocity.x     = x(1, 0);
-    position_cmd_.acceleration.x = x(2, 0);
-
-    position_cmd_.position.y     = x(3, 0);
-    position_cmd_.velocity.y     = x(4, 0);
-    position_cmd_.acceleration.y = x(5, 0);
-
-    position_cmd_.position.z     = x(6, 0);
-    position_cmd_.velocity.z     = x(7, 0);
-    position_cmd_.acceleration.z = x(8, 0);
-    x_mutex.unlock();
-
-  } else {
-
-    ROS_ERROR("[MpcTracker]: MPC outputs are not finite!");
-
-    position_cmd_.velocity.x     = 0;
-    position_cmd_.acceleration.x = 0;
-
-    position_cmd_.velocity.y     = 0;
-    position_cmd_.acceleration.y = 0;
-
-    position_cmd_.velocity.z     = 0;
-    position_cmd_.acceleration.z = 0;
-  }
-
-  des_yaw_mutex.lock();
-  { desired_yaw = mrs_trackers_commons::validateYawSetpoint(desired_yaw); }
-  des_yaw_mutex.unlock();
-
-  // compute the desired yaw rate
-  des_yaw_mutex.lock();
-  if (fabs(desired_yaw - yaw) > PI) {
-    yaw_rate = -yaw_gain * (desired_yaw - yaw);
-  } else {
-    yaw_rate = yaw_gain * (desired_yaw - yaw);
-  }
-  des_yaw_mutex.unlock();
-
-  if (yaw_rate > max_yaw_rate_old) {
-    yaw_rate = max_yaw_rate_old;
-  } else if (yaw_rate < -max_yaw_rate_old) {
-    yaw_rate = -max_yaw_rate_old;
-  }
-
-  // flap the resulted yaw aroud PI
-  yaw = yaw + dt * yaw_rate;
-  if (yaw > PI) {
-    yaw -= 2 * PI;
-  } else if (yaw < -PI) {
-    yaw += 2 * PI;
-  }
-
-  if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
-    // set the yaw output - PD controller
-    /* position_cmd_.yaw_dot = yaw_rate; */
-    /* position_cmd_.yaw     = yaw; */
-  } else {
-    ROS_INFO("[MpcTracker]: Output YAW is not finite!");
-  }
-
-  if (std::isfinite(x_yaw(0, 0)) && std::isfinite(x_yaw(1, 0))) {
-    // set the yaw output - cvxgen MPC controller
-    position_cmd_.yaw     = x_yaw(0, 0);
-    position_cmd_.yaw_dot = x_yaw(1, 0);
-
-  } else {
-
-    ROS_INFO("[MpcTracker]: Output YAW is not finite!");
-  }
-
-  // set the header
-  position_cmd_.header.stamp    = msg->header.stamp;
-  position_cmd_.header.frame_id = msg->header.frame_id;
-
-  // publish position for debugging purposes
-  nav_msgs::Odometry outPose;
-
-  outPose.header.stamp    = ros::Time::now();
-  outPose.header.frame_id = "local_origin";
-
-  outPose.pose.pose.position = position_cmd_.position;
-  tf::Quaternion orientation;
-  orientation.setEuler(0, 0, yaw);
-  outPose.pose.pose.orientation.x = orientation.x();
-  outPose.pose.pose.orientation.y = orientation.y();
-  outPose.pose.pose.orientation.z = orientation.z();
-  outPose.pose.pose.orientation.w = orientation.w();
-
-  outPose.twist.twist.linear.x = position_cmd_.velocity.x;
-  outPose.twist.twist.linear.y = position_cmd_.velocity.y;
-  outPose.twist.twist.linear.z = position_cmd_.velocity.z;
-
-  try {
-    pub_cmd_pose_.publish(outPose);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_pose_.getTopic().c_str());
-  }
-
-  // publish velocity for debugging purposes
-  geometry_msgs::Vector3 outVelocity;
-
-  outVelocity.x = position_cmd_.velocity.x;
-  outVelocity.y = position_cmd_.velocity.y;
-  outVelocity.z = position_cmd_.velocity.z;
-
-  try {
-    pub_cmd_velocity_.publish(outVelocity);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_velocity_.getTopic().c_str());
-  }
-
-  // publish acceleration for debugging purposes
-  geometry_msgs::Vector3 outAcceleration;
-
-  outAcceleration.x = position_cmd_.acceleration.x;
-  outAcceleration.y = position_cmd_.acceleration.y;
-  outAcceleration.z = position_cmd_.acceleration.z;
-
-  try {
-    pub_cmd_acceleration_.publish(outAcceleration);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_acceleration_.getTopic().c_str());
-  }
-
-  // publish position setpoint for debugging purposes
-  nav_msgs::Odometry outSetpoint;
-
-  outSetpoint.header.stamp    = ros::Time::now();
-  outSetpoint.header.frame_id = "local_origin";
-
-  outSetpoint.pose.pose.position.x = des_x_trajectory(0, 0);
-  outSetpoint.pose.pose.position.y = des_y_trajectory(0, 0);
-  outSetpoint.pose.pose.position.z = des_z_trajectory(0, 0);
-
-  orientation.setEuler(0, 0, desired_yaw);
-  outSetpoint.pose.pose.orientation.x = orientation.x();
-  outSetpoint.pose.pose.orientation.y = orientation.y();
-  outSetpoint.pose.pose.orientation.z = orientation.z();
-  outSetpoint.pose.pose.orientation.w = orientation.w();
-
-  try {
-    pub_setpoint_pose_.publish(outSetpoint);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_pose_.getTopic().c_str());
-  }
-
-  // u have to return a position command
-  // can set the jerk to 0
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd_));
-}
-
-//}
-
 //{ publishDiagnostics()
 
 void MpcTracker::publishDiagnostics(void) {
@@ -1770,35 +1964,6 @@ bool MpcTracker::set_rel_goal(double set_x, double set_y, double set_z, double s
   publishDiagnostics();
 
   return true;
-}
-
-//}
-
-//{ gotoaltitude_service_cmd_cb()
-
-// callback for goToAltitude service
-const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  if (failsafe_triggered) {
-
-    res.success = false;
-    res.message = "Failsafe is active!";
-
-  } else if (!set_goal(x(0, 0), x(3, 0), cmd->goal, x_yaw(0, 0), false)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
-    res.message = tempStr;
-  }
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}
@@ -2373,29 +2538,6 @@ bool MpcTracker::resume_trajectory_following_cmd_cb(std_srvs::Trigger::Request &
 
 //}
 
-//{ status()
-
-const mrs_msgs::TrackerStatus::Ptr MpcTracker::status() {
-
-  if (is_initialized) {
-
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
-
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
-}
-
-//}
-
 //{ failsafe_trigger_service_cmd_cb()
 
 bool MpcTracker::failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
@@ -2413,69 +2555,6 @@ bool MpcTracker::failsafe_trigger_service_cmd_cb(std_srvs::Trigger::Request &req
   publishDiagnostics();
 
   return true;
-}
-
-//}
-
-//{ goTo()
-
-const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  if (failsafe_triggered) {
-
-    res.success = false;
-    res.message = "Failsafe is active!";
-
-  } else if (!set_goal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-    res.message = tempStr;
-  }
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-//{ goToRelative()
-
-const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  if (failsafe_triggered) {
-
-    res.success = false;
-    res.message = "Failsafe is active!";
-  } else if (!set_rel_goal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-    res.message = tempStr;
-  }
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-//{ hover()
-
-const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
-  return std_srvs::TriggerResponse::Ptr();
 }
 
 //}

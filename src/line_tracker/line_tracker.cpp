@@ -39,16 +39,25 @@ class LineTracker : public mrs_mav_manager::Tracker {
 public:
   LineTracker(void);
 
-  void initialize(const ros::NodeHandle &parent_nh);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void deactivate(void);
+  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  virtual void deactivate(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  const mrs_msgs::TrackerStatus::Ptr status();
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+
+  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -127,6 +136,8 @@ LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 }
 
 //}
+
+// | -------------- tracker's interface routines -------------- |
 
 //{ initialize()
 
@@ -230,10 +241,6 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
 }
 
 //}
-
-// --------------------------------------------------------------
-// |                tracker's interface routines                |
-// --------------------------------------------------------------
 
 //{ activate()
 
@@ -384,9 +391,9 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
 //}
 
-//{ status()
+//{ getStatus()
 
-const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
+const mrs_msgs::TrackerStatus::Ptr LineTracker::getStatus() {
 
   if (is_initialized) {
 
@@ -407,7 +414,18 @@ const mrs_msgs::TrackerStatus::Ptr LineTracker::status() {
 
 //}
 
-//{ goTo()
+//{ enableCallbacks()
+
+const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+
+  return std_srvs::SetBoolResponse::Ptr();
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+//{ goTo() service
 
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -432,32 +450,15 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
 //}
 
-//{ goToAltitude()
+//{ goTo() topic
 
-const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  goal_x   = state_x;
-  goal_y   = state_y;
-  goal_z   = cmd->goal;
-  goal_yaw = state_yaw;
-
-  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+const bool LineTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
 }
 
 //}
 
-//{ goToRelative()
+//{ goToRelative() service
 
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -482,6 +483,79 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
   changeState(STOP_MOTION_STATE);
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+}
+
+//}
+
+//{ goToRelative() topic
+
+const bool LineTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToAltitude() service
+
+const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  mrs_msgs::Vec1Response res;
+
+  goal_x   = state_x;
+  goal_y   = state_y;
+  goal_z   = cmd->goal;
+  goal_yaw = state_yaw;
+
+  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+}
+
+//}
+
+//{ goToAltitude() topic
+
+const bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYaw() service
+
+const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYaw() topic
+
+const bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYawRelative() service
+
+const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYawRelative() topic
+
+const bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  return false;
 }
 
 //}
@@ -530,9 +604,7 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::Tri
 
 //}
 
-// --------------------------------------------------------------
-// |                   state machine routines                   |
-// --------------------------------------------------------------
+// | ----------------- state machine routines ----------------- |
 
 //{ changeStateHorizontal()
 
@@ -570,9 +642,7 @@ void LineTracker::changeState(States_t new_state) {
 
 //}
 
-// --------------------------------------------------------------
-// |                       motion routines                      |
-// --------------------------------------------------------------
+// | --------------------- motion routines -------------------- |
 
 //{ stopHorizontalMotion()
 
@@ -707,9 +777,7 @@ void LineTracker::stopVertical(void) {
 
 //}
 
-// --------------------------------------------------------------
-// |                       timer routines                       |
-// --------------------------------------------------------------
+// | ------------------------- timers ------------------------- |
 
 //{ mainTimer()
 

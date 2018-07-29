@@ -2,7 +2,6 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
-#include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_lib/Profiler.h>
@@ -40,16 +39,25 @@ class LandoffTracker : public mrs_mav_manager::Tracker {
 public:
   LandoffTracker(void);
 
-  void initialize(const ros::NodeHandle &parent_nh);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-  void deactivate(void);
+  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  virtual void deactivate(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  const mrs_msgs::TrackerStatus::Ptr status();
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+
+  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
+  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
+  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -148,6 +156,8 @@ LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
 }
 
 //}
+
+// | -------------- tracker's interface routines -------------- |
 
 //{ initialize()
 
@@ -314,10 +324,6 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
 //}
 
-// --------------------------------------------------------------
-// |                tracker's interface routines                |
-// --------------------------------------------------------------
-
 //{ activate()
 
 bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
@@ -421,9 +427,224 @@ void LandoffTracker::deactivate(void) {
 
 //}
 
-// --------------------------------------------------------------
-// |                   state machine routines                   |
-// --------------------------------------------------------------
+//{ update()
+
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  mutex_odometry.lock();
+  {
+    odometry   = *msg;
+    odometry_x = odometry.pose.pose.position.x;
+    odometry_y = odometry.pose.pose.position.y;
+    odometry_z = odometry.pose.pose.position.z;
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+
+    got_odometry = true;
+  }
+  mutex_odometry.unlock();
+
+  if (!is_active) {
+
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  position_output.header.stamp    = ros::Time::now();
+  position_output.header.frame_id = "local_origin";
+
+  position_output.position.x = state_x;
+  position_output.position.y = state_y;
+  position_output.position.z = state_z;
+  position_output.yaw        = state_yaw;
+
+  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
+  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
+  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
+  position_output.yaw_dot    = speed_yaw;
+
+  position_output.acceleration.x = 0;
+  position_output.acceleration.y = 0;
+  position_output.acceleration.z = 0;
+
+  if (takeoff_disable_lateral_gains_) {
+    if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE)) {
+      position_output.disable_position_gains = true;
+    } else {
+      position_output.disable_position_gains = false;
+    }
+  }
+
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
+}
+
+//}
+
+//{ getStatus()
+
+const mrs_msgs::TrackerStatus::Ptr LandoffTracker::getStatus() {
+
+  if (is_initialized) {
+
+    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+
+    if (is_active) {
+      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
+    } else {
+      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
+    }
+
+    return tracker_status;
+  } else {
+
+    return mrs_msgs::TrackerStatus::Ptr();
+  }
+}
+
+//}
+
+//{ enableCallbacks()
+
+const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+
+  return std_srvs::SetBoolResponse::Ptr();
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+//{ goTo() service
+
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec4Response::Ptr();
+}
+
+//}
+
+//{ goTo() topic
+
+const bool LandoffTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToRelative() service
+
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec4Response::Ptr();
+}
+
+//}
+
+//{ goToRelative() topic
+
+const bool LandoffTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ goToAltitude() service
+
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ goToAltitude() topic
+
+const bool LandoffTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYaw() service
+
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYaw() topic
+
+const bool LandoffTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ setYawRelative() service
+
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
+
+//}
+
+//{ setYawRelative() topic
+
+const bool LandoffTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
+
+//}
+
+//{ hover()
+
+const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+
+  std_srvs::TriggerResponse res;
+
+  // --------------------------------------------------------------
+  // |          horizontal initial conditions prediction          |
+  // --------------------------------------------------------------
+  mutex_odometry.lock();
+  {
+    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+    current_vertical_speed   = odometry.twist.twist.linear.z;
+  }
+  mutex_odometry.unlock();
+
+  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+  // --------------------------------------------------------------
+  // |           vertical initial conditions prediction           |
+  // --------------------------------------------------------------
+
+  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+
+  // --------------------------------------------------------------
+  // |                        set the goal                        |
+  // --------------------------------------------------------------
+
+  goal_x = state_x + stop_dist_x;
+  goal_y = state_y + stop_dist_y;
+  goal_z = state_z + vertical_stop_dist;
+
+  res.message = "Hover initiated.";
+  res.success = true;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+// | ----------------- state machine routines ----------------- |
 
 //{ changeStateHorizontal()
 
@@ -481,120 +702,7 @@ void LandoffTracker::changeState(States_t new_state) {
 
 //}
 
-//{ update()
-
-const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
-
-  mutex_odometry.lock();
-  {
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
-
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
-
-    got_odometry = true;
-  }
-  mutex_odometry.unlock();
-
-  if (!is_active) {
-
-    return mrs_msgs::PositionCommand::Ptr();
-  }
-
-  position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
-
-  position_output.position.x = state_x;
-  position_output.position.y = state_y;
-  position_output.position.z = state_z;
-  position_output.yaw        = state_yaw;
-
-  position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
-  position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
-  position_output.velocity.z = current_vertical_direction * current_vertical_speed;
-  position_output.yaw_dot    = speed_yaw;
-
-  position_output.acceleration.x = 0;
-  position_output.acceleration.y = 0;
-  position_output.acceleration.z = 0;
-
-  if (takeoff_disable_lateral_gains_) {
-    if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE)) {
-      position_output.disable_position_gains = true;
-    } else {
-      position_output.disable_position_gains = false;
-    }
-  }
-
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
-}
-
-//}
-
-//{ status()
-
-const mrs_msgs::TrackerStatus::Ptr LandoffTracker::status() {
-
-  if (is_initialized) {
-
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
-
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
-}
-
-//}
-
-//{ goTo()
-
-const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-//}
-
-//{ goToRelative()
-
-const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-//}
-
-//{ goToAltitude()
-
-const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
-}
-
-//}
-
-//{ hover()
-
-const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
-  return std_srvs::TriggerResponse::Ptr();
-}
-
-//}
-
-// --------------------------------------------------------------
-// |                       motion routines                      |
-// --------------------------------------------------------------
+// | --------------------- motion routines -------------------- |
 
 //{ stopHorizontalMotion()
 
@@ -781,9 +889,7 @@ void LandoffTracker::stopVertical(void) {
 
 //}
 
-// --------------------------------------------------------------
-// |                       timer routines                       |
-// --------------------------------------------------------------
+// | --------------------- timer routines --------------------- |
 
 //{ mainTimer()
 
@@ -965,9 +1071,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
 //}
 
-// --------------------------------------------------------------
-// |                          callbacks                         |
-// --------------------------------------------------------------
+// | ------------------------ callbacks ----------------------- |
 
 //{ callbackTakeoff()
 
