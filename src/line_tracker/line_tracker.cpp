@@ -53,11 +53,11 @@ public:
   virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
-  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
+  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -452,8 +452,20 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
 //{ goTo() topic
 
-const bool LineTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
-  return false;
+bool LineTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+
+  goal_x   = msg->position.x;
+  goal_y   = msg->position.y;
+  goal_z   = msg->position.z;
+  goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->position.yaw);
+
+  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
 }
 
 //}
@@ -489,8 +501,20 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
 
 //{ goToRelative() topic
 
-const bool LineTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
-  return false;
+bool LineTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+
+  goal_x   = state_x + msg->position.x;
+  goal_y   = state_y + msg->position.y;
+  goal_z   = state_z + msg->position.z;
+  goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->position.yaw);
+
+  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
 }
 
 //}
@@ -522,8 +546,20 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs:
 
 //{ goToAltitude() topic
 
-const bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
-  return false;
+bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+
+  goal_x   = state_x;
+  goal_y   = state_y;
+  goal_z   = msg->data;
+  goal_yaw = state_yaw;
+
+  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
 }
 
 //}
@@ -538,8 +574,17 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
 
 //{ setYaw() topic
 
-const bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
-  return false;
+bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+
+  goal_yaw = msg->data;
+
+  ROS_INFO("[LineTracker]: received new yaw setpoint %3.2f", goal_yaw);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
 }
 
 //}
@@ -554,8 +599,17 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msg
 
 //{ setYawRelative() topic
 
-const bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
-  return false;
+bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+
+  goal_yaw = state_yaw + msg->data;
+
+  ROS_INFO("[LineTracker]: received new yaw relative setpoint leading to %3.2f", goal_yaw);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
 }
 
 //}

@@ -53,11 +53,11 @@ public:
   virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
-  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
+  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -528,7 +528,7 @@ const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4
 
 //{ goTo() topic
 
-const bool LandoffTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+bool LandoffTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
 }
 
@@ -545,7 +545,7 @@ const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_ms
 
 //{ goToRelative() topic
 
-const bool LandoffTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+bool LandoffTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
 }
 
@@ -562,7 +562,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude(const mrs_ms
 
 //{ goToAltitude() topic
 
-const bool LandoffTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
@@ -578,7 +578,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYaw(const mrs_msgs::Ve
 
 //{ setYaw() topic
 
-const bool LandoffTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
@@ -594,7 +594,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYawRelative(const mrs_
 
 //{ setYawRelative() topic
 
-const bool LandoffTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 

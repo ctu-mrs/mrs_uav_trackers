@@ -46,11 +46,11 @@ public:
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
-  virtual const bool goTo(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToRelative(const mrs_msgs::TrackerPointConstPtr &cmd);
-  virtual const bool goToAltitude(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYaw(const std_msgs::Float64ConstPtr &cmd);
-  virtual const bool setYawRelative(const std_msgs::Float64ConstPtr &cmd);
+  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
@@ -84,7 +84,7 @@ private:
 
   // service clients
   ros::ServiceClient service_switch_tracker;
-  ros::ServiceClient service_goto;
+  ros::ServiceClient service_goTo;
 
   // publishers
   ros::Publisher publisher_odom_pitch_;
@@ -195,7 +195,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
     ROS_INFO("[CsvTracker]: Trajectory loaded, len = %d", trajectory_len);
   }
 
-  service_goto           = priv_nh.serviceClient<mrs_msgs::Vec4>("goto_out");
+  service_goTo           = priv_nh.serviceClient<mrs_msgs::Vec4>("goTo_out");
   service_switch_tracker = priv_nh.serviceClient<mrs_msgs::SwitchTracker>("SwitchTracker_out");
 
   publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
@@ -396,7 +396,7 @@ const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Requ
 
 //{ goTo() topic
 
-const bool CsvTracker::goTo(const mrs_msgs::TrackerPointConstPtr &msg) {
+bool CsvTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
 }
 
@@ -413,7 +413,7 @@ const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::
 
 //{ goToRelative() topic
 
-const bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointConstPtr &msg) {
+bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
 }
 
@@ -430,7 +430,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::
 
 //{ goToAltitude() topic
 
-const bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
@@ -446,7 +446,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw(const mrs_msgs::Vec1Re
 
 //{ setYaw() topic
 
-const bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
@@ -462,7 +462,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative(const mrs_msgs
 
 //{ setYawRelative() topic
 
-const bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
