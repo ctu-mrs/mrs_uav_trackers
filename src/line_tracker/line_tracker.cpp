@@ -123,6 +123,7 @@ private:
   double state_x, state_y, state_z, state_yaw;
   double speed_x, speed_y, speed_yaw;
   double current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
+  double current_horizontal_acceleration, current_vertical_acceleration;
 
   mrs_msgs::PositionCommand position_output;
 
@@ -381,9 +382,9 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   position_output.velocity.z = current_vertical_direction * current_vertical_speed;
   position_output.yaw_dot    = speed_yaw;
 
-  position_output.acceleration.x = 0;
-  position_output.acceleration.y = 0;
-  position_output.acceleration.z = 0;
+  position_output.acceleration.x = cos(current_heading) * current_horizontal_acceleration;
+  position_output.acceleration.y = sin(current_heading) * current_horizontal_acceleration;
+  position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
 
   routine_update->end();
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -705,7 +706,10 @@ void LineTracker::stopHorizontalMotion(void) {
   current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
   if (current_horizontal_speed < 0) {
-    current_horizontal_speed = 0;
+    current_horizontal_speed        = 0;
+    current_horizontal_acceleration = 0;
+  } else {
+    current_horizontal_acceleration = -horizontal_acceleration_;
   }
 }
 
@@ -718,7 +722,10 @@ void LineTracker::stopVerticalMotion(void) {
   current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
 
   if (current_vertical_speed < 0) {
-    current_vertical_speed = 0;
+    current_vertical_speed        = 0;
+    current_vertical_acceleration = 0;
+  } else {
+    current_vertical_acceleration = -vertical_acceleration_;
   }
 }
 
@@ -740,10 +747,14 @@ void LineTracker::accelerateHorizontal(void) {
   current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
 
   if (current_horizontal_speed >= horizontal_speed_) {
-    current_horizontal_speed = horizontal_speed_;
+    current_horizontal_speed        = horizontal_speed_;
+    current_horizontal_acceleration = 0;
+  } else {
+    current_horizontal_acceleration = horizontal_acceleration_;
   }
 
   if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
+    current_horizontal_acceleration = 0;
     changeStateHorizontal(DECELERATING_STATE);
   }
 }
@@ -768,10 +779,14 @@ void LineTracker::accelerateVertical(void) {
   current_vertical_speed += vertical_acceleration_ * tracker_dt_;
 
   if (current_vertical_speed >= vertical_speed_) {
-    current_vertical_speed = vertical_speed_;
+    current_vertical_speed        = vertical_speed_;
+    current_vertical_acceleration = 0;
+  } else {
+    current_vertical_acceleration = vertical_acceleration_;
   }
 
   if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
+    current_vertical_acceleration = 0;
     changeStateVertical(DECELERATING_STATE);
   }
 }
@@ -786,9 +801,12 @@ void LineTracker::decelerateHorizontal(void) {
 
   if (current_horizontal_speed < 0) {
     current_horizontal_speed = 0;
+  } else {
+    current_horizontal_acceleration = -horizontal_acceleration_;
   }
 
   if (current_horizontal_speed == 0) {
+    current_horizontal_acceleration = 0;
     changeStateHorizontal(STOPPING_STATE);
   }
 }
@@ -803,9 +821,12 @@ void LineTracker::decelerateVertical(void) {
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
+  } else {
+    current_vertical_acceleration = -vertical_acceleration_;
   }
 
   if (current_vertical_speed == 0) {
+    current_vertical_acceleration = 0;
     changeStateVertical(STOPPING_STATE);
   }
 }
@@ -818,6 +839,7 @@ void LineTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
+  current_horizontal_acceleration = 0;
 }
 
 //}
@@ -827,6 +849,7 @@ void LineTracker::stopHorizontal(void) {
 void LineTracker::stopVertical(void) {
 
   state_z = 0.95 * state_z + 0.05 * goal_z;
+  current_vertical_acceleration = 0;
 }
 
 //}

@@ -144,6 +144,7 @@ private:
   double state_x, state_y, state_z, state_yaw;
   double speed_x, speed_y, speed_yaw;
   double current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
+  double current_horizontal_acceleration, current_vertical_acceleration;
 
   mrs_msgs::PositionCommand position_output;
 
@@ -466,9 +467,9 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   position_output.velocity.z = current_vertical_direction * current_vertical_speed;
   position_output.yaw_dot    = speed_yaw;
 
-  position_output.acceleration.x = 0;
-  position_output.acceleration.y = 0;
-  position_output.acceleration.z = 0;
+  position_output.acceleration.x = cos(current_heading) * current_horizontal_acceleration;
+  position_output.acceleration.y = sin(current_heading) * current_horizontal_acceleration;
+  position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
 
   if (takeoff_disable_lateral_gains_) {
     if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE)) {
@@ -712,6 +713,9 @@ void LandoffTracker::stopHorizontalMotion(void) {
 
   if (current_horizontal_speed < 0) {
     current_horizontal_speed = 0;
+    current_horizontal_acceleration = 0;
+  } else {
+    current_horizontal_acceleration = -horizontal_acceleration_;
   }
 }
 
@@ -725,6 +729,9 @@ void LandoffTracker::stopVerticalMotion(void) {
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
+    current_vertical_acceleration = 0;
+  } else {
+    current_vertical_acceleration = -vertical_acceleration_;
   }
 }
 
@@ -747,9 +754,13 @@ void LandoffTracker::accelerateHorizontal(void) {
 
   if (current_horizontal_speed >= horizontal_speed_) {
     current_horizontal_speed = horizontal_speed_;
+    current_horizontal_acceleration = 0;
+  } else {
+    current_horizontal_acceleration = horizontal_acceleration_;
   }
 
   if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
+    current_horizontal_acceleration = 0;
     changeStateHorizontal(DECELERATING_STATE);
   }
 }
@@ -799,9 +810,13 @@ void LandoffTracker::accelerateVertical(void) {
 
   if (current_vertical_speed >= used_speed) {
     current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
+    current_vertical_acceleration = 0;
+  } else {
+    current_vertical_acceleration = used_acceleration;
   }
 
   if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
+    current_vertical_acceleration = 0;
     changeStateVertical(DECELERATING_STATE);
   }
 }
@@ -811,6 +826,26 @@ void LandoffTracker::accelerateVertical(void) {
 //{ decelerateHorizontal()
 
 void LandoffTracker::decelerateHorizontal(void) {
+
+  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+
+  if (current_horizontal_speed < 0) {
+    current_horizontal_speed = 0;
+  } else {
+    current_horizontal_acceleration = -horizontal_acceleration_;
+  }
+
+  if (current_horizontal_speed == 0) {
+    current_horizontal_acceleration = 0;
+    changeStateHorizontal(STOPPING_STATE);
+  }
+}
+
+//}
+
+//{ decelerateVertical()
+
+void LandoffTracker::decelerateVertical(void) {
 
   double used_acceleration;
 
@@ -830,40 +865,16 @@ void LandoffTracker::decelerateHorizontal(void) {
     used_acceleration = vertical_acceleration_;
   }
 
-  current_horizontal_speed -= used_acceleration * tracker_dt_;
-
-  if (current_horizontal_speed < 0) {
-    current_horizontal_speed = 0;
-  }
-
-  if (current_horizontal_speed == 0) {
-    changeStateHorizontal(STOPPING_STATE);
-  }
-}
-
-//}
-
-//{ decelerateVertical()
-
-void LandoffTracker::decelerateVertical(void) {
-
-  double used_acceleration;
-
-  if (taking_off) {
-    used_acceleration = takeoff_acceleration_;
-  } else if (landing) {
-    used_acceleration = landing_acceleration_;
-  } else {
-    used_acceleration = vertical_acceleration_;
-  }
-
   current_vertical_speed -= used_acceleration * tracker_dt_;
 
   if (current_vertical_speed < 0) {
     current_vertical_speed = 0;
+  } else {
+    current_vertical_acceleration = -used_acceleration;
   }
 
   if (current_vertical_speed == 0) {
+    current_vertical_acceleration = 0;
     changeStateVertical(STOPPING_STATE);
   }
 }
@@ -876,6 +887,7 @@ void LandoffTracker::stopHorizontal(void) {
 
   state_x = 0.95 * state_x + 0.05 * goal_x;
   state_y = 0.95 * state_y + 0.05 * goal_y;
+  current_horizontal_acceleration = 0;
 }
 
 //}
@@ -885,6 +897,7 @@ void LandoffTracker::stopHorizontal(void) {
 void LandoffTracker::stopVertical(void) {
 
   state_z = 0.95 * state_z + 0.05 * goal_z;
+  current_vertical_acceleration = 0;
 }
 
 //}
