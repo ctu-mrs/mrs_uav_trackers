@@ -1131,6 +1131,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
 
   } else {
 
+    // TODO: should set goal when flying to a setpoint
     if (!setGoal(x(0, 0), x(3, 0), x(6, 0), cmd->goal, false)) {
 
       res.success = false;
@@ -1166,6 +1167,7 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
     } else {
 
+      // TODO: should set goal when flying to a setpoint
       setGoal(x(0, 0), x(3, 0), x(6, 0), msg->data, false);
     }
   }
