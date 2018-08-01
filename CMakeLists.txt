@@ -37,7 +37,7 @@ include_directories(
   include
   ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
-  src/mpc_tracker/cvxgen
+  src/mpc_tracker/cvxgen_xy
   src/mpc_tracker/cvxgen_z
   src/mpc_tracker/cvxgen_yaw
   )
@@ -46,11 +46,11 @@ include_directories(
 
 add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
 
-add_library(cvx_wrapper src/mpc_tracker/cvx_wrapper.cpp
-  src/mpc_tracker/cvxgen/ldl.c
-  src/mpc_tracker/cvxgen/matrix_support.c
-  src/mpc_tracker/cvxgen/solver.c
-  src/mpc_tracker/cvxgen/util.c
+add_library(cvx_wrapper_xy src/mpc_tracker/cvx_wrapper_xy.cpp
+  src/mpc_tracker/cvxgen_xy/ldl.c
+  src/mpc_tracker/cvxgen_xy/matrix_support.c
+  src/mpc_tracker/cvxgen_xy/solver.c
+  src/mpc_tracker/cvxgen_xy/util.c
   )
 
 add_library(cvx_wrapper_z src/mpc_tracker/cvx_wrapper_z.cpp
@@ -74,7 +74,7 @@ add_dependencies(MpcTracker
 
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
-  cvx_wrapper
+  cvx_wrapper_xy
   cvx_wrapper_z
   cvx_wrapper_yaw
   )

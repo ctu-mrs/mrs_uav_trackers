@@ -23,7 +23,7 @@
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
 
-#include "cvx_wrapper.h"
+#include "cvx_wrapper_xy.h"
 #include "cvx_wrapper_yaw.h"
 #include "cvx_wrapper_z.h"
 
@@ -143,7 +143,7 @@ private:
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapper *   cvx_2d;
+  CvxWrapperXY *   cvx_2d;
   CvxWrapperZ *  cvx_z;
   CvxWrapperYaw *cvx_yaw;
 
@@ -448,7 +448,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.getParam("cvxWrapper/Q", tempList);
   nh_.getParam("cvxWrapper/R", tempList2);
 
-  cvx_2d = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, max_horizontal_jerk);
+  cvx_2d = new CvxWrapperXY(verbose, max_iters_XY, tempList, tempList2, dt, dt2, max_horizontal_jerk);
 
   nh_.param("cvxWrapperZ/verbose", verbose, false);
   nh_.param("cvxWrapperZ/maxNumOfIterations", max_iters_Z, 25);

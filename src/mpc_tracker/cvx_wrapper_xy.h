@@ -6,10 +6,10 @@
 
 /* author: Daniel Hert */
 
-class CvxWrapper {
+class CvxWrapperXY {
 
 public:
-  CvxWrapper(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2, double hjerk);
+  CvxWrapperXY(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2, double hjerk);
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);
