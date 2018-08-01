@@ -21,13 +21,13 @@
 #endif
 #endif
 /* Space must be allocated somewhere (testsolver.c, csolve.c or your own */
-/* program) for the global variables vars, params, work and settings. */
+/* program) for the global variables varsXY, paramsXY, workXY and settingsXY. */
 /* At the bottom of this file, they are externed. */
 #ifndef ZERO_LIBRARY_MODE
 #include <math.h>
-#define pm(A, m, n) printmatrix(#A, A, m, n, 1)
+#define pm(A, m, n) printmatrixd_xy(#A, A, m, n, 1)
 #endif
-typedef struct Params_t {
+typedef struct ParamsXY_t {
   double x_ss_1[6];
   double Q[6];
   double x_ss_2[6];
@@ -161,8 +161,8 @@ typedef struct Params_t {
   double *x[1];
   double *x_max_3[41];
   double *x_max_2[41];
-} Params;
-typedef struct Vars_t {
+} ParamsXY;
+typedef struct VarsXY_t {
   double *x_1; /* 6 rows. */
   double *x_2; /* 6 rows. */
   double *x_3; /* 6 rows. */
@@ -245,8 +245,8 @@ typedef struct Vars_t {
   double *u_0; /* 2 rows. */
   double *x[41];
   double *u[40];
-} Vars;
-typedef struct Workspace_t {
+} VarsXY;
+typedef struct WorkspaceXY_t {
   double h[640];
   double s_inv[640];
   double s_inv_z[640];
@@ -313,8 +313,8 @@ typedef struct Workspace_t {
   double quad_637564002304[1];
   double quad_646561718272[1];
   int converged;
-} Workspace;
-typedef struct Settings_t {
+} WorkspaceXY;
+typedef struct SettingsXY_t {
   double resid_tol;
   double eps;
   int max_iters;
@@ -329,61 +329,61 @@ typedef struct Settings_t {
   int debug;
   /* For regularization. Minimum value of abs(D_ii) in the kkt D factor. */
   double kkt_reg;
-} Settings;
-extern Vars vars;
-extern Params params;
-extern Workspace work;
-extern Settings settings;
+} SettingsXY;
+extern VarsXY varsXY;
+extern ParamsXY paramsXY;
+extern WorkspaceXY workXY;
+extern SettingsXY settingsXY;
 /* Function definitions in ldl.c: */
-void ldl_solve(double *target, double *var);
-void ldl_factor(void);
-double check_factorization(void);
-void matrix_multiply(double *result, double *source);
-double check_residual(double *target, double *multiplicand);
-void fill_KKT(void);
+void ldl_solve_xy(double *target, double *var);
+void ldl_factor_xy(void);
+double check_factorization_xy(void);
+void matrix_multiply_xy(double *result, double *source);
+double check_residual_xy(double *target, double *multiplicand);
+void fill_KKT_xy(void);
 
 /* Function definitions in matrix_support.c: */
-void multbymA(double *lhs, double *rhs);
-void multbymAT(double *lhs, double *rhs);
-void multbymG(double *lhs, double *rhs);
-void multbymGT(double *lhs, double *rhs);
-void multbyP(double *lhs, double *rhs);
-void fillq(void);
-void fillh(void);
-void fillb(void);
-void pre_ops(void);
+void multbymA_xy(double *lhs, double *rhs);
+void multbymAT_xy(double *lhs, double *rhs);
+void multbymG_xy(double *lhs, double *rhs);
+void multbymGT_xy(double *lhs, double *rhs);
+void multbyP_xy(double *lhs, double *rhs);
+void fillq_xy(void);
+void fillh_xy(void);
+void fillb_xy(void);
+void pre_ops_xy(void);
 
 /* Function definitions in solver.c: */
-double eval_gap(void);
-void set_defaults(void);
-void setup_pointers(void);
-void setup_indexed_params(void);
-void setup_indexed_optvars(void);
-void setup_indexing(void);
-void set_start(void);
-double eval_objv(void);
-void fillrhs_aff(void);
-void fillrhs_cc(void);
-void refine(double *target, double *var);
-double calc_ineq_resid_squared(void);
-double calc_eq_resid_squared(void);
-void better_start(void);
-void fillrhs_start(void);
-long solve(void);
+double eval_gap_xy(void);
+void set_defaults_xy(void);
+void setup_pointers_xy(void);
+void setup_indexed_paramsXY_xy(void);
+void setup_indexed_optvarsXY_xy(void);
+void setup_indexing_xy(void);
+void set_start_xy(void);
+double eval_objv_xy(void);
+void fillrhs_aff_xy(void);
+void fillrhs_cc_xy(void);
+void refine_xy(double *target, double *var);
+double calc_ineq_resid_squared_xy(void);
+double calc_eq_resid_squared_xy(void);
+void better_start_xy(void);
+void fillrhs_start_xy(void);
+long solve_xy(void);
 
 /* Function definitions in testsolver.c: */
-int main(int argc, char **argv);
-void load_default_data(void);
+int main_xy(int argc, char **argv);
+void load_default_data_xy(void);
 
 /* Function definitions in util.c: */
-void tic(void);
-float toc(void);
-float tocq(void);
-void printmatrix(char *name, double *A, int m, int n, int sparse);
-double unif(double lower, double upper);
-float ran1(long*idum, int reset);
-float randn_internal(long *idum, int reset);
-double randn(void);
-void reset_rand(void);
+void tic_xy(void);
+float toc_xy(void);
+float tocq_xy(void);
+void printmatrixd_xy(char *name, double *A, int m, int n, int sparse);
+double unif_xy(double lower, double upper);
+float ran1d_xy(long*idum, int reset);
+float randn_internal_xy(long *idum, int reset);
+double randn_xy(void);
+void reset_rand_xy(void);
 
 #endif
