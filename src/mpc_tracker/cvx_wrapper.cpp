@@ -12,13 +12,22 @@ Vars      vars;
 Params    params;
 Workspace work;
 Settings  settings;
-int        n = 9;
+int       n = 9;
 
-CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2, double zjerk_asc, double zjerk_des) {
+/* dim is used to offset the result in the output vecor, according to which dimension (x,y,z) is being calculated */
+/* x - 0 */
+/* y - 1 */
+/* z - 2 */
+/* yaw - 0 */
+int dim = 0;
+
+CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2,
+                       int dimension) {
 
 
   set_defaults();
   setup_indexing();
+  dim = dimension;
 
   if ((verbose != 1 && verbose != 0) || !std::isfinite(verbose)) {
     ROS_ERROR("CvxWrapper - verbose has to be 0 or 1!!! Safe value of 0 set instead");
@@ -27,8 +36,8 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   settings.verbose = verbose;
 
   if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
-    ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 25 set instead");
-    max_iters = 25;
+    ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 20 set instead");
+    max_iters = 20;
   }
   settings.max_iters = max_iters;
 
@@ -51,18 +60,18 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   if (tempR.size() == 1) {
     for (int i = 0; i < 1; i++) {
       if (tempR[i] >= 0 && std::isfinite(tempR[i])) {
-        params.R[i] = tempR[i];
-        params.R2[i] = tempR[i]/20;
+        params.R[i]  = tempR[i];
+        params.R2[i] = tempR[i] / 20;
       } else {
         ROS_ERROR_STREAM("CvxWrapper - R matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
-        params.R[i] = 500;
-        params.R2[i] = 500/20;
+        params.R[i]  = 500;
+        params.R2[i] = 500 / 20;
       }
     }
   } else {
     ROS_ERROR_STREAM("CvxWrapper - R matrix wrong size " << tempR.size() << " !!! Safe values set instead");
-    params.R[0] = 500;
-    params.R2[0] = 500/20;
+    params.R[0]  = 500;
+    params.R2[0] = 500 / 20;
   }
 
   if (dt <= 0 || !std::isfinite(dt)) {
@@ -75,45 +84,34 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
     dt = 0.2;
   }
 
-  if (zjerk_asc <= 0 || !std::isfinite(zjerk_asc) || zjerk_asc >= 10.0) {
-    ROS_ERROR_STREAM("CvxWrapper - zjerk_asc parameter wrong " << zjerk_asc << " !!! Safe value of 1.0 set instead");
-    zjerk_asc = 1.0;
-  }
-  
-  if (zjerk_des <= 0 || !std::isfinite(zjerk_des) || zjerk_des >= 10.0) {
-    ROS_ERROR_STREAM("CvxWrapper - zjerk_asc parameter wrong " << zjerk_des << " !!! Safe value of 1.0 set instead");
-    zjerk_des = 1.0;
-  }
-
-
-  params.u_max[0] = zjerk_asc;
-  params.u_min[0] = zjerk_des;
 
   params.A[0] = 1;
   params.A[1] = 1;
   params.A[2] = 1;
   params.A[3] = dt2;
   params.A[4] = dt2;
-  params.A[5] = 0.5*dt2*dt2;
+  params.A[5] = 0.5 * dt2 * dt2;
 
   params.B[0] = dt2;
-  
+
   params.Af[0] = 1;
   params.Af[1] = 1;
   params.Af[2] = 1;
   params.Af[3] = dt;
   params.Af[4] = dt;
-  params.Af[5] = 0.5*dt*dt;
+  params.Af[5] = 0.5 * dt * dt;
 
   params.Bf[0] = dt;
 
   ROS_INFO("Cvx wrapper initiated");
 }
-void CvxWrapper::setLimits(double max_speed, double max_acc, double min_speed, double min_acc) {
-  params.x_max_2[0]  = max_speed;
-  params.x_max_3[0]  = max_acc;
-  params.x_min_2[0]  = min_speed;
-  params.x_min_3[0]  = min_acc;
+void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk) {
+  params.x_max_2[0] = max_speed;
+  params.x_min_2[0] = min_speed;
+  params.x_max_3[0] = max_acc;
+  params.x_min_3[0] = min_acc;
+  params.u_max[0]   = max_jerk;
+  params.u_min[0]   = min_jerk;
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {
