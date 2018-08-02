@@ -26,6 +26,7 @@
 #include "cvx_wrapper_xy.h"
 #include "cvx_wrapper_yaw.h"
 #include "cvx_wrapper_z.h"
+#include "cvx_wrapper.h"
 
 #include <commons.h>
 
@@ -126,22 +127,31 @@ private:
   bool avoiding_someone;
   bool being_avoided;
 
-  int    max_iters_XY, max_iters_Z, max_iters_yaw;
-  int    iters_Z             = 0;
-  int    iters_XY            = 0;
-  int    iters_yaw           = 0;
-  double max_speed_xy        = 0;
-  double max_acc_xy          = 0;
-  double max_speed_z         = 0;
-  double max_acc_z           = 0;
-  double min_speed_z         = 0;
-  double min_acc_z           = 0;
-  double max_horizontal_jerk = 0;
+  int      max_iters_XY, max_iters_Z, max_iters_yaw;
+  int      iters_X             = 0;
+  int      iters_Y             = 0;
+  int      iters_Z             = 0;
+  int      iters_XY            = 0;
+  int      iters_yaw           = 0;
+  double   max_speed_xy        = 0;
+  double   max_acc_xy          = 0;
+  double   max_speed_z         = 0;
+  double   max_acc_z           = 0;
+  double   max_jerk_z          = 0;
+  double   min_speed_z         = 0;
+  double   min_acc_z           = 0;
+  double   min_jerk_z          = 0;
+  double   max_horizontal_jerk = 0;
+  MatrixXd initial_x           = MatrixXd::Zero(3, 1);  // initial x state to be used by cvxgen
+  MatrixXd initial_y           = MatrixXd::Zero(3, 1);  // initial y state to be used by cvxgen
+  MatrixXd initial_z           = MatrixXd::Zero(3, 1);  // initial z state to be used by cvxgen
+  MatrixXd initial_yaw         = MatrixXd::Zero(3, 1);  // initial yaw state to be used by cvxgen
+
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapperXY *   cvx_2d;
-  CvxWrapperZ *  cvx_z;
+  CvxWrapperXY * cvx_2d;
+  CvxWrapper *   cvx_z;
   CvxWrapperYaw *cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
@@ -186,43 +196,43 @@ private:
   double desired_yaw;
 
   // predicting the future
-  MatrixXd                 predicted_future_trajectory;
-  MatrixXd                 predicted_future_yaw;
-  std::string              uav_name_;
-  std::vector<std::string> other_drone_names_;
+  MatrixXd                                          predicted_future_trajectory;
+  MatrixXd                                          predicted_future_yaw;
+  std::string                                       uav_name_;
+  std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-  std::vector<ros::Subscriber> other_drones_subscribers;
-  ros::Publisher               predicted_trajectory_publisher;
-  ros::Publisher               debug_predicted_trajectory_publisher;
-  bool                         mrs_collision_avoidance;
-  double                       predicted_trajectory_publish_rate;
-  double                       mrs_collision_avoidance_radius;
-  double                       mrs_collision_avoidance_correction;
-  std::mutex                   mutex_predicted_trajectory;
-  std::string                  predicted_trajectory_topic;
-  void callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool   future_was_predicted;
-  double mrs_collision_avoidance_altitude_threshold;
-  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  std::vector<ros::Subscriber>                      other_drones_subscribers;
+  ros::Publisher                                    predicted_trajectory_publisher;
+  ros::Publisher                                    debug_predicted_trajectory_publisher;
+  bool                                              mrs_collision_avoidance;
+  double                                            predicted_trajectory_publish_rate;
+  double                                            mrs_collision_avoidance_radius;
+  double                                            mrs_collision_avoidance_correction;
+  std::mutex                                        mutex_predicted_trajectory;
+  std::string                                       predicted_trajectory_topic;
+  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool                                              future_was_predicted;
+  double                                            mrs_collision_avoidance_altitude_threshold;
+  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   int       uav_num_name;
   double    collision_altitude_offeset;
   ros::Time avoiding_collision_time;
   ros::Time being_avoided_time;
-  bool callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
-  int    collision_slow_down_before;
-  double collision_slowing_hysteresis;
-  int    earliest_collision_idx;
-  double collision_trajectory_timeout;
+  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double    collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
+  int       collision_slow_down_before;
+  double    collision_slowing_hysteresis;
+  int       earliest_collision_idx;
+  double    collision_trajectory_timeout;
 
 private:
   ros::Timer future_trajectory_timer;
-  void futureTrajectoryTimer(const ros::TimerEvent &event);
+  void       futureTrajectoryTimer(const ros::TimerEvent &event);
 
 private:
   ros::Timer diagnostics_timer;
   double     diagnostics_rate;
-  void diagnosticsTimer(const ros::TimerEvent &event);
+  void       diagnosticsTimer(const ros::TimerEvent &event);
 
 private:
   MatrixXd   outputTrajectory;
@@ -244,31 +254,31 @@ private:
   double    mpc_total_delay = 0;
 
   // methods
-  void mpcTimer(const ros::TimerEvent &event);
-  void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
-  bool callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
-  bool callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void odom_cb(const nav_msgs::OdometryConstPtr &msg);
-  void calculateMPC();
-  void setTrajectory(float x, float y, float z, float yaw);
-  bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  void     mpcTimer(const ros::TimerEvent &event);
+  void     pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void     callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void     callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  bool     callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
+  bool     callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
+  void     calculateMPC();
+  void     setTrajectory(float x, float y, float z, float yaw);
+  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-  bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-  bool callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
-  bool   triggerFailsafe();
-  void   publishDiagnostics();
-  double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
-  bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+  bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
+  bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
+  bool     triggerFailsafe();
+  void     publishDiagnostics();
+  double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
+  bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
   bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
@@ -452,7 +462,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.getParam("cvxWrapperZ/Q", tempList);
   nh_.getParam("cvxWrapperZ/R", tempList2);
 
-  cvx_z = new CvxWrapperZ(verbose, max_iters_Z, tempList, tempList2, dt, dt2, max_vertical_ascending_jerk, max_vertical_descending_jerk);
+  cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, tempList2, dt, dt2, 2);
 
   nh_.param("cvxWrapperYaw/verbose", verbose, false);
   nh_.param("cvxWrapperYaw/maxNumOfIterations", max_iters_yaw, 25);
@@ -1047,10 +1057,9 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
     res.message = "Failsafe is active!";
   } else if (!setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
 
-      res.success = false;
-      res.message = "Cannot set the goal. It is probably outside of the safety area.";
-    }
-  else {
+    res.success = false;
+    res.message = "Cannot set the goal. It is probably outside of the safety area.";
+  } else {
 
     res.success = true;
     char tempStr[100];
@@ -1848,12 +1857,14 @@ void MpcTracker::calculateMPC() {
 
   // filter the desired trajectory to be feasible
   filterReference();
-  // filter desired yaw reference to be feasible and remove PI rollarounds
+  // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
 
   avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
   being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
   iters_Z          = 0;
+  iters_X          = 0;
+  iters_Y          = 0;
   iters_XY         = 0;
   iters_yaw        = 0;
 
@@ -1866,16 +1877,20 @@ void MpcTracker::calculateMPC() {
     max_acc_xy   = max_horizontal_acceleration;
   }
   if (avoiding_someone) {
-    // we are avoiding someone, better increase the vertical limits to avoid in time
+    // we are avoiding someone, better increase the vertical velocity and aceleration limits to avoid in time
     max_speed_z = 5.0;
     max_acc_z   = 3.0;
+    max_jerk_z  = 6.0;
     min_speed_z = 5.0;
     min_acc_z   = 3.0;
+    min_jerk_z  = 6.0;
   } else {
     max_speed_z = max_vertical_ascending_speed;
     max_acc_z   = max_vertical_ascending_acceleration;
+    max_jerk_z   = max_vertical_ascending_jerk;
     min_speed_z = max_vertical_descending_speed;
     min_acc_z   = max_vertical_descending_acceleration;
+    min_jerk_z   = max_vertical_descending_jerk;
   }
 
   // prepare reference vector for XYZ
@@ -1904,17 +1919,20 @@ void MpcTracker::calculateMPC() {
   ros::Time time_begin = ros::Time::now();
 
   // cvxgen Z axis -------------------------------------------------------------------------------------
+  initial_z(0, 0) = x(6, 0);
+  initial_z(1, 0) = x(7, 0);
+  initial_z(2, 0) = x(8, 0);
 
-  cvx_z->setInitialState(x);
-  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z);
-  cvx_z->loadReference(reference);
+  cvx_z->setInitialState(initial_z);
+  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk);
+  cvx_z->loadReference(des_z_filtered);
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
 
   // cvxgen X and Y axis -------------------------------------------------------------------------------
 
-  // Point of the following for cycle is to reduce maximum speed in XY if the UAV is climbing
+  // The following code reduces the maximum speed in XY if the UAV is climbing
   for (int i = 0; i < horizon_len; i++) {
     if (predicted_future_trajectory(7 + (i * n), 0) > 0) {
       double tmpz;
@@ -1924,7 +1942,7 @@ void MpcTracker::calculateMPC() {
         cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2;
       }
       predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n));
-      tmpz = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
+      tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
       if (tmpz < cvxgen_horizontal_vel_constraint(i)) {
         cvxgen_horizontal_vel_constraint(i) = tmpz;
         if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) {
@@ -1936,6 +1954,7 @@ void MpcTracker::calculateMPC() {
     }
     cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
   }
+
   cvx_2d->setInitialState(x);
   cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
   cvx_2d->loadReference(reference);
@@ -2532,7 +2551,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 }
 
 //}
-}
+}  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_trackers::MpcTracker, mrs_mav_manager::Tracker)
