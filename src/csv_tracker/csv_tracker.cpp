@@ -64,6 +64,9 @@ public:
   void setInitPoint(void);
 
 private:
+  bool callbacks_enabled = true;
+
+private:
   ros::NodeHandle nh_;
 
   nav_msgs::Odometry odom;
@@ -378,7 +381,26 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  return std_srvs::SetBoolResponse::Ptr();
+  char message[100];
+  std_srvs::SetBoolResponse res;
+
+  if (cmd->data != callbacks_enabled) {
+    
+    callbacks_enabled = cmd->data;
+
+    sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
+
+    ROS_INFO("[CsvTracker]: %s", message);
+
+  } else {
+  
+    sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
+  }
+
+  res.message = message;
+  res.success = true;
+
+  return std_srvs::SetBoolResponse::ConstPtr(new std_srvs::SetBoolResponse(res));
 }
 
 //}

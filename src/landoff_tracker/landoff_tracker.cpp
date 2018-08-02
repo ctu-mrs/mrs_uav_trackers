@@ -62,6 +62,9 @@ public:
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  bool callbacks_enabled = true;
+
+private:
   nav_msgs::Odometry odometry;
   bool               got_odometry = false;
   std::mutex         mutex_odometry;
@@ -296,15 +299,23 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   current_horizontal_speed = 0;
   current_vertical_speed   = 0;
 
-  current_vertical_direction = 0;
+  current_horizontal_acceleration = 0;
+  current_vertical_acceleration = 0;
 
-  is_initialized = true;
+  current_vertical_direction = 0;
 
   current_state_vertical  = LANDED_STATE;
   previous_state_vertical = LANDED_STATE;
 
   current_state_horizontal  = LANDED_STATE;
   previous_state_horizontal = LANDED_STATE;
+
+  // --------------------------------------------------------------
+  // |                          profiler                          |
+  // --------------------------------------------------------------
+
+  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker");
+  routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
 
   // --------------------------------------------------------------
   // |                          services                          |
@@ -319,10 +330,9 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this);
 
-  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker");
-  routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
-
   ROS_INFO("[LandoffTracker]: initialized");
+
+  is_initialized = true;
 }
 
 //}
@@ -493,8 +503,8 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
     position_output.velocity.z = current_vertical_direction * current_vertical_speed;
     position_output.yaw_dot    = speed_yaw;
 
-    position_output.acceleration.x = cos(current_heading) * current_horizontal_acceleration;
-    position_output.acceleration.y = sin(current_heading) * current_horizontal_acceleration;
+    position_output.acceleration.x = 0;
+    position_output.acceleration.y = 0;
     position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
   }
   mutex_state.unlock();
@@ -539,7 +549,26 @@ const mrs_msgs::TrackerStatus::Ptr LandoffTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  return std_srvs::SetBoolResponse::Ptr();
+  char message[100];
+  std_srvs::SetBoolResponse res;
+
+  if (cmd->data != callbacks_enabled) {
+    
+    callbacks_enabled = cmd->data;
+
+    sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
+
+    ROS_INFO("[LandoffTracker]: %s", message);
+
+  } else {
+  
+    sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
+  }
+
+  res.message = message;
+  res.success = true;
+
+  return std_srvs::SetBoolResponse::ConstPtr(new std_srvs::SetBoolResponse(res));
 }
 
 //}
@@ -798,12 +827,12 @@ void LandoffTracker::accelerateHorizontal(void) {
 
   current_heading = atan2(goal_y - state_y, goal_x - state_x);
 
-  // decelerationg condition
-  // calculate the time to stop and the distance it will take to stop [horizontal]
-  double horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  double horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-  double stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-  double stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+  double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
+
+  horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
   current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
 
@@ -1150,6 +1179,15 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
   if (!is_active) {
 
     sprintf((char *)&message, "Can't take off, the tracker is not active.");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  if (!callbacks_enabled) {
+
+    sprintf((char *)&message, "Can't take off, the callbacks are disabled.");
     ROS_ERROR("[LandoffTracker]: %s", message);
     res.success = false;
     res.message = message;
