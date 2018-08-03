@@ -2478,7 +2478,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   if (interval.toSec() > dt) {
 
     mpc_total_delay += interval.toSec() - dt;
-    ROS_WARN_THROTTLE(10.0, "MPC is Running %2.2f%% slower than it should.", 100 * mpc_total_delay / (ros::Time::now() - mpc_start_time).toSec());
+    ROS_WARN_THROTTLE(10.0, "[MpcTracker] MPC is Running %2.2f%% slower than it should.", 100 * mpc_total_delay / (ros::Time::now() - mpc_start_time).toSec());
   }
 
   mpc_computed_ = true;
