@@ -133,8 +133,12 @@ private:
   int      iters_Y             = 0;
   int      iters_Z             = 0;
   int      iters_YAW           = 0;
-  double   max_speed_xy        = 0;
-  double   max_acc_xy          = 0;
+  double   max_speed_x         = 0;
+  double   max_speed_y         = 0;
+  double   max_acc_x           = 0;
+  double   max_acc_y           = 0;
+  double   max_jerk_x          = 0;
+  double   max_jerk_y          = 0;
   double   max_speed_z         = 0;
   double   max_acc_z           = 0;
   double   max_jerk_z          = 0;
@@ -150,10 +154,10 @@ private:
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapper *   cvx_x;
-  CvxWrapper *   cvx_y;
-  CvxWrapper *   cvx_z;
-  CvxWrapper *   cvx_yaw;
+  CvxWrapper *cvx_x;
+  CvxWrapper *cvx_y;
+  CvxWrapper *cvx_z;
+  CvxWrapper *cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
   MatrixXd A;        // system matrix for virtual UAV
@@ -197,42 +201,42 @@ private:
   double desired_yaw;
 
   // predicting the future
-  MatrixXd                                          predicted_future_trajectory;
-  std::string                                       uav_name_;
-  std::vector<std::string>                          other_drone_names_;
+  MatrixXd                 predicted_future_trajectory;
+  std::string              uav_name_;
+  std::vector<std::string> other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-  std::vector<ros::Subscriber>                      other_drones_subscribers;
-  ros::Publisher                                    predicted_trajectory_publisher;
-  ros::Publisher                                    debug_predicted_trajectory_publisher;
-  bool                                              mrs_collision_avoidance;
-  double                                            predicted_trajectory_publish_rate;
-  double                                            mrs_collision_avoidance_radius;
-  double                                            mrs_collision_avoidance_correction;
-  std::mutex                                        mutex_predicted_trajectory;
-  std::string                                       predicted_trajectory_topic;
-  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool                                              future_was_predicted;
-  double                                            mrs_collision_avoidance_altitude_threshold;
-  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  std::vector<ros::Subscriber> other_drones_subscribers;
+  ros::Publisher               predicted_trajectory_publisher;
+  ros::Publisher               debug_predicted_trajectory_publisher;
+  bool                         mrs_collision_avoidance;
+  double                       predicted_trajectory_publish_rate;
+  double                       mrs_collision_avoidance_radius;
+  double                       mrs_collision_avoidance_correction;
+  std::mutex                   mutex_predicted_trajectory;
+  std::string                  predicted_trajectory_topic;
+  void callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool   future_was_predicted;
+  double mrs_collision_avoidance_altitude_threshold;
+  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   int       uav_num_name;
   double    collision_altitude_offeset;
   ros::Time avoiding_collision_time;
   ros::Time being_avoided_time;
-  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double    collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
-  int       collision_slow_down_before;
-  double    collision_slowing_hysteresis;
-  int       earliest_collision_idx;
-  double    collision_trajectory_timeout;
+  bool callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
+  int    collision_slow_down_before;
+  double collision_slowing_hysteresis;
+  int    earliest_collision_idx;
+  double collision_trajectory_timeout;
 
 private:
   ros::Timer future_trajectory_timer;
-  void       futureTrajectoryTimer(const ros::TimerEvent &event);
+  void futureTrajectoryTimer(const ros::TimerEvent &event);
 
 private:
   ros::Timer diagnostics_timer;
   double     diagnostics_rate;
-  void       diagnosticsTimer(const ros::TimerEvent &event);
+  void diagnosticsTimer(const ros::TimerEvent &event);
 
 private:
   MatrixXd   outputTrajectory;
@@ -254,31 +258,31 @@ private:
   double    mpc_total_delay = 0;
 
   // methods
-  void     mpcTimer(const ros::TimerEvent &event);
-  void     pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void     callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void     callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
-  bool     callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
-  bool     callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
-  void     calculateMPC();
-  void     setTrajectory(float x, float y, float z, float yaw);
-  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  void mpcTimer(const ros::TimerEvent &event);
+  void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  bool callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
+  bool callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void odom_cb(const nav_msgs::OdometryConstPtr &msg);
+  void calculateMPC();
+  void setTrajectory(float x, float y, float z, float yaw);
+  bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
   void     filterReference(void);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-  bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-  bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
-  bool     triggerFailsafe();
-  void     publishDiagnostics();
-  double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
-  bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+  bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
+  bool callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
+  bool   triggerFailsafe();
+  void   publishDiagnostics();
+  double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
+  bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
   bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
@@ -997,11 +1001,11 @@ const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char message[100];
+  char                      message[100];
   std_srvs::SetBoolResponse res;
 
   if (cmd->data != callbacks_enabled) {
-    
+
     callbacks_enabled = cmd->data;
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
@@ -1009,7 +1013,7 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
     ROS_INFO("[MpcTracker]: %s", message);
 
   } else {
-  
+
     sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
   }
 
@@ -1886,15 +1890,21 @@ void MpcTracker::calculateMPC() {
   iters_X          = 0;
   iters_Y          = 0;
   iters_YAW        = 0;
+  double goto_yaw  = atan2(des_y_filtered(30, 0) - x(3, 0), des_x_filtered(30, 0) - x(0, 0));
 
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
-    max_speed_xy = max_horizontal_speed * collision_horizontal_speed_coef;
-    max_acc_xy   = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
+    max_speed_x = max_horizontal_speed * collision_horizontal_speed_coef;
+    max_speed_y = max_horizontal_speed * collision_horizontal_speed_coef;
+    max_acc_x   = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
+    max_acc_y   = max_horizontal_acceleration * collision_horizontal_acceleration_coef;
   } else {
-    max_speed_xy = max_horizontal_speed;
-    max_acc_xy   = max_horizontal_acceleration;
+    max_speed_x = max_horizontal_speed;
+    max_speed_y = max_horizontal_speed;
+    max_acc_x   = max_horizontal_acceleration;
+    max_acc_y   = max_horizontal_acceleration;
   }
+
   if (avoiding_someone) {
     // we are avoiding someone, better increase the vertical velocity and aceleration limits to avoid in time
     max_speed_z = 5.0;
@@ -1906,11 +1916,24 @@ void MpcTracker::calculateMPC() {
   } else {
     max_speed_z = max_vertical_ascending_speed;
     max_acc_z   = max_vertical_ascending_acceleration;
-    max_jerk_z   = max_vertical_ascending_jerk;
+    max_jerk_z  = max_vertical_ascending_jerk;
     min_speed_z = max_vertical_descending_speed;
     min_acc_z   = max_vertical_descending_acceleration;
-    min_jerk_z   = max_vertical_descending_jerk;
+    min_jerk_z  = max_vertical_descending_jerk;
   }
+
+  max_jerk_x = max_horizontal_jerk;
+  max_jerk_y = max_horizontal_jerk;
+
+  max_speed_x = max_speed_x * cos(goto_yaw);
+  max_acc_x   = max_acc_x * cos(goto_yaw);
+  max_jerk_x  = max_jerk_x * cos(goto_yaw);
+
+  max_speed_y = max_speed_y * sin(goto_yaw);
+  max_acc_y   = max_acc_y * sin(goto_yaw);
+  max_jerk_y  = max_jerk_y * sin(goto_yaw);
+
+  ROS_INFO_STREAM("yaw " << goto_yaw << "atanx " << des_x_filtered(30, 0) << "  " << x(0, 0));
 
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
@@ -1943,7 +1966,7 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = x(2, 0);
 
   cvx_x->setInitialState(initial_x);
-  cvx_x->setLimits(max_speed_xy, max_speed_xy, max_acc_xy, max_acc_xy, max_horizontal_jerk, max_horizontal_jerk);
+  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x);
   cvx_x->loadReference(des_x_filtered);
   iters_X += cvx_x->solveCvx();
   cvx_x->getStates(predicted_future_trajectory);
@@ -1955,7 +1978,7 @@ void MpcTracker::calculateMPC() {
   initial_y(2, 0) = x(5, 0);
 
   cvx_y->setInitialState(initial_y);
-  cvx_y->setLimits(max_speed_xy, max_speed_xy, max_acc_xy, max_acc_xy, max_horizontal_jerk, max_horizontal_jerk);
+  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y);
   cvx_y->loadReference(des_y_filtered);
   iters_Y += cvx_y->solveCvx();
   cvx_y->getStates(predicted_future_trajectory);
@@ -1979,7 +2002,7 @@ void MpcTracker::calculateMPC() {
   cvx_yaw->loadReference(des_yaw_trajectory);
   iters_YAW += cvx_yaw->solveCvx();
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
-  
+
   // cvxgen X and Y axis -------------------------------------------------------------------------------
 
   // The following code reduces the maximum speed in XY if the UAV is climbing
@@ -1992,7 +2015,8 @@ void MpcTracker::calculateMPC() {
   /*       cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2; */
   /*     } */
   /*     predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n)); */
-  /*     tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z)); */
+  /*     tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
+   */
   /*     if (tmpz < cvxgen_horizontal_vel_constraint(i)) { */
   /*       cvxgen_horizontal_vel_constraint(i) = tmpz; */
   /*       if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) { */
@@ -2005,36 +2029,37 @@ void MpcTracker::calculateMPC() {
   /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy; */
   /* } */
 
-  if (cvx_u(0) > max_horizontal_jerk*1.01) {
+  if (cvx_u(0) > max_horizontal_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
     cvx_u(0) = max_horizontal_jerk;
   }
-  if (cvx_u(0) < -max_horizontal_jerk*1.01) {
+  if (cvx_u(0) < -max_horizontal_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jert X: " << cvx_u(0));
     cvx_u(0) = -max_horizontal_jerk;
   }
-  if (cvx_u(1) > max_horizontal_jerk*1.01) {
+  if (cvx_u(1) > max_horizontal_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
     cvx_u(1) = max_horizontal_jerk;
   }
-  if (cvx_u(1) < -max_horizontal_jerk*1.01) {
+  if (cvx_u(1) < -max_horizontal_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
     cvx_u(1) = -max_horizontal_jerk;
   }
-  if (cvx_u(2) > max_vertical_ascending_jerk*1.01) {
+  if (cvx_u(2) > max_vertical_ascending_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
     cvx_u(2) = max_vertical_ascending_jerk;
   }
 
-  if (cvx_u(2) < -max_vertical_descending_jerk*1.01) {
+  if (cvx_u(2) < -max_vertical_descending_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
     cvx_u(2) = -max_vertical_descending_jerk;
   }
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
   if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X  << "/" << max_iters_XY << " iters Y:  " << iters_Y << "/" << max_iters_XY << " iters Z: " << iters_Z
-                                                                  << "/" << max_iters_Z << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y
+                                                                  << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
+                                                                  << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
 
   x_mutex.lock();
