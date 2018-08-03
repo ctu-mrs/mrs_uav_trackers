@@ -38,9 +38,6 @@ include_directories(
   ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   src/mpc_tracker/cvxgen
-  src/mpc_tracker/cvxgen_xy
-  src/mpc_tracker/cvxgen_z
-  src/mpc_tracker/cvxgen_yaw
   )
 
 # MPC Tracker
@@ -52,27 +49,6 @@ add_library(cvx_wrapper src/mpc_tracker/cvx_wrapper.cpp
   src/mpc_tracker/cvxgen/matrix_support.c
   src/mpc_tracker/cvxgen/solver.c
   src/mpc_tracker/cvxgen/util.c
-  )
-
-add_library(cvx_wrapper_xy src/mpc_tracker/cvx_wrapper_xy.cpp
-  src/mpc_tracker/cvxgen_xy/ldl.c
-  src/mpc_tracker/cvxgen_xy/matrix_support.c
-  src/mpc_tracker/cvxgen_xy/solver.c
-  src/mpc_tracker/cvxgen_xy/util.c
-  )
-
-add_library(cvx_wrapper_z src/mpc_tracker/cvx_wrapper_z.cpp
-  src/mpc_tracker/cvxgen_z/ldl.c
-  src/mpc_tracker/cvxgen_z/matrix_support.c
-  src/mpc_tracker/cvxgen_z/solver.c
-  src/mpc_tracker/cvxgen_z/util.c
-  )
-
-add_library(cvx_wrapper_yaw src/mpc_tracker/cvx_wrapper_yaw.cpp
-  src/mpc_tracker/cvxgen_yaw/ldl.c
-  src/mpc_tracker/cvxgen_yaw/matrix_support.c
-  src/mpc_tracker/cvxgen_yaw/solver.c
-  src/mpc_tracker/cvxgen_yaw/util.c
   )
 
 add_dependencies(MpcTracker

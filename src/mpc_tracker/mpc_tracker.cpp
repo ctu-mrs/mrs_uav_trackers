@@ -23,9 +23,6 @@
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
 
-#include "cvx_wrapper_xy.h"
-#include "cvx_wrapper_yaw.h"
-#include "cvx_wrapper_z.h"
 #include "cvx_wrapper.h"
 
 #include <commons.h>
@@ -124,18 +121,18 @@ private:
   double max_vertical_descending_jerk;
   double max_yaw_rate;
   double max_yaw_acceleration;
+  double max_yaw_jerk;
   double max_altitude_;
   double min_altitude_;
 
   bool avoiding_someone;
   bool being_avoided;
 
-  int      max_iters_XY, max_iters_Z, max_iters_yaw;
+  int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X             = 0;
   int      iters_Y             = 0;
   int      iters_Z             = 0;
-  int      iters_XY            = 0;
-  int      iters_yaw           = 0;
+  int      iters_YAW           = 0;
   double   max_speed_xy        = 0;
   double   max_acc_xy          = 0;
   double   max_speed_z         = 0;
@@ -153,9 +150,10 @@ private:
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapperXY * cvx_2d;
+  CvxWrapper *   cvx_x;
+  CvxWrapper *   cvx_y;
   CvxWrapper *   cvx_z;
-  CvxWrapperYaw *cvx_yaw;
+  CvxWrapper *   cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
   MatrixXd A;        // system matrix for virtual UAV
@@ -200,7 +198,6 @@ private:
 
   // predicting the future
   MatrixXd                                          predicted_future_trajectory;
-  MatrixXd                                          predicted_future_yaw;
   std::string                                       uav_name_;
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
@@ -437,6 +434,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_.param("cvxgenMpc/maxYawRate", max_yaw_rate, 0.0);
   nh_.param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration, 0.0);
+  nh_.param("cvxgenMpc/maxYawAcceleration", max_yaw_jerk, 0.0);
 
   nh_.param("cvxgenMpc/maxAltitude", max_altitude_, 0.0);
   nh_.param("cvxgenMpc/minAltitude", min_altitude_, 1.0);
@@ -458,7 +456,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.getParam("cvxWrapper/Q", tempList);
   nh_.getParam("cvxWrapper/R", tempList2);
 
-  cvx_2d = new CvxWrapperXY(verbose, max_iters_XY, tempList, tempList2, dt, dt2, max_horizontal_jerk);
+  cvx_x = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 0);
+  cvx_y = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 1);
 
   nh_.param("cvxWrapperZ/verbose", verbose, false);
   nh_.param("cvxWrapperZ/maxNumOfIterations", max_iters_Z, 25);
@@ -468,11 +467,11 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, tempList2, dt, dt2, 2);
 
   nh_.param("cvxWrapperYaw/verbose", verbose, false);
-  nh_.param("cvxWrapperYaw/maxNumOfIterations", max_iters_yaw, 25);
+  nh_.param("cvxWrapperYaw/maxNumOfIterations", max_iters_YAW, 25);
   nh_.getParam("cvxWrapperYaw/Q", tempList);
   nh_.getParam("cvxWrapperYaw/R", tempList2);
 
-  cvx_yaw = new CvxWrapperYaw(verbose, max_iters_yaw, tempList, tempList2, dt, dt2);
+  cvx_yaw = new CvxWrapper(verbose, max_iters_YAW, tempList, tempList2, dt, dt2, 0);
 
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
   ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
@@ -589,7 +588,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   // preallocate future trajectory
   predicted_future_trajectory = MatrixXd::Zero(horizon_len * n, 1);
-  predicted_future_yaw        = MatrixXd::Zero(horizon_len * 3, 1);
 
   collision_altitude_offeset = 0;
   avoiding_collision_time    = ros::Time::now();
@@ -1887,8 +1885,7 @@ void MpcTracker::calculateMPC() {
   iters_Z          = 0;
   iters_X          = 0;
   iters_Y          = 0;
-  iters_XY         = 0;
-  iters_yaw        = 0;
+  iters_YAW        = 0;
 
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
@@ -1940,6 +1937,30 @@ void MpcTracker::calculateMPC() {
 
   ros::Time time_begin = ros::Time::now();
 
+  // cvxgen X axis -------------------------------------------------------------------------------------
+  initial_x(0, 0) = x(0, 0);
+  initial_x(1, 0) = x(1, 0);
+  initial_x(2, 0) = x(2, 0);
+
+  cvx_x->setInitialState(initial_x);
+  cvx_x->setLimits(max_speed_xy, max_speed_xy, max_acc_xy, max_acc_xy, max_horizontal_jerk, max_horizontal_jerk);
+  cvx_x->loadReference(des_x_filtered);
+  iters_X += cvx_x->solveCvx();
+  cvx_x->getStates(predicted_future_trajectory);
+  cvx_u(0) = cvx_x->getFirstControlInput();
+
+  // cvxgen Y axis -------------------------------------------------------------------------------------
+  initial_y(0, 0) = x(3, 0);
+  initial_y(1, 0) = x(4, 0);
+  initial_y(2, 0) = x(5, 0);
+
+  cvx_y->setInitialState(initial_y);
+  cvx_y->setLimits(max_speed_xy, max_speed_xy, max_acc_xy, max_acc_xy, max_horizontal_jerk, max_horizontal_jerk);
+  cvx_y->loadReference(des_y_filtered);
+  iters_Y += cvx_y->solveCvx();
+  cvx_y->getStates(predicted_future_trajectory);
+  cvx_u(1) = cvx_y->getFirstControlInput();
+
   // cvxgen Z axis -------------------------------------------------------------------------------------
   initial_z(0, 0) = x(6, 0);
   initial_z(1, 0) = x(7, 0);
@@ -1952,79 +1973,78 @@ void MpcTracker::calculateMPC() {
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
 
+  // cvxgen yaw ----------------------------------------------------------------------------------------
+  cvx_yaw->setInitialState(x_yaw);
+  cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk);
+  cvx_yaw->loadReference(des_yaw_trajectory);
+  iters_YAW += cvx_yaw->solveCvx();
+  cvx_u_yaw = cvx_yaw->getFirstControlInput();
+  
   // cvxgen X and Y axis -------------------------------------------------------------------------------
 
   // The following code reduces the maximum speed in XY if the UAV is climbing
-  for (int i = 0; i < horizon_len; i++) {
-    if (predicted_future_trajectory(7 + (i * n), 0) > 0) {
-      double tmpz;
-      predicted_future_trajectory(7 + (i * n), 0) > max_speed_z ? tmpz = max_speed_z : tmpz = predicted_future_trajectory(7 + (i * n));
-      cvxgen_horizontal_vel_constraint(i) = max_speed_xy * sqrt(1 - (tmpz / max_speed_z) * (tmpz / max_speed_z));
-      if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) {
-        cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2;
-      }
-      predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n));
-      tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
-      if (tmpz < cvxgen_horizontal_vel_constraint(i)) {
-        cvxgen_horizontal_vel_constraint(i) = tmpz;
-        if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) {
-          cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2;
-        }
-      }
-    } else {
-      cvxgen_horizontal_vel_constraint(i) = max_speed_xy;
-    }
-    cvxgen_horizontal_acc_constraint(i) = max_acc_xy;
-  }
+  /* for (int i = 0; i < horizon_len; i++) { */
+  /*   if (predicted_future_trajectory(7 + (i * n), 0) > 0) { */
+  /*     double tmpz; */
+  /*     predicted_future_trajectory(7 + (i * n), 0) > max_speed_z ? tmpz = max_speed_z : tmpz = predicted_future_trajectory(7 + (i * n)); */
+  /*     cvxgen_horizontal_vel_constraint(i) = max_speed_xy * sqrt(1 - (tmpz / max_speed_z) * (tmpz / max_speed_z)); */
+  /*     if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) { */
+  /*       cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2; */
+  /*     } */
+  /*     predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n)); */
+  /*     tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z)); */
+  /*     if (tmpz < cvxgen_horizontal_vel_constraint(i)) { */
+  /*       cvxgen_horizontal_vel_constraint(i) = tmpz; */
+  /*       if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) { */
+  /*         cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2; */
+  /*       } */
+  /*     } */
+  /*   } else { */
+  /*     cvxgen_horizontal_vel_constraint(i) = max_speed_xy; */
+  /*   } */
+  /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy; */
+  /* } */
 
-  cvx_2d->setInitialState(x);
-  cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint);
-  cvx_2d->loadReference(reference);
-  iters_XY += cvx_2d->solveCvx();
-  cvx_2d->getStates(predicted_future_trajectory);
-  cvx_u(0) = cvx_2d->getFirstControlInputX();
-  cvx_u(1) = cvx_2d->getFirstControlInputY();
+  /* cvx_2d->setInitialState(x); */
+  /* cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint); */
+  /* cvx_2d->loadReference(reference); */
+  /* iters_XY += cvx_2d->solveCvx(); */
+  /* cvx_2d->getStates(predicted_future_trajectory); */
+  /* cvx_u(0) = cvx_2d->getFirstControlInputX(); */
+  /* cvx_u(1) = cvx_2d->getFirstControlInputY(); */
 
-  // cvxgen yaw ----------------------------------------------------------------------------------------
-  cvx_yaw->setInitialState(x_yaw);
-  cvx_yaw->setLimits(max_yaw_rate, max_yaw_acceleration);
-  cvx_yaw->loadReference(reference_yaw);
-  iters_yaw += cvx_yaw->solveCvx();
-  cvx_yaw->getStates(predicted_future_yaw);
-
-  if (cvx_u(0) > max_horizontal_jerk) {
+  if (cvx_u(0) > max_horizontal_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
     cvx_u(0) = max_horizontal_jerk;
   }
-  if (cvx_u(0) < -max_horizontal_jerk) {
+  if (cvx_u(0) < -max_horizontal_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jert X: " << cvx_u(0));
     cvx_u(0) = -max_horizontal_jerk;
   }
-  if (cvx_u(1) > max_horizontal_jerk) {
+  if (cvx_u(1) > max_horizontal_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
     cvx_u(1) = max_horizontal_jerk;
   }
-  if (cvx_u(1) < -max_horizontal_jerk) {
+  if (cvx_u(1) < -max_horizontal_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
     cvx_u(1) = -max_horizontal_jerk;
   }
-
-  if (cvx_u(2) > max_vertical_ascending_jerk) {
+  if (cvx_u(2) > max_vertical_ascending_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
     cvx_u(2) = max_vertical_ascending_jerk;
   }
 
-  if (cvx_u(2) < -max_vertical_descending_jerk) {
+  if (cvx_u(2) < -max_vertical_descending_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
     cvx_u(2) = -max_vertical_descending_jerk;
   }
 
-  cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
-  if (cvx_time > 0.01 || iters_XY > max_iters_XY || iters_Z > max_iters_Z || iters_yaw > max_iters_yaw) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters XY: " << iters_XY << "/" << max_iters_XY << " iters Z: " << iters_Z
-                                                                  << "/" << max_iters_Z << " iters yaw: " << iters_yaw << "/" << max_iters_yaw);
+  if (true) {
+  /* if (cvx_time > 0.01 || iters_XY > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) { */
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X  << "/" << max_iters_XY << " iters Y:  " << iters_Y << "/" << max_iters_XY << " iters Z: " << iters_Z
+                                                                  << "/" << max_iters_Z << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
 
   x_mutex.lock();
