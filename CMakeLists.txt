@@ -59,9 +59,6 @@ add_dependencies(MpcTracker
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
   cvx_wrapper
-  cvx_wrapper_xy
-  cvx_wrapper_z
-  cvx_wrapper_yaw
   )
 
 # CSV Tracker

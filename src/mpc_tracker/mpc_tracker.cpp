@@ -1937,7 +1937,7 @@ void MpcTracker::calculateMPC() {
 
   ros::Time time_begin = ros::Time::now();
 
-  // cvxgen X axis -------------------------------------------------------------------------------------
+  // | ---------------------- cvxgen X axis --------------------- |
   initial_x(0, 0) = x(0, 0);
   initial_x(1, 0) = x(1, 0);
   initial_x(2, 0) = x(2, 0);
@@ -1949,7 +1949,7 @@ void MpcTracker::calculateMPC() {
   cvx_x->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_x->getFirstControlInput();
 
-  // cvxgen Y axis -------------------------------------------------------------------------------------
+  // | ---------------------- cvxgen Y axis --------------------- |
   initial_y(0, 0) = x(3, 0);
   initial_y(1, 0) = x(4, 0);
   initial_y(2, 0) = x(5, 0);
@@ -1961,7 +1961,7 @@ void MpcTracker::calculateMPC() {
   cvx_y->getStates(predicted_future_trajectory);
   cvx_u(1) = cvx_y->getFirstControlInput();
 
-  // cvxgen Z axis -------------------------------------------------------------------------------------
+  // | ---------------------- cvxgen Z axis --------------------- |
   initial_z(0, 0) = x(6, 0);
   initial_z(1, 0) = x(7, 0);
   initial_z(2, 0) = x(8, 0);
@@ -1973,7 +1973,7 @@ void MpcTracker::calculateMPC() {
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
 
-  // cvxgen yaw ----------------------------------------------------------------------------------------
+  // | ---------------------- cvxgen YAW axis --------------------- |
   cvx_yaw->setInitialState(x_yaw);
   cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk);
   cvx_yaw->loadReference(des_yaw_trajectory);
@@ -2005,14 +2005,6 @@ void MpcTracker::calculateMPC() {
   /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy; */
   /* } */
 
-  /* cvx_2d->setInitialState(x); */
-  /* cvx_2d->setLimits(cvxgen_horizontal_vel_constraint, cvxgen_horizontal_acc_constraint); */
-  /* cvx_2d->loadReference(reference); */
-  /* iters_XY += cvx_2d->solveCvx(); */
-  /* cvx_2d->getStates(predicted_future_trajectory); */
-  /* cvx_u(0) = cvx_2d->getFirstControlInputX(); */
-  /* cvx_u(1) = cvx_2d->getFirstControlInputY(); */
-
   if (cvx_u(0) > max_horizontal_jerk*1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
     cvx_u(0) = max_horizontal_jerk;
@@ -2039,10 +2031,8 @@ void MpcTracker::calculateMPC() {
     cvx_u(2) = -max_vertical_descending_jerk;
   }
 
-
   double cvx_time = (ros::Time::now() - time_begin).toSec();
-  if (true) {
-  /* if (cvx_time > 0.01 || iters_XY > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) { */
+  if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X  << "/" << max_iters_XY << " iters Y:  " << iters_Y << "/" << max_iters_XY << " iters Z: " << iters_Z
                                                                   << "/" << max_iters_Z << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
