@@ -1925,15 +1925,18 @@ void MpcTracker::calculateMPC() {
   max_jerk_x = max_horizontal_jerk;
   max_jerk_y = max_horizontal_jerk;
 
-  max_speed_x = max_speed_x * cos(goto_yaw);
-  max_acc_x   = max_acc_x * cos(goto_yaw);
-  max_jerk_x  = max_jerk_x * cos(goto_yaw);
+  max_speed_x = fabs(max_speed_x * cos(goto_yaw));
+  max_acc_x   = fabs(max_acc_x * cos(goto_yaw));
+  /* max_acc_x   = fabs(max_acc_x * cos(goto_yaw) * cos(goto_yaw) * 0.5); */
+  /* max_jerk_x  = fabs(max_jerk_x* cos(goto_yaw)); */
 
-  max_speed_y = max_speed_y * sin(goto_yaw);
-  max_acc_y   = max_acc_y * sin(goto_yaw);
-  max_jerk_y  = max_jerk_y * sin(goto_yaw);
+  max_speed_y = fabs(max_speed_y * sin(goto_yaw));
+  max_acc_y   = fabs(max_acc_y * cos(goto_yaw));
+  /* max_acc_y   = fabs(max_acc_y * cos(goto_yaw) * cos(goto_yaw) * 0.5); */
+  /* max_jerk_y  = fabs(max_jerk_y* cos(goto_yaw)); */
 
-  ROS_INFO_STREAM("yaw " << goto_yaw << "atanx " << des_x_filtered(30, 0) << "  " << x(0, 0));
+  ROS_INFO_STREAM_THROTTLE(1, "X speed " << max_speed_x << "    Y speed " << max_speed_y);
+  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "atanx " << des_x_filtered(30, 0) << "  " << x(0, 0)); */
 
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
