@@ -1157,7 +1157,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
     des_trajectory_mutex.lock();
     {
       for (int i = 0; i < horizon_len; i++) {
-        des_yaw_trajectory(i, 0) = cmd->goal;
+        des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
       }
     }
     des_trajectory_mutex.unlock();
@@ -1165,7 +1165,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
   } else {
 
     // TODO: should set goal when flying to a setpoint
-    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), cmd->goal, true)) {
+    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), mrs_trackers_commons::validateYawSetpoint(cmd->goal), true)) {
 
       res.success = false;
       res.message = "Cannot set the goal. It is probably outside of the safety area.";
@@ -1193,7 +1193,7 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
       des_trajectory_mutex.lock();
       {
         for (int i = 0; i < horizon_len; i++) {
-          des_yaw_trajectory(i, 0) = msg->data;
+          des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
       }
       des_trajectory_mutex.unlock();
@@ -1201,7 +1201,7 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
     } else {
 
       // TODO: should set goal when flying to a setpoint
-      setGoal(x(0, 0), x(3, 0), x(6, 0), msg->data, true);
+      setGoal(x(0, 0), x(3, 0), x(6, 0), mrs_trackers_commons::validateYawSetpoint(msg->data), true);
     }
   }
 
@@ -1227,15 +1227,14 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
     des_trajectory_mutex.lock();
     {
       for (int i = 0; i < horizon_len; i++) {
-        des_yaw_trajectory(i, 0) += cmd->goal;
+        des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(cmd->goal);
       }
     }
     des_trajectory_mutex.unlock();
 
   } else {
 
-    // TODO: should set goal when flying to a setpoint
-    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0) + cmd->goal, true)) {
+    if (!setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0), mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true)) {
 
       res.success = false;
       res.message = "Cannot set the goal. It is probably outside of the safety area.";
@@ -1263,15 +1262,14 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
       des_trajectory_mutex.lock();
       {
         for (int i = 0; i < horizon_len; i++) {
-          des_yaw_trajectory(i, 0) += msg->data;
+          des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
       }
       des_trajectory_mutex.unlock();
 
     } else {
 
-      // TODO: should set goal when flying to a setpoint
-      setGoal(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0) + msg->data, true);
+      setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0), mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
     }
   }
 
