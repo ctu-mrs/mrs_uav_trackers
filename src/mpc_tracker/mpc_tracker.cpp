@@ -1890,8 +1890,20 @@ void MpcTracker::calculateMPC() {
   iters_X          = 0;
   iters_Y          = 0;
   iters_YAW        = 0;
-  double goto_yaw  = atan2(des_y_filtered(30, 0) - x(3, 0), des_x_filtered(30, 0) - x(0, 0));
-
+  /* yaw angle at which my drone "sees the goto reference point" */
+  double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
+  /* yaw angle of my velocity */
+  double my_vel_yaw = atan2(x(4, 0), x(1, 0));
+  /* the difference between the angle of my velocity and the angle at which I am supossed to fly */
+  double yaw_diff = fabs(my_vel_yaw - goto_yaw);
+  if (yaw_diff > PI) {
+    yaw_diff = fabs(yaw_diff - 2 * PI);
+  }
+  /* the angle at which I am allowed to accelerate */
+  double goto_vel_yaw = (my_vel_yaw - goto_yaw) / 2 + goto_yaw;
+  if (goto_vel_yaw > PI / 2) {
+    goto_vel_yaw = PI - goto_vel_yaw;
+  }
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
     max_speed_x = max_horizontal_speed * collision_horizontal_speed_coef;
@@ -1926,17 +1938,19 @@ void MpcTracker::calculateMPC() {
   max_jerk_y = max_horizontal_jerk;
 
   max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-  max_acc_x   = fabs(max_acc_x * cos(goto_yaw));
-  /* max_acc_x   = fabs(max_acc_x * cos(goto_yaw) * cos(goto_yaw) * 0.5); */
-  /* max_jerk_x  = fabs(max_jerk_x* cos(goto_yaw)); */
+  /* max_acc_x   = fabs(max_acc_x * cos(my_vel_yaw)); */
+  /* max_jerk_x  = fabs(max_jerk_x * cos(my_vel_yaw)); */
 
   max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  max_acc_y   = fabs(max_acc_y * cos(goto_yaw));
-  /* max_acc_y   = fabs(max_acc_y * cos(goto_yaw) * cos(goto_yaw) * 0.5); */
-  /* max_jerk_y  = fabs(max_jerk_y* cos(goto_yaw)); */
+  /* max_acc_y   = fabs(max_acc_y * sin(my_vel_yaw)); */
+  /* max_jerk_y  = fabs(max_jerk_y * sin(my_vel_yaw)); */
 
-  ROS_INFO_STREAM_THROTTLE(1, "X speed " << max_speed_x << "    Y speed " << max_speed_y);
-  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "atanx " << des_x_filtered(30, 0) << "  " << x(0, 0)); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "X speed " << max_speed_x << "    Y speed " << max_speed_y); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "X acc " << max_acc_x << "    Y acc " << max_acc_y); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "X jerk  " << max_jerk_x << "    Y jerk  " << max_jerk_y); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "x " << des_x_trajectory(0, 0) << "  " << x(0, 0)); */
+  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "y " << des_y_trajectory(0, 0) << "  " << x(3, 0)); */
+  ROS_INFO_STREAM_THROTTLE(1, "yaw " << yaw_diff);
 
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
