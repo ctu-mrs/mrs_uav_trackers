@@ -989,11 +989,11 @@ const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char message[100];
+  char                      message[100];
   std_srvs::SetBoolResponse res;
 
   if (cmd->data != callbacks_enabled) {
-    
+
     callbacks_enabled = cmd->data;
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
@@ -1001,7 +1001,7 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
     ROS_INFO("[MpcTracker]: %s", message);
 
   } else {
-  
+
     sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
   }
 
@@ -1069,10 +1069,9 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
     res.message = "Failsafe is active!";
   } else if (!setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
 
-      res.success = false;
-      res.message = "Cannot set the goal. It is probably outside of the safety area.";
-    }
-  else {
+    res.success = false;
+    res.message = "Cannot set the goal. It is probably outside of the safety area.";
+  } else {
 
     res.success = true;
     char tempStr[100];
@@ -1088,7 +1087,13 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
 //{ goToRelative() topic
 
 bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-  return false;
+
+  if (!failsafe_triggered) {
+
+    setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
+  }
+
+  return true;
 }
 
 //}
@@ -1124,7 +1129,13 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::
 //{ goToAltitude() topic
 
 bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
-  return false;
+
+  if (!failsafe_triggered) {
+
+    setGoal(x(0, 0), x(3, 0), msg->data, x_yaw(0, 0), false);
+  }
+
+  return true;
 }
 
 //}
@@ -1154,7 +1165,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
   } else {
 
     // TODO: should set goal when flying to a setpoint
-    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), cmd->goal, false)) {
+    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), cmd->goal, true)) {
 
       res.success = false;
       res.message = "Cannot set the goal. It is probably outside of the safety area.";
@@ -1190,7 +1201,7 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
     } else {
 
       // TODO: should set goal when flying to a setpoint
-      setGoal(x(0, 0), x(3, 0), x(6, 0), msg->data, false);
+      setGoal(x(0, 0), x(3, 0), x(6, 0), msg->data, true);
     }
   }
 
@@ -1202,7 +1213,41 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 //{ setYawRelative() service
 
 const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
+
+  mrs_msgs::Vec1Response res;
+
+  if (failsafe_triggered) {
+
+    res.success = false;
+    res.message = "Failsafe is active!";
+  }
+
+  if (tracking_trajectory_) {
+
+    des_trajectory_mutex.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
+        des_yaw_trajectory(i, 0) += cmd->goal;
+      }
+    }
+    des_trajectory_mutex.unlock();
+
+  } else {
+
+    // TODO: should set goal when flying to a setpoint
+    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0) + cmd->goal, true)) {
+
+      res.success = false;
+      res.message = "Cannot set the goal. It is probably outside of the safety area.";
+    }
+  }
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Setting yaw to %2.2f", cmd->goal);
+  res.message = tempStr;
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}
@@ -1210,7 +1255,27 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 //{ setYawRelative() topic
 
 bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
-  return false;
+
+  if (!failsafe_triggered) {
+
+    if (tracking_trajectory_) {
+
+      des_trajectory_mutex.lock();
+      {
+        for (int i = 0; i < horizon_len; i++) {
+          des_yaw_trajectory(i, 0) += msg->data;
+        }
+      }
+      des_trajectory_mutex.unlock();
+
+    } else {
+
+      // TODO: should set goal when flying to a setpoint
+      setGoal(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0) + msg->data, true);
+    }
+  }
+
+  return true;
 }
 
 //}
@@ -1301,6 +1366,13 @@ bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &re
     return true;
   }
 
+  if (!callbacks_enabled) {
+
+    res.success = false;
+    res.message = "Callbacks are disabled!";
+    return true;
+  }
+
   if (trajectory_set_) {
 
     des_trajectory_mutex.lock();
@@ -1380,6 +1452,13 @@ bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, s
     return true;
   }
 
+  if (!callbacks_enabled) {
+
+    res.success = false;
+    res.message = "Callbacks are disabled!";
+    return true;
+  }
+
   if (trajectory_set_) {
 
     if (!setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true)) {
@@ -1433,6 +1512,13 @@ bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &r
 
     res.success = false;
     res.message = "Failsafe is active!";
+    return true;
+  }
+
+  if (!callbacks_enabled) {
+
+    res.success = false;
+    res.message = "Callbacks are disabled!";
     return true;
   }
 
@@ -1493,6 +1579,13 @@ bool MpcTracker::callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_sr
 // service for setting desired trajectory
 bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res) {
 
+  if (!callbacks_enabled) {
+
+    res.success = false;
+    res.message = "Callbacks are disabled!";
+    return true;
+  }
+
   std::string message;
   res.success = loadTrajectory(req.trajectory_msg, message);
   res.message = message;
@@ -1506,6 +1599,17 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
 // callback for loading desired trajectory
 void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
 
+  if (failsafe_triggered) {
+
+    return;
+  }
+
+  if (!callbacks_enabled) {
+
+    ROS_WARN("[MpcTracker]: Can't set trajectory, callbacks are disabled!");
+    return;
+  }
+
   std::string message;
   loadTrajectory(*msg, message);
 }
@@ -1513,19 +1617,6 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 //}
 
 //{ callbackDesiredPositionRelative()
-
-// callback got goToRelative
-void MpcTracker::callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg) {
-
-  if (failsafe_triggered) {
-
-    return;
-  }
-
-  setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
-}
-
-//}
 
 // | -------------------- setpoint handlign ------------------- |
 
