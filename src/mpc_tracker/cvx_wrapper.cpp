@@ -12,17 +12,14 @@ Vars      vars;
 Params    params;
 Workspace work;
 Settings  settings;
-int       n = 9;
 
 /* dim is used to offset the result in the output vecor, according to which dimension (x,y,z) is being calculated */
 /* x - 0 */
 /* y - 1 */
 /* z - 2 */
 /* yaw - 0 */
-int dim = 0;
 
 CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2, int dimension) {
-
 
   set_defaults();
   setup_indexing();

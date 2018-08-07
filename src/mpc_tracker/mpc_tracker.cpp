@@ -111,6 +111,8 @@ private:
   int    n_yaw;        // number of states - yaw
   int    m_yaw;        // number of inputs - yaw
   int    horizon_len;  // lenght of the prediction horizon
+  double collision_avoidance_reference_offset = 0;
+  double last_offset                          = 0;
   double max_horizontal_speed;
   double max_horizontal_acceleration;
   double max_vertical_ascending_acceleration;
@@ -170,6 +172,7 @@ private:
   MatrixXd des_x_trajectory;                  // trajectory reference over the prediction horizon
   MatrixXd des_y_trajectory;                  // trajectory reference over the prediction horizon
   MatrixXd des_z_trajectory;                  // trajectory reference over the prediction horizon
+  MatrixXd des_z_trajectory_offset;           // trajectory reference over the prediction horizon
   MatrixXd des_yaw_trajectory;                // trajectory reference over the prediction horizon
   MatrixXd des_x_filtered;                    // filtered trajectory reference over the horizon
   MatrixXd des_y_filtered;                    // filtered trajectory reference over the horizon
@@ -271,7 +274,7 @@ private:
   void calculateMPC();
   void setTrajectory(float x, float y, float z, float yaw);
   bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  void     filterReference(void);
+  double   checkForCollisions();
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
@@ -506,10 +509,11 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   cvxgen_horizontal_vel_constraint = VectorXd::Zero(horizon_len);
   cvxgen_horizontal_acc_constraint = VectorXd::Zero(horizon_len);
 
-  des_x_trajectory   = MatrixXd::Zero(horizon_len, 1);
-  des_y_trajectory   = MatrixXd::Zero(horizon_len, 1);
-  des_z_trajectory   = MatrixXd::Zero(horizon_len, 1);
-  des_yaw_trajectory = MatrixXd::Zero(horizon_len, 1);
+  des_x_trajectory        = MatrixXd::Zero(horizon_len, 1);
+  des_y_trajectory        = MatrixXd::Zero(horizon_len, 1);
+  des_z_trajectory        = MatrixXd::Zero(horizon_len, 1);
+  des_z_trajectory_offset = MatrixXd::Zero(horizon_len, 1);
+  des_yaw_trajectory      = MatrixXd::Zero(horizon_len, 1);
 
   des_x_filtered = MatrixXd::Zero(horizon_len, 1);
   des_y_filtered = MatrixXd::Zero(horizon_len, 1);
@@ -1699,67 +1703,85 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 //}
 
-//{ filterReference()
+//{ checkForCollisions()
 
-// filters the reference trajectory for maximum speed
-void MpcTracker::filterReference(void) {
+// Check for potential collisions and return the needed altitude offset to avoid other drones
+double MpcTracker::checkForCollisions() {
 
-  double difference;
-  double maxSpeed;
 
-  trajectory_setpoint_mutex.lock();
+    trajectory_setpoint_mutex.lock();
 
-  // mrs collision avoidance
-  collision_altitude_offeset = 0;
+    // mrs collision avoidance
+    collision_altitude_offeset = 0;
 
-  if (mrs_collision_avoidance) {
+    if (mrs_collision_avoidance) {
 
-    std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
-    while (u != other_drones_trajectories.end()) {
-      bool collision = false;
-      int  v         = 0;
+      std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
+      long shit = 0;
+      while (u != other_drones_trajectories.end()) {
+        ROS_INFO_STREAM("[MpcTracker]: " << shit);
+        shit++;
+        bool collision = false;
+        int  v         = 0;
 
-      // is the other's trajectory fresh enought?
-      if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
-        while (v < horizon_len) {
+        // is the other's trajectory fresh enought?
+        if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
+          while (v < horizon_len) {
 
-          if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0),
-                             predicted_future_trajectory(v * 9 + 6, 0) + collision_altitude_offeset,
-                             u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+            if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0),
+                               predicted_future_trajectory(v * 9 + 6, 0) + collision_altitude_offeset - last_offset, u->second.points[v].x, u->second.points[v].y,
+                               u->second.points[v].z)) {
 
-            collision = true;
+              collision = true;
 
-            ROS_ERROR_THROTTLE(1, "Potential collision detected with %s!", u->first.c_str());
 
-            if (v < earliest_collision_idx) {
+              ROS_ERROR_THROTTLE(1, "Potential collision detected with %s!", u->first.c_str());
 
-              earliest_collision_idx = v;
+              if (v < earliest_collision_idx) {
+
+                earliest_collision_idx = v;
+              }
+              break;
             }
-            break;
+            if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0),
+                               predicted_future_trajectory(v * 9 + 6, 0) + collision_altitude_offeset, u->second.points[v].x, u->second.points[v].y,
+                               u->second.points[v].z)) {
+
+              collision = true;
+
+
+              ROS_ERROR_THROTTLE(1, "Potential collision detected with %s!", u->first.c_str());
+
+              if (v < earliest_collision_idx) {
+
+                earliest_collision_idx = v;
+              }
+              break;
+            }
+
+            // ROS_INFO("[MpcTracker]: %2.2f, %2.2f, %2.2f vs %2.2f, %2.2f, %2.2f", des_x_filtered(v), des_y_filtered(v), des_z_trajectory(v),
+            // u->second.points[v].x,
+            // u->second.points[v].y, u->second.points[v].z);
+            v++;
           }
-          // ROS_INFO("[MpcTracker]: %2.2f, %2.2f, %2.2f vs %2.2f, %2.2f, %2.2f", des_x_filtered(v), des_y_filtered(v), des_z_trajectory(v),
-          // u->second.points[v].x,
-          // u->second.points[v].y, u->second.points[v].z);
-          v++;
         }
-      }
 
-      if (collision) {
-        int other_drone_id = INT_MAX;
-        sscanf(u->first.c_str(), "uav%d", &other_drone_id);
+        if (collision) {
+          int other_drone_id = INT_MAX;
+          sscanf(u->first.c_str(), "uav%d", &other_drone_id);
 
-        // only do the avoidance manouver when we are higher number than the other drone
-        // ! or if the other drones avoidance is turned off
-        if ((u->second.collision_avoidance == false) || (other_drone_id < uav_num_name) ||
-            (des_z_trajectory(v) > (u->second.points[v].z + mrs_collision_avoidance_correction / 2.0 + collision_altitude_offeset))) {
+          // only do the avoidance manouver when we are higher number than the other drone
+          // ! or if the other drones avoidance is turned off
+          if ((u->second.collision_avoidance == false) || (other_drone_id < uav_num_name) ||
+              (des_z_trajectory(v) > (u->second.points[v].z + mrs_collision_avoidance_correction / 2.0 + collision_altitude_offeset))) {
 
-          ROS_ERROR_THROTTLE(1, "Avoiding collision with %s.", u->first.c_str());
+            ROS_ERROR_THROTTLE(1, "Avoiding collision with %s.", u->first.c_str());
 
           avoiding_collision_time = ros::Time::now();
 
           collision_altitude_offeset = u->second.points[v].z + mrs_collision_avoidance_correction - des_z_trajectory(v);
           u                          = other_drones_trajectories.begin();
-          continue;
+          /* continue; */
 
           // when we are of lower id, make it easier for the other drone
         } else {
@@ -1773,125 +1795,10 @@ void MpcTracker::filterReference(void) {
       u++;
     }
   }
-
-  // we have not detected collision for longer than hysteresis timeout
-  // we want to slow down in both cases, when avoiding and when being avoided
-  bool avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
-  bool being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
-
-  // ROS_INFO("[MpcTracker]: Collision altitude offset %2.2f", collision_altitude_offeset);
-
-
-  if (!avoiding_someone && !being_avoided) {
-
-    earliest_collision_idx = INT_MAX;
-  }
-
-  /* // saturate the x part of the trajectory */
-  /* for (int i = 0; i < horizon_len; i++) { */
-
-  /*   // limit the velocity for the part of the trajectory where there is a collision */
-  /*   double temp_horizontal_speed_limit = max_horizontal_speed; */
-  /*   if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) { */
-  /*     temp_horizontal_speed_limit *= collision_horizontal_speed_coef; */
-  /*     ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i * 0.2); */
-  /*   } */
-
-  /*   if (i == 0) { */
-  /*     maxSpeed   = temp_horizontal_speed_limit * dt; */
-  /*     difference = des_x_trajectory(i, 0) - x(0, 0); */
-  /*   } else { */
-  /*     maxSpeed   = temp_horizontal_speed_limit * dt2; */
-  /*     difference = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0); */
-  /*   } */
-
-  /*   // saturate the difference */
-  /*   if (difference > maxSpeed) */
-  /*     difference = maxSpeed; */
-  /*   else if (difference < -maxSpeed) */
-  /*     difference = -maxSpeed; */
-
-  /*   if (i == 0) { */
-  /*     des_x_filtered(i, 0) = x(0, 0) + difference; */
-  /*   } else { */
-  /*     des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference; */
-  /*   } */
-  /* } */
-
-  /* // saturate the y part of the trajectory */
-  /* for (int i = 0; i < horizon_len; i++) { */
-
-  /*   // limit the velocity for the part of the trajectory where there is a collision */
-  /*   double temp_horizontal_speed_limit = max_horizontal_speed; */
-  /*   if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) { */
-  /*     temp_horizontal_speed_limit *= collision_horizontal_speed_coef; */
-  /*   } */
-
-  /*   if (i == 0) { */
-  /*     maxSpeed   = temp_horizontal_speed_limit * dt; */
-  /*     difference = des_y_trajectory(i, 0) - x(3, 0); */
-  /*   } else { */
-  /*     maxSpeed   = temp_horizontal_speed_limit * dt2; */
-  /*     difference = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0); */
-  /*   } */
-
-  /*   // saturate the difference */
-  /*   if (difference > maxSpeed) */
-  /*     difference = maxSpeed; */
-  /*   else if (difference < -maxSpeed) */
-  /*     difference = -maxSpeed; */
-
-  /*   if (i == 0) { */
-  /*     des_y_filtered(i, 0) = x(3, 0) + difference; */
-  /*   } else { */
-  /*     des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference; */
-  /*   } */
-  /* } */
-
-  // saturate the z part of the trajectory
-  for (int i = 0; i < horizon_len; i++) {
-
-    double tempDt;
-
-    if (i == 0) {
-      difference = des_z_trajectory(i, 0) + collision_altitude_offeset - x(6, 0);
-      tempDt     = dt;
-    } else {
-      difference = des_z_trajectory(i, 0) + collision_altitude_offeset - des_z_filtered(i - 1, 0);
-      tempDt     = dt2;
-    }
-
-    // saturate the difference
-    if (difference > max_vertical_ascending_speed * tempDt) {
-
-      // saturated the upwards velocity only if we are not avoiding collision
-      if (!avoiding_someone) {
-        difference = max_vertical_ascending_speed * tempDt;
-
-      } else {
-
-        ROS_INFO_THROTTLE(1, "NOT saturation vertical speed.");
-      }
-
-    } else if (difference < -max_vertical_descending_speed * tempDt)
-      difference = -max_vertical_descending_speed * tempDt;
-
-    if (i == 0) {
-      des_z_filtered(i, 0) = x(6, 0) + difference;
-    } else {
-      des_z_filtered(i, 0) = des_z_filtered(i - 1, 0) + difference;
-    }
-
-    // saturate to maxAltitude
-    if (des_z_filtered(i, 0) > max_altitude_) {
-      des_z_filtered(i, 0) = max_altitude_;
-    }
-
-    if (des_z_filtered(i, 0) < min_altitude_) {
-      des_z_filtered(i, 0) = min_altitude_;
-    }
-  }
+  last_offset = collision_altitude_offeset;
   trajectory_setpoint_mutex.unlock();
+
+  return collision_altitude_offeset;
 }
 
 //}
@@ -1971,9 +1878,10 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 //{ calculateMPC()
 
 void MpcTracker::calculateMPC() {
-
+  ROS_INFO("[MpcTracker]: Living");
   // filter the desired trajectory to be feasible
-  filterReference();
+  collision_avoidance_reference_offset = checkForCollisions();
+  last_offset                          = collision_avoidance_reference_offset;
   // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
 
@@ -2020,17 +1928,17 @@ void MpcTracker::calculateMPC() {
   /* yaw angle at which my drone "sees the goto reference point" */
   double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
   /* yaw angle of my velocity */
-  double my_vel_yaw = atan2(x(4, 0), x(1, 0));
-  /* the difference between the angle of my velocity and the angle at which I am supossed to fly */
-  double yaw_diff = fabs(my_vel_yaw - goto_yaw);
-  if (yaw_diff > PI) {
-    yaw_diff = fabs(yaw_diff - 2 * PI);
-  }
-  /* the angle at which I am allowed to accelerate */
-  double goto_vel_yaw = my_vel_yaw + yaw_diff / 2;
-  if (yaw_diff > PI / 2) {
-    goto_vel_yaw = goto_yaw - PI + yaw_diff;
-  }
+  /* double my_vel_yaw = atan2(x(4, 0), x(1, 0)); */
+  /* /1* the difference between the angle of my velocity and the angle at which I am supossed to fly *1/ */
+  /* double yaw_diff = fabs(my_vel_yaw - goto_yaw); */
+  /* if (yaw_diff > PI) { */
+  /*   yaw_diff = fabs(yaw_diff - 2 * PI); */
+  /* } */
+  /* /1* the angle at which I am allowed to accelerate *1/ */
+  /* double goto_vel_yaw = my_vel_yaw + yaw_diff / 2; */
+  /* if (yaw_diff > PI / 2) { */
+  /*   goto_vel_yaw = goto_yaw - PI + yaw_diff; */
+  /* } */
 
   max_speed_x = fabs(max_speed_x * cos(goto_yaw));
   /* max_acc_x   = fabs(max_acc_x * cos(goto_vel_yaw)); */
@@ -2040,24 +1948,28 @@ void MpcTracker::calculateMPC() {
   /* max_acc_y   = fabs(max_acc_y * sin(goto_vel_yaw)); */
   /* max_jerk_y  = fabs(max_jerk_y * sin(goto_vel_yaw)); */
 
+  ROS_INFO_STREAM("OFFSET " << collision_avoidance_reference_offset);
+  for (int i = 0; i < horizon_len; i++) {
+    des_z_trajectory_offset(i, 0) = des_z_trajectory(i, 0) + collision_avoidance_reference_offset;
+  }
   // prepare reference vector for XYZ
-  for (int i = 0; i < horizon_len; i++) {
-    reference(i * n, 0)     = des_x_filtered(i, 0);
-    reference(i * n + 1, 0) = 0;
-    reference(i * n + 2, 0) = 0;
-    reference(i * n + 3, 0) = des_y_filtered(i, 0);
-    reference(i * n + 4, 0) = 0;
-    reference(i * n + 5, 0) = 0;
-    reference(i * n + 6, 0) = des_z_filtered(i, 0);
-    reference(i * n + 7, 0) = 0;
-    reference(i * n + 8, 0) = 0;
-  }
-  // prepare reference vector for Yaw
-  for (int i = 0; i < horizon_len; i++) {
-    reference_yaw(i * 3, 0)     = des_yaw_trajectory(i, 0);
-    reference_yaw(i * 3 + 1, 0) = 0;
-    reference_yaw(i * 3 + 2, 0) = 0;
-  }
+  /* for (int i = 0; i < horizon_len; i++) { */
+  /*   reference(i * n, 0)     = des_x_trajectory(i, 0); */
+  /*   reference(i * n + 1, 0) = 0; */
+  /*   reference(i * n + 2, 0) = 0; */
+  /*   reference(i * n + 3, 0) = des_y_trajectory(i, 0); */
+  /*   reference(i * n + 4, 0) = 0; */
+  /*   reference(i * n + 5, 0) = 0; */
+  /*   reference(i * n + 6, 0) = des_z_trajectory(i, 0) + collision_avoidance_reference_offset; */
+  /*   reference(i * n + 7, 0) = 0; */
+  /*   reference(i * n + 8, 0) = 0; */
+  /* } */
+  /* // prepare reference vector for Yaw */
+  /* for (int i = 0; i < horizon_len; i++) { */
+  /*   reference_yaw(i * 3, 0)     = des_yaw_trajectory(i, 0); */
+  /*   reference_yaw(i * 3 + 1, 0) = 0; */
+  /*   reference_yaw(i * 3 + 2, 0) = 0; */
+  /* } */
 
   // First control input generated by cvxgen
   VectorXd cvx_u     = VectorXd::Zero(m);
@@ -2072,7 +1984,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_x->setInitialState(initial_x);
   cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x);
-  cvx_x->loadReference(des_x_filtered);
+  cvx_x->loadReference(des_x_trajectory);
   iters_X += cvx_x->solveCvx();
   cvx_x->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_x->getFirstControlInput();
@@ -2084,7 +1996,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_y->setInitialState(initial_y);
   cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y);
-  cvx_y->loadReference(des_y_filtered);
+  cvx_y->loadReference(des_y_trajectory);
   iters_Y += cvx_y->solveCvx();
   cvx_y->getStates(predicted_future_trajectory);
   cvx_u(1) = cvx_y->getFirstControlInput();
@@ -2096,10 +2008,11 @@ void MpcTracker::calculateMPC() {
 
   cvx_z->setInitialState(initial_z);
   cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk);
-  cvx_z->loadReference(des_z_filtered);
+  cvx_z->loadReference(des_z_trajectory_offset);
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
+
 
   // | ---------------------- cvxgen YAW axis --------------------- |
   cvx_yaw->setInitialState(x_yaw);
@@ -2140,7 +2053,6 @@ void MpcTracker::calculateMPC() {
                                                                   << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
                                                                   << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
-
   x_mutex.lock();
   {
     x     = A * x + B * cvx_u;
