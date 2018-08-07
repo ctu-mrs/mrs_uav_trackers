@@ -1719,6 +1719,7 @@ double MpcTracker::checkForCollisions() {
       std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
       long shit = 0;
       while (u != other_drones_trajectories.end()) {
+      
         ROS_INFO_STREAM("[MpcTracker]: " << shit);
         shit++;
         bool collision = false;
@@ -1780,7 +1781,7 @@ double MpcTracker::checkForCollisions() {
           avoiding_collision_time = ros::Time::now();
 
           collision_altitude_offeset = u->second.points[v].z + mrs_collision_avoidance_correction - des_z_trajectory(v);
-          u                          = other_drones_trajectories.begin();
+          /* u                          = other_drones_trajectories.begin(); */
           /* continue; */
 
           // when we are of lower id, make it easier for the other drone
