@@ -2028,12 +2028,12 @@ void MpcTracker::calculateMPC() {
   max_jerk_y = max_horizontal_jerk;
 
   max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-  /* max_acc_x   = fabs(max_acc_x * cos(my_vel_yaw)); */
-  /* max_jerk_x  = fabs(max_jerk_x * cos(my_vel_yaw)); */
+  max_acc_x   = fabs(max_acc_x * cos(goto_vel_yaw));
+  max_jerk_x  = fabs(max_jerk_x * cos(goto_vel_yaw));
 
   max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  /* max_acc_y   = fabs(max_acc_y * sin(my_vel_yaw)); */
-  /* max_jerk_y  = fabs(max_jerk_y * sin(my_vel_yaw)); */
+  max_acc_y   = fabs(max_acc_y * sin(goto_vel_yaw));
+  max_jerk_y  = fabs(max_jerk_y * sin(goto_vel_yaw));
 
   /* ROS_INFO_STREAM_THROTTLE(1, "X speed " << max_speed_x << "    Y speed " << max_speed_y); */
   /* ROS_INFO_STREAM_THROTTLE(1, "X acc " << max_acc_x << "    Y acc " << max_acc_y); */
