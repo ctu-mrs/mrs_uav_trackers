@@ -1723,8 +1723,9 @@ void MpcTracker::filterReference(void) {
       if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
         while (v < horizon_len) {
 
-          if (checkCollision(des_x_filtered(v), des_y_filtered(v), des_z_trajectory(v) + collision_altitude_offeset, u->second.points[v].x,
-                             u->second.points[v].y, u->second.points[v].z)) {
+          if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0),
+                             predicted_future_trajectory(v * 9 + 6, 0) + collision_altitude_offeset,
+                             u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
 
             collision = true;
 
@@ -1786,66 +1787,66 @@ void MpcTracker::filterReference(void) {
     earliest_collision_idx = INT_MAX;
   }
 
-  // saturate the x part of the trajectory
-  for (int i = 0; i < horizon_len; i++) {
+  /* // saturate the x part of the trajectory */
+  /* for (int i = 0; i < horizon_len; i++) { */
 
-    // limit the velocity for the part of the trajectory where there is a collision
-    double temp_horizontal_speed_limit = max_horizontal_speed;
-    if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) {
-      temp_horizontal_speed_limit *= collision_horizontal_speed_coef;
-      ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i * 0.2);
-    }
+  /*   // limit the velocity for the part of the trajectory where there is a collision */
+  /*   double temp_horizontal_speed_limit = max_horizontal_speed; */
+  /*   if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) { */
+  /*     temp_horizontal_speed_limit *= collision_horizontal_speed_coef; */
+  /*     ROS_INFO_THROTTLE(1, "Reducing speed in XY in %2.2f s", i * 0.2); */
+  /*   } */
 
-    if (i == 0) {
-      maxSpeed   = temp_horizontal_speed_limit * dt;
-      difference = des_x_trajectory(i, 0) - x(0, 0);
-    } else {
-      maxSpeed   = temp_horizontal_speed_limit * dt2;
-      difference = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
-    }
+  /*   if (i == 0) { */
+  /*     maxSpeed   = temp_horizontal_speed_limit * dt; */
+  /*     difference = des_x_trajectory(i, 0) - x(0, 0); */
+  /*   } else { */
+  /*     maxSpeed   = temp_horizontal_speed_limit * dt2; */
+  /*     difference = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0); */
+  /*   } */
 
-    // saturate the difference
-    if (difference > maxSpeed)
-      difference = maxSpeed;
-    else if (difference < -maxSpeed)
-      difference = -maxSpeed;
+  /*   // saturate the difference */
+  /*   if (difference > maxSpeed) */
+  /*     difference = maxSpeed; */
+  /*   else if (difference < -maxSpeed) */
+  /*     difference = -maxSpeed; */
 
-    if (i == 0) {
-      des_x_filtered(i, 0) = x(0, 0) + difference;
-    } else {
-      des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference;
-    }
-  }
+  /*   if (i == 0) { */
+  /*     des_x_filtered(i, 0) = x(0, 0) + difference; */
+  /*   } else { */
+  /*     des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference; */
+  /*   } */
+  /* } */
 
-  // saturate the y part of the trajectory
-  for (int i = 0; i < horizon_len; i++) {
+  /* // saturate the y part of the trajectory */
+  /* for (int i = 0; i < horizon_len; i++) { */
 
-    // limit the velocity for the part of the trajectory where there is a collision
-    double temp_horizontal_speed_limit = max_horizontal_speed;
-    if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) {
-      temp_horizontal_speed_limit *= collision_horizontal_speed_coef;
-    }
+  /*   // limit the velocity for the part of the trajectory where there is a collision */
+  /*   double temp_horizontal_speed_limit = max_horizontal_speed; */
+  /*   if ((avoiding_someone || being_avoided) && ((i + collision_slow_down_before) >= earliest_collision_idx)) { */
+  /*     temp_horizontal_speed_limit *= collision_horizontal_speed_coef; */
+  /*   } */
 
-    if (i == 0) {
-      maxSpeed   = temp_horizontal_speed_limit * dt;
-      difference = des_y_trajectory(i, 0) - x(3, 0);
-    } else {
-      maxSpeed   = temp_horizontal_speed_limit * dt2;
-      difference = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
-    }
+  /*   if (i == 0) { */
+  /*     maxSpeed   = temp_horizontal_speed_limit * dt; */
+  /*     difference = des_y_trajectory(i, 0) - x(3, 0); */
+  /*   } else { */
+  /*     maxSpeed   = temp_horizontal_speed_limit * dt2; */
+  /*     difference = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0); */
+  /*   } */
 
-    // saturate the difference
-    if (difference > maxSpeed)
-      difference = maxSpeed;
-    else if (difference < -maxSpeed)
-      difference = -maxSpeed;
+  /*   // saturate the difference */
+  /*   if (difference > maxSpeed) */
+  /*     difference = maxSpeed; */
+  /*   else if (difference < -maxSpeed) */
+  /*     difference = -maxSpeed; */
 
-    if (i == 0) {
-      des_y_filtered(i, 0) = x(3, 0) + difference;
-    } else {
-      des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference;
-    }
-  }
+  /*   if (i == 0) { */
+  /*     des_y_filtered(i, 0) = x(3, 0) + difference; */
+  /*   } else { */
+  /*     des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference; */
+  /*   } */
+  /* } */
 
   // saturate the z part of the trajectory
   for (int i = 0; i < horizon_len; i++) {
@@ -2026,25 +2027,18 @@ void MpcTracker::calculateMPC() {
     yaw_diff = fabs(yaw_diff - 2 * PI);
   }
   /* the angle at which I am allowed to accelerate */
-  double goto_vel_yaw = (my_vel_yaw - goto_yaw) / 2 + goto_yaw;
-  if (goto_vel_yaw > PI / 2) {
-    goto_vel_yaw = PI - goto_vel_yaw;
+  double goto_vel_yaw = my_vel_yaw + yaw_diff / 2;
+  if (yaw_diff > PI / 2) {
+    goto_vel_yaw = goto_yaw - PI + yaw_diff;
   }
 
   max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-  max_acc_x   = fabs(max_acc_x * cos(goto_vel_yaw));
-  max_jerk_x  = fabs(max_jerk_x * cos(goto_vel_yaw));
+  /* max_acc_x   = fabs(max_acc_x * cos(goto_vel_yaw)); */
+  /* max_jerk_x  = fabs(max_jerk_x * cos(goto_vel_yaw)); */
 
   max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  max_acc_y   = fabs(max_acc_y * sin(goto_vel_yaw));
-  max_jerk_y  = fabs(max_jerk_y * sin(goto_vel_yaw));
-
-  /* ROS_INFO_STREAM_THROTTLE(1, "X speed " << max_speed_x << "    Y speed " << max_speed_y); */
-  /* ROS_INFO_STREAM_THROTTLE(1, "X acc " << max_acc_x << "    Y acc " << max_acc_y); */
-  /* ROS_INFO_STREAM_THROTTLE(1, "X jerk  " << max_jerk_x << "    Y jerk  " << max_jerk_y); */
-  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "x " << des_x_trajectory(0, 0) << "  " << x(0, 0)); */
-  /* ROS_INFO_STREAM_THROTTLE(1, "yaw " << goto_yaw << "y " << des_y_trajectory(0, 0) << "  " << x(3, 0)); */
-  ROS_INFO_STREAM_THROTTLE(1, "yaw " << yaw_diff);
+  /* max_acc_y   = fabs(max_acc_y * sin(goto_vel_yaw)); */
+  /* max_jerk_y  = fabs(max_jerk_y * sin(goto_vel_yaw)); */
 
   // prepare reference vector for XYZ
   for (int i = 0; i < horizon_len; i++) {
@@ -2113,32 +2107,6 @@ void MpcTracker::calculateMPC() {
   cvx_yaw->loadReference(des_yaw_trajectory);
   iters_YAW += cvx_yaw->solveCvx();
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
-
-  // cvxgen X and Y axis -------------------------------------------------------------------------------
-
-  // The following code reduces the maximum speed in XY if the UAV is climbing
-  /* for (int i = 0; i < horizon_len; i++) { */
-  /*   if (predicted_future_trajectory(7 + (i * n), 0) > 0) { */
-  /*     double tmpz; */
-  /*     predicted_future_trajectory(7 + (i * n), 0) > max_speed_z ? tmpz = max_speed_z : tmpz = predicted_future_trajectory(7 + (i * n)); */
-  /*     cvxgen_horizontal_vel_constraint(i) = max_speed_xy * sqrt(1 - (tmpz / max_speed_z) * (tmpz / max_speed_z)); */
-  /*     if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) { */
-  /*       cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2; */
-  /*     } */
-  /*     predicted_future_trajectory(8 + (i * n), 0) > (max_acc_z) ? tmpz = max_acc_z : tmpz = predicted_future_trajectory(8 + (i * n)); */
-  /*     tmpz                                                                                = max_speed_xy * sqrt(1 - (tmpz / max_acc_z) * (tmpz / max_acc_z));
-   */
-  /*     if (tmpz < cvxgen_horizontal_vel_constraint(i)) { */
-  /*       cvxgen_horizontal_vel_constraint(i) = tmpz; */
-  /*       if (cvxgen_horizontal_vel_constraint(i) < max_speed_xy / 2) { */
-  /*         cvxgen_horizontal_vel_constraint(i) = max_speed_xy / 2; */
-  /*       } */
-  /*     } */
-  /*   } else { */
-  /*     cvxgen_horizontal_vel_constraint(i) = max_speed_xy; */
-  /*   } */
-  /*   cvxgen_horizontal_acc_constraint(i) = max_acc_xy; */
-  /* } */
 
   if (cvx_u(0) > max_horizontal_jerk * 1.01) {
     ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
