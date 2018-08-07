@@ -653,7 +653,21 @@ bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 //{ setYaw() service
 
 const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
+
+  mrs_msgs::Vec1Response res;
+
+  mutex_goal.lock();
+  {
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
+  }
+  mutex_goal.unlock();
+
+  ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
+
+  res.success = true;
+  res.message = "yaw set";
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}
@@ -664,15 +678,9 @@ bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
   mutex_goal.lock();
   {
-    goal_yaw = msg->data;
-
-    have_goal = true;
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
   }
   mutex_goal.unlock();
-
-  ROS_INFO("[LineTracker]: received new yaw setpoint %3.2f", goal_yaw);
-
-  changeState(STOP_MOTION_STATE);
 
   return true;
 }
@@ -682,7 +690,23 @@ bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 //{ setYawRelative() service
 
 const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
+
+  mrs_msgs::Vec1Response res;
+
+  mutex_goal.lock();
+  mutex_state.lock();
+  {
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
+  }
+  mutex_state.unlock();
+  mutex_goal.unlock();
+
+  ROS_INFO("[LineTracker]: setting relative yaw by %3.2f", goal_yaw);
+
+  res.success = true;
+  res.message = "yaw set";
+
+  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
 
 //}
@@ -694,16 +718,12 @@ bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
   mutex_goal.lock();
   mutex_state.lock();
   {
-    goal_yaw = state_yaw + msg->data;
-
-    have_goal = true;
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
   }
   mutex_state.unlock();
   mutex_goal.unlock();
 
-  ROS_INFO("[LineTracker]: received new yaw relative setpoint leading to %3.2f", goal_yaw);
-
-  changeState(STOP_MOTION_STATE);
+  ROS_INFO("[LineTracker]: received relative yaw by %3.2f", goal_yaw);
 
   return true;
 }
