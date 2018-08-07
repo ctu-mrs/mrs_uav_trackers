@@ -1246,7 +1246,8 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
   } else {
 
-    if (!setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0), mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true)) {
+    if (!setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
+                 mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true)) {
 
       res.success = false;
       res.message = "Cannot set the goal. It is probably outside of the safety area.";
@@ -1281,7 +1282,8 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
     } else {
 
-      setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0), mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
+      setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
+              mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
     }
   }
 
@@ -1980,20 +1982,7 @@ void MpcTracker::calculateMPC() {
   iters_X          = 0;
   iters_Y          = 0;
   iters_YAW        = 0;
-  /* yaw angle at which my drone "sees the goto reference point" */
-  double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
-  /* yaw angle of my velocity */
-  double my_vel_yaw = atan2(x(4, 0), x(1, 0));
-  /* the difference between the angle of my velocity and the angle at which I am supossed to fly */
-  double yaw_diff = fabs(my_vel_yaw - goto_yaw);
-  if (yaw_diff > PI) {
-    yaw_diff = fabs(yaw_diff - 2 * PI);
-  }
-  /* the angle at which I am allowed to accelerate */
-  double goto_vel_yaw = (my_vel_yaw - goto_yaw) / 2 + goto_yaw;
-  if (goto_vel_yaw > PI / 2) {
-    goto_vel_yaw = PI - goto_vel_yaw;
-  }
+
   if (being_avoided || avoiding_someone) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
     max_speed_x = max_horizontal_speed * collision_horizontal_speed_coef;
@@ -2026,6 +2015,21 @@ void MpcTracker::calculateMPC() {
 
   max_jerk_x = max_horizontal_jerk;
   max_jerk_y = max_horizontal_jerk;
+
+  /* yaw angle at which my drone "sees the goto reference point" */
+  double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
+  /* yaw angle of my velocity */
+  double my_vel_yaw = atan2(x(4, 0), x(1, 0));
+  /* the difference between the angle of my velocity and the angle at which I am supossed to fly */
+  double yaw_diff = fabs(my_vel_yaw - goto_yaw);
+  if (yaw_diff > PI) {
+    yaw_diff = fabs(yaw_diff - 2 * PI);
+  }
+  /* the angle at which I am allowed to accelerate */
+  double goto_vel_yaw = (my_vel_yaw - goto_yaw) / 2 + goto_yaw;
+  if (goto_vel_yaw > PI / 2) {
+    goto_vel_yaw = PI - goto_vel_yaw;
+  }
 
   max_speed_x = fabs(max_speed_x * cos(goto_yaw));
   max_acc_x   = fabs(max_acc_x * cos(goto_vel_yaw));
