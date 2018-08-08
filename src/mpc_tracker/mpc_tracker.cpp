@@ -80,16 +80,12 @@ private:
   ros::ServiceServer collision_avoidance_service;
 
   // debugging publishers
-  ros::Publisher pub_cmd_pose_;
-  ros::Publisher pub_cmd_velocity_;
+  ros::Publisher pub_cmd_odom;
   ros::Publisher pub_cmd_acceleration_;
   ros::Publisher pub_setpoint_pose_;
   ros::Publisher pub_diagnostics_;
-  ros::Publisher pub_debug_trajectory_;  // publishes the trajectory that was just set... because service
 
   nav_msgs::Odometry odom_;  // odometry
-
-  bool debug_;
 
   mrs_msgs::PositionCommand position_cmd_;  // message being returned
 
@@ -301,8 +297,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   std::vector<double> tempList, tempList2, UvaluesList;
   int                 tempIdx;
 
-  nh_.param("debug", debug_, false);
-
   // safety area
   nh_.param("use_safety_area", use_safety_area, false);
   // load the main system matrix
@@ -505,10 +499,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   // subscriber for desired trajectory
   sub_trajectory_ = nh_.subscribe("desired_trajectory", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
 
-  if (debug_) {
-    pub_debug_trajectory_ = nh_.advertise<mrs_msgs::TrackerTrajectory>("debug_set_trajectory", 1);
-  }
-
   // service for desired trajectory
   ser_set_trajectory_ = nh_.advertiseService("set_trajectory", &MpcTracker::callbackSetTrajectory, this);
 
@@ -531,8 +521,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe", &MpcTracker::callbackTriggerFailsafe, this);
 
   // publishers for debugging
-  pub_cmd_pose_         = nh_.advertise<nav_msgs::Odometry>("cmd_pose", 1);
-  pub_cmd_velocity_     = nh_.advertise<geometry_msgs::Vector3>("cmd_velocity", 1);
+  pub_cmd_odom         = nh_.advertise<nav_msgs::Odometry>("cmd_pose", 1);
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("md_acceleration", 1);
   pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics", 1);
 
@@ -880,28 +869,28 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   position_cmd_.header.frame_id = msg->header.frame_id;
 
   // publish position for debugging purposes
-  nav_msgs::Odometry outPose;
+  nav_msgs::Odometry cmd_odom_out;
 
-  outPose.header.stamp    = ros::Time::now();
-  outPose.header.frame_id = "local_origin";
+  cmd_odom_out.header.stamp    = ros::Time::now();
+  cmd_odom_out.header.frame_id = "local_origin";
 
-  outPose.pose.pose.position = position_cmd_.position;
+  cmd_odom_out.pose.pose.position = position_cmd_.position;
   tf::Quaternion orientation;
   orientation.setEuler(0, 0, yaw);
-  outPose.pose.pose.orientation.x = orientation.x();
-  outPose.pose.pose.orientation.y = orientation.y();
-  outPose.pose.pose.orientation.z = orientation.z();
-  outPose.pose.pose.orientation.w = orientation.w();
+  cmd_odom_out.pose.pose.orientation.x = orientation.x();
+  cmd_odom_out.pose.pose.orientation.y = orientation.y();
+  cmd_odom_out.pose.pose.orientation.z = orientation.z();
+  cmd_odom_out.pose.pose.orientation.w = orientation.w();
 
-  outPose.twist.twist.linear.x = position_cmd_.velocity.x;
-  outPose.twist.twist.linear.y = position_cmd_.velocity.y;
-  outPose.twist.twist.linear.z = position_cmd_.velocity.z;
+  cmd_odom_out.twist.twist.linear.x = position_cmd_.velocity.x;
+  cmd_odom_out.twist.twist.linear.y = position_cmd_.velocity.y;
+  cmd_odom_out.twist.twist.linear.z = position_cmd_.velocity.z;
 
   try {
-    pub_cmd_pose_.publish(outPose);
+    pub_cmd_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(cmd_odom_out)));
   }
   catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_pose_.getTopic().c_str());
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_odom.getTopic().c_str());
   }
 
   // publish velocity for debugging purposes
@@ -911,13 +900,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   outVelocity.y = position_cmd_.velocity.y;
   outVelocity.z = position_cmd_.velocity.z;
 
-  try {
-    pub_cmd_velocity_.publish(outVelocity);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_velocity_.getTopic().c_str());
-  }
-
   // publish acceleration for debugging purposes
   geometry_msgs::Vector3 outAcceleration;
 
@@ -926,30 +908,30 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   outAcceleration.z = position_cmd_.acceleration.z;
 
   try {
-    pub_cmd_acceleration_.publish(outAcceleration);
+    pub_cmd_acceleration_.publish(geometry_msgs::Vector3ConstPtr(new geometry_msgs::Vector3(outAcceleration)));
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_acceleration_.getTopic().c_str());
   }
 
   // publish position setpoint for debugging purposes
-  nav_msgs::Odometry outSetpoint;
+  nav_msgs::Odometry setpoint_odom_out;
 
-  outSetpoint.header.stamp    = ros::Time::now();
-  outSetpoint.header.frame_id = "local_origin";
+  setpoint_odom_out.header.stamp    = ros::Time::now();
+  setpoint_odom_out.header.frame_id = "local_origin";
 
-  outSetpoint.pose.pose.position.x = des_x_trajectory(0, 0);
-  outSetpoint.pose.pose.position.y = des_y_trajectory(0, 0);
-  outSetpoint.pose.pose.position.z = des_z_trajectory(0, 0);
+  setpoint_odom_out.pose.pose.position.x = des_x_trajectory(0, 0);
+  setpoint_odom_out.pose.pose.position.y = des_y_trajectory(0, 0);
+  setpoint_odom_out.pose.pose.position.z = des_z_trajectory(0, 0);
 
   orientation.setEuler(0, 0, desired_yaw);
-  outSetpoint.pose.pose.orientation.x = orientation.x();
-  outSetpoint.pose.pose.orientation.y = orientation.y();
-  outSetpoint.pose.pose.orientation.z = orientation.z();
-  outSetpoint.pose.pose.orientation.w = orientation.w();
+  setpoint_odom_out.pose.pose.orientation.x = orientation.x();
+  setpoint_odom_out.pose.pose.orientation.y = orientation.y();
+  setpoint_odom_out.pose.pose.orientation.z = orientation.z();
+  setpoint_odom_out.pose.pose.orientation.w = orientation.w();
 
   try {
-    pub_setpoint_pose_.publish(outSetpoint);
+    pub_setpoint_pose_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_pose_.getTopic().c_str());
@@ -2155,7 +2137,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.orientation.w = orientation.w();
 
   try {
-    pub_diagnostics_.publish(diagnostics);
+    pub_diagnostics_.publish(mrs_msgs::TrackerDiagnosticsConstPtr(new mrs_msgs::TrackerDiagnostics(diagnostics)));
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_diagnostics_.getTopic().c_str());
@@ -2238,15 +2220,6 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     ROS_INFO("[MpcTracker]: MpcTracker: ");
 
   } else {
-
-    if (debug_) {
-      try {
-        pub_debug_trajectory_.publish(msg);
-      }
-      catch (...) {
-        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_debug_trajectory_.getTopic().c_str());
-      }
-    }
 
     des_trajectory_mutex.lock();
 
@@ -2587,15 +2560,15 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 
   if (future_was_predicted) {
 
-    mrs_msgs::FutureTrajectory newTrajectory;
-    newTrajectory.stamp    = ros::Time::now();
-    newTrajectory.uav_name = uav_name_;
+    mrs_msgs::FutureTrajectory future_trajectory_out;
+    future_trajectory_out.stamp    = ros::Time::now();
+    future_trajectory_out.uav_name = uav_name_;
 
-    newTrajectory.collision_avoidance = mrs_collision_avoidance;
+    future_trajectory_out.collision_avoidance = mrs_collision_avoidance;
 
-    geometry_msgs::PoseArray debugTrajectory;
-    debugTrajectory.header.stamp    = ros::Time::now();
-    debugTrajectory.header.frame_id = "local_origin";
+    geometry_msgs::PoseArray debug_trajectory_out;
+    debug_trajectory_out.header.stamp    = ros::Time::now();
+    debug_trajectory_out.header.frame_id = "local_origin";
 
     // fill the trajectory
     mutex_predicted_trajectory.lock();
@@ -2608,7 +2581,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
         newPoint.y = predicted_future_trajectory(i * n + 3);
         newPoint.z = predicted_future_trajectory(i * n + 6);
 
-        newTrajectory.points.push_back(newPoint);
+        future_trajectory_out.points.push_back(newPoint);
 
         geometry_msgs::Pose newPose;
 
@@ -2622,19 +2595,19 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
         newPose.orientation.z = orientation.z();
         newPose.orientation.w = orientation.w();
 
-        debugTrajectory.poses.push_back(newPose);
+        debug_trajectory_out.poses.push_back(newPose);
       }
     }
     mutex_predicted_trajectory.unlock();
 
     try {
-      predicted_trajectory_publisher.publish(newTrajectory);
+      predicted_trajectory_publisher.publish(mrs_msgs::FutureTrajectoryConstPtr(new mrs_msgs::FutureTrajectory(future_trajectory_out)));
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
     }
     try {
-      debug_predicted_trajectory_publisher.publish(debugTrajectory);
+      debug_predicted_trajectory_publisher.publish(geometry_msgs::PoseArrayConstPtr(new geometry_msgs::PoseArray(debug_trajectory_out)));
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
