@@ -274,7 +274,7 @@ private:
   void calculateMPC();
   void setTrajectory(float x, float y, float z, float yaw);
   bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  double   checkForCollisions();
+  double   checkTrajectoryForCollisions();
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
@@ -1701,10 +1701,10 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 //}
 
-//{ checkForCollisions()
+//{ checkTrajectoryForCollisions()
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
-double MpcTracker::checkForCollisions() {
+double MpcTracker::checkTrajectoryForCollisions() {
 
 
     trajectory_setpoint_mutex.lock();
@@ -1879,7 +1879,7 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 void MpcTracker::calculateMPC() {
   ROS_INFO("[MpcTracker]: Living");
   // filter the desired trajectory to be feasible
-  collision_avoidance_reference_offset = checkForCollisions();
+  collision_avoidance_reference_offset = checkTrajectoryForCollisions();
   last_offset                          = collision_avoidance_reference_offset;
   // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
