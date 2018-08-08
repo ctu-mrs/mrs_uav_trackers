@@ -1632,8 +1632,6 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 
 //}
 
-//{ callbackDesiredPositionRelative()
-
 // | -------------------- setpoint handlign ------------------- |
 
 //{ triggerFailsafe()
