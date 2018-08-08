@@ -29,12 +29,6 @@
 
 using namespace Eigen;
 
-struct collision_avoidance_offset
-{
-  int    uav_number;
-  double min_safe_altitude;
-};
-
 namespace mrs_trackers
 {
 
@@ -112,30 +106,26 @@ private:
   bool                    use_safety_area;
 
   // variables regarding the MPC controller
-  int                                     n;            // number of states
-  int                                     m;            // number of inputs
-  int                                     n_yaw;        // number of states - yaw
-  int                                     m_yaw;        // number of inputs - yaw
-  int                                     horizon_len;  // lenght of the prediction horizon
-  double                                  minimum_collison_free_altitude = 0;
-  double                                  last_offset                    = 0;
-  std::vector<collision_avoidance_offset> offset_list;
-  double                                  max_horizontal_speed;
-  double                                  max_horizontal_acceleration;
-  double                                  max_vertical_ascending_acceleration;
-  double                                  max_vertical_ascending_speed;
-  double                                  max_vertical_ascending_jerk;
-  double                                  max_vertical_descending_speed;
-  double                                  max_vertical_descending_acceleration;
-  double                                  max_vertical_descending_jerk;
-  double                                  max_yaw_rate;
-  double                                  max_yaw_acceleration;
-  double                                  max_yaw_jerk;
-  double                                  max_altitude_;
-  double                                  min_altitude_;
-
-  bool avoiding_someone;
-  bool being_avoided;
+  int    n;            // number of states
+  int    m;            // number of inputs
+  int    n_yaw;        // number of states - yaw
+  int    m_yaw;        // number of inputs - yaw
+  int    horizon_len;  // lenght of the prediction horizon
+  double minimum_collison_free_altitude = 0;
+  double last_offset                    = 0;
+  double max_horizontal_speed;
+  double max_horizontal_acceleration;
+  double max_vertical_ascending_acceleration;
+  double max_vertical_ascending_speed;
+  double max_vertical_ascending_jerk;
+  double max_vertical_descending_speed;
+  double max_vertical_descending_acceleration;
+  double max_vertical_descending_jerk;
+  double max_yaw_rate;
+  double max_yaw_acceleration;
+  double max_yaw_jerk;
+  double max_altitude_;
+  double min_altitude_;
 
   int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X             = 0;
@@ -229,7 +219,6 @@ private:
   double mrs_collision_avoidance_altitude_threshold;
   double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   int       uav_num_name;
-  double    collision_altitude_offset;
   double    collision_free_altitude;
   ros::Time avoiding_collision_time;
   ros::Time being_avoided_time;
@@ -605,19 +594,18 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   // preallocate future trajectory
   predicted_future_trajectory = MatrixXd::Zero(horizon_len * n, 1);
 
-  collision_altitude_offset = 0;
-  collision_free_altitude   = 0;
-  avoiding_collision_time   = ros::Time::now();
-  being_avoided_time        = ros::Time::now();
-  future_was_predicted      = false;
-  earliest_collision_idx    = INT_MAX;
+  collision_free_altitude = 0;
+  avoiding_collision_time = ros::Time::now();
+  being_avoided_time      = ros::Time::now();
+  future_was_predicted    = false;
+  earliest_collision_idx  = INT_MAX;
 
   nh_.param("predicted_trajectory_topic", predicted_trajectory_topic, std::string());
 
   nh_.param("mrs_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate, 1.0);
   nh_.param("mrs_collision_avoidance/correction", mrs_collision_avoidance_correction, 3.0);
-  nh_.param("mrs_collision_avoidance/radius", mrs_collision_avoidance_radius, 1.0);
-  nh_.param("mrs_collision_avoidance/altitude_threshold", mrs_collision_avoidance_altitude_threshold, 1.0);
+  nh_.param("mrs_collision_avoidance/radius", mrs_collision_avoidance_radius, 3.0);
+  nh_.param("mrs_collision_avoidance/altitude_threshold", mrs_collision_avoidance_altitude_threshold, 2.5);
   nh_.param("mrs_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef, 1.0);
   nh_.param("mrs_collision_avoidance/collision_horizontal_acceleration_coef", collision_horizontal_acceleration_coef, 1.0);
   nh_.param("mrs_collision_avoidance/collision_slow_down_before", collision_slow_down_before, 0);
@@ -1339,7 +1327,7 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
   if (!mrs_collision_avoidance) {
 
-    collision_altitude_offset = 0;
+    collision_free_altitude = 0;
   }
 
   ROS_INFO("[MpcTracker]: Collision avoidance was switched %s", mrs_collision_avoidance ? "TRUE" : "FALSE");
@@ -1716,10 +1704,8 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 double MpcTracker::checkTrajectoryForCollisions() {
 
   trajectory_setpoint_mutex.lock();
-  // mrs collision avoidance
-  /* collision_altitude_offset = 0; */
   bool avoiding       = false;
-  bool being_avoiding = false;
+  bool being_avoided = false;
 
   if (mrs_collision_avoidance) {
 
@@ -1747,7 +1733,7 @@ double MpcTracker::checkTrajectoryForCollisions() {
               ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_drone_id);
             } else {
               // the other uav should avoid us
-              being_avoiding = true;
+              being_avoided = true;
               ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_drone_id << ", not avoiding (My priority is higher)");
             }
           }
@@ -1755,15 +1741,20 @@ double MpcTracker::checkTrajectoryForCollisions() {
       }
       u++;
     }
-    trajectory_setpoint_mutex.unlock();
-    if (!avoiding) {
-      collision_free_altitude -= 0.05;
-      if (collision_free_altitude < 0) {
-        collision_free_altitude = 0;
-      }
-    }
-    return collision_free_altitude;
   }
+  trajectory_setpoint_mutex.unlock();
+  if (!avoiding) {
+    // we are not avoiding any collisions, so reduce the collision avoidance offset
+    collision_free_altitude -= 0.02;
+    if (collision_free_altitude < 0) {
+      collision_free_altitude = 0;
+    }
+  }
+  if (being_avoided) {
+    // negative value to signal that other uav is avoiding us
+    collision_free_altitude = -0.1;
+  }
+  return collision_free_altitude;
 }
 
 //}
@@ -1843,23 +1834,26 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 //{ calculateMPC()
 
 void MpcTracker::calculateMPC() {
-  // filter the desired trajectory to be feasible
+  // Check other drone trajectories for collisions
   minimum_collison_free_altitude = checkTrajectoryForCollisions();
   ROS_INFO_STREAM_THROTTLE(1, "OFFSET " << minimum_collison_free_altitude);
-  /* if (minimum_collison_free_altitude < 0.0) { */
-  /*   minimum_collison_free_altitude = 0; */
-  /* } */
+  bool slow_down = false;
+  if (minimum_collison_free_altitude > 0.001) {
+    slow_down = true;
+  } else if (minimum_collison_free_altitude < -0.001) {
+    minimum_collison_free_altitude = 0;
+    slow_down                      = true;
+  }
+
   // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
 
-  avoiding_someone = (ros::Time::now() - avoiding_collision_time).toSec() < collision_slowing_hysteresis ? true : false;
-  being_avoided    = (ros::Time::now() - being_avoided_time).toSec() < collision_slowing_hysteresis ? true : false;
-  iters_Z          = 0;
-  iters_X          = 0;
-  iters_Y          = 0;
-  iters_YAW        = 0;
+  iters_Z   = 0;
+  iters_X   = 0;
+  iters_Y   = 0;
+  iters_YAW = 0;
 
-  if (being_avoided || avoiding_someone) {
+  if (slow_down) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
     max_speed_x = max_horizontal_speed * collision_horizontal_speed_coef;
     max_speed_y = max_horizontal_speed * collision_horizontal_speed_coef;
@@ -1872,7 +1866,7 @@ void MpcTracker::calculateMPC() {
     max_acc_y   = max_horizontal_acceleration;
   }
 
-  if (avoiding_someone) {
+  if (minimum_collison_free_altitude > 0.001) {
     // we are avoiding someone, better increase the vertical velocity and aceleration limits to avoid in time
     max_speed_z = 5.0;
     max_acc_z   = 3.0;
