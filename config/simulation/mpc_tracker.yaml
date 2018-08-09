@@ -14,7 +14,7 @@ mrs_collision_avoidance:
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
-  collision_horizontal_acceleration_coef: 0.5 # when collision detected, keep the acceleration down during the manouvre
+  collision_horizontal_acceleration_coef: 1.0 # when collision detected, keep the acceleration down during the manouvre
   collision_slow_down_before: 10 # when collision detected, slow down this number of steps before it
   collision_slowing_hysteresis: 2.0 # [s] prolonging the slowing
 
