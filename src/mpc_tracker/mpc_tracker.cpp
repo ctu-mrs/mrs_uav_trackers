@@ -169,7 +169,7 @@ private:
   MatrixXd des_x_trajectory;                  // trajectory reference over the prediction horizon
   MatrixXd des_y_trajectory;                  // trajectory reference over the prediction horizon
   MatrixXd des_z_trajectory;                  // trajectory reference over the prediction horizon
-  MatrixXd des_z_trajectory_offset;           // trajectory reference over the prediction horizon
+  MatrixXd des_z_filtered_offset;             // trajectory reference over the prediction horizon
   MatrixXd des_yaw_trajectory;                // trajectory reference over the prediction horizon
   MatrixXd des_x_filtered;                    // filtered trajectory reference over the horizon
   MatrixXd des_y_filtered;                    // filtered trajectory reference over the horizon
@@ -271,7 +271,8 @@ private:
   void calculateMPC();
   void setTrajectory(float x, float y, float z, float yaw);
   bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  double   checkTrajectoryForCollisions();
+  double checkTrajectoryForCollisions();
+  void filterReference(double max_speed_x, double max_speed_y, double max_speed_z);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
@@ -506,11 +507,11 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   cvxgen_horizontal_vel_constraint = VectorXd::Zero(horizon_len);
   cvxgen_horizontal_acc_constraint = VectorXd::Zero(horizon_len);
 
-  des_x_trajectory        = MatrixXd::Zero(horizon_len, 1);
-  des_y_trajectory        = MatrixXd::Zero(horizon_len, 1);
-  des_z_trajectory        = MatrixXd::Zero(horizon_len, 1);
-  des_z_trajectory_offset = MatrixXd::Zero(horizon_len, 1);
-  des_yaw_trajectory      = MatrixXd::Zero(horizon_len, 1);
+  des_x_trajectory      = MatrixXd::Zero(horizon_len, 1);
+  des_y_trajectory      = MatrixXd::Zero(horizon_len, 1);
+  des_z_trajectory      = MatrixXd::Zero(horizon_len, 1);
+  des_z_filtered_offset = MatrixXd::Zero(horizon_len, 1);
+  des_yaw_trajectory    = MatrixXd::Zero(horizon_len, 1);
 
   des_x_filtered = MatrixXd::Zero(horizon_len, 1);
   des_y_filtered = MatrixXd::Zero(horizon_len, 1);
@@ -1704,7 +1705,7 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 double MpcTracker::checkTrajectoryForCollisions() {
 
   trajectory_setpoint_mutex.lock();
-  bool avoiding       = false;
+  bool avoiding      = false;
   bool being_avoided = false;
 
   if (mrs_collision_avoidance) {
@@ -1755,6 +1756,62 @@ double MpcTracker::checkTrajectoryForCollisions() {
     collision_free_altitude = -0.1;
   }
   return collision_free_altitude;
+}
+
+//}
+
+//{ filterReference()
+
+void MpcTracker::filterReference(double max_speed_x, double max_speed_y, double max_speed_z) {
+  double difference_x;
+  double difference_y;
+  double difference_z;
+  double max_sample_x;
+  double max_sample_y;
+  double max_sample_z;
+  for (int i = 0; i < horizon_len; i++) {
+    if (i == 0) {
+      max_sample_x = max_speed_x * dt;
+      max_sample_y = max_speed_y * dt;
+      max_sample_z = max_speed_z * dt;
+      difference_x = des_x_trajectory(i, 0) - x(0, 0);
+      difference_y = des_y_trajectory(i, 0) - x(3, 0);
+      difference_z = des_z_trajectory(i, 0) - x(6, 0);
+    } else {
+      max_sample_x = max_speed_x * dt2;
+      max_sample_y = max_speed_y * dt2;
+      max_sample_z = max_speed_z * dt2;
+      difference_x = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
+      difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
+      difference_z = des_z_trajectory(i, 0) - des_z_filtered(i - 1, 0);
+    }
+
+    // saturate the difference
+    if (difference_x > max_sample_x)
+      difference_x = max_sample_x;
+    else if (difference_x < -max_sample_x)
+      difference_x = -max_sample_x;
+
+    if (difference_y > max_sample_y)
+      difference_y = max_sample_y;
+    else if (difference_y < -max_sample_y)
+      difference_y = -max_sample_y;
+
+    if (difference_z > max_sample_z)
+      difference_z = max_sample_z;
+    else if (difference_z < -max_sample_z)
+      difference_z = -max_sample_z;
+
+    if (i == 0) {
+      des_x_filtered(i, 0) = x(0, 0) + difference_x;
+      des_y_filtered(i, 0) = x(3, 0) + difference_y;
+      des_z_filtered(i, 0) = x(6, 0) + difference_z;
+    } else {
+      des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference_x;
+      des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference_y;
+      des_z_filtered(i, 0) = des_z_filtered(i - 1, 0) + difference_z;
+    }
+  }
 }
 
 //}
@@ -1836,7 +1893,6 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 void MpcTracker::calculateMPC() {
   // Check other drone trajectories for collisions
   minimum_collison_free_altitude = checkTrajectoryForCollisions();
-  ROS_INFO_STREAM_THROTTLE(1, "OFFSET " << minimum_collison_free_altitude);
   bool slow_down = false;
   if (minimum_collison_free_altitude > 0.001) {
     slow_down = true;
@@ -1909,31 +1965,15 @@ void MpcTracker::calculateMPC() {
   /* max_acc_y   = fabs(max_acc_y * sin(goto_vel_yaw)); */
   /* max_jerk_y  = fabs(max_jerk_y * sin(goto_vel_yaw)); */
 
+  filterReference(max_speed_x, max_speed_y, max_speed_z);
+
   for (int i = 0; i < horizon_len; i++) {
-    if (des_z_trajectory(i, 0) < minimum_collison_free_altitude) {
-      des_z_trajectory_offset(i, 0) = minimum_collison_free_altitude;
+    if (des_z_filtered(i, 0) < minimum_collison_free_altitude) {
+      des_z_filtered_offset(i, 0) = minimum_collison_free_altitude;
     } else {
-      des_z_trajectory_offset(i, 0) = des_z_trajectory(i, 0);
+      des_z_filtered_offset(i, 0) = des_z_filtered(i, 0);
     }
   }
-  // prepare reference vector for XYZ
-  /* for (int i = 0; i < horizon_len; i++) { */
-  /*   reference(i * n, 0)     = des_x_trajectory(i, 0); */
-  /*   reference(i * n + 1, 0) = 0; */
-  /*   reference(i * n + 2, 0) = 0; */
-  /*   reference(i * n + 3, 0) = des_y_trajectory(i, 0); */
-  /*   reference(i * n + 4, 0) = 0; */
-  /*   reference(i * n + 5, 0) = 0; */
-  /*   reference(i * n + 6, 0) = des_z_trajectory(i, 0) + minimum_collison_free_altitude; */
-  /*   reference(i * n + 7, 0) = 0; */
-  /*   reference(i * n + 8, 0) = 0; */
-  /* } */
-  /* // prepare reference vector for Yaw */
-  /* for (int i = 0; i < horizon_len; i++) { */
-  /*   reference_yaw(i * 3, 0)     = des_yaw_trajectory(i, 0); */
-  /*   reference_yaw(i * 3 + 1, 0) = 0; */
-  /*   reference_yaw(i * 3 + 2, 0) = 0; */
-  /* } */
 
   // First control input generated by cvxgen
   VectorXd cvx_u     = VectorXd::Zero(m);
@@ -1948,7 +1988,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_x->setInitialState(initial_x);
   cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x);
-  cvx_x->loadReference(des_x_trajectory);
+  cvx_x->loadReference(des_x_filtered);
   iters_X += cvx_x->solveCvx();
   cvx_x->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_x->getFirstControlInput();
@@ -1960,7 +2000,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_y->setInitialState(initial_y);
   cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y);
-  cvx_y->loadReference(des_y_trajectory);
+  cvx_y->loadReference(des_y_filtered);
   iters_Y += cvx_y->solveCvx();
   cvx_y->getStates(predicted_future_trajectory);
   cvx_u(1) = cvx_y->getFirstControlInput();
@@ -1972,7 +2012,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_z->setInitialState(initial_z);
   cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk);
-  cvx_z->loadReference(des_z_trajectory_offset);
+  cvx_z->loadReference(des_z_filtered_offset);
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
@@ -2013,9 +2053,9 @@ void MpcTracker::calculateMPC() {
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
   if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y
-                                                                  << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
-                                                                  << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
+  ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y << "/"
+                                                                << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_YAW
+                                                                << "/" << max_iters_YAW);
   }
   x_mutex.lock();
   {

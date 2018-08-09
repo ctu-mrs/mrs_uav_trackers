@@ -41,7 +41,11 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   }
   settings.max_iters = max_iters;
 
-  if (tempQ.size() == 3) {
+
+  /* settings.eps       = 0.00001; */
+  /* settings.resid_tol = 0.001; */
+
+      if (tempQ.size() == 3) {
     for (int i = 0; i < 3; i++) {
       if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
         params.Q[i] = tempQ[i];
@@ -50,7 +54,8 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
         params.Q[i] = 500;
       }
     }
-  } else {
+  }
+  else {
     ROS_ERROR_STREAM("CvxWrapper - Q matrix wrong size " << tempQ.size() << " !!! Safe values set instead");
     params.Q[0] = 5000;
     params.Q[1] = 0;
