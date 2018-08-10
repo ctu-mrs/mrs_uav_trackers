@@ -271,7 +271,7 @@ private:
   void calculateMPC();
   void setTrajectory(float x, float y, float z, float yaw);
   bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  double checkTrajectoryForCollisions();
+  double checkTrajectoryForCollisions(bool &avoiding, bool &being_avoided);
   void filterReference(double max_speed_x, double max_speed_y, double max_speed_z);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
@@ -1702,11 +1702,11 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 //{ checkTrajectoryForCollisions()
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
-double MpcTracker::checkTrajectoryForCollisions() {
+double MpcTracker::checkTrajectoryForCollisions(bool &avoiding, bool &being_avoided) {
 
   trajectory_setpoint_mutex.lock();
-  bool avoiding      = false;
-  bool being_avoided = false;
+  avoiding      = false;
+  being_avoided = false;
 
   if (mrs_collision_avoidance) {
 
@@ -1730,7 +1730,6 @@ double MpcTracker::checkTrajectoryForCollisions() {
               if (tmp_safe_altitude > collision_free_altitude) {
                 collision_free_altitude = tmp_safe_altitude;
               }
-
               ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_drone_id);
             } else {
               // the other uav should avoid us
@@ -1750,10 +1749,6 @@ double MpcTracker::checkTrajectoryForCollisions() {
     if (collision_free_altitude < 0) {
       collision_free_altitude = 0;
     }
-  }
-  if (being_avoided) {
-    // negative value to signal that other uav is avoiding us
-    collision_free_altitude = -0.1;
   }
   return collision_free_altitude;
 }
@@ -1892,14 +1887,10 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
 void MpcTracker::calculateMPC() {
   // Check other drone trajectories for collisions
-  minimum_collison_free_altitude = checkTrajectoryForCollisions();
-  bool slow_down = false;
-  if (minimum_collison_free_altitude > 0.001) {
-    slow_down = true;
-  } else if (minimum_collison_free_altitude < -0.001) {
-    minimum_collison_free_altitude = 0;
-    slow_down                      = true;
-  }
+  bool avoiding;
+  bool being_avoided;
+  minimum_collison_free_altitude = checkTrajectoryForCollisions(avoiding, being_avoided);
+  ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << minimum_collison_free_altitude);
 
   // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
@@ -1909,7 +1900,7 @@ void MpcTracker::calculateMPC() {
   iters_Y   = 0;
   iters_YAW = 0;
 
-  if (slow_down) {
+  if (avoiding | being_avoided) {
     // There is a possibility of a collision, better slow down a bit to give everyone more time
     max_speed_x = max_horizontal_speed * collision_horizontal_speed_coef;
     max_speed_y = max_horizontal_speed * collision_horizontal_speed_coef;
@@ -1922,7 +1913,7 @@ void MpcTracker::calculateMPC() {
     max_acc_y   = max_horizontal_acceleration;
   }
 
-  if (minimum_collison_free_altitude > 0.001) {
+  if (avoiding) {
     // we are avoiding someone, better increase the vertical velocity and aceleration limits to avoid in time
     max_speed_z = 5.0;
     max_acc_z   = 3.0;
@@ -2053,9 +2044,9 @@ void MpcTracker::calculateMPC() {
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
   if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
-  ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y << "/"
-                                                                << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z << " iters yaw: " << iters_YAW
-                                                                << "/" << max_iters_YAW);
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y
+                                                                  << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
+                                                                  << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
   x_mutex.lock();
   {
