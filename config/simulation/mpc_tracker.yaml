@@ -7,8 +7,9 @@ diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
 # mrs collision avoidance
 mrs_collision_avoidance:
   enable: true
+  use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
-  drone_names: [uav1, uav2, uav3, uav4, uav5, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
+  drone_names: [uav1, uav2, uav3, uav4, uav5, uav5,  uav7, uav8, uav11, uav12, uav13, uav14, uav15]
   radius: 3.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m]
@@ -65,17 +66,17 @@ cvxgenMpc:
   dt: 0.02
   dt2: 0.2
 
-  maxHorizontalSpeed: 5.0
-  maxHorizontalAcceleration: 2.0
-  maxHorizontalJerk: 3.0
+  maxHorizontalSpeed: 10.0
+  maxHorizontalAcceleration: 3.0
+  maxHorizontalJerk: 6.0
 
-  maxVerticalAscendingSpeed: 2.0
-  maxVerticalAscendingAcceleration: 1.0
-  maxVerticalAscendingJerk: 1.0
+  maxVerticalAscendingSpeed: 3.0
+  maxVerticalAscendingAcceleration: 2.0
+  maxVerticalAscendingJerk: 2.0
 
-  maxVerticalDescendingSpeed: 2.0
-  maxVerticalDescendingAcceleration: 1.0
-  maxVerticalDescendingJerk: 1.0
+  maxVerticalDescendingSpeed: 3.0
+  maxVerticalDescendingAcceleration: 2.0
+  maxVerticalDescendingJerk: 2.0
 
   maxYawRate: 0.5
   maxYawAcceleration: 0.5

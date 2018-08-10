@@ -7,8 +7,9 @@ diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
 # mrs collision avoidance
 mrs_collision_avoidance:
   enable: true
+  use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
-  drone_names: [uav1, uav2, uav3, uav4, uav5, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
+  drone_names: [uav1, uav2, uav3, uav4, uav5, uav6, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
   radius: 2.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m]
