@@ -2536,9 +2536,9 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (future_was_predicted) {
 
     mrs_msgs::FutureTrajectory future_trajectory_out;
-    newTrajectory.stamp    = ros::Time::now();
-    newTrajectory.uav_name = uav_name_;
-    newTrajectory.priority = my_uav_priority;
+    future_trajectory_out.stamp    = ros::Time::now();
+    future_trajectory_out.uav_name = uav_name_;
+    future_trajectory_out.priority = my_uav_priority;
 
     future_trajectory_out.collision_avoidance = mrs_collision_avoidance;
 
