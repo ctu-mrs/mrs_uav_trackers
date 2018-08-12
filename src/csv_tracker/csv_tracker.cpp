@@ -35,7 +35,7 @@ public:
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr                getStatus();
+  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -381,11 +381,11 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char message[100];
+  char                      message[100];
   std_srvs::SetBoolResponse res;
 
   if (cmd->data != callbacks_enabled) {
-    
+
     callbacks_enabled = cmd->data;
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
@@ -393,7 +393,7 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
     ROS_INFO("[CsvTracker]: %s", message);
 
   } else {
-  
+
     sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
   }
 
@@ -741,7 +741,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 }
 
 //}
-}
+}  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_mav_manager::Tracker)

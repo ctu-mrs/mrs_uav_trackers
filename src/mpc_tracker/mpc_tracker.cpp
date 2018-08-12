@@ -197,44 +197,44 @@ private:
   double desired_yaw;
 
   // predicting the future
-  MatrixXd                 predicted_future_trajectory;
-  std::string              uav_name_;
-  std::vector<std::string> other_drone_names_;
+  MatrixXd                                          predicted_future_trajectory;
+  std::string                                       uav_name_;
+  std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-  std::vector<ros::Subscriber> other_drones_subscribers;
-  ros::Publisher               predicted_trajectory_publisher;
-  ros::Publisher               debug_predicted_trajectory_publisher;
-  bool                         mrs_collision_avoidance;
-  bool                         use_priority_swap;
-  double                       predicted_trajectory_publish_rate;
-  double                       mrs_collision_avoidance_radius;
-  double                       mrs_collision_avoidance_correction;
-  std::mutex                   mutex_predicted_trajectory;
-  std::string                  predicted_trajectory_topic;
-  void callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool   future_was_predicted;
-  double mrs_collision_avoidance_altitude_threshold;
-  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  std::vector<ros::Subscriber>                      other_drones_subscribers;
+  ros::Publisher                                    predicted_trajectory_publisher;
+  ros::Publisher                                    debug_predicted_trajectory_publisher;
+  bool                                              mrs_collision_avoidance;
+  bool                                              use_priority_swap;
+  double                                            predicted_trajectory_publish_rate;
+  double                                            mrs_collision_avoidance_radius;
+  double                                            mrs_collision_avoidance_correction;
+  std::mutex                                        mutex_predicted_trajectory;
+  std::string                                       predicted_trajectory_topic;
+  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool                                              future_was_predicted;
+  double                                            mrs_collision_avoidance_altitude_threshold;
+  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   int       my_uav_number;
   int       my_uav_priority;
   double    collision_free_altitude;
   ros::Time avoiding_collision_time;
   ros::Time being_avoided_time;
-  bool callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
-  int    collision_slow_down_before;
-  double collision_slowing_hysteresis;
-  int    earliest_collision_idx;
-  double collision_trajectory_timeout;
+  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double    collision_horizontal_acceleration_coef, collision_horizontal_speed_coef;
+  int       collision_slow_down_before;
+  double    collision_slowing_hysteresis;
+  int       earliest_collision_idx;
+  double    collision_trajectory_timeout;
 
 private:
   ros::Timer future_trajectory_timer;
-  void futureTrajectoryTimer(const ros::TimerEvent &event);
+  void       futureTrajectoryTimer(const ros::TimerEvent &event);
 
 private:
   ros::Timer diagnostics_timer;
   double     diagnostics_rate;
-  void diagnosticsTimer(const ros::TimerEvent &event);
+  void       diagnosticsTimer(const ros::TimerEvent &event);
 
 private:
   MatrixXd   outputTrajectory;
@@ -256,32 +256,32 @@ private:
   double    mpc_total_delay = 0;
 
   // methods
-  void mpcTimer(const ros::TimerEvent &event);
-  void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
-  bool callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
-  bool callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void odom_cb(const nav_msgs::OdometryConstPtr &msg);
-  void calculateMPC();
-  void setTrajectory(float x, float y, float z, float yaw);
-  bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  double checkTrajectoryForCollisions(bool &avoiding, bool &being_avoided, double lowest_z);
-  void filterReference(double max_speed_x, double max_speed_y, double max_speed_z);
+  void     mpcTimer(const ros::TimerEvent &event);
+  void     pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void     callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void     callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  bool     callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
+  bool     callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool     callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
+  void     calculateMPC();
+  void     setTrajectory(float x, float y, float z, float yaw);
+  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  double   checkTrajectoryForCollisions(bool &avoiding, bool &being_avoided, double lowest_z);
+  void     filterReference(double max_speed_x, double max_speed_y, double max_speed_z);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-  bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-  bool callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
-  bool   triggerFailsafe();
-  void   publishDiagnostics();
-  double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
-  bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+  bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
+  bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
+  bool     triggerFailsafe();
+  void     publishDiagnostics();
+  double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
+  bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
   bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
@@ -1936,15 +1936,15 @@ void MpcTracker::calculateMPC() {
   max_jerk_x = max_horizontal_jerk;
   max_jerk_y = max_horizontal_jerk;
 
-  if (!tracking_trajectory_ && (dist(x(0,0), x(3,0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
+  if (!tracking_trajectory_ && (dist(x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
     // yaw angle at which my drone "sees" the goto reference point
     double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
 
     // Circle saturation of maximum velocity
     max_speed_x = fabs(max_speed_x * cos(goto_yaw));
     max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  }else{
-  ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: not circlesaturating");
+  } else {
+    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: not circlesaturating");
   }
 
 

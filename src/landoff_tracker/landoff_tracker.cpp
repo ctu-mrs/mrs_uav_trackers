@@ -19,7 +19,8 @@ namespace mrs_trackers
 //{ class LandoffTracker
 
 // state machine
-typedef enum {
+typedef enum
+{
 
   IDLE_STATE,
   LANDED_STATE,
@@ -89,7 +90,7 @@ private:
   bool   takeoff_disable_lateral_gains_;
 
 private:
-  void mainTimer(const ros::TimerEvent &event);
+  void       mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer;
 
 private:
@@ -300,7 +301,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   current_vertical_speed   = 0;
 
   current_horizontal_acceleration = 0;
-  current_vertical_acceleration = 0;
+  current_vertical_acceleration   = 0;
 
   current_vertical_direction = 0;
 
@@ -549,11 +550,11 @@ const mrs_msgs::TrackerStatus::Ptr LandoffTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char message[100];
+  char                      message[100];
   std_srvs::SetBoolResponse res;
 
   if (cmd->data != callbacks_enabled) {
-    
+
     callbacks_enabled = cmd->data;
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
@@ -561,7 +562,7 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
     ROS_INFO("[LandoffTracker]: %s", message);
 
   } else {
-  
+
     sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
   }
 
@@ -1291,7 +1292,7 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
 }
 
 //}
-}
+}  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_trackers::LandoffTracker, mrs_mav_manager::Tracker)

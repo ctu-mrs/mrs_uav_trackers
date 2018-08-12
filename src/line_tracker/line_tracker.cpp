@@ -20,7 +20,8 @@ namespace mrs_trackers
 //{ class LandoffTracker
 
 // state machine
-typedef enum {
+typedef enum
+{
 
   IDLE_STATE,
   STOP_MOTION_STATE,
@@ -85,7 +86,7 @@ private:
   bool   first_iter;
 
 private:
-  void mainTimer(const ros::TimerEvent &event);
+  void       mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer;
 
 private:
@@ -453,11 +454,11 @@ const mrs_msgs::TrackerStatus::Ptr LineTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char message[100];
+  char                      message[100];
   std_srvs::SetBoolResponse res;
 
   if (cmd->data != callbacks_enabled) {
-    
+
     callbacks_enabled = cmd->data;
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
@@ -465,7 +466,7 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
     ROS_INFO("[LineTracker]: %s", message);
 
   } else {
-  
+
     sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
   }
 
@@ -657,9 +658,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
   mrs_msgs::Vec1Response res;
 
   mutex_goal.lock();
-  {
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-  }
+  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal); }
   mutex_goal.unlock();
 
   ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
@@ -677,9 +676,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
 bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
   mutex_goal.lock();
-  {
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
-  }
+  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data); }
   mutex_goal.unlock();
 
   return true;
@@ -695,9 +692,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msg
 
   mutex_goal.lock();
   mutex_state.lock();
-  {
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
-  }
+  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal); }
   mutex_state.unlock();
   mutex_goal.unlock();
 
@@ -717,9 +712,7 @@ bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
   mutex_goal.lock();
   mutex_state.lock();
-  {
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
-  }
+  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data); }
   mutex_state.unlock();
   mutex_goal.unlock();
 
@@ -1139,7 +1132,7 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 }
 
 //}
-}
+}  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_trackers::LineTracker, mrs_mav_manager::Tracker)
