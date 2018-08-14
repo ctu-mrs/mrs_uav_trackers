@@ -5,14 +5,13 @@ find_package(catkin REQUIRED COMPONENTS
   cmake_modules
   geometry_msgs
   tf
-  trackers_manager
   std_msgs
   message_generation
-  mav_manager
   roscpp
   rospy
-  mrs_estimation
+  mrs_lib
   mrs_msgs
+  mrs_mav_manager
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
@@ -23,9 +22,10 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
-catkin_package(INCLUDE_DIRS
+catkin_package(
+  INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf trackers_manager mrs_estimation
+  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_lib mrs_mav_manager mrs_msgs
   DEPENDS Eigen
   )
 
@@ -35,57 +35,80 @@ catkin_package(INCLUDE_DIRS
 
 include_directories(
   include
-  ${EIGEN_INCLUDE_DIR} 
+  ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
-  src/${PROJECT_NAME}/cvxgen
-  src/${PROJECT_NAME}/cvxgen_z
-  src/${PROJECT_NAME}/cvxgen_yaw
+  src/mpc_tracker/cvxgen
   )
 
-add_library(mpc_tracker src/${PROJECT_NAME}/mpc_tracker.cpp)
+# MPC Tracker
 
-add_library(cvx_wrapper src/${PROJECT_NAME}/cvx_wrapper.cpp
-  src/${PROJECT_NAME}/cvxgen/ldl.c
-  src/${PROJECT_NAME}/cvxgen/matrix_support.c
-  src/${PROJECT_NAME}/cvxgen/solver.c
-  src/${PROJECT_NAME}/cvxgen/util.c
+add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
+
+add_library(cvx_wrapper src/mpc_tracker/cvx_wrapper.cpp
+  src/mpc_tracker/cvxgen/ldl.c
+  src/mpc_tracker/cvxgen/matrix_support.c
+  src/mpc_tracker/cvxgen/solver.c
+  src/mpc_tracker/cvxgen/util.c
   )
 
-add_library(cvx_wrapper_z src/${PROJECT_NAME}/cvx_wrapper_z.cpp
-  src/${PROJECT_NAME}/cvxgen_z/ldl.c
-  src/${PROJECT_NAME}/cvxgen_z/matrix_support.c
-  src/${PROJECT_NAME}/cvxgen_z/solver.c
-  src/${PROJECT_NAME}/cvxgen_z/util.c
-  )
-
-add_library(cvx_wrapper_yaw src/${PROJECT_NAME}/cvx_wrapper_yaw.cpp
-  src/${PROJECT_NAME}/cvxgen_yaw/ldl.c
-  src/${PROJECT_NAME}/cvxgen_yaw/matrix_support.c
-  src/${PROJECT_NAME}/cvxgen_yaw/solver.c
-  src/${PROJECT_NAME}/cvxgen_yaw/util.c
-  )
-
-add_dependencies(mpc_tracker
+add_dependencies(MpcTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(mpc_tracker ${catkin_LIBRARIES} cvx_wrapper cvx_wrapper_z cvx_wrapper_yaw)
+target_link_libraries(MpcTracker
+  ${catkin_LIBRARIES}
+  cvx_wrapper
+  )
 
-add_library(csv_tracker src/${PROJECT_NAME}/csv_tracker.cpp)
-add_dependencies(csv_tracker
+# CSV Tracker
+
+add_library(CsvTracker
+  src/csv_tracker/csv_tracker.cpp
+  )
+add_dependencies(CsvTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
-target_link_libraries(csv_tracker ${catkin_LIBRARIES})
+target_link_libraries(CsvTracker
+  ${catkin_LIBRARIES}
+  )
+
+# Line Tracker
+
+add_library(LineTracker
+  src/line_tracker/line_tracker.cpp
+  )
+add_dependencies(LineTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(LineTracker
+  ${catkin_LIBRARIES}
+  )
+
+# Landoff Tracker
+
+add_library(LandoffTracker
+  src/landoff_tracker/landoff_tracker.cpp
+  )
+add_dependencies(LandoffTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(LandoffTracker
+  ${catkin_LIBRARIES}
+  )
 
 #############
 ## Install ##
 #############
 
 install(TARGETS
-  mpc_tracker
-  csv_tracker
+  MpcTracker
+  CsvTracker
+  LineTracker
+  LandoffTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -97,4 +120,11 @@ install(DIRECTORY include/${PROJECT_NAME}/
   PATTERN ".svn" EXCLUDE
   )
 
-install(FILES mrs_trackers.xml csv_tracker.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(FILES
+  mrs_trackers.xml
+  csv_tracker.xml
+  line_tracker.xml
+  landoff_tracker.xml
+  DESTINATION
+  ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )

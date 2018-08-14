@@ -1,0 +1,63 @@
+# Produced by CVXGEN, 2018-08-01 04:25:30 -0400.
+# CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
+# The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
+# CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
+# applications without prior written permission from Jacob Mattingley.
+
+# Filename: description.cvxgen.
+# Description: A description of the CVXGEN problem.
+
+dimensions
+  m = 1  # inputs
+  n = 3  # states
+  T = 40  # prediction horizon length
+end
+
+parameters
+  A (n,n)  {1,1 2,2 3,3 1,2 2,3 1,3}  # dynamics matrix
+  B (n,m)  {3,1} # transfer matrix
+  Af (n,n) {1,1 2,2 3,3 1,2 2,3 1,3} # dynamics matrix for first prediction
+  Bf (n,m) {3,1} # transfer matrix for first prediction
+
+  Q (n,n) psd diagonal nonnegative   # state cost
+  R psd symmetric nonnegative  # input cost
+  R2 psd symmetric nonnegative  # input cost of the first control input
+
+  x[0] (n) # initial system state
+  x_max_2 # maximum velocity
+  x_min_2 # minimum velocity
+  x_max_3 # maximum acceleration
+  x_min_3 # minimum acceleration
+  u_max   # maximum jerk (input to the system)
+  u_min   # minimum jerk (input to the system)
+
+  x_ss[t] (n), t=1..T # given reference
+end
+
+variables
+  x[t] (n), t=1..T  # state
+  u[t] (m), t=0..T  # input
+end
+
+minimize
+  sum[t=1..T](quad(x[t]-x_ss[t], Q)) + sum[t=1..T-1](quad(u[t], R)) + (quad(u[0], R2))
+subject to
+
+  # dynamics constraints
+
+  x[1] == Af*x[0] + Bf*u[0]
+  x[t+1] == A*x[t] + B*u[t], t=1..T-1
+
+  #state constraints
+
+  x[t][2] <= x_max_2, t=1..T
+  x[t][2] >= -x_min_2, t=1..T
+
+  x[t][3] <= x_max_3, t=1..T
+  x[t][3] >= -x_min_3, t=1..T
+
+  #input constraints
+
+  u[t][1] <= u_max, t=0..T-1
+  u[t][1] >= -u_min, t=0..T-1
+end
