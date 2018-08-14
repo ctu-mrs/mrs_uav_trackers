@@ -9,14 +9,14 @@ mrs_collision_avoidance:
   enable: true
   use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
-  drone_names: [uav1, uav2, uav3, uav4, uav5, uav5,  uav7, uav8, uav11, uav12, uav13, uav14, uav15]
+  drone_names: [uav1, uav2, uav3, uav4, uav5, uav6,  uav7, uav8, uav11, uav12, uav13, uav14, uav15]
   radius: 5.0 # [m]
   altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
   collision_horizontal_acceleration_coef: 1.0 # when collision detected, keep the acceleration down during the manouvre
-  collision_slow_down_before: 10 # when collision detected, slow down this number of steps before it
+  collision_slow_down_before: 20 # when collision detected, slow down this number of steps before it
   collision_slowing_hysteresis: 2.0 # [s] prolonging the slowing
 
 dynamicalModel:

@@ -23,6 +23,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   set_defaults();
   setup_indexing();
+  setup_indexed_params();
   dim = dimension * 3;
   if (dim > 6 || dim < 0) {
     ROS_ERROR("CvxWrapper - parameter dim should be 0, 1 or 2 !!! setting to 0");
@@ -45,7 +46,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   /* settings.eps       = 0.00001; */
   /* settings.resid_tol = 0.001; */
 
-      if (tempQ.size() == 3) {
+  if (tempQ.size() == 3) {
     for (int i = 0; i < 3; i++) {
       if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
         params.Q[i] = tempQ[i];
@@ -54,8 +55,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
         params.Q[i] = 500;
       }
     }
-  }
-  else {
+  } else {
     ROS_ERROR_STREAM("CvxWrapper - Q matrix wrong size " << tempQ.size() << " !!! Safe values set instead");
     params.Q[0] = 5000;
     params.Q[1] = 0;
@@ -110,13 +110,24 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   ROS_INFO("Cvx wrapper initiated");
 }
-void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk) {
-  params.x_max_2[0] = max_speed;
-  params.x_min_2[0] = min_speed;
-  params.x_max_3[0] = max_acc;
-  params.x_min_3[0] = min_acc;
-  params.u_max[0]   = max_jerk;
-  params.u_min[0]   = min_jerk;
+void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, int i) {
+  x_max_2_mem[i] = max_speed;
+  x_min_2_mem[i] = min_speed;
+  x_max_3_mem[i] = max_acc;
+  x_min_3_mem[i] = min_acc;
+  u_max_mem[i]   = max_jerk;
+  u_min_mem[i]   = min_jerk;
+}
+
+void CvxWrapper::activateLimits() {
+  for (int i = 0; i < horizon_len; i++) {
+    *params.x_max_2[i + 1] = x_max_2_mem[i];
+    *params.x_min_2[i + 1] = x_min_2_mem[i];
+    *params.x_max_3[i + 1] = x_max_3_mem[i];
+    *params.x_min_3[i + 1] = x_min_3_mem[i];
+    *params.u_max[i]       = u_max_mem[i];
+    *params.u_min[i]       = u_max_mem[i];
+  }
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {
@@ -167,6 +178,7 @@ void CvxWrapper::loadReference(MatrixXd& reference) {
   params.x_ss_40[0] = reference(39, 0);
 }
 int CvxWrapper::solveCvx() {
+  /* ROS_INFO_STREAM("[cvxgen]: " << *params.x_max_2_1 << " druhej " << *params.x_max_2_10); */
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {

@@ -1,4 +1,4 @@
-% Produced by CVXGEN, 2018-08-01 04:25:30 -0400.
+% Produced by CVXGEN, 2018-08-14 08:45:33 -0400.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -14,13 +14,1675 @@ Bf = params.Bf;
 Q = params.Q;
 R = params.R;
 R2 = params.R2;
-u_max = params.u_max;
-u_min = params.u_min;
+u_max_0 = params.u_max_0;
+if isfield(params, 'u_max_1')
+  u_max_1 = params.u_max_1;
+elseif isfield(params, 'u_max')
+  u_max_1 = params.u_max{1};
+else
+  error 'could not find u_max_1'
+end
+if isfield(params, 'u_max_2')
+  u_max_2 = params.u_max_2;
+elseif isfield(params, 'u_max')
+  u_max_2 = params.u_max{2};
+else
+  error 'could not find u_max_2'
+end
+if isfield(params, 'u_max_3')
+  u_max_3 = params.u_max_3;
+elseif isfield(params, 'u_max')
+  u_max_3 = params.u_max{3};
+else
+  error 'could not find u_max_3'
+end
+if isfield(params, 'u_max_4')
+  u_max_4 = params.u_max_4;
+elseif isfield(params, 'u_max')
+  u_max_4 = params.u_max{4};
+else
+  error 'could not find u_max_4'
+end
+if isfield(params, 'u_max_5')
+  u_max_5 = params.u_max_5;
+elseif isfield(params, 'u_max')
+  u_max_5 = params.u_max{5};
+else
+  error 'could not find u_max_5'
+end
+if isfield(params, 'u_max_6')
+  u_max_6 = params.u_max_6;
+elseif isfield(params, 'u_max')
+  u_max_6 = params.u_max{6};
+else
+  error 'could not find u_max_6'
+end
+if isfield(params, 'u_max_7')
+  u_max_7 = params.u_max_7;
+elseif isfield(params, 'u_max')
+  u_max_7 = params.u_max{7};
+else
+  error 'could not find u_max_7'
+end
+if isfield(params, 'u_max_8')
+  u_max_8 = params.u_max_8;
+elseif isfield(params, 'u_max')
+  u_max_8 = params.u_max{8};
+else
+  error 'could not find u_max_8'
+end
+if isfield(params, 'u_max_9')
+  u_max_9 = params.u_max_9;
+elseif isfield(params, 'u_max')
+  u_max_9 = params.u_max{9};
+else
+  error 'could not find u_max_9'
+end
+if isfield(params, 'u_max_10')
+  u_max_10 = params.u_max_10;
+elseif isfield(params, 'u_max')
+  u_max_10 = params.u_max{10};
+else
+  error 'could not find u_max_10'
+end
+if isfield(params, 'u_max_11')
+  u_max_11 = params.u_max_11;
+elseif isfield(params, 'u_max')
+  u_max_11 = params.u_max{11};
+else
+  error 'could not find u_max_11'
+end
+if isfield(params, 'u_max_12')
+  u_max_12 = params.u_max_12;
+elseif isfield(params, 'u_max')
+  u_max_12 = params.u_max{12};
+else
+  error 'could not find u_max_12'
+end
+if isfield(params, 'u_max_13')
+  u_max_13 = params.u_max_13;
+elseif isfield(params, 'u_max')
+  u_max_13 = params.u_max{13};
+else
+  error 'could not find u_max_13'
+end
+if isfield(params, 'u_max_14')
+  u_max_14 = params.u_max_14;
+elseif isfield(params, 'u_max')
+  u_max_14 = params.u_max{14};
+else
+  error 'could not find u_max_14'
+end
+if isfield(params, 'u_max_15')
+  u_max_15 = params.u_max_15;
+elseif isfield(params, 'u_max')
+  u_max_15 = params.u_max{15};
+else
+  error 'could not find u_max_15'
+end
+if isfield(params, 'u_max_16')
+  u_max_16 = params.u_max_16;
+elseif isfield(params, 'u_max')
+  u_max_16 = params.u_max{16};
+else
+  error 'could not find u_max_16'
+end
+if isfield(params, 'u_max_17')
+  u_max_17 = params.u_max_17;
+elseif isfield(params, 'u_max')
+  u_max_17 = params.u_max{17};
+else
+  error 'could not find u_max_17'
+end
+if isfield(params, 'u_max_18')
+  u_max_18 = params.u_max_18;
+elseif isfield(params, 'u_max')
+  u_max_18 = params.u_max{18};
+else
+  error 'could not find u_max_18'
+end
+if isfield(params, 'u_max_19')
+  u_max_19 = params.u_max_19;
+elseif isfield(params, 'u_max')
+  u_max_19 = params.u_max{19};
+else
+  error 'could not find u_max_19'
+end
+if isfield(params, 'u_max_20')
+  u_max_20 = params.u_max_20;
+elseif isfield(params, 'u_max')
+  u_max_20 = params.u_max{20};
+else
+  error 'could not find u_max_20'
+end
+if isfield(params, 'u_max_21')
+  u_max_21 = params.u_max_21;
+elseif isfield(params, 'u_max')
+  u_max_21 = params.u_max{21};
+else
+  error 'could not find u_max_21'
+end
+if isfield(params, 'u_max_22')
+  u_max_22 = params.u_max_22;
+elseif isfield(params, 'u_max')
+  u_max_22 = params.u_max{22};
+else
+  error 'could not find u_max_22'
+end
+if isfield(params, 'u_max_23')
+  u_max_23 = params.u_max_23;
+elseif isfield(params, 'u_max')
+  u_max_23 = params.u_max{23};
+else
+  error 'could not find u_max_23'
+end
+if isfield(params, 'u_max_24')
+  u_max_24 = params.u_max_24;
+elseif isfield(params, 'u_max')
+  u_max_24 = params.u_max{24};
+else
+  error 'could not find u_max_24'
+end
+if isfield(params, 'u_max_25')
+  u_max_25 = params.u_max_25;
+elseif isfield(params, 'u_max')
+  u_max_25 = params.u_max{25};
+else
+  error 'could not find u_max_25'
+end
+if isfield(params, 'u_max_26')
+  u_max_26 = params.u_max_26;
+elseif isfield(params, 'u_max')
+  u_max_26 = params.u_max{26};
+else
+  error 'could not find u_max_26'
+end
+if isfield(params, 'u_max_27')
+  u_max_27 = params.u_max_27;
+elseif isfield(params, 'u_max')
+  u_max_27 = params.u_max{27};
+else
+  error 'could not find u_max_27'
+end
+if isfield(params, 'u_max_28')
+  u_max_28 = params.u_max_28;
+elseif isfield(params, 'u_max')
+  u_max_28 = params.u_max{28};
+else
+  error 'could not find u_max_28'
+end
+if isfield(params, 'u_max_29')
+  u_max_29 = params.u_max_29;
+elseif isfield(params, 'u_max')
+  u_max_29 = params.u_max{29};
+else
+  error 'could not find u_max_29'
+end
+if isfield(params, 'u_max_30')
+  u_max_30 = params.u_max_30;
+elseif isfield(params, 'u_max')
+  u_max_30 = params.u_max{30};
+else
+  error 'could not find u_max_30'
+end
+if isfield(params, 'u_max_31')
+  u_max_31 = params.u_max_31;
+elseif isfield(params, 'u_max')
+  u_max_31 = params.u_max{31};
+else
+  error 'could not find u_max_31'
+end
+if isfield(params, 'u_max_32')
+  u_max_32 = params.u_max_32;
+elseif isfield(params, 'u_max')
+  u_max_32 = params.u_max{32};
+else
+  error 'could not find u_max_32'
+end
+if isfield(params, 'u_max_33')
+  u_max_33 = params.u_max_33;
+elseif isfield(params, 'u_max')
+  u_max_33 = params.u_max{33};
+else
+  error 'could not find u_max_33'
+end
+if isfield(params, 'u_max_34')
+  u_max_34 = params.u_max_34;
+elseif isfield(params, 'u_max')
+  u_max_34 = params.u_max{34};
+else
+  error 'could not find u_max_34'
+end
+if isfield(params, 'u_max_35')
+  u_max_35 = params.u_max_35;
+elseif isfield(params, 'u_max')
+  u_max_35 = params.u_max{35};
+else
+  error 'could not find u_max_35'
+end
+if isfield(params, 'u_max_36')
+  u_max_36 = params.u_max_36;
+elseif isfield(params, 'u_max')
+  u_max_36 = params.u_max{36};
+else
+  error 'could not find u_max_36'
+end
+if isfield(params, 'u_max_37')
+  u_max_37 = params.u_max_37;
+elseif isfield(params, 'u_max')
+  u_max_37 = params.u_max{37};
+else
+  error 'could not find u_max_37'
+end
+if isfield(params, 'u_max_38')
+  u_max_38 = params.u_max_38;
+elseif isfield(params, 'u_max')
+  u_max_38 = params.u_max{38};
+else
+  error 'could not find u_max_38'
+end
+if isfield(params, 'u_max_39')
+  u_max_39 = params.u_max_39;
+elseif isfield(params, 'u_max')
+  u_max_39 = params.u_max{39};
+else
+  error 'could not find u_max_39'
+end
+u_min_0 = params.u_min_0;
+if isfield(params, 'u_min_1')
+  u_min_1 = params.u_min_1;
+elseif isfield(params, 'u_min')
+  u_min_1 = params.u_min{1};
+else
+  error 'could not find u_min_1'
+end
+if isfield(params, 'u_min_2')
+  u_min_2 = params.u_min_2;
+elseif isfield(params, 'u_min')
+  u_min_2 = params.u_min{2};
+else
+  error 'could not find u_min_2'
+end
+if isfield(params, 'u_min_3')
+  u_min_3 = params.u_min_3;
+elseif isfield(params, 'u_min')
+  u_min_3 = params.u_min{3};
+else
+  error 'could not find u_min_3'
+end
+if isfield(params, 'u_min_4')
+  u_min_4 = params.u_min_4;
+elseif isfield(params, 'u_min')
+  u_min_4 = params.u_min{4};
+else
+  error 'could not find u_min_4'
+end
+if isfield(params, 'u_min_5')
+  u_min_5 = params.u_min_5;
+elseif isfield(params, 'u_min')
+  u_min_5 = params.u_min{5};
+else
+  error 'could not find u_min_5'
+end
+if isfield(params, 'u_min_6')
+  u_min_6 = params.u_min_6;
+elseif isfield(params, 'u_min')
+  u_min_6 = params.u_min{6};
+else
+  error 'could not find u_min_6'
+end
+if isfield(params, 'u_min_7')
+  u_min_7 = params.u_min_7;
+elseif isfield(params, 'u_min')
+  u_min_7 = params.u_min{7};
+else
+  error 'could not find u_min_7'
+end
+if isfield(params, 'u_min_8')
+  u_min_8 = params.u_min_8;
+elseif isfield(params, 'u_min')
+  u_min_8 = params.u_min{8};
+else
+  error 'could not find u_min_8'
+end
+if isfield(params, 'u_min_9')
+  u_min_9 = params.u_min_9;
+elseif isfield(params, 'u_min')
+  u_min_9 = params.u_min{9};
+else
+  error 'could not find u_min_9'
+end
+if isfield(params, 'u_min_10')
+  u_min_10 = params.u_min_10;
+elseif isfield(params, 'u_min')
+  u_min_10 = params.u_min{10};
+else
+  error 'could not find u_min_10'
+end
+if isfield(params, 'u_min_11')
+  u_min_11 = params.u_min_11;
+elseif isfield(params, 'u_min')
+  u_min_11 = params.u_min{11};
+else
+  error 'could not find u_min_11'
+end
+if isfield(params, 'u_min_12')
+  u_min_12 = params.u_min_12;
+elseif isfield(params, 'u_min')
+  u_min_12 = params.u_min{12};
+else
+  error 'could not find u_min_12'
+end
+if isfield(params, 'u_min_13')
+  u_min_13 = params.u_min_13;
+elseif isfield(params, 'u_min')
+  u_min_13 = params.u_min{13};
+else
+  error 'could not find u_min_13'
+end
+if isfield(params, 'u_min_14')
+  u_min_14 = params.u_min_14;
+elseif isfield(params, 'u_min')
+  u_min_14 = params.u_min{14};
+else
+  error 'could not find u_min_14'
+end
+if isfield(params, 'u_min_15')
+  u_min_15 = params.u_min_15;
+elseif isfield(params, 'u_min')
+  u_min_15 = params.u_min{15};
+else
+  error 'could not find u_min_15'
+end
+if isfield(params, 'u_min_16')
+  u_min_16 = params.u_min_16;
+elseif isfield(params, 'u_min')
+  u_min_16 = params.u_min{16};
+else
+  error 'could not find u_min_16'
+end
+if isfield(params, 'u_min_17')
+  u_min_17 = params.u_min_17;
+elseif isfield(params, 'u_min')
+  u_min_17 = params.u_min{17};
+else
+  error 'could not find u_min_17'
+end
+if isfield(params, 'u_min_18')
+  u_min_18 = params.u_min_18;
+elseif isfield(params, 'u_min')
+  u_min_18 = params.u_min{18};
+else
+  error 'could not find u_min_18'
+end
+if isfield(params, 'u_min_19')
+  u_min_19 = params.u_min_19;
+elseif isfield(params, 'u_min')
+  u_min_19 = params.u_min{19};
+else
+  error 'could not find u_min_19'
+end
+if isfield(params, 'u_min_20')
+  u_min_20 = params.u_min_20;
+elseif isfield(params, 'u_min')
+  u_min_20 = params.u_min{20};
+else
+  error 'could not find u_min_20'
+end
+if isfield(params, 'u_min_21')
+  u_min_21 = params.u_min_21;
+elseif isfield(params, 'u_min')
+  u_min_21 = params.u_min{21};
+else
+  error 'could not find u_min_21'
+end
+if isfield(params, 'u_min_22')
+  u_min_22 = params.u_min_22;
+elseif isfield(params, 'u_min')
+  u_min_22 = params.u_min{22};
+else
+  error 'could not find u_min_22'
+end
+if isfield(params, 'u_min_23')
+  u_min_23 = params.u_min_23;
+elseif isfield(params, 'u_min')
+  u_min_23 = params.u_min{23};
+else
+  error 'could not find u_min_23'
+end
+if isfield(params, 'u_min_24')
+  u_min_24 = params.u_min_24;
+elseif isfield(params, 'u_min')
+  u_min_24 = params.u_min{24};
+else
+  error 'could not find u_min_24'
+end
+if isfield(params, 'u_min_25')
+  u_min_25 = params.u_min_25;
+elseif isfield(params, 'u_min')
+  u_min_25 = params.u_min{25};
+else
+  error 'could not find u_min_25'
+end
+if isfield(params, 'u_min_26')
+  u_min_26 = params.u_min_26;
+elseif isfield(params, 'u_min')
+  u_min_26 = params.u_min{26};
+else
+  error 'could not find u_min_26'
+end
+if isfield(params, 'u_min_27')
+  u_min_27 = params.u_min_27;
+elseif isfield(params, 'u_min')
+  u_min_27 = params.u_min{27};
+else
+  error 'could not find u_min_27'
+end
+if isfield(params, 'u_min_28')
+  u_min_28 = params.u_min_28;
+elseif isfield(params, 'u_min')
+  u_min_28 = params.u_min{28};
+else
+  error 'could not find u_min_28'
+end
+if isfield(params, 'u_min_29')
+  u_min_29 = params.u_min_29;
+elseif isfield(params, 'u_min')
+  u_min_29 = params.u_min{29};
+else
+  error 'could not find u_min_29'
+end
+if isfield(params, 'u_min_30')
+  u_min_30 = params.u_min_30;
+elseif isfield(params, 'u_min')
+  u_min_30 = params.u_min{30};
+else
+  error 'could not find u_min_30'
+end
+if isfield(params, 'u_min_31')
+  u_min_31 = params.u_min_31;
+elseif isfield(params, 'u_min')
+  u_min_31 = params.u_min{31};
+else
+  error 'could not find u_min_31'
+end
+if isfield(params, 'u_min_32')
+  u_min_32 = params.u_min_32;
+elseif isfield(params, 'u_min')
+  u_min_32 = params.u_min{32};
+else
+  error 'could not find u_min_32'
+end
+if isfield(params, 'u_min_33')
+  u_min_33 = params.u_min_33;
+elseif isfield(params, 'u_min')
+  u_min_33 = params.u_min{33};
+else
+  error 'could not find u_min_33'
+end
+if isfield(params, 'u_min_34')
+  u_min_34 = params.u_min_34;
+elseif isfield(params, 'u_min')
+  u_min_34 = params.u_min{34};
+else
+  error 'could not find u_min_34'
+end
+if isfield(params, 'u_min_35')
+  u_min_35 = params.u_min_35;
+elseif isfield(params, 'u_min')
+  u_min_35 = params.u_min{35};
+else
+  error 'could not find u_min_35'
+end
+if isfield(params, 'u_min_36')
+  u_min_36 = params.u_min_36;
+elseif isfield(params, 'u_min')
+  u_min_36 = params.u_min{36};
+else
+  error 'could not find u_min_36'
+end
+if isfield(params, 'u_min_37')
+  u_min_37 = params.u_min_37;
+elseif isfield(params, 'u_min')
+  u_min_37 = params.u_min{37};
+else
+  error 'could not find u_min_37'
+end
+if isfield(params, 'u_min_38')
+  u_min_38 = params.u_min_38;
+elseif isfield(params, 'u_min')
+  u_min_38 = params.u_min{38};
+else
+  error 'could not find u_min_38'
+end
+if isfield(params, 'u_min_39')
+  u_min_39 = params.u_min_39;
+elseif isfield(params, 'u_min')
+  u_min_39 = params.u_min{39};
+else
+  error 'could not find u_min_39'
+end
 x_0 = params.x_0;
-x_max_2 = params.x_max_2;
-x_max_3 = params.x_max_3;
-x_min_2 = params.x_min_2;
-x_min_3 = params.x_min_3;
+if isfield(params, 'x_max_2_1')
+  x_max_2_1 = params.x_max_2_1;
+elseif isfield(params, 'x_max_2')
+  x_max_2_1 = params.x_max_2{1};
+else
+  error 'could not find x_max_2_1'
+end
+if isfield(params, 'x_max_2_2')
+  x_max_2_2 = params.x_max_2_2;
+elseif isfield(params, 'x_max_2')
+  x_max_2_2 = params.x_max_2{2};
+else
+  error 'could not find x_max_2_2'
+end
+if isfield(params, 'x_max_2_3')
+  x_max_2_3 = params.x_max_2_3;
+elseif isfield(params, 'x_max_2')
+  x_max_2_3 = params.x_max_2{3};
+else
+  error 'could not find x_max_2_3'
+end
+if isfield(params, 'x_max_2_4')
+  x_max_2_4 = params.x_max_2_4;
+elseif isfield(params, 'x_max_2')
+  x_max_2_4 = params.x_max_2{4};
+else
+  error 'could not find x_max_2_4'
+end
+if isfield(params, 'x_max_2_5')
+  x_max_2_5 = params.x_max_2_5;
+elseif isfield(params, 'x_max_2')
+  x_max_2_5 = params.x_max_2{5};
+else
+  error 'could not find x_max_2_5'
+end
+if isfield(params, 'x_max_2_6')
+  x_max_2_6 = params.x_max_2_6;
+elseif isfield(params, 'x_max_2')
+  x_max_2_6 = params.x_max_2{6};
+else
+  error 'could not find x_max_2_6'
+end
+if isfield(params, 'x_max_2_7')
+  x_max_2_7 = params.x_max_2_7;
+elseif isfield(params, 'x_max_2')
+  x_max_2_7 = params.x_max_2{7};
+else
+  error 'could not find x_max_2_7'
+end
+if isfield(params, 'x_max_2_8')
+  x_max_2_8 = params.x_max_2_8;
+elseif isfield(params, 'x_max_2')
+  x_max_2_8 = params.x_max_2{8};
+else
+  error 'could not find x_max_2_8'
+end
+if isfield(params, 'x_max_2_9')
+  x_max_2_9 = params.x_max_2_9;
+elseif isfield(params, 'x_max_2')
+  x_max_2_9 = params.x_max_2{9};
+else
+  error 'could not find x_max_2_9'
+end
+if isfield(params, 'x_max_2_10')
+  x_max_2_10 = params.x_max_2_10;
+elseif isfield(params, 'x_max_2')
+  x_max_2_10 = params.x_max_2{10};
+else
+  error 'could not find x_max_2_10'
+end
+if isfield(params, 'x_max_2_11')
+  x_max_2_11 = params.x_max_2_11;
+elseif isfield(params, 'x_max_2')
+  x_max_2_11 = params.x_max_2{11};
+else
+  error 'could not find x_max_2_11'
+end
+if isfield(params, 'x_max_2_12')
+  x_max_2_12 = params.x_max_2_12;
+elseif isfield(params, 'x_max_2')
+  x_max_2_12 = params.x_max_2{12};
+else
+  error 'could not find x_max_2_12'
+end
+if isfield(params, 'x_max_2_13')
+  x_max_2_13 = params.x_max_2_13;
+elseif isfield(params, 'x_max_2')
+  x_max_2_13 = params.x_max_2{13};
+else
+  error 'could not find x_max_2_13'
+end
+if isfield(params, 'x_max_2_14')
+  x_max_2_14 = params.x_max_2_14;
+elseif isfield(params, 'x_max_2')
+  x_max_2_14 = params.x_max_2{14};
+else
+  error 'could not find x_max_2_14'
+end
+if isfield(params, 'x_max_2_15')
+  x_max_2_15 = params.x_max_2_15;
+elseif isfield(params, 'x_max_2')
+  x_max_2_15 = params.x_max_2{15};
+else
+  error 'could not find x_max_2_15'
+end
+if isfield(params, 'x_max_2_16')
+  x_max_2_16 = params.x_max_2_16;
+elseif isfield(params, 'x_max_2')
+  x_max_2_16 = params.x_max_2{16};
+else
+  error 'could not find x_max_2_16'
+end
+if isfield(params, 'x_max_2_17')
+  x_max_2_17 = params.x_max_2_17;
+elseif isfield(params, 'x_max_2')
+  x_max_2_17 = params.x_max_2{17};
+else
+  error 'could not find x_max_2_17'
+end
+if isfield(params, 'x_max_2_18')
+  x_max_2_18 = params.x_max_2_18;
+elseif isfield(params, 'x_max_2')
+  x_max_2_18 = params.x_max_2{18};
+else
+  error 'could not find x_max_2_18'
+end
+if isfield(params, 'x_max_2_19')
+  x_max_2_19 = params.x_max_2_19;
+elseif isfield(params, 'x_max_2')
+  x_max_2_19 = params.x_max_2{19};
+else
+  error 'could not find x_max_2_19'
+end
+if isfield(params, 'x_max_2_20')
+  x_max_2_20 = params.x_max_2_20;
+elseif isfield(params, 'x_max_2')
+  x_max_2_20 = params.x_max_2{20};
+else
+  error 'could not find x_max_2_20'
+end
+if isfield(params, 'x_max_2_21')
+  x_max_2_21 = params.x_max_2_21;
+elseif isfield(params, 'x_max_2')
+  x_max_2_21 = params.x_max_2{21};
+else
+  error 'could not find x_max_2_21'
+end
+if isfield(params, 'x_max_2_22')
+  x_max_2_22 = params.x_max_2_22;
+elseif isfield(params, 'x_max_2')
+  x_max_2_22 = params.x_max_2{22};
+else
+  error 'could not find x_max_2_22'
+end
+if isfield(params, 'x_max_2_23')
+  x_max_2_23 = params.x_max_2_23;
+elseif isfield(params, 'x_max_2')
+  x_max_2_23 = params.x_max_2{23};
+else
+  error 'could not find x_max_2_23'
+end
+if isfield(params, 'x_max_2_24')
+  x_max_2_24 = params.x_max_2_24;
+elseif isfield(params, 'x_max_2')
+  x_max_2_24 = params.x_max_2{24};
+else
+  error 'could not find x_max_2_24'
+end
+if isfield(params, 'x_max_2_25')
+  x_max_2_25 = params.x_max_2_25;
+elseif isfield(params, 'x_max_2')
+  x_max_2_25 = params.x_max_2{25};
+else
+  error 'could not find x_max_2_25'
+end
+if isfield(params, 'x_max_2_26')
+  x_max_2_26 = params.x_max_2_26;
+elseif isfield(params, 'x_max_2')
+  x_max_2_26 = params.x_max_2{26};
+else
+  error 'could not find x_max_2_26'
+end
+if isfield(params, 'x_max_2_27')
+  x_max_2_27 = params.x_max_2_27;
+elseif isfield(params, 'x_max_2')
+  x_max_2_27 = params.x_max_2{27};
+else
+  error 'could not find x_max_2_27'
+end
+if isfield(params, 'x_max_2_28')
+  x_max_2_28 = params.x_max_2_28;
+elseif isfield(params, 'x_max_2')
+  x_max_2_28 = params.x_max_2{28};
+else
+  error 'could not find x_max_2_28'
+end
+if isfield(params, 'x_max_2_29')
+  x_max_2_29 = params.x_max_2_29;
+elseif isfield(params, 'x_max_2')
+  x_max_2_29 = params.x_max_2{29};
+else
+  error 'could not find x_max_2_29'
+end
+if isfield(params, 'x_max_2_30')
+  x_max_2_30 = params.x_max_2_30;
+elseif isfield(params, 'x_max_2')
+  x_max_2_30 = params.x_max_2{30};
+else
+  error 'could not find x_max_2_30'
+end
+if isfield(params, 'x_max_2_31')
+  x_max_2_31 = params.x_max_2_31;
+elseif isfield(params, 'x_max_2')
+  x_max_2_31 = params.x_max_2{31};
+else
+  error 'could not find x_max_2_31'
+end
+if isfield(params, 'x_max_2_32')
+  x_max_2_32 = params.x_max_2_32;
+elseif isfield(params, 'x_max_2')
+  x_max_2_32 = params.x_max_2{32};
+else
+  error 'could not find x_max_2_32'
+end
+if isfield(params, 'x_max_2_33')
+  x_max_2_33 = params.x_max_2_33;
+elseif isfield(params, 'x_max_2')
+  x_max_2_33 = params.x_max_2{33};
+else
+  error 'could not find x_max_2_33'
+end
+if isfield(params, 'x_max_2_34')
+  x_max_2_34 = params.x_max_2_34;
+elseif isfield(params, 'x_max_2')
+  x_max_2_34 = params.x_max_2{34};
+else
+  error 'could not find x_max_2_34'
+end
+if isfield(params, 'x_max_2_35')
+  x_max_2_35 = params.x_max_2_35;
+elseif isfield(params, 'x_max_2')
+  x_max_2_35 = params.x_max_2{35};
+else
+  error 'could not find x_max_2_35'
+end
+if isfield(params, 'x_max_2_36')
+  x_max_2_36 = params.x_max_2_36;
+elseif isfield(params, 'x_max_2')
+  x_max_2_36 = params.x_max_2{36};
+else
+  error 'could not find x_max_2_36'
+end
+if isfield(params, 'x_max_2_37')
+  x_max_2_37 = params.x_max_2_37;
+elseif isfield(params, 'x_max_2')
+  x_max_2_37 = params.x_max_2{37};
+else
+  error 'could not find x_max_2_37'
+end
+if isfield(params, 'x_max_2_38')
+  x_max_2_38 = params.x_max_2_38;
+elseif isfield(params, 'x_max_2')
+  x_max_2_38 = params.x_max_2{38};
+else
+  error 'could not find x_max_2_38'
+end
+if isfield(params, 'x_max_2_39')
+  x_max_2_39 = params.x_max_2_39;
+elseif isfield(params, 'x_max_2')
+  x_max_2_39 = params.x_max_2{39};
+else
+  error 'could not find x_max_2_39'
+end
+if isfield(params, 'x_max_2_40')
+  x_max_2_40 = params.x_max_2_40;
+elseif isfield(params, 'x_max_2')
+  x_max_2_40 = params.x_max_2{40};
+else
+  error 'could not find x_max_2_40'
+end
+if isfield(params, 'x_max_3_1')
+  x_max_3_1 = params.x_max_3_1;
+elseif isfield(params, 'x_max_3')
+  x_max_3_1 = params.x_max_3{1};
+else
+  error 'could not find x_max_3_1'
+end
+if isfield(params, 'x_max_3_2')
+  x_max_3_2 = params.x_max_3_2;
+elseif isfield(params, 'x_max_3')
+  x_max_3_2 = params.x_max_3{2};
+else
+  error 'could not find x_max_3_2'
+end
+if isfield(params, 'x_max_3_3')
+  x_max_3_3 = params.x_max_3_3;
+elseif isfield(params, 'x_max_3')
+  x_max_3_3 = params.x_max_3{3};
+else
+  error 'could not find x_max_3_3'
+end
+if isfield(params, 'x_max_3_4')
+  x_max_3_4 = params.x_max_3_4;
+elseif isfield(params, 'x_max_3')
+  x_max_3_4 = params.x_max_3{4};
+else
+  error 'could not find x_max_3_4'
+end
+if isfield(params, 'x_max_3_5')
+  x_max_3_5 = params.x_max_3_5;
+elseif isfield(params, 'x_max_3')
+  x_max_3_5 = params.x_max_3{5};
+else
+  error 'could not find x_max_3_5'
+end
+if isfield(params, 'x_max_3_6')
+  x_max_3_6 = params.x_max_3_6;
+elseif isfield(params, 'x_max_3')
+  x_max_3_6 = params.x_max_3{6};
+else
+  error 'could not find x_max_3_6'
+end
+if isfield(params, 'x_max_3_7')
+  x_max_3_7 = params.x_max_3_7;
+elseif isfield(params, 'x_max_3')
+  x_max_3_7 = params.x_max_3{7};
+else
+  error 'could not find x_max_3_7'
+end
+if isfield(params, 'x_max_3_8')
+  x_max_3_8 = params.x_max_3_8;
+elseif isfield(params, 'x_max_3')
+  x_max_3_8 = params.x_max_3{8};
+else
+  error 'could not find x_max_3_8'
+end
+if isfield(params, 'x_max_3_9')
+  x_max_3_9 = params.x_max_3_9;
+elseif isfield(params, 'x_max_3')
+  x_max_3_9 = params.x_max_3{9};
+else
+  error 'could not find x_max_3_9'
+end
+if isfield(params, 'x_max_3_10')
+  x_max_3_10 = params.x_max_3_10;
+elseif isfield(params, 'x_max_3')
+  x_max_3_10 = params.x_max_3{10};
+else
+  error 'could not find x_max_3_10'
+end
+if isfield(params, 'x_max_3_11')
+  x_max_3_11 = params.x_max_3_11;
+elseif isfield(params, 'x_max_3')
+  x_max_3_11 = params.x_max_3{11};
+else
+  error 'could not find x_max_3_11'
+end
+if isfield(params, 'x_max_3_12')
+  x_max_3_12 = params.x_max_3_12;
+elseif isfield(params, 'x_max_3')
+  x_max_3_12 = params.x_max_3{12};
+else
+  error 'could not find x_max_3_12'
+end
+if isfield(params, 'x_max_3_13')
+  x_max_3_13 = params.x_max_3_13;
+elseif isfield(params, 'x_max_3')
+  x_max_3_13 = params.x_max_3{13};
+else
+  error 'could not find x_max_3_13'
+end
+if isfield(params, 'x_max_3_14')
+  x_max_3_14 = params.x_max_3_14;
+elseif isfield(params, 'x_max_3')
+  x_max_3_14 = params.x_max_3{14};
+else
+  error 'could not find x_max_3_14'
+end
+if isfield(params, 'x_max_3_15')
+  x_max_3_15 = params.x_max_3_15;
+elseif isfield(params, 'x_max_3')
+  x_max_3_15 = params.x_max_3{15};
+else
+  error 'could not find x_max_3_15'
+end
+if isfield(params, 'x_max_3_16')
+  x_max_3_16 = params.x_max_3_16;
+elseif isfield(params, 'x_max_3')
+  x_max_3_16 = params.x_max_3{16};
+else
+  error 'could not find x_max_3_16'
+end
+if isfield(params, 'x_max_3_17')
+  x_max_3_17 = params.x_max_3_17;
+elseif isfield(params, 'x_max_3')
+  x_max_3_17 = params.x_max_3{17};
+else
+  error 'could not find x_max_3_17'
+end
+if isfield(params, 'x_max_3_18')
+  x_max_3_18 = params.x_max_3_18;
+elseif isfield(params, 'x_max_3')
+  x_max_3_18 = params.x_max_3{18};
+else
+  error 'could not find x_max_3_18'
+end
+if isfield(params, 'x_max_3_19')
+  x_max_3_19 = params.x_max_3_19;
+elseif isfield(params, 'x_max_3')
+  x_max_3_19 = params.x_max_3{19};
+else
+  error 'could not find x_max_3_19'
+end
+if isfield(params, 'x_max_3_20')
+  x_max_3_20 = params.x_max_3_20;
+elseif isfield(params, 'x_max_3')
+  x_max_3_20 = params.x_max_3{20};
+else
+  error 'could not find x_max_3_20'
+end
+if isfield(params, 'x_max_3_21')
+  x_max_3_21 = params.x_max_3_21;
+elseif isfield(params, 'x_max_3')
+  x_max_3_21 = params.x_max_3{21};
+else
+  error 'could not find x_max_3_21'
+end
+if isfield(params, 'x_max_3_22')
+  x_max_3_22 = params.x_max_3_22;
+elseif isfield(params, 'x_max_3')
+  x_max_3_22 = params.x_max_3{22};
+else
+  error 'could not find x_max_3_22'
+end
+if isfield(params, 'x_max_3_23')
+  x_max_3_23 = params.x_max_3_23;
+elseif isfield(params, 'x_max_3')
+  x_max_3_23 = params.x_max_3{23};
+else
+  error 'could not find x_max_3_23'
+end
+if isfield(params, 'x_max_3_24')
+  x_max_3_24 = params.x_max_3_24;
+elseif isfield(params, 'x_max_3')
+  x_max_3_24 = params.x_max_3{24};
+else
+  error 'could not find x_max_3_24'
+end
+if isfield(params, 'x_max_3_25')
+  x_max_3_25 = params.x_max_3_25;
+elseif isfield(params, 'x_max_3')
+  x_max_3_25 = params.x_max_3{25};
+else
+  error 'could not find x_max_3_25'
+end
+if isfield(params, 'x_max_3_26')
+  x_max_3_26 = params.x_max_3_26;
+elseif isfield(params, 'x_max_3')
+  x_max_3_26 = params.x_max_3{26};
+else
+  error 'could not find x_max_3_26'
+end
+if isfield(params, 'x_max_3_27')
+  x_max_3_27 = params.x_max_3_27;
+elseif isfield(params, 'x_max_3')
+  x_max_3_27 = params.x_max_3{27};
+else
+  error 'could not find x_max_3_27'
+end
+if isfield(params, 'x_max_3_28')
+  x_max_3_28 = params.x_max_3_28;
+elseif isfield(params, 'x_max_3')
+  x_max_3_28 = params.x_max_3{28};
+else
+  error 'could not find x_max_3_28'
+end
+if isfield(params, 'x_max_3_29')
+  x_max_3_29 = params.x_max_3_29;
+elseif isfield(params, 'x_max_3')
+  x_max_3_29 = params.x_max_3{29};
+else
+  error 'could not find x_max_3_29'
+end
+if isfield(params, 'x_max_3_30')
+  x_max_3_30 = params.x_max_3_30;
+elseif isfield(params, 'x_max_3')
+  x_max_3_30 = params.x_max_3{30};
+else
+  error 'could not find x_max_3_30'
+end
+if isfield(params, 'x_max_3_31')
+  x_max_3_31 = params.x_max_3_31;
+elseif isfield(params, 'x_max_3')
+  x_max_3_31 = params.x_max_3{31};
+else
+  error 'could not find x_max_3_31'
+end
+if isfield(params, 'x_max_3_32')
+  x_max_3_32 = params.x_max_3_32;
+elseif isfield(params, 'x_max_3')
+  x_max_3_32 = params.x_max_3{32};
+else
+  error 'could not find x_max_3_32'
+end
+if isfield(params, 'x_max_3_33')
+  x_max_3_33 = params.x_max_3_33;
+elseif isfield(params, 'x_max_3')
+  x_max_3_33 = params.x_max_3{33};
+else
+  error 'could not find x_max_3_33'
+end
+if isfield(params, 'x_max_3_34')
+  x_max_3_34 = params.x_max_3_34;
+elseif isfield(params, 'x_max_3')
+  x_max_3_34 = params.x_max_3{34};
+else
+  error 'could not find x_max_3_34'
+end
+if isfield(params, 'x_max_3_35')
+  x_max_3_35 = params.x_max_3_35;
+elseif isfield(params, 'x_max_3')
+  x_max_3_35 = params.x_max_3{35};
+else
+  error 'could not find x_max_3_35'
+end
+if isfield(params, 'x_max_3_36')
+  x_max_3_36 = params.x_max_3_36;
+elseif isfield(params, 'x_max_3')
+  x_max_3_36 = params.x_max_3{36};
+else
+  error 'could not find x_max_3_36'
+end
+if isfield(params, 'x_max_3_37')
+  x_max_3_37 = params.x_max_3_37;
+elseif isfield(params, 'x_max_3')
+  x_max_3_37 = params.x_max_3{37};
+else
+  error 'could not find x_max_3_37'
+end
+if isfield(params, 'x_max_3_38')
+  x_max_3_38 = params.x_max_3_38;
+elseif isfield(params, 'x_max_3')
+  x_max_3_38 = params.x_max_3{38};
+else
+  error 'could not find x_max_3_38'
+end
+if isfield(params, 'x_max_3_39')
+  x_max_3_39 = params.x_max_3_39;
+elseif isfield(params, 'x_max_3')
+  x_max_3_39 = params.x_max_3{39};
+else
+  error 'could not find x_max_3_39'
+end
+if isfield(params, 'x_max_3_40')
+  x_max_3_40 = params.x_max_3_40;
+elseif isfield(params, 'x_max_3')
+  x_max_3_40 = params.x_max_3{40};
+else
+  error 'could not find x_max_3_40'
+end
+if isfield(params, 'x_min_2_1')
+  x_min_2_1 = params.x_min_2_1;
+elseif isfield(params, 'x_min_2')
+  x_min_2_1 = params.x_min_2{1};
+else
+  error 'could not find x_min_2_1'
+end
+if isfield(params, 'x_min_2_2')
+  x_min_2_2 = params.x_min_2_2;
+elseif isfield(params, 'x_min_2')
+  x_min_2_2 = params.x_min_2{2};
+else
+  error 'could not find x_min_2_2'
+end
+if isfield(params, 'x_min_2_3')
+  x_min_2_3 = params.x_min_2_3;
+elseif isfield(params, 'x_min_2')
+  x_min_2_3 = params.x_min_2{3};
+else
+  error 'could not find x_min_2_3'
+end
+if isfield(params, 'x_min_2_4')
+  x_min_2_4 = params.x_min_2_4;
+elseif isfield(params, 'x_min_2')
+  x_min_2_4 = params.x_min_2{4};
+else
+  error 'could not find x_min_2_4'
+end
+if isfield(params, 'x_min_2_5')
+  x_min_2_5 = params.x_min_2_5;
+elseif isfield(params, 'x_min_2')
+  x_min_2_5 = params.x_min_2{5};
+else
+  error 'could not find x_min_2_5'
+end
+if isfield(params, 'x_min_2_6')
+  x_min_2_6 = params.x_min_2_6;
+elseif isfield(params, 'x_min_2')
+  x_min_2_6 = params.x_min_2{6};
+else
+  error 'could not find x_min_2_6'
+end
+if isfield(params, 'x_min_2_7')
+  x_min_2_7 = params.x_min_2_7;
+elseif isfield(params, 'x_min_2')
+  x_min_2_7 = params.x_min_2{7};
+else
+  error 'could not find x_min_2_7'
+end
+if isfield(params, 'x_min_2_8')
+  x_min_2_8 = params.x_min_2_8;
+elseif isfield(params, 'x_min_2')
+  x_min_2_8 = params.x_min_2{8};
+else
+  error 'could not find x_min_2_8'
+end
+if isfield(params, 'x_min_2_9')
+  x_min_2_9 = params.x_min_2_9;
+elseif isfield(params, 'x_min_2')
+  x_min_2_9 = params.x_min_2{9};
+else
+  error 'could not find x_min_2_9'
+end
+if isfield(params, 'x_min_2_10')
+  x_min_2_10 = params.x_min_2_10;
+elseif isfield(params, 'x_min_2')
+  x_min_2_10 = params.x_min_2{10};
+else
+  error 'could not find x_min_2_10'
+end
+if isfield(params, 'x_min_2_11')
+  x_min_2_11 = params.x_min_2_11;
+elseif isfield(params, 'x_min_2')
+  x_min_2_11 = params.x_min_2{11};
+else
+  error 'could not find x_min_2_11'
+end
+if isfield(params, 'x_min_2_12')
+  x_min_2_12 = params.x_min_2_12;
+elseif isfield(params, 'x_min_2')
+  x_min_2_12 = params.x_min_2{12};
+else
+  error 'could not find x_min_2_12'
+end
+if isfield(params, 'x_min_2_13')
+  x_min_2_13 = params.x_min_2_13;
+elseif isfield(params, 'x_min_2')
+  x_min_2_13 = params.x_min_2{13};
+else
+  error 'could not find x_min_2_13'
+end
+if isfield(params, 'x_min_2_14')
+  x_min_2_14 = params.x_min_2_14;
+elseif isfield(params, 'x_min_2')
+  x_min_2_14 = params.x_min_2{14};
+else
+  error 'could not find x_min_2_14'
+end
+if isfield(params, 'x_min_2_15')
+  x_min_2_15 = params.x_min_2_15;
+elseif isfield(params, 'x_min_2')
+  x_min_2_15 = params.x_min_2{15};
+else
+  error 'could not find x_min_2_15'
+end
+if isfield(params, 'x_min_2_16')
+  x_min_2_16 = params.x_min_2_16;
+elseif isfield(params, 'x_min_2')
+  x_min_2_16 = params.x_min_2{16};
+else
+  error 'could not find x_min_2_16'
+end
+if isfield(params, 'x_min_2_17')
+  x_min_2_17 = params.x_min_2_17;
+elseif isfield(params, 'x_min_2')
+  x_min_2_17 = params.x_min_2{17};
+else
+  error 'could not find x_min_2_17'
+end
+if isfield(params, 'x_min_2_18')
+  x_min_2_18 = params.x_min_2_18;
+elseif isfield(params, 'x_min_2')
+  x_min_2_18 = params.x_min_2{18};
+else
+  error 'could not find x_min_2_18'
+end
+if isfield(params, 'x_min_2_19')
+  x_min_2_19 = params.x_min_2_19;
+elseif isfield(params, 'x_min_2')
+  x_min_2_19 = params.x_min_2{19};
+else
+  error 'could not find x_min_2_19'
+end
+if isfield(params, 'x_min_2_20')
+  x_min_2_20 = params.x_min_2_20;
+elseif isfield(params, 'x_min_2')
+  x_min_2_20 = params.x_min_2{20};
+else
+  error 'could not find x_min_2_20'
+end
+if isfield(params, 'x_min_2_21')
+  x_min_2_21 = params.x_min_2_21;
+elseif isfield(params, 'x_min_2')
+  x_min_2_21 = params.x_min_2{21};
+else
+  error 'could not find x_min_2_21'
+end
+if isfield(params, 'x_min_2_22')
+  x_min_2_22 = params.x_min_2_22;
+elseif isfield(params, 'x_min_2')
+  x_min_2_22 = params.x_min_2{22};
+else
+  error 'could not find x_min_2_22'
+end
+if isfield(params, 'x_min_2_23')
+  x_min_2_23 = params.x_min_2_23;
+elseif isfield(params, 'x_min_2')
+  x_min_2_23 = params.x_min_2{23};
+else
+  error 'could not find x_min_2_23'
+end
+if isfield(params, 'x_min_2_24')
+  x_min_2_24 = params.x_min_2_24;
+elseif isfield(params, 'x_min_2')
+  x_min_2_24 = params.x_min_2{24};
+else
+  error 'could not find x_min_2_24'
+end
+if isfield(params, 'x_min_2_25')
+  x_min_2_25 = params.x_min_2_25;
+elseif isfield(params, 'x_min_2')
+  x_min_2_25 = params.x_min_2{25};
+else
+  error 'could not find x_min_2_25'
+end
+if isfield(params, 'x_min_2_26')
+  x_min_2_26 = params.x_min_2_26;
+elseif isfield(params, 'x_min_2')
+  x_min_2_26 = params.x_min_2{26};
+else
+  error 'could not find x_min_2_26'
+end
+if isfield(params, 'x_min_2_27')
+  x_min_2_27 = params.x_min_2_27;
+elseif isfield(params, 'x_min_2')
+  x_min_2_27 = params.x_min_2{27};
+else
+  error 'could not find x_min_2_27'
+end
+if isfield(params, 'x_min_2_28')
+  x_min_2_28 = params.x_min_2_28;
+elseif isfield(params, 'x_min_2')
+  x_min_2_28 = params.x_min_2{28};
+else
+  error 'could not find x_min_2_28'
+end
+if isfield(params, 'x_min_2_29')
+  x_min_2_29 = params.x_min_2_29;
+elseif isfield(params, 'x_min_2')
+  x_min_2_29 = params.x_min_2{29};
+else
+  error 'could not find x_min_2_29'
+end
+if isfield(params, 'x_min_2_30')
+  x_min_2_30 = params.x_min_2_30;
+elseif isfield(params, 'x_min_2')
+  x_min_2_30 = params.x_min_2{30};
+else
+  error 'could not find x_min_2_30'
+end
+if isfield(params, 'x_min_2_31')
+  x_min_2_31 = params.x_min_2_31;
+elseif isfield(params, 'x_min_2')
+  x_min_2_31 = params.x_min_2{31};
+else
+  error 'could not find x_min_2_31'
+end
+if isfield(params, 'x_min_2_32')
+  x_min_2_32 = params.x_min_2_32;
+elseif isfield(params, 'x_min_2')
+  x_min_2_32 = params.x_min_2{32};
+else
+  error 'could not find x_min_2_32'
+end
+if isfield(params, 'x_min_2_33')
+  x_min_2_33 = params.x_min_2_33;
+elseif isfield(params, 'x_min_2')
+  x_min_2_33 = params.x_min_2{33};
+else
+  error 'could not find x_min_2_33'
+end
+if isfield(params, 'x_min_2_34')
+  x_min_2_34 = params.x_min_2_34;
+elseif isfield(params, 'x_min_2')
+  x_min_2_34 = params.x_min_2{34};
+else
+  error 'could not find x_min_2_34'
+end
+if isfield(params, 'x_min_2_35')
+  x_min_2_35 = params.x_min_2_35;
+elseif isfield(params, 'x_min_2')
+  x_min_2_35 = params.x_min_2{35};
+else
+  error 'could not find x_min_2_35'
+end
+if isfield(params, 'x_min_2_36')
+  x_min_2_36 = params.x_min_2_36;
+elseif isfield(params, 'x_min_2')
+  x_min_2_36 = params.x_min_2{36};
+else
+  error 'could not find x_min_2_36'
+end
+if isfield(params, 'x_min_2_37')
+  x_min_2_37 = params.x_min_2_37;
+elseif isfield(params, 'x_min_2')
+  x_min_2_37 = params.x_min_2{37};
+else
+  error 'could not find x_min_2_37'
+end
+if isfield(params, 'x_min_2_38')
+  x_min_2_38 = params.x_min_2_38;
+elseif isfield(params, 'x_min_2')
+  x_min_2_38 = params.x_min_2{38};
+else
+  error 'could not find x_min_2_38'
+end
+if isfield(params, 'x_min_2_39')
+  x_min_2_39 = params.x_min_2_39;
+elseif isfield(params, 'x_min_2')
+  x_min_2_39 = params.x_min_2{39};
+else
+  error 'could not find x_min_2_39'
+end
+if isfield(params, 'x_min_2_40')
+  x_min_2_40 = params.x_min_2_40;
+elseif isfield(params, 'x_min_2')
+  x_min_2_40 = params.x_min_2{40};
+else
+  error 'could not find x_min_2_40'
+end
+if isfield(params, 'x_min_3_1')
+  x_min_3_1 = params.x_min_3_1;
+elseif isfield(params, 'x_min_3')
+  x_min_3_1 = params.x_min_3{1};
+else
+  error 'could not find x_min_3_1'
+end
+if isfield(params, 'x_min_3_2')
+  x_min_3_2 = params.x_min_3_2;
+elseif isfield(params, 'x_min_3')
+  x_min_3_2 = params.x_min_3{2};
+else
+  error 'could not find x_min_3_2'
+end
+if isfield(params, 'x_min_3_3')
+  x_min_3_3 = params.x_min_3_3;
+elseif isfield(params, 'x_min_3')
+  x_min_3_3 = params.x_min_3{3};
+else
+  error 'could not find x_min_3_3'
+end
+if isfield(params, 'x_min_3_4')
+  x_min_3_4 = params.x_min_3_4;
+elseif isfield(params, 'x_min_3')
+  x_min_3_4 = params.x_min_3{4};
+else
+  error 'could not find x_min_3_4'
+end
+if isfield(params, 'x_min_3_5')
+  x_min_3_5 = params.x_min_3_5;
+elseif isfield(params, 'x_min_3')
+  x_min_3_5 = params.x_min_3{5};
+else
+  error 'could not find x_min_3_5'
+end
+if isfield(params, 'x_min_3_6')
+  x_min_3_6 = params.x_min_3_6;
+elseif isfield(params, 'x_min_3')
+  x_min_3_6 = params.x_min_3{6};
+else
+  error 'could not find x_min_3_6'
+end
+if isfield(params, 'x_min_3_7')
+  x_min_3_7 = params.x_min_3_7;
+elseif isfield(params, 'x_min_3')
+  x_min_3_7 = params.x_min_3{7};
+else
+  error 'could not find x_min_3_7'
+end
+if isfield(params, 'x_min_3_8')
+  x_min_3_8 = params.x_min_3_8;
+elseif isfield(params, 'x_min_3')
+  x_min_3_8 = params.x_min_3{8};
+else
+  error 'could not find x_min_3_8'
+end
+if isfield(params, 'x_min_3_9')
+  x_min_3_9 = params.x_min_3_9;
+elseif isfield(params, 'x_min_3')
+  x_min_3_9 = params.x_min_3{9};
+else
+  error 'could not find x_min_3_9'
+end
+if isfield(params, 'x_min_3_10')
+  x_min_3_10 = params.x_min_3_10;
+elseif isfield(params, 'x_min_3')
+  x_min_3_10 = params.x_min_3{10};
+else
+  error 'could not find x_min_3_10'
+end
+if isfield(params, 'x_min_3_11')
+  x_min_3_11 = params.x_min_3_11;
+elseif isfield(params, 'x_min_3')
+  x_min_3_11 = params.x_min_3{11};
+else
+  error 'could not find x_min_3_11'
+end
+if isfield(params, 'x_min_3_12')
+  x_min_3_12 = params.x_min_3_12;
+elseif isfield(params, 'x_min_3')
+  x_min_3_12 = params.x_min_3{12};
+else
+  error 'could not find x_min_3_12'
+end
+if isfield(params, 'x_min_3_13')
+  x_min_3_13 = params.x_min_3_13;
+elseif isfield(params, 'x_min_3')
+  x_min_3_13 = params.x_min_3{13};
+else
+  error 'could not find x_min_3_13'
+end
+if isfield(params, 'x_min_3_14')
+  x_min_3_14 = params.x_min_3_14;
+elseif isfield(params, 'x_min_3')
+  x_min_3_14 = params.x_min_3{14};
+else
+  error 'could not find x_min_3_14'
+end
+if isfield(params, 'x_min_3_15')
+  x_min_3_15 = params.x_min_3_15;
+elseif isfield(params, 'x_min_3')
+  x_min_3_15 = params.x_min_3{15};
+else
+  error 'could not find x_min_3_15'
+end
+if isfield(params, 'x_min_3_16')
+  x_min_3_16 = params.x_min_3_16;
+elseif isfield(params, 'x_min_3')
+  x_min_3_16 = params.x_min_3{16};
+else
+  error 'could not find x_min_3_16'
+end
+if isfield(params, 'x_min_3_17')
+  x_min_3_17 = params.x_min_3_17;
+elseif isfield(params, 'x_min_3')
+  x_min_3_17 = params.x_min_3{17};
+else
+  error 'could not find x_min_3_17'
+end
+if isfield(params, 'x_min_3_18')
+  x_min_3_18 = params.x_min_3_18;
+elseif isfield(params, 'x_min_3')
+  x_min_3_18 = params.x_min_3{18};
+else
+  error 'could not find x_min_3_18'
+end
+if isfield(params, 'x_min_3_19')
+  x_min_3_19 = params.x_min_3_19;
+elseif isfield(params, 'x_min_3')
+  x_min_3_19 = params.x_min_3{19};
+else
+  error 'could not find x_min_3_19'
+end
+if isfield(params, 'x_min_3_20')
+  x_min_3_20 = params.x_min_3_20;
+elseif isfield(params, 'x_min_3')
+  x_min_3_20 = params.x_min_3{20};
+else
+  error 'could not find x_min_3_20'
+end
+if isfield(params, 'x_min_3_21')
+  x_min_3_21 = params.x_min_3_21;
+elseif isfield(params, 'x_min_3')
+  x_min_3_21 = params.x_min_3{21};
+else
+  error 'could not find x_min_3_21'
+end
+if isfield(params, 'x_min_3_22')
+  x_min_3_22 = params.x_min_3_22;
+elseif isfield(params, 'x_min_3')
+  x_min_3_22 = params.x_min_3{22};
+else
+  error 'could not find x_min_3_22'
+end
+if isfield(params, 'x_min_3_23')
+  x_min_3_23 = params.x_min_3_23;
+elseif isfield(params, 'x_min_3')
+  x_min_3_23 = params.x_min_3{23};
+else
+  error 'could not find x_min_3_23'
+end
+if isfield(params, 'x_min_3_24')
+  x_min_3_24 = params.x_min_3_24;
+elseif isfield(params, 'x_min_3')
+  x_min_3_24 = params.x_min_3{24};
+else
+  error 'could not find x_min_3_24'
+end
+if isfield(params, 'x_min_3_25')
+  x_min_3_25 = params.x_min_3_25;
+elseif isfield(params, 'x_min_3')
+  x_min_3_25 = params.x_min_3{25};
+else
+  error 'could not find x_min_3_25'
+end
+if isfield(params, 'x_min_3_26')
+  x_min_3_26 = params.x_min_3_26;
+elseif isfield(params, 'x_min_3')
+  x_min_3_26 = params.x_min_3{26};
+else
+  error 'could not find x_min_3_26'
+end
+if isfield(params, 'x_min_3_27')
+  x_min_3_27 = params.x_min_3_27;
+elseif isfield(params, 'x_min_3')
+  x_min_3_27 = params.x_min_3{27};
+else
+  error 'could not find x_min_3_27'
+end
+if isfield(params, 'x_min_3_28')
+  x_min_3_28 = params.x_min_3_28;
+elseif isfield(params, 'x_min_3')
+  x_min_3_28 = params.x_min_3{28};
+else
+  error 'could not find x_min_3_28'
+end
+if isfield(params, 'x_min_3_29')
+  x_min_3_29 = params.x_min_3_29;
+elseif isfield(params, 'x_min_3')
+  x_min_3_29 = params.x_min_3{29};
+else
+  error 'could not find x_min_3_29'
+end
+if isfield(params, 'x_min_3_30')
+  x_min_3_30 = params.x_min_3_30;
+elseif isfield(params, 'x_min_3')
+  x_min_3_30 = params.x_min_3{30};
+else
+  error 'could not find x_min_3_30'
+end
+if isfield(params, 'x_min_3_31')
+  x_min_3_31 = params.x_min_3_31;
+elseif isfield(params, 'x_min_3')
+  x_min_3_31 = params.x_min_3{31};
+else
+  error 'could not find x_min_3_31'
+end
+if isfield(params, 'x_min_3_32')
+  x_min_3_32 = params.x_min_3_32;
+elseif isfield(params, 'x_min_3')
+  x_min_3_32 = params.x_min_3{32};
+else
+  error 'could not find x_min_3_32'
+end
+if isfield(params, 'x_min_3_33')
+  x_min_3_33 = params.x_min_3_33;
+elseif isfield(params, 'x_min_3')
+  x_min_3_33 = params.x_min_3{33};
+else
+  error 'could not find x_min_3_33'
+end
+if isfield(params, 'x_min_3_34')
+  x_min_3_34 = params.x_min_3_34;
+elseif isfield(params, 'x_min_3')
+  x_min_3_34 = params.x_min_3{34};
+else
+  error 'could not find x_min_3_34'
+end
+if isfield(params, 'x_min_3_35')
+  x_min_3_35 = params.x_min_3_35;
+elseif isfield(params, 'x_min_3')
+  x_min_3_35 = params.x_min_3{35};
+else
+  error 'could not find x_min_3_35'
+end
+if isfield(params, 'x_min_3_36')
+  x_min_3_36 = params.x_min_3_36;
+elseif isfield(params, 'x_min_3')
+  x_min_3_36 = params.x_min_3{36};
+else
+  error 'could not find x_min_3_36'
+end
+if isfield(params, 'x_min_3_37')
+  x_min_3_37 = params.x_min_3_37;
+elseif isfield(params, 'x_min_3')
+  x_min_3_37 = params.x_min_3{37};
+else
+  error 'could not find x_min_3_37'
+end
+if isfield(params, 'x_min_3_38')
+  x_min_3_38 = params.x_min_3_38;
+elseif isfield(params, 'x_min_3')
+  x_min_3_38 = params.x_min_3{38};
+else
+  error 'could not find x_min_3_38'
+end
+if isfield(params, 'x_min_3_39')
+  x_min_3_39 = params.x_min_3_39;
+elseif isfield(params, 'x_min_3')
+  x_min_3_39 = params.x_min_3{39};
+else
+  error 'could not find x_min_3_39'
+end
+if isfield(params, 'x_min_3_40')
+  x_min_3_40 = params.x_min_3_40;
+elseif isfield(params, 'x_min_3')
+  x_min_3_40 = params.x_min_3{40};
+else
+  error 'could not find x_min_3_40'
+end
 if isfield(params, 'x_ss_1')
   x_ss_1 = params.x_ss_1;
 elseif isfield(params, 'x_ss')
@@ -426,246 +2088,246 @@ cvx_begin
     x_38 == A*x_37 + B*u_37;
     x_39 == A*x_38 + B*u_38;
     x_40 == A*x_39 + B*u_39;
-    x_1(2) <= x_max_2;
-    x_2(2) <= x_max_2;
-    x_3(2) <= x_max_2;
-    x_4(2) <= x_max_2;
-    x_5(2) <= x_max_2;
-    x_6(2) <= x_max_2;
-    x_7(2) <= x_max_2;
-    x_8(2) <= x_max_2;
-    x_9(2) <= x_max_2;
-    x_10(2) <= x_max_2;
-    x_11(2) <= x_max_2;
-    x_12(2) <= x_max_2;
-    x_13(2) <= x_max_2;
-    x_14(2) <= x_max_2;
-    x_15(2) <= x_max_2;
-    x_16(2) <= x_max_2;
-    x_17(2) <= x_max_2;
-    x_18(2) <= x_max_2;
-    x_19(2) <= x_max_2;
-    x_20(2) <= x_max_2;
-    x_21(2) <= x_max_2;
-    x_22(2) <= x_max_2;
-    x_23(2) <= x_max_2;
-    x_24(2) <= x_max_2;
-    x_25(2) <= x_max_2;
-    x_26(2) <= x_max_2;
-    x_27(2) <= x_max_2;
-    x_28(2) <= x_max_2;
-    x_29(2) <= x_max_2;
-    x_30(2) <= x_max_2;
-    x_31(2) <= x_max_2;
-    x_32(2) <= x_max_2;
-    x_33(2) <= x_max_2;
-    x_34(2) <= x_max_2;
-    x_35(2) <= x_max_2;
-    x_36(2) <= x_max_2;
-    x_37(2) <= x_max_2;
-    x_38(2) <= x_max_2;
-    x_39(2) <= x_max_2;
-    x_40(2) <= x_max_2;
-    x_1(2) >= -x_min_2;
-    x_2(2) >= -x_min_2;
-    x_3(2) >= -x_min_2;
-    x_4(2) >= -x_min_2;
-    x_5(2) >= -x_min_2;
-    x_6(2) >= -x_min_2;
-    x_7(2) >= -x_min_2;
-    x_8(2) >= -x_min_2;
-    x_9(2) >= -x_min_2;
-    x_10(2) >= -x_min_2;
-    x_11(2) >= -x_min_2;
-    x_12(2) >= -x_min_2;
-    x_13(2) >= -x_min_2;
-    x_14(2) >= -x_min_2;
-    x_15(2) >= -x_min_2;
-    x_16(2) >= -x_min_2;
-    x_17(2) >= -x_min_2;
-    x_18(2) >= -x_min_2;
-    x_19(2) >= -x_min_2;
-    x_20(2) >= -x_min_2;
-    x_21(2) >= -x_min_2;
-    x_22(2) >= -x_min_2;
-    x_23(2) >= -x_min_2;
-    x_24(2) >= -x_min_2;
-    x_25(2) >= -x_min_2;
-    x_26(2) >= -x_min_2;
-    x_27(2) >= -x_min_2;
-    x_28(2) >= -x_min_2;
-    x_29(2) >= -x_min_2;
-    x_30(2) >= -x_min_2;
-    x_31(2) >= -x_min_2;
-    x_32(2) >= -x_min_2;
-    x_33(2) >= -x_min_2;
-    x_34(2) >= -x_min_2;
-    x_35(2) >= -x_min_2;
-    x_36(2) >= -x_min_2;
-    x_37(2) >= -x_min_2;
-    x_38(2) >= -x_min_2;
-    x_39(2) >= -x_min_2;
-    x_40(2) >= -x_min_2;
-    x_1(3) <= x_max_3;
-    x_2(3) <= x_max_3;
-    x_3(3) <= x_max_3;
-    x_4(3) <= x_max_3;
-    x_5(3) <= x_max_3;
-    x_6(3) <= x_max_3;
-    x_7(3) <= x_max_3;
-    x_8(3) <= x_max_3;
-    x_9(3) <= x_max_3;
-    x_10(3) <= x_max_3;
-    x_11(3) <= x_max_3;
-    x_12(3) <= x_max_3;
-    x_13(3) <= x_max_3;
-    x_14(3) <= x_max_3;
-    x_15(3) <= x_max_3;
-    x_16(3) <= x_max_3;
-    x_17(3) <= x_max_3;
-    x_18(3) <= x_max_3;
-    x_19(3) <= x_max_3;
-    x_20(3) <= x_max_3;
-    x_21(3) <= x_max_3;
-    x_22(3) <= x_max_3;
-    x_23(3) <= x_max_3;
-    x_24(3) <= x_max_3;
-    x_25(3) <= x_max_3;
-    x_26(3) <= x_max_3;
-    x_27(3) <= x_max_3;
-    x_28(3) <= x_max_3;
-    x_29(3) <= x_max_3;
-    x_30(3) <= x_max_3;
-    x_31(3) <= x_max_3;
-    x_32(3) <= x_max_3;
-    x_33(3) <= x_max_3;
-    x_34(3) <= x_max_3;
-    x_35(3) <= x_max_3;
-    x_36(3) <= x_max_3;
-    x_37(3) <= x_max_3;
-    x_38(3) <= x_max_3;
-    x_39(3) <= x_max_3;
-    x_40(3) <= x_max_3;
-    x_1(3) >= -x_min_3;
-    x_2(3) >= -x_min_3;
-    x_3(3) >= -x_min_3;
-    x_4(3) >= -x_min_3;
-    x_5(3) >= -x_min_3;
-    x_6(3) >= -x_min_3;
-    x_7(3) >= -x_min_3;
-    x_8(3) >= -x_min_3;
-    x_9(3) >= -x_min_3;
-    x_10(3) >= -x_min_3;
-    x_11(3) >= -x_min_3;
-    x_12(3) >= -x_min_3;
-    x_13(3) >= -x_min_3;
-    x_14(3) >= -x_min_3;
-    x_15(3) >= -x_min_3;
-    x_16(3) >= -x_min_3;
-    x_17(3) >= -x_min_3;
-    x_18(3) >= -x_min_3;
-    x_19(3) >= -x_min_3;
-    x_20(3) >= -x_min_3;
-    x_21(3) >= -x_min_3;
-    x_22(3) >= -x_min_3;
-    x_23(3) >= -x_min_3;
-    x_24(3) >= -x_min_3;
-    x_25(3) >= -x_min_3;
-    x_26(3) >= -x_min_3;
-    x_27(3) >= -x_min_3;
-    x_28(3) >= -x_min_3;
-    x_29(3) >= -x_min_3;
-    x_30(3) >= -x_min_3;
-    x_31(3) >= -x_min_3;
-    x_32(3) >= -x_min_3;
-    x_33(3) >= -x_min_3;
-    x_34(3) >= -x_min_3;
-    x_35(3) >= -x_min_3;
-    x_36(3) >= -x_min_3;
-    x_37(3) >= -x_min_3;
-    x_38(3) >= -x_min_3;
-    x_39(3) >= -x_min_3;
-    x_40(3) >= -x_min_3;
-    u_0(1) <= u_max;
-    u_1(1) <= u_max;
-    u_2(1) <= u_max;
-    u_3(1) <= u_max;
-    u_4(1) <= u_max;
-    u_5(1) <= u_max;
-    u_6(1) <= u_max;
-    u_7(1) <= u_max;
-    u_8(1) <= u_max;
-    u_9(1) <= u_max;
-    u_10(1) <= u_max;
-    u_11(1) <= u_max;
-    u_12(1) <= u_max;
-    u_13(1) <= u_max;
-    u_14(1) <= u_max;
-    u_15(1) <= u_max;
-    u_16(1) <= u_max;
-    u_17(1) <= u_max;
-    u_18(1) <= u_max;
-    u_19(1) <= u_max;
-    u_20(1) <= u_max;
-    u_21(1) <= u_max;
-    u_22(1) <= u_max;
-    u_23(1) <= u_max;
-    u_24(1) <= u_max;
-    u_25(1) <= u_max;
-    u_26(1) <= u_max;
-    u_27(1) <= u_max;
-    u_28(1) <= u_max;
-    u_29(1) <= u_max;
-    u_30(1) <= u_max;
-    u_31(1) <= u_max;
-    u_32(1) <= u_max;
-    u_33(1) <= u_max;
-    u_34(1) <= u_max;
-    u_35(1) <= u_max;
-    u_36(1) <= u_max;
-    u_37(1) <= u_max;
-    u_38(1) <= u_max;
-    u_39(1) <= u_max;
-    u_0(1) >= -u_min;
-    u_1(1) >= -u_min;
-    u_2(1) >= -u_min;
-    u_3(1) >= -u_min;
-    u_4(1) >= -u_min;
-    u_5(1) >= -u_min;
-    u_6(1) >= -u_min;
-    u_7(1) >= -u_min;
-    u_8(1) >= -u_min;
-    u_9(1) >= -u_min;
-    u_10(1) >= -u_min;
-    u_11(1) >= -u_min;
-    u_12(1) >= -u_min;
-    u_13(1) >= -u_min;
-    u_14(1) >= -u_min;
-    u_15(1) >= -u_min;
-    u_16(1) >= -u_min;
-    u_17(1) >= -u_min;
-    u_18(1) >= -u_min;
-    u_19(1) >= -u_min;
-    u_20(1) >= -u_min;
-    u_21(1) >= -u_min;
-    u_22(1) >= -u_min;
-    u_23(1) >= -u_min;
-    u_24(1) >= -u_min;
-    u_25(1) >= -u_min;
-    u_26(1) >= -u_min;
-    u_27(1) >= -u_min;
-    u_28(1) >= -u_min;
-    u_29(1) >= -u_min;
-    u_30(1) >= -u_min;
-    u_31(1) >= -u_min;
-    u_32(1) >= -u_min;
-    u_33(1) >= -u_min;
-    u_34(1) >= -u_min;
-    u_35(1) >= -u_min;
-    u_36(1) >= -u_min;
-    u_37(1) >= -u_min;
-    u_38(1) >= -u_min;
-    u_39(1) >= -u_min;
+    x_1(2) <= x_max_2_1;
+    x_2(2) <= x_max_2_2;
+    x_3(2) <= x_max_2_3;
+    x_4(2) <= x_max_2_4;
+    x_5(2) <= x_max_2_5;
+    x_6(2) <= x_max_2_6;
+    x_7(2) <= x_max_2_7;
+    x_8(2) <= x_max_2_8;
+    x_9(2) <= x_max_2_9;
+    x_10(2) <= x_max_2_10;
+    x_11(2) <= x_max_2_11;
+    x_12(2) <= x_max_2_12;
+    x_13(2) <= x_max_2_13;
+    x_14(2) <= x_max_2_14;
+    x_15(2) <= x_max_2_15;
+    x_16(2) <= x_max_2_16;
+    x_17(2) <= x_max_2_17;
+    x_18(2) <= x_max_2_18;
+    x_19(2) <= x_max_2_19;
+    x_20(2) <= x_max_2_20;
+    x_21(2) <= x_max_2_21;
+    x_22(2) <= x_max_2_22;
+    x_23(2) <= x_max_2_23;
+    x_24(2) <= x_max_2_24;
+    x_25(2) <= x_max_2_25;
+    x_26(2) <= x_max_2_26;
+    x_27(2) <= x_max_2_27;
+    x_28(2) <= x_max_2_28;
+    x_29(2) <= x_max_2_29;
+    x_30(2) <= x_max_2_30;
+    x_31(2) <= x_max_2_31;
+    x_32(2) <= x_max_2_32;
+    x_33(2) <= x_max_2_33;
+    x_34(2) <= x_max_2_34;
+    x_35(2) <= x_max_2_35;
+    x_36(2) <= x_max_2_36;
+    x_37(2) <= x_max_2_37;
+    x_38(2) <= x_max_2_38;
+    x_39(2) <= x_max_2_39;
+    x_40(2) <= x_max_2_40;
+    x_1(2) >= -x_min_2_1;
+    x_2(2) >= -x_min_2_2;
+    x_3(2) >= -x_min_2_3;
+    x_4(2) >= -x_min_2_4;
+    x_5(2) >= -x_min_2_5;
+    x_6(2) >= -x_min_2_6;
+    x_7(2) >= -x_min_2_7;
+    x_8(2) >= -x_min_2_8;
+    x_9(2) >= -x_min_2_9;
+    x_10(2) >= -x_min_2_10;
+    x_11(2) >= -x_min_2_11;
+    x_12(2) >= -x_min_2_12;
+    x_13(2) >= -x_min_2_13;
+    x_14(2) >= -x_min_2_14;
+    x_15(2) >= -x_min_2_15;
+    x_16(2) >= -x_min_2_16;
+    x_17(2) >= -x_min_2_17;
+    x_18(2) >= -x_min_2_18;
+    x_19(2) >= -x_min_2_19;
+    x_20(2) >= -x_min_2_20;
+    x_21(2) >= -x_min_2_21;
+    x_22(2) >= -x_min_2_22;
+    x_23(2) >= -x_min_2_23;
+    x_24(2) >= -x_min_2_24;
+    x_25(2) >= -x_min_2_25;
+    x_26(2) >= -x_min_2_26;
+    x_27(2) >= -x_min_2_27;
+    x_28(2) >= -x_min_2_28;
+    x_29(2) >= -x_min_2_29;
+    x_30(2) >= -x_min_2_30;
+    x_31(2) >= -x_min_2_31;
+    x_32(2) >= -x_min_2_32;
+    x_33(2) >= -x_min_2_33;
+    x_34(2) >= -x_min_2_34;
+    x_35(2) >= -x_min_2_35;
+    x_36(2) >= -x_min_2_36;
+    x_37(2) >= -x_min_2_37;
+    x_38(2) >= -x_min_2_38;
+    x_39(2) >= -x_min_2_39;
+    x_40(2) >= -x_min_2_40;
+    x_1(3) <= x_max_3_1;
+    x_2(3) <= x_max_3_2;
+    x_3(3) <= x_max_3_3;
+    x_4(3) <= x_max_3_4;
+    x_5(3) <= x_max_3_5;
+    x_6(3) <= x_max_3_6;
+    x_7(3) <= x_max_3_7;
+    x_8(3) <= x_max_3_8;
+    x_9(3) <= x_max_3_9;
+    x_10(3) <= x_max_3_10;
+    x_11(3) <= x_max_3_11;
+    x_12(3) <= x_max_3_12;
+    x_13(3) <= x_max_3_13;
+    x_14(3) <= x_max_3_14;
+    x_15(3) <= x_max_3_15;
+    x_16(3) <= x_max_3_16;
+    x_17(3) <= x_max_3_17;
+    x_18(3) <= x_max_3_18;
+    x_19(3) <= x_max_3_19;
+    x_20(3) <= x_max_3_20;
+    x_21(3) <= x_max_3_21;
+    x_22(3) <= x_max_3_22;
+    x_23(3) <= x_max_3_23;
+    x_24(3) <= x_max_3_24;
+    x_25(3) <= x_max_3_25;
+    x_26(3) <= x_max_3_26;
+    x_27(3) <= x_max_3_27;
+    x_28(3) <= x_max_3_28;
+    x_29(3) <= x_max_3_29;
+    x_30(3) <= x_max_3_30;
+    x_31(3) <= x_max_3_31;
+    x_32(3) <= x_max_3_32;
+    x_33(3) <= x_max_3_33;
+    x_34(3) <= x_max_3_34;
+    x_35(3) <= x_max_3_35;
+    x_36(3) <= x_max_3_36;
+    x_37(3) <= x_max_3_37;
+    x_38(3) <= x_max_3_38;
+    x_39(3) <= x_max_3_39;
+    x_40(3) <= x_max_3_40;
+    x_1(3) >= -x_min_3_1;
+    x_2(3) >= -x_min_3_2;
+    x_3(3) >= -x_min_3_3;
+    x_4(3) >= -x_min_3_4;
+    x_5(3) >= -x_min_3_5;
+    x_6(3) >= -x_min_3_6;
+    x_7(3) >= -x_min_3_7;
+    x_8(3) >= -x_min_3_8;
+    x_9(3) >= -x_min_3_9;
+    x_10(3) >= -x_min_3_10;
+    x_11(3) >= -x_min_3_11;
+    x_12(3) >= -x_min_3_12;
+    x_13(3) >= -x_min_3_13;
+    x_14(3) >= -x_min_3_14;
+    x_15(3) >= -x_min_3_15;
+    x_16(3) >= -x_min_3_16;
+    x_17(3) >= -x_min_3_17;
+    x_18(3) >= -x_min_3_18;
+    x_19(3) >= -x_min_3_19;
+    x_20(3) >= -x_min_3_20;
+    x_21(3) >= -x_min_3_21;
+    x_22(3) >= -x_min_3_22;
+    x_23(3) >= -x_min_3_23;
+    x_24(3) >= -x_min_3_24;
+    x_25(3) >= -x_min_3_25;
+    x_26(3) >= -x_min_3_26;
+    x_27(3) >= -x_min_3_27;
+    x_28(3) >= -x_min_3_28;
+    x_29(3) >= -x_min_3_29;
+    x_30(3) >= -x_min_3_30;
+    x_31(3) >= -x_min_3_31;
+    x_32(3) >= -x_min_3_32;
+    x_33(3) >= -x_min_3_33;
+    x_34(3) >= -x_min_3_34;
+    x_35(3) >= -x_min_3_35;
+    x_36(3) >= -x_min_3_36;
+    x_37(3) >= -x_min_3_37;
+    x_38(3) >= -x_min_3_38;
+    x_39(3) >= -x_min_3_39;
+    x_40(3) >= -x_min_3_40;
+    u_0(1) <= u_max_0;
+    u_1(1) <= u_max_1;
+    u_2(1) <= u_max_2;
+    u_3(1) <= u_max_3;
+    u_4(1) <= u_max_4;
+    u_5(1) <= u_max_5;
+    u_6(1) <= u_max_6;
+    u_7(1) <= u_max_7;
+    u_8(1) <= u_max_8;
+    u_9(1) <= u_max_9;
+    u_10(1) <= u_max_10;
+    u_11(1) <= u_max_11;
+    u_12(1) <= u_max_12;
+    u_13(1) <= u_max_13;
+    u_14(1) <= u_max_14;
+    u_15(1) <= u_max_15;
+    u_16(1) <= u_max_16;
+    u_17(1) <= u_max_17;
+    u_18(1) <= u_max_18;
+    u_19(1) <= u_max_19;
+    u_20(1) <= u_max_20;
+    u_21(1) <= u_max_21;
+    u_22(1) <= u_max_22;
+    u_23(1) <= u_max_23;
+    u_24(1) <= u_max_24;
+    u_25(1) <= u_max_25;
+    u_26(1) <= u_max_26;
+    u_27(1) <= u_max_27;
+    u_28(1) <= u_max_28;
+    u_29(1) <= u_max_29;
+    u_30(1) <= u_max_30;
+    u_31(1) <= u_max_31;
+    u_32(1) <= u_max_32;
+    u_33(1) <= u_max_33;
+    u_34(1) <= u_max_34;
+    u_35(1) <= u_max_35;
+    u_36(1) <= u_max_36;
+    u_37(1) <= u_max_37;
+    u_38(1) <= u_max_38;
+    u_39(1) <= u_max_39;
+    u_0(1) >= -u_min_0;
+    u_1(1) >= -u_min_1;
+    u_2(1) >= -u_min_2;
+    u_3(1) >= -u_min_3;
+    u_4(1) >= -u_min_4;
+    u_5(1) >= -u_min_5;
+    u_6(1) >= -u_min_6;
+    u_7(1) >= -u_min_7;
+    u_8(1) >= -u_min_8;
+    u_9(1) >= -u_min_9;
+    u_10(1) >= -u_min_10;
+    u_11(1) >= -u_min_11;
+    u_12(1) >= -u_min_12;
+    u_13(1) >= -u_min_13;
+    u_14(1) >= -u_min_14;
+    u_15(1) >= -u_min_15;
+    u_16(1) >= -u_min_16;
+    u_17(1) >= -u_min_17;
+    u_18(1) >= -u_min_18;
+    u_19(1) >= -u_min_19;
+    u_20(1) >= -u_min_20;
+    u_21(1) >= -u_min_21;
+    u_22(1) >= -u_min_22;
+    u_23(1) >= -u_min_23;
+    u_24(1) >= -u_min_24;
+    u_25(1) >= -u_min_25;
+    u_26(1) >= -u_min_26;
+    u_27(1) >= -u_min_27;
+    u_28(1) >= -u_min_28;
+    u_29(1) >= -u_min_29;
+    u_30(1) >= -u_min_30;
+    u_31(1) >= -u_min_31;
+    u_32(1) >= -u_min_32;
+    u_33(1) >= -u_min_33;
+    u_34(1) >= -u_min_34;
+    u_35(1) >= -u_min_35;
+    u_36(1) >= -u_min_36;
+    u_37(1) >= -u_min_37;
+    u_38(1) >= -u_min_38;
+    u_39(1) >= -u_min_39;
 cvx_end
 vars.u_0 = u_0;
 vars.u_1 = u_1;
