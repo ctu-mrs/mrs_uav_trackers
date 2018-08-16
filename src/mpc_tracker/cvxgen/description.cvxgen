@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-08-14 08:45:36 -0400.
+# Produced by CVXGEN, 2018-08-16 08:50:14 -0400.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -24,12 +24,12 @@ parameters
   R2 psd symmetric nonnegative  # input cost of the first control input
 
   x[0] (n) # initial system state
-  x_max_2[t], t=1..T # maximum velocity
-  x_min_2[t], t=1..T # minimum velocity
-  x_max_3[t], t=1..T # maximum acceleration
-  x_min_3[t], t=1..T # minimum acceleration
-  u_max[t], t=0..T  # maximum jerk (input to the system)
-  u_min[t], t=0..T  # minimum jerk (input to the system)
+  x_max_2 # maximum velocity
+  x_min_2 # minimum velocity
+  x_max_3 # maximum acceleration
+  x_min_3 # minimum acceleration
+  u_max   # maximum jerk (input to the system)
+  u_min   # minimum jerk (input to the system)
 
   x_ss[t] (n), t=1..T # given reference
 end
@@ -50,14 +50,14 @@ subject to
 
   #state constraints
 
-  x[t][2] <= x_max_2[t], t=1..T
-  x[t][2] >= -x_min_2[t], t=1..T
+  x[t][2] <= x_max_2, t=1..T
+  x[t][2] >= -x_min_2, t=1..T
 
-  x[t][3] <= x_max_3[t], t=1..T
-  x[t][3] >= -x_min_3[t], t=1..T
+  x[t][3] <= x_max_3, t=1..T
+  x[t][3] >= -x_min_3, t=1..T
 
   #input constraints
 
-  u[t][1] <= u_max[t], t=0..T-1
-  u[t][1] >= -u_min[t], t=0..T-1
+  u[t][1] <= u_max, t=0..T-1
+  u[t][1] >= -u_min, t=0..T-1
 end

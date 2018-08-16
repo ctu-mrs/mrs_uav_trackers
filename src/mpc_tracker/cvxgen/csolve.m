@@ -46,246 +46,246 @@
 %     x_38 == A*x_37 + B*u_37
 %     x_39 == A*x_38 + B*u_38
 %     x_40 == A*x_39 + B*u_39
-%     x_1(2) <= x_max_2_1
-%     x_2(2) <= x_max_2_2
-%     x_3(2) <= x_max_2_3
-%     x_4(2) <= x_max_2_4
-%     x_5(2) <= x_max_2_5
-%     x_6(2) <= x_max_2_6
-%     x_7(2) <= x_max_2_7
-%     x_8(2) <= x_max_2_8
-%     x_9(2) <= x_max_2_9
-%     x_10(2) <= x_max_2_10
-%     x_11(2) <= x_max_2_11
-%     x_12(2) <= x_max_2_12
-%     x_13(2) <= x_max_2_13
-%     x_14(2) <= x_max_2_14
-%     x_15(2) <= x_max_2_15
-%     x_16(2) <= x_max_2_16
-%     x_17(2) <= x_max_2_17
-%     x_18(2) <= x_max_2_18
-%     x_19(2) <= x_max_2_19
-%     x_20(2) <= x_max_2_20
-%     x_21(2) <= x_max_2_21
-%     x_22(2) <= x_max_2_22
-%     x_23(2) <= x_max_2_23
-%     x_24(2) <= x_max_2_24
-%     x_25(2) <= x_max_2_25
-%     x_26(2) <= x_max_2_26
-%     x_27(2) <= x_max_2_27
-%     x_28(2) <= x_max_2_28
-%     x_29(2) <= x_max_2_29
-%     x_30(2) <= x_max_2_30
-%     x_31(2) <= x_max_2_31
-%     x_32(2) <= x_max_2_32
-%     x_33(2) <= x_max_2_33
-%     x_34(2) <= x_max_2_34
-%     x_35(2) <= x_max_2_35
-%     x_36(2) <= x_max_2_36
-%     x_37(2) <= x_max_2_37
-%     x_38(2) <= x_max_2_38
-%     x_39(2) <= x_max_2_39
-%     x_40(2) <= x_max_2_40
-%     x_1(2) >= -x_min_2_1
-%     x_2(2) >= -x_min_2_2
-%     x_3(2) >= -x_min_2_3
-%     x_4(2) >= -x_min_2_4
-%     x_5(2) >= -x_min_2_5
-%     x_6(2) >= -x_min_2_6
-%     x_7(2) >= -x_min_2_7
-%     x_8(2) >= -x_min_2_8
-%     x_9(2) >= -x_min_2_9
-%     x_10(2) >= -x_min_2_10
-%     x_11(2) >= -x_min_2_11
-%     x_12(2) >= -x_min_2_12
-%     x_13(2) >= -x_min_2_13
-%     x_14(2) >= -x_min_2_14
-%     x_15(2) >= -x_min_2_15
-%     x_16(2) >= -x_min_2_16
-%     x_17(2) >= -x_min_2_17
-%     x_18(2) >= -x_min_2_18
-%     x_19(2) >= -x_min_2_19
-%     x_20(2) >= -x_min_2_20
-%     x_21(2) >= -x_min_2_21
-%     x_22(2) >= -x_min_2_22
-%     x_23(2) >= -x_min_2_23
-%     x_24(2) >= -x_min_2_24
-%     x_25(2) >= -x_min_2_25
-%     x_26(2) >= -x_min_2_26
-%     x_27(2) >= -x_min_2_27
-%     x_28(2) >= -x_min_2_28
-%     x_29(2) >= -x_min_2_29
-%     x_30(2) >= -x_min_2_30
-%     x_31(2) >= -x_min_2_31
-%     x_32(2) >= -x_min_2_32
-%     x_33(2) >= -x_min_2_33
-%     x_34(2) >= -x_min_2_34
-%     x_35(2) >= -x_min_2_35
-%     x_36(2) >= -x_min_2_36
-%     x_37(2) >= -x_min_2_37
-%     x_38(2) >= -x_min_2_38
-%     x_39(2) >= -x_min_2_39
-%     x_40(2) >= -x_min_2_40
-%     x_1(3) <= x_max_3_1
-%     x_2(3) <= x_max_3_2
-%     x_3(3) <= x_max_3_3
-%     x_4(3) <= x_max_3_4
-%     x_5(3) <= x_max_3_5
-%     x_6(3) <= x_max_3_6
-%     x_7(3) <= x_max_3_7
-%     x_8(3) <= x_max_3_8
-%     x_9(3) <= x_max_3_9
-%     x_10(3) <= x_max_3_10
-%     x_11(3) <= x_max_3_11
-%     x_12(3) <= x_max_3_12
-%     x_13(3) <= x_max_3_13
-%     x_14(3) <= x_max_3_14
-%     x_15(3) <= x_max_3_15
-%     x_16(3) <= x_max_3_16
-%     x_17(3) <= x_max_3_17
-%     x_18(3) <= x_max_3_18
-%     x_19(3) <= x_max_3_19
-%     x_20(3) <= x_max_3_20
-%     x_21(3) <= x_max_3_21
-%     x_22(3) <= x_max_3_22
-%     x_23(3) <= x_max_3_23
-%     x_24(3) <= x_max_3_24
-%     x_25(3) <= x_max_3_25
-%     x_26(3) <= x_max_3_26
-%     x_27(3) <= x_max_3_27
-%     x_28(3) <= x_max_3_28
-%     x_29(3) <= x_max_3_29
-%     x_30(3) <= x_max_3_30
-%     x_31(3) <= x_max_3_31
-%     x_32(3) <= x_max_3_32
-%     x_33(3) <= x_max_3_33
-%     x_34(3) <= x_max_3_34
-%     x_35(3) <= x_max_3_35
-%     x_36(3) <= x_max_3_36
-%     x_37(3) <= x_max_3_37
-%     x_38(3) <= x_max_3_38
-%     x_39(3) <= x_max_3_39
-%     x_40(3) <= x_max_3_40
-%     x_1(3) >= -x_min_3_1
-%     x_2(3) >= -x_min_3_2
-%     x_3(3) >= -x_min_3_3
-%     x_4(3) >= -x_min_3_4
-%     x_5(3) >= -x_min_3_5
-%     x_6(3) >= -x_min_3_6
-%     x_7(3) >= -x_min_3_7
-%     x_8(3) >= -x_min_3_8
-%     x_9(3) >= -x_min_3_9
-%     x_10(3) >= -x_min_3_10
-%     x_11(3) >= -x_min_3_11
-%     x_12(3) >= -x_min_3_12
-%     x_13(3) >= -x_min_3_13
-%     x_14(3) >= -x_min_3_14
-%     x_15(3) >= -x_min_3_15
-%     x_16(3) >= -x_min_3_16
-%     x_17(3) >= -x_min_3_17
-%     x_18(3) >= -x_min_3_18
-%     x_19(3) >= -x_min_3_19
-%     x_20(3) >= -x_min_3_20
-%     x_21(3) >= -x_min_3_21
-%     x_22(3) >= -x_min_3_22
-%     x_23(3) >= -x_min_3_23
-%     x_24(3) >= -x_min_3_24
-%     x_25(3) >= -x_min_3_25
-%     x_26(3) >= -x_min_3_26
-%     x_27(3) >= -x_min_3_27
-%     x_28(3) >= -x_min_3_28
-%     x_29(3) >= -x_min_3_29
-%     x_30(3) >= -x_min_3_30
-%     x_31(3) >= -x_min_3_31
-%     x_32(3) >= -x_min_3_32
-%     x_33(3) >= -x_min_3_33
-%     x_34(3) >= -x_min_3_34
-%     x_35(3) >= -x_min_3_35
-%     x_36(3) >= -x_min_3_36
-%     x_37(3) >= -x_min_3_37
-%     x_38(3) >= -x_min_3_38
-%     x_39(3) >= -x_min_3_39
-%     x_40(3) >= -x_min_3_40
-%     u_0(1) <= u_max_0
-%     u_1(1) <= u_max_1
-%     u_2(1) <= u_max_2
-%     u_3(1) <= u_max_3
-%     u_4(1) <= u_max_4
-%     u_5(1) <= u_max_5
-%     u_6(1) <= u_max_6
-%     u_7(1) <= u_max_7
-%     u_8(1) <= u_max_8
-%     u_9(1) <= u_max_9
-%     u_10(1) <= u_max_10
-%     u_11(1) <= u_max_11
-%     u_12(1) <= u_max_12
-%     u_13(1) <= u_max_13
-%     u_14(1) <= u_max_14
-%     u_15(1) <= u_max_15
-%     u_16(1) <= u_max_16
-%     u_17(1) <= u_max_17
-%     u_18(1) <= u_max_18
-%     u_19(1) <= u_max_19
-%     u_20(1) <= u_max_20
-%     u_21(1) <= u_max_21
-%     u_22(1) <= u_max_22
-%     u_23(1) <= u_max_23
-%     u_24(1) <= u_max_24
-%     u_25(1) <= u_max_25
-%     u_26(1) <= u_max_26
-%     u_27(1) <= u_max_27
-%     u_28(1) <= u_max_28
-%     u_29(1) <= u_max_29
-%     u_30(1) <= u_max_30
-%     u_31(1) <= u_max_31
-%     u_32(1) <= u_max_32
-%     u_33(1) <= u_max_33
-%     u_34(1) <= u_max_34
-%     u_35(1) <= u_max_35
-%     u_36(1) <= u_max_36
-%     u_37(1) <= u_max_37
-%     u_38(1) <= u_max_38
-%     u_39(1) <= u_max_39
-%     u_0(1) >= -u_min_0
-%     u_1(1) >= -u_min_1
-%     u_2(1) >= -u_min_2
-%     u_3(1) >= -u_min_3
-%     u_4(1) >= -u_min_4
-%     u_5(1) >= -u_min_5
-%     u_6(1) >= -u_min_6
-%     u_7(1) >= -u_min_7
-%     u_8(1) >= -u_min_8
-%     u_9(1) >= -u_min_9
-%     u_10(1) >= -u_min_10
-%     u_11(1) >= -u_min_11
-%     u_12(1) >= -u_min_12
-%     u_13(1) >= -u_min_13
-%     u_14(1) >= -u_min_14
-%     u_15(1) >= -u_min_15
-%     u_16(1) >= -u_min_16
-%     u_17(1) >= -u_min_17
-%     u_18(1) >= -u_min_18
-%     u_19(1) >= -u_min_19
-%     u_20(1) >= -u_min_20
-%     u_21(1) >= -u_min_21
-%     u_22(1) >= -u_min_22
-%     u_23(1) >= -u_min_23
-%     u_24(1) >= -u_min_24
-%     u_25(1) >= -u_min_25
-%     u_26(1) >= -u_min_26
-%     u_27(1) >= -u_min_27
-%     u_28(1) >= -u_min_28
-%     u_29(1) >= -u_min_29
-%     u_30(1) >= -u_min_30
-%     u_31(1) >= -u_min_31
-%     u_32(1) >= -u_min_32
-%     u_33(1) >= -u_min_33
-%     u_34(1) >= -u_min_34
-%     u_35(1) >= -u_min_35
-%     u_36(1) >= -u_min_36
-%     u_37(1) >= -u_min_37
-%     u_38(1) >= -u_min_38
-%     u_39(1) >= -u_min_39
+%     x_1(2) <= x_max_2
+%     x_2(2) <= x_max_2
+%     x_3(2) <= x_max_2
+%     x_4(2) <= x_max_2
+%     x_5(2) <= x_max_2
+%     x_6(2) <= x_max_2
+%     x_7(2) <= x_max_2
+%     x_8(2) <= x_max_2
+%     x_9(2) <= x_max_2
+%     x_10(2) <= x_max_2
+%     x_11(2) <= x_max_2
+%     x_12(2) <= x_max_2
+%     x_13(2) <= x_max_2
+%     x_14(2) <= x_max_2
+%     x_15(2) <= x_max_2
+%     x_16(2) <= x_max_2
+%     x_17(2) <= x_max_2
+%     x_18(2) <= x_max_2
+%     x_19(2) <= x_max_2
+%     x_20(2) <= x_max_2
+%     x_21(2) <= x_max_2
+%     x_22(2) <= x_max_2
+%     x_23(2) <= x_max_2
+%     x_24(2) <= x_max_2
+%     x_25(2) <= x_max_2
+%     x_26(2) <= x_max_2
+%     x_27(2) <= x_max_2
+%     x_28(2) <= x_max_2
+%     x_29(2) <= x_max_2
+%     x_30(2) <= x_max_2
+%     x_31(2) <= x_max_2
+%     x_32(2) <= x_max_2
+%     x_33(2) <= x_max_2
+%     x_34(2) <= x_max_2
+%     x_35(2) <= x_max_2
+%     x_36(2) <= x_max_2
+%     x_37(2) <= x_max_2
+%     x_38(2) <= x_max_2
+%     x_39(2) <= x_max_2
+%     x_40(2) <= x_max_2
+%     x_1(2) >= -x_min_2
+%     x_2(2) >= -x_min_2
+%     x_3(2) >= -x_min_2
+%     x_4(2) >= -x_min_2
+%     x_5(2) >= -x_min_2
+%     x_6(2) >= -x_min_2
+%     x_7(2) >= -x_min_2
+%     x_8(2) >= -x_min_2
+%     x_9(2) >= -x_min_2
+%     x_10(2) >= -x_min_2
+%     x_11(2) >= -x_min_2
+%     x_12(2) >= -x_min_2
+%     x_13(2) >= -x_min_2
+%     x_14(2) >= -x_min_2
+%     x_15(2) >= -x_min_2
+%     x_16(2) >= -x_min_2
+%     x_17(2) >= -x_min_2
+%     x_18(2) >= -x_min_2
+%     x_19(2) >= -x_min_2
+%     x_20(2) >= -x_min_2
+%     x_21(2) >= -x_min_2
+%     x_22(2) >= -x_min_2
+%     x_23(2) >= -x_min_2
+%     x_24(2) >= -x_min_2
+%     x_25(2) >= -x_min_2
+%     x_26(2) >= -x_min_2
+%     x_27(2) >= -x_min_2
+%     x_28(2) >= -x_min_2
+%     x_29(2) >= -x_min_2
+%     x_30(2) >= -x_min_2
+%     x_31(2) >= -x_min_2
+%     x_32(2) >= -x_min_2
+%     x_33(2) >= -x_min_2
+%     x_34(2) >= -x_min_2
+%     x_35(2) >= -x_min_2
+%     x_36(2) >= -x_min_2
+%     x_37(2) >= -x_min_2
+%     x_38(2) >= -x_min_2
+%     x_39(2) >= -x_min_2
+%     x_40(2) >= -x_min_2
+%     x_1(3) <= x_max_3
+%     x_2(3) <= x_max_3
+%     x_3(3) <= x_max_3
+%     x_4(3) <= x_max_3
+%     x_5(3) <= x_max_3
+%     x_6(3) <= x_max_3
+%     x_7(3) <= x_max_3
+%     x_8(3) <= x_max_3
+%     x_9(3) <= x_max_3
+%     x_10(3) <= x_max_3
+%     x_11(3) <= x_max_3
+%     x_12(3) <= x_max_3
+%     x_13(3) <= x_max_3
+%     x_14(3) <= x_max_3
+%     x_15(3) <= x_max_3
+%     x_16(3) <= x_max_3
+%     x_17(3) <= x_max_3
+%     x_18(3) <= x_max_3
+%     x_19(3) <= x_max_3
+%     x_20(3) <= x_max_3
+%     x_21(3) <= x_max_3
+%     x_22(3) <= x_max_3
+%     x_23(3) <= x_max_3
+%     x_24(3) <= x_max_3
+%     x_25(3) <= x_max_3
+%     x_26(3) <= x_max_3
+%     x_27(3) <= x_max_3
+%     x_28(3) <= x_max_3
+%     x_29(3) <= x_max_3
+%     x_30(3) <= x_max_3
+%     x_31(3) <= x_max_3
+%     x_32(3) <= x_max_3
+%     x_33(3) <= x_max_3
+%     x_34(3) <= x_max_3
+%     x_35(3) <= x_max_3
+%     x_36(3) <= x_max_3
+%     x_37(3) <= x_max_3
+%     x_38(3) <= x_max_3
+%     x_39(3) <= x_max_3
+%     x_40(3) <= x_max_3
+%     x_1(3) >= -x_min_3
+%     x_2(3) >= -x_min_3
+%     x_3(3) >= -x_min_3
+%     x_4(3) >= -x_min_3
+%     x_5(3) >= -x_min_3
+%     x_6(3) >= -x_min_3
+%     x_7(3) >= -x_min_3
+%     x_8(3) >= -x_min_3
+%     x_9(3) >= -x_min_3
+%     x_10(3) >= -x_min_3
+%     x_11(3) >= -x_min_3
+%     x_12(3) >= -x_min_3
+%     x_13(3) >= -x_min_3
+%     x_14(3) >= -x_min_3
+%     x_15(3) >= -x_min_3
+%     x_16(3) >= -x_min_3
+%     x_17(3) >= -x_min_3
+%     x_18(3) >= -x_min_3
+%     x_19(3) >= -x_min_3
+%     x_20(3) >= -x_min_3
+%     x_21(3) >= -x_min_3
+%     x_22(3) >= -x_min_3
+%     x_23(3) >= -x_min_3
+%     x_24(3) >= -x_min_3
+%     x_25(3) >= -x_min_3
+%     x_26(3) >= -x_min_3
+%     x_27(3) >= -x_min_3
+%     x_28(3) >= -x_min_3
+%     x_29(3) >= -x_min_3
+%     x_30(3) >= -x_min_3
+%     x_31(3) >= -x_min_3
+%     x_32(3) >= -x_min_3
+%     x_33(3) >= -x_min_3
+%     x_34(3) >= -x_min_3
+%     x_35(3) >= -x_min_3
+%     x_36(3) >= -x_min_3
+%     x_37(3) >= -x_min_3
+%     x_38(3) >= -x_min_3
+%     x_39(3) >= -x_min_3
+%     x_40(3) >= -x_min_3
+%     u_0(1) <= u_max
+%     u_1(1) <= u_max
+%     u_2(1) <= u_max
+%     u_3(1) <= u_max
+%     u_4(1) <= u_max
+%     u_5(1) <= u_max
+%     u_6(1) <= u_max
+%     u_7(1) <= u_max
+%     u_8(1) <= u_max
+%     u_9(1) <= u_max
+%     u_10(1) <= u_max
+%     u_11(1) <= u_max
+%     u_12(1) <= u_max
+%     u_13(1) <= u_max
+%     u_14(1) <= u_max
+%     u_15(1) <= u_max
+%     u_16(1) <= u_max
+%     u_17(1) <= u_max
+%     u_18(1) <= u_max
+%     u_19(1) <= u_max
+%     u_20(1) <= u_max
+%     u_21(1) <= u_max
+%     u_22(1) <= u_max
+%     u_23(1) <= u_max
+%     u_24(1) <= u_max
+%     u_25(1) <= u_max
+%     u_26(1) <= u_max
+%     u_27(1) <= u_max
+%     u_28(1) <= u_max
+%     u_29(1) <= u_max
+%     u_30(1) <= u_max
+%     u_31(1) <= u_max
+%     u_32(1) <= u_max
+%     u_33(1) <= u_max
+%     u_34(1) <= u_max
+%     u_35(1) <= u_max
+%     u_36(1) <= u_max
+%     u_37(1) <= u_max
+%     u_38(1) <= u_max
+%     u_39(1) <= u_max
+%     u_0(1) >= -u_min
+%     u_1(1) >= -u_min
+%     u_2(1) >= -u_min
+%     u_3(1) >= -u_min
+%     u_4(1) >= -u_min
+%     u_5(1) >= -u_min
+%     u_6(1) >= -u_min
+%     u_7(1) >= -u_min
+%     u_8(1) >= -u_min
+%     u_9(1) >= -u_min
+%     u_10(1) >= -u_min
+%     u_11(1) >= -u_min
+%     u_12(1) >= -u_min
+%     u_13(1) >= -u_min
+%     u_14(1) >= -u_min
+%     u_15(1) >= -u_min
+%     u_16(1) >= -u_min
+%     u_17(1) >= -u_min
+%     u_18(1) >= -u_min
+%     u_19(1) >= -u_min
+%     u_20(1) >= -u_min
+%     u_21(1) >= -u_min
+%     u_22(1) >= -u_min
+%     u_23(1) >= -u_min
+%     u_24(1) >= -u_min
+%     u_25(1) >= -u_min
+%     u_26(1) >= -u_min
+%     u_27(1) >= -u_min
+%     u_28(1) >= -u_min
+%     u_29(1) >= -u_min
+%     u_30(1) >= -u_min
+%     u_31(1) >= -u_min
+%     u_32(1) >= -u_min
+%     u_33(1) >= -u_min
+%     u_34(1) >= -u_min
+%     u_35(1) >= -u_min
+%     u_36(1) >= -u_min
+%     u_37(1) >= -u_min
+%     u_38(1) >= -u_min
+%     u_39(1) >= -u_min
 %
 % with variables
 %      u_0   1 x 1
@@ -377,247 +377,13 @@
 %        Q   3 x 3    positive, PSD, diagonal
 %        R   1 x 1    positive, PSD
 %       R2   1 x 1    positive, PSD
-%  u_max_0   1 x 1
-%  u_max_1   1 x 1
-%  u_max_2   1 x 1
-%  u_max_3   1 x 1
-%  u_max_4   1 x 1
-%  u_max_5   1 x 1
-%  u_max_6   1 x 1
-%  u_max_7   1 x 1
-%  u_max_8   1 x 1
-%  u_max_9   1 x 1
-% u_max_10   1 x 1
-% u_max_11   1 x 1
-% u_max_12   1 x 1
-% u_max_13   1 x 1
-% u_max_14   1 x 1
-% u_max_15   1 x 1
-% u_max_16   1 x 1
-% u_max_17   1 x 1
-% u_max_18   1 x 1
-% u_max_19   1 x 1
-% u_max_20   1 x 1
-% u_max_21   1 x 1
-% u_max_22   1 x 1
-% u_max_23   1 x 1
-% u_max_24   1 x 1
-% u_max_25   1 x 1
-% u_max_26   1 x 1
-% u_max_27   1 x 1
-% u_max_28   1 x 1
-% u_max_29   1 x 1
-% u_max_30   1 x 1
-% u_max_31   1 x 1
-% u_max_32   1 x 1
-% u_max_33   1 x 1
-% u_max_34   1 x 1
-% u_max_35   1 x 1
-% u_max_36   1 x 1
-% u_max_37   1 x 1
-% u_max_38   1 x 1
-% u_max_39   1 x 1
-%  u_min_0   1 x 1
-%  u_min_1   1 x 1
-%  u_min_2   1 x 1
-%  u_min_3   1 x 1
-%  u_min_4   1 x 1
-%  u_min_5   1 x 1
-%  u_min_6   1 x 1
-%  u_min_7   1 x 1
-%  u_min_8   1 x 1
-%  u_min_9   1 x 1
-% u_min_10   1 x 1
-% u_min_11   1 x 1
-% u_min_12   1 x 1
-% u_min_13   1 x 1
-% u_min_14   1 x 1
-% u_min_15   1 x 1
-% u_min_16   1 x 1
-% u_min_17   1 x 1
-% u_min_18   1 x 1
-% u_min_19   1 x 1
-% u_min_20   1 x 1
-% u_min_21   1 x 1
-% u_min_22   1 x 1
-% u_min_23   1 x 1
-% u_min_24   1 x 1
-% u_min_25   1 x 1
-% u_min_26   1 x 1
-% u_min_27   1 x 1
-% u_min_28   1 x 1
-% u_min_29   1 x 1
-% u_min_30   1 x 1
-% u_min_31   1 x 1
-% u_min_32   1 x 1
-% u_min_33   1 x 1
-% u_min_34   1 x 1
-% u_min_35   1 x 1
-% u_min_36   1 x 1
-% u_min_37   1 x 1
-% u_min_38   1 x 1
-% u_min_39   1 x 1
+%    u_max   1 x 1
+%    u_min   1 x 1
 %      x_0   3 x 1
-% x_max_2_1   1 x 1
-% x_max_2_2   1 x 1
-% x_max_2_3   1 x 1
-% x_max_2_4   1 x 1
-% x_max_2_5   1 x 1
-% x_max_2_6   1 x 1
-% x_max_2_7   1 x 1
-% x_max_2_8   1 x 1
-% x_max_2_9   1 x 1
-% x_max_2_10   1 x 1
-% x_max_2_11   1 x 1
-% x_max_2_12   1 x 1
-% x_max_2_13   1 x 1
-% x_max_2_14   1 x 1
-% x_max_2_15   1 x 1
-% x_max_2_16   1 x 1
-% x_max_2_17   1 x 1
-% x_max_2_18   1 x 1
-% x_max_2_19   1 x 1
-% x_max_2_20   1 x 1
-% x_max_2_21   1 x 1
-% x_max_2_22   1 x 1
-% x_max_2_23   1 x 1
-% x_max_2_24   1 x 1
-% x_max_2_25   1 x 1
-% x_max_2_26   1 x 1
-% x_max_2_27   1 x 1
-% x_max_2_28   1 x 1
-% x_max_2_29   1 x 1
-% x_max_2_30   1 x 1
-% x_max_2_31   1 x 1
-% x_max_2_32   1 x 1
-% x_max_2_33   1 x 1
-% x_max_2_34   1 x 1
-% x_max_2_35   1 x 1
-% x_max_2_36   1 x 1
-% x_max_2_37   1 x 1
-% x_max_2_38   1 x 1
-% x_max_2_39   1 x 1
-% x_max_2_40   1 x 1
-% x_max_3_1   1 x 1
-% x_max_3_2   1 x 1
-% x_max_3_3   1 x 1
-% x_max_3_4   1 x 1
-% x_max_3_5   1 x 1
-% x_max_3_6   1 x 1
-% x_max_3_7   1 x 1
-% x_max_3_8   1 x 1
-% x_max_3_9   1 x 1
-% x_max_3_10   1 x 1
-% x_max_3_11   1 x 1
-% x_max_3_12   1 x 1
-% x_max_3_13   1 x 1
-% x_max_3_14   1 x 1
-% x_max_3_15   1 x 1
-% x_max_3_16   1 x 1
-% x_max_3_17   1 x 1
-% x_max_3_18   1 x 1
-% x_max_3_19   1 x 1
-% x_max_3_20   1 x 1
-% x_max_3_21   1 x 1
-% x_max_3_22   1 x 1
-% x_max_3_23   1 x 1
-% x_max_3_24   1 x 1
-% x_max_3_25   1 x 1
-% x_max_3_26   1 x 1
-% x_max_3_27   1 x 1
-% x_max_3_28   1 x 1
-% x_max_3_29   1 x 1
-% x_max_3_30   1 x 1
-% x_max_3_31   1 x 1
-% x_max_3_32   1 x 1
-% x_max_3_33   1 x 1
-% x_max_3_34   1 x 1
-% x_max_3_35   1 x 1
-% x_max_3_36   1 x 1
-% x_max_3_37   1 x 1
-% x_max_3_38   1 x 1
-% x_max_3_39   1 x 1
-% x_max_3_40   1 x 1
-% x_min_2_1   1 x 1
-% x_min_2_2   1 x 1
-% x_min_2_3   1 x 1
-% x_min_2_4   1 x 1
-% x_min_2_5   1 x 1
-% x_min_2_6   1 x 1
-% x_min_2_7   1 x 1
-% x_min_2_8   1 x 1
-% x_min_2_9   1 x 1
-% x_min_2_10   1 x 1
-% x_min_2_11   1 x 1
-% x_min_2_12   1 x 1
-% x_min_2_13   1 x 1
-% x_min_2_14   1 x 1
-% x_min_2_15   1 x 1
-% x_min_2_16   1 x 1
-% x_min_2_17   1 x 1
-% x_min_2_18   1 x 1
-% x_min_2_19   1 x 1
-% x_min_2_20   1 x 1
-% x_min_2_21   1 x 1
-% x_min_2_22   1 x 1
-% x_min_2_23   1 x 1
-% x_min_2_24   1 x 1
-% x_min_2_25   1 x 1
-% x_min_2_26   1 x 1
-% x_min_2_27   1 x 1
-% x_min_2_28   1 x 1
-% x_min_2_29   1 x 1
-% x_min_2_30   1 x 1
-% x_min_2_31   1 x 1
-% x_min_2_32   1 x 1
-% x_min_2_33   1 x 1
-% x_min_2_34   1 x 1
-% x_min_2_35   1 x 1
-% x_min_2_36   1 x 1
-% x_min_2_37   1 x 1
-% x_min_2_38   1 x 1
-% x_min_2_39   1 x 1
-% x_min_2_40   1 x 1
-% x_min_3_1   1 x 1
-% x_min_3_2   1 x 1
-% x_min_3_3   1 x 1
-% x_min_3_4   1 x 1
-% x_min_3_5   1 x 1
-% x_min_3_6   1 x 1
-% x_min_3_7   1 x 1
-% x_min_3_8   1 x 1
-% x_min_3_9   1 x 1
-% x_min_3_10   1 x 1
-% x_min_3_11   1 x 1
-% x_min_3_12   1 x 1
-% x_min_3_13   1 x 1
-% x_min_3_14   1 x 1
-% x_min_3_15   1 x 1
-% x_min_3_16   1 x 1
-% x_min_3_17   1 x 1
-% x_min_3_18   1 x 1
-% x_min_3_19   1 x 1
-% x_min_3_20   1 x 1
-% x_min_3_21   1 x 1
-% x_min_3_22   1 x 1
-% x_min_3_23   1 x 1
-% x_min_3_24   1 x 1
-% x_min_3_25   1 x 1
-% x_min_3_26   1 x 1
-% x_min_3_27   1 x 1
-% x_min_3_28   1 x 1
-% x_min_3_29   1 x 1
-% x_min_3_30   1 x 1
-% x_min_3_31   1 x 1
-% x_min_3_32   1 x 1
-% x_min_3_33   1 x 1
-% x_min_3_34   1 x 1
-% x_min_3_35   1 x 1
-% x_min_3_36   1 x 1
-% x_min_3_37   1 x 1
-% x_min_3_38   1 x 1
-% x_min_3_39   1 x 1
-% x_min_3_40   1 x 1
+%  x_max_2   1 x 1
+%  x_max_3   1 x 1
+%  x_min_2   1 x 1
+%  x_min_3   1 x 1
 %   x_ss_1   3 x 1
 %   x_ss_2   3 x 1
 %   x_ss_3   3 x 1
@@ -668,7 +434,7 @@
 %
 % Specify params.A, ..., params.x_ss_40, then run
 %   [vars, status] = csolve(params, settings)
-% Produced by CVXGEN, 2018-08-14 08:45:33 -0400.
+% Produced by CVXGEN, 2018-08-16 08:50:14 -0400.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial

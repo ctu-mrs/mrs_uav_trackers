@@ -110,24 +110,13 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   ROS_INFO("Cvx wrapper initiated");
 }
-void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, int i) {
-  x_max_2_mem[i] = max_speed;
-  x_min_2_mem[i] = min_speed;
-  x_max_3_mem[i] = max_acc;
-  x_min_3_mem[i] = min_acc;
-  u_max_mem[i]   = max_jerk;
-  u_min_mem[i]   = min_jerk;
-}
-
-void CvxWrapper::activateLimits() {
-  for (int i = 0; i < horizon_len; i++) {
-    *params.x_max_2[i + 1] = x_max_2_mem[i];
-    *params.x_min_2[i + 1] = x_min_2_mem[i];
-    *params.x_max_3[i + 1] = x_max_3_mem[i];
-    *params.x_min_3[i + 1] = x_min_3_mem[i];
-    *params.u_max[i]       = u_max_mem[i];
-    *params.u_min[i]       = u_max_mem[i];
-  }
+void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk) {
+  params.x_max_2[0] = max_speed;
+  params.x_min_2[0] = min_speed;
+  params.x_max_3[0] = max_acc;
+  params.x_min_3[0] = min_acc;
+  params.u_max[0]   = max_jerk;
+  params.u_min[0]   = min_jerk;
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {

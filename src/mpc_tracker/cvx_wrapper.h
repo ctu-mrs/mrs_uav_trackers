@@ -13,8 +13,7 @@ public:
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);
-  void setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, int i);
-  void activateLimits();
+  void setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk);
   int  solveCvx();
   void getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInput();
