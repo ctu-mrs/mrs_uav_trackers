@@ -4,7 +4,7 @@
 #include <cmath>
 #include <mutex>
 #include <tf/transform_datatypes.h>
-#include <eigen3/Eigen/Eigen>
+#include <Eigen/Eigen>
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
