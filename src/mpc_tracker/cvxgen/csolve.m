@@ -434,7 +434,7 @@
 %
 % Specify params.A, ..., params.x_ss_40, then run
 %   [vars, status] = csolve(params, settings)
-% Produced by CVXGEN, 2018-08-01 04:25:30 -0400.
+% Produced by CVXGEN, 2018-08-17 05:06:15 -0400.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
