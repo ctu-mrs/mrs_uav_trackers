@@ -17,7 +17,7 @@ mrs_collision_avoidance:
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
   collision_slow_down_fully: 10 # when collision detected, slow down fully this number of steps before it
   collision_slow_down_start: 25 # when collision detected, start slowing down this number of steps before it
-  collision_slowing_hysteresis: 2.0 # [s] prolonging the slowing
+  collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
   numberOfStates: 9
@@ -66,7 +66,7 @@ cvxgenMpc:
   dt: 0.02
   dt2: 0.2
 
-  maxHorizontalSpeed: 8.0
+  maxHorizontalSpeed: 4.0
   maxHorizontalAcceleration: 2.0
   maxHorizontalJerk: 3.0
 

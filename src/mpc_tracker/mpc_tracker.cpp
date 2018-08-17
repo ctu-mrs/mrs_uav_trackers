@@ -227,6 +227,7 @@ private:
   double collision_horizontal_speed_coef;
   int    collision_slow_down_fully;
   int    collision_slow_down_start;
+  int    collision_start_climbing;
   int    earliest_collision_idx;
   double collision_trajectory_timeout;
 
@@ -607,6 +608,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
   nh_.param("mrs_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef, 0.25);
   nh_.param("mrs_collision_avoidance/collision_slow_down_fully", collision_slow_down_fully, 10);
   nh_.param("mrs_collision_avoidance/collision_slow_down_start", collision_slow_down_start, 25);
+  nh_.param("mrs_collision_avoidance/collision_start_climbing", collision_start_climbing, 25);
   nh_.param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout, 1.0);
 
   // collision avoidance toggle service
@@ -1734,7 +1736,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
             // we should be avoiding
             avoiding                 = true;
             double tmp_safe_altitude = u->second.points[v].z + mrs_collision_avoidance_correction;
-            if (tmp_safe_altitude > collision_free_altitude) {
+            if (tmp_safe_altitude > collision_free_altitude && v <= collision_start_climbing) {
               collision_free_altitude = tmp_safe_altitude;
             }
             ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_uav_priority);
@@ -1945,15 +1947,6 @@ void MpcTracker::calculateMPC() {
   min_speed_z = max_vertical_descending_speed;
   min_acc_z   = max_vertical_descending_acceleration;
   min_jerk_z  = max_vertical_descending_jerk;
-  if (collision_free_altitude > lowest_z) {
-    // we are avoiding someone, increase Z dynamics limit for faster evasion
-    max_speed_z = 4.0;
-    max_acc_z   = 2.0;
-    max_jerk_z  = 4.0;
-    min_speed_z = 4.0;
-    min_acc_z   = 2.0;
-    min_jerk_z  = 4.0;
-  }
 
   if (first_collision_index < horizon_len) {
     // the tmp variable is used to scale the speed of our drone in collision avoidance, depending on how far away the collision is
@@ -1977,8 +1970,8 @@ void MpcTracker::calculateMPC() {
       coef_scaler = tmp;
       coef_time   = ros::Time::now();
     }
-    if((ros::Time::now() - coef_time).toSec() > 2.0){
-        coef_scaler = tmp;
+    if ((ros::Time::now() - coef_time).toSec() > 2.0) {
+      coef_scaler = tmp;
     }
 
 
@@ -1987,6 +1980,19 @@ void MpcTracker::calculateMPC() {
     max_speed_x = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
     max_speed_y = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
   }
+
+  if (collision_free_altitude > lowest_z) {
+    // we are avoiding someone, increase Z dynamics limit for faster evasion
+    max_speed_z = 4.0;
+    max_acc_z   = 2.0;
+    max_jerk_z  = 4.0;
+    min_speed_z = 4.0;
+    min_acc_z   = 2.0;
+    min_jerk_z  = 4.0;
+    max_speed_x = max_horizontal_speed * (collision_horizontal_speed_coef);
+    max_speed_y = max_horizontal_speed * (collision_horizontal_speed_coef);
+  }
+
 
   if (!tracking_trajectory_ && (dist(x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
     // yaw angle at which my drone "sees" the goto reference point
