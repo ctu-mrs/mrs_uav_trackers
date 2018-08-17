@@ -1,4 +1,4 @@
-# Produced by CVXGEN, 2018-08-16 08:50:14 -0400.
+# Produced by CVXGEN, 2018-08-17 05:06:15 -0400.
 # CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 # The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 # CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
@@ -36,7 +36,7 @@ end
 
 variables
   x[t] (n), t=1..T  # state
-  u[t] (m), t=0..T  # input
+  u[t] (m), t=0..T-1  # input
 end
 
 minimize

@@ -1974,8 +1974,6 @@ void MpcTracker::calculateMPC() {
       coef_scaler = tmp;
     }
 
-
-    ROS_INFO_STREAM("[MpcTracker]: " << tmp);
     // We are close to a possible collision, better slow down a bit to give everyone more time
     max_speed_x = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
     max_speed_y = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));

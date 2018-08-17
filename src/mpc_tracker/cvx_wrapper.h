@@ -18,14 +18,9 @@ public:
   void getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInput();
   int    dim;
+
 private:
-static const int horizon_len = 40;
-double x_max_2_mem[horizon_len];
-double x_min_2_mem[horizon_len];
-double x_max_3_mem[horizon_len];
-double x_min_3_mem[horizon_len];
-double u_max_mem[horizon_len];
-double u_min_mem[horizon_len];
+  static const int horizon_len = 40;
 };
 
 #endif
