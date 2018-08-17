@@ -30,7 +30,7 @@ class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -146,7 +146,7 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 //{ initialize()
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 

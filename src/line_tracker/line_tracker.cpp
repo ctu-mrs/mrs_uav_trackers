@@ -40,7 +40,7 @@ class LineTracker : public mrs_mav_manager::Tracker {
 public:
   LineTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -148,7 +148,7 @@ LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 
 //{ initialize()
 
-void LineTracker::initialize(const ros::NodeHandle &parent_nh) {
+void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area) {
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
 

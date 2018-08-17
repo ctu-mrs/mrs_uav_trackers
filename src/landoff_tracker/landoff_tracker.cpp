@@ -40,7 +40,7 @@ class LandoffTracker : public mrs_mav_manager::Tracker {
 public:
   LandoffTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -64,6 +64,9 @@ public:
 
 private:
   bool callbacks_enabled = true;
+
+private:
+  mrs_mav_manager::SafetyArea const *safety_area;
 
 private:
   nav_msgs::Odometry odometry;
@@ -168,7 +171,9 @@ LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
 
 //{ initialize()
 
-void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+
+  this->safety_area = safety_area;
 
   ros::NodeHandle nh_(parent_nh, "landoff_tracker");
 
@@ -345,6 +350,20 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   if (!got_odometry) {
     ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
     return false;
+  }
+
+  // we should not activate if we are not in the safety area
+  if (odometry_z < landed_threshold_height_) {
+
+    mutex_odometry.lock();
+    {
+      if (!safety_area->isPointInSafetyArea2d(odometry.pose.pose.position.x, odometry.pose.pose.position.y)) {
+        ROS_ERROR("[LandoffTracker]: can't activate(), we are outside of the safety area");
+        mutex_odometry.unlock();
+        return false;
+      }
+    }
+    mutex_odometry.unlock();
   }
 
   mutex_odometry.lock();
