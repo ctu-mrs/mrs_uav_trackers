@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-08-01 04:25:40 -0400.  */
+/* Produced by CVXGEN, 2018-08-17 05:06:22 -0400.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -435,7 +435,7 @@ void better_start(void) {
   /* Calculates a better starting point, using a similar approach to CVXOPT. */
   /* Not yet speed optimized. */
   int i;
-  double *x, *s, *z, *y;
+  double *x, *z, *y;
   double alpha;
   work.block_33[0] = -1;
   /* Make sure sinvz is 1 to make hijacked KKT system ok. */
@@ -448,7 +448,6 @@ void better_start(void) {
   ldl_solve(work.rhs, work.lhs_aff);
   /* Don't do any refinement for now. Precision doesn't matter too much. */
   x = work.lhs_aff;
-  s = work.lhs_aff + 160;
   z = work.lhs_aff + 400;
   y = work.lhs_aff + 640;
   /* Just set x and y as is. */

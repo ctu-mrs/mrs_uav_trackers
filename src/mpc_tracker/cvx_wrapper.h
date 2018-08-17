@@ -13,13 +13,14 @@ public:
 
   void setInitialState(Eigen::MatrixXd &x);
   void loadReference(Eigen::MatrixXd &reference);
-  void setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk);
+  void setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, int q_vel);
   int  solveCvx();
   void getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInput();
   int    dim;
 
 private:
+  static const int horizon_len = 40;
 };
 
 #endif

@@ -17,43 +17,43 @@ mrs_collision_avoidance:
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
   collision_horizontal_acceleration_coef: 0.5 # when collision detected, keep the acceleration down during the manouvre
   collision_slow_down_before: 10 # when collision detected, slow down this number of steps before it
-  collision_slowing_hysteresis: 2.0 # [s] prolonging the slowing
+  collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
   numberOfStates: 9
   numberOfInputs: 3
 
-  A: [1, 0.02, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.02, 0, 0, 0, 0, 0, 0,
+  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
+      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.02, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.02, 0, 0, 0,
+      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
+      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
       0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.02, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.02,
+      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
+      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
       0, 0, 0, 0, 0, 0, 0, 0, 1]
 
   B: [0, 0, 0,
       0, 0, 0,
-      0.02, 0, 0,
+      0.01, 0, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0.02, 0,
+      0, 0.01, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0, 0.02]
+      0, 0, 0.01]
 
 yawModel:
   numberOfStates: 3
   numberOfInputs: 1
 
-  A: [1, 0.02, 0,
-      0, 1, 0.02,
+  A: [1, 0.01, 0,
+      0, 1, 0.01,
       0, 0, 1]
 
   B: [0,
       0,
-      0.02]
+      0.01]
 
 yawTracker:
   yawGain: 1.0
@@ -63,8 +63,10 @@ cvxgenMpc:
   horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
   maxTrajectorySize: 5000
 
-  dt: 0.02
+  dt: 0.01
   dt2: 0.2
+
+  no_overshoots: true # disable for more aggresive flight
 
   maxHorizontalSpeed: 5.0
   maxHorizontalAcceleration: 2.0

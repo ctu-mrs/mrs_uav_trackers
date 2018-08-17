@@ -9,51 +9,51 @@ mrs_collision_avoidance:
   enable: true
   use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
-  drone_names: [uav1, uav2, uav3, uav4, uav5, uav5,  uav7, uav8, uav11, uav12, uav13, uav14, uav15]
+  drone_names: [uav1, uav2, uav3, uav4, uav5, uav6,  uav7, uav8, uav11, uav12, uav13, uav14, uav15]
   radius: 5.0 # [m]
-  altitude_threshold: 2.95 # [m]
+  altitude_threshold: 2.9 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
-  collision_horizontal_acceleration_coef: 1.0 # when collision detected, keep the acceleration down during the manouvre
-  collision_slow_down_before: 10 # when collision detected, slow down this number of steps before it
-  collision_slowing_hysteresis: 2.0 # [s] prolonging the slowing
+  collision_slow_down_fully: 10 # when collision detected, slow down fully this number of steps before it
+  collision_slow_down_start: 25 # when collision detected, start slowing down this number of steps before it
+  collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
   numberOfStates: 9
   numberOfInputs: 3
 
-  A: [1, 0.02, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.02, 0, 0, 0, 0, 0, 0,
+  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
+      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.02, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.02, 0, 0, 0,
+      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
+      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
       0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.02, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.02,
+      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
+      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
       0, 0, 0, 0, 0, 0, 0, 0, 1]
 
   B: [0, 0, 0,
       0, 0, 0,
-      0.02, 0, 0,
+      0.01, 0, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0.02, 0,
+      0, 0.01, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0, 0.02]
+      0, 0, 0.01]
 
 yawModel:
   numberOfStates: 3
   numberOfInputs: 1
 
-  A: [1, 0.02, 0,
-      0, 1, 0.02,
+  A: [1, 0.01, 0,
+      0, 1, 0.01,
       0, 0, 1]
 
   B: [0,
       0,
-      0.02]
+      0.01]
 
 yawTracker:
   yawGain: 1.0
@@ -63,8 +63,10 @@ cvxgenMpc:
   horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
   maxTrajectorySize: 5000
 
-  dt: 0.02
+  dt: 0.01
   dt2: 0.2
+
+  no_overshoots: true # disable for more aggresive flight
 
   maxHorizontalSpeed: 8.0
   maxHorizontalAcceleration: 2.0
@@ -88,17 +90,17 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]
 
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]
 
 cvxWrapperYaw:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]
