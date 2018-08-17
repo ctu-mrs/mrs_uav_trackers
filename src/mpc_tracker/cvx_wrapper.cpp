@@ -105,13 +105,14 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
 
   ROS_INFO("Cvx wrapper initiated");
 }
-void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk) {
+void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, int q_vel) {
   params.x_max_2[0] = max_speed;
   params.x_min_2[0] = min_speed;
   params.x_max_3[0] = max_acc;
   params.x_min_3[0] = min_acc;
   params.u_max[0]   = max_jerk;
   params.u_min[0]   = min_jerk;
+  params.Q[1]       = q_vel;
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {
@@ -128,11 +129,6 @@ int CvxWrapper::solveCvx() {
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {
-
-  /* ROS_INFO_STREAM("[cvxgen]: " << *(vars.x_20) << " " << *(vars.x_30) << " " << *(vars.x_37) << " " << *(vars.x_38) << " " << *(vars.x_39) << " "); */
-  /* ROS_INFO_STREAM("[cvxgen]:par " << params.x_ss_20[0] << " " << params.x_ss_30[0] << " " << params.x_ss_38[0] << " " << params.x_ss_39[0] << " " */
-  /*                                 << params.x_ss_40[0] << " "); */
-
   for (int i = 0; i < horizon_len; i++) {
     future_traj(0 + dim + (i * 9)) = *(vars.x[i + 1]);
     future_traj(1 + dim + (i * 9)) = *(vars.x[i + 1] + 1);

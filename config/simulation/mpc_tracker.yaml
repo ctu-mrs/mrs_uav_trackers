@@ -66,6 +66,8 @@ cvxgenMpc:
   dt: 0.01
   dt2: 0.2
 
+  no_overshoots: false # disable for more aggresive flight
+
   maxHorizontalSpeed: 8.0
   maxHorizontalAcceleration: 2.0
   maxHorizontalJerk: 3.0
@@ -88,17 +90,17 @@ cvxgenMpc:
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]
 
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]
 
 cvxWrapperYaw:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 7500, 0]
+  Q: [5000, 0, 0]
   R: [500]

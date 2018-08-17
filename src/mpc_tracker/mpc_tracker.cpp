@@ -157,8 +157,9 @@ private:
   CvxWrapper *cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
-  MatrixXd A;        // system matrix for virtual UAV
-  MatrixXd B;        // input matrix for virtual UAV
+  bool     no_overshoots;
+  MatrixXd A;  // system matrix for virtual UAV
+  MatrixXd B;  // input matrix for virtual UAV
 
   MatrixXd A_yaw;  // system matrix for yaw
   MatrixXd B_yaw;  // input matrix for yaw
@@ -443,6 +444,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   nh_.param("cvxgenMpc/maxAltitude", max_altitude_, 0.0);
   nh_.param("cvxgenMpc/minAltitude", min_altitude_, 1.0);
+
+  nh_.param("cvxgenMpc/no_overshoots", no_overshoots, true);
 
   nh_.param("diagnostics_rate", diagnostics_rate, 1.0);
   nh_.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
@@ -2017,10 +2020,11 @@ void MpcTracker::calculateMPC() {
   VectorXd cvx_u     = VectorXd::Zero(m);
   double   cvx_u_yaw = 0;
 
-  iters_Z   = 0;
-  iters_X   = 0;
-  iters_Y   = 0;
-  iters_YAW = 0;
+  iters_Z      = 0;
+  iters_X      = 0;
+  iters_Y      = 0;
+  iters_YAW    = 0;
+  double vel_q = 0;
 
   ros::Time time_begin = ros::Time::now();
 
@@ -2029,9 +2033,15 @@ void MpcTracker::calculateMPC() {
   initial_x(1, 0) = x(1, 0);
   initial_x(2, 0) = x(2, 0);
 
+  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0 && no_overshoots) {
+    vel_q = 8000;
+  } else {
+    vel_q = 0;
+  }
+
   cvx_x->setInitialState(initial_x);
   cvx_x->loadReference(des_x_filtered);
-  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x);
+  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, vel_q);
   iters_X += cvx_x->solveCvx();
   cvx_x->getStates(predicted_future_trajectory);
   cvx_u(0) = cvx_x->getFirstControlInput();
@@ -2041,9 +2051,15 @@ void MpcTracker::calculateMPC() {
   initial_y(1, 0) = x(4, 0);
   initial_y(2, 0) = x(5, 0);
 
+  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0 && no_overshoots) {
+    vel_q = 8000;
+  } else {
+    vel_q = 0;
+  }
+
   cvx_y->setInitialState(initial_y);
   cvx_y->loadReference(des_y_filtered);
-  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y);
+  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, vel_q);
   iters_Y += cvx_y->solveCvx();
   cvx_y->getStates(predicted_future_trajectory);
   cvx_u(1) = cvx_y->getFirstControlInput();
@@ -2053,9 +2069,15 @@ void MpcTracker::calculateMPC() {
   initial_z(1, 0) = x(7, 0);
   initial_z(2, 0) = x(8, 0);
 
+  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 6, 0) - des_z_trajectory(0, 0)) < 2.0 && no_overshoots) {
+    vel_q = 8000;
+  } else {
+    vel_q = 0;
+  }
+
   cvx_z->setInitialState(initial_z);
   cvx_z->loadReference(des_z_filtered_offset);
-  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk);
+  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk, vel_q);
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
@@ -2064,7 +2086,7 @@ void MpcTracker::calculateMPC() {
   // | ---------------------- cvxgen YAW axis --------------------- |
   cvx_yaw->setInitialState(x_yaw);
   cvx_yaw->loadReference(des_yaw_trajectory);
-  cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk);
+  cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, 0);
   iters_YAW += cvx_yaw->solveCvx();
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 

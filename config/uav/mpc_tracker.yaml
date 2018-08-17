@@ -66,6 +66,8 @@ cvxgenMpc:
   dt: 0.02
   dt2: 0.2
 
+  no_overshoots: true # disable for more aggresive flight
+
   maxHorizontalSpeed: 5.0
   maxHorizontalAcceleration: 2.0
   maxHorizontalJerk: 3.0
