@@ -23,37 +23,37 @@ dynamicalModel:
   numberOfStates: 9
   numberOfInputs: 3
 
-  A: [1, 0.02, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.02, 0, 0, 0, 0, 0, 0,
+  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
+      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
       0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.02, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.02, 0, 0, 0,
+      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
+      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
       0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.02, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.02,
+      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
+      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
       0, 0, 0, 0, 0, 0, 0, 0, 1]
 
   B: [0, 0, 0,
       0, 0, 0,
-      0.02, 0, 0,
+      0.01, 0, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0.02, 0,
+      0, 0.01, 0,
       0, 0, 0,
       0, 0, 0,
-      0, 0, 0.02]
+      0, 0, 0.01]
 
 yawModel:
   numberOfStates: 3
   numberOfInputs: 1
 
-  A: [1, 0.02, 0,
-      0, 1, 0.02,
+  A: [1, 0.01, 0,
+      0, 1, 0.01,
       0, 0, 1]
 
   B: [0,
       0,
-      0.02]
+      0.01]
 
 yawTracker:
   yawGain: 1.0
@@ -63,7 +63,7 @@ cvxgenMpc:
   horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
   maxTrajectorySize: 5000
 
-  dt: 0.02
+  dt: 0.01
   dt2: 0.2
 
   no_overshoots: true # disable for more aggresive flight
