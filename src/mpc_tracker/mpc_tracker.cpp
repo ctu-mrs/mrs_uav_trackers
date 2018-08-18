@@ -38,7 +38,7 @@ class MpcTracker : public mrs_mav_manager::Tracker {
 public:
   MpcTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -98,8 +98,7 @@ private:
   double yaw_gain;
 
   // safety area
-  mrs_lib::ConvexPolygon *safety_area;
-  bool                    use_safety_area;
+  mrs_mav_manager::SafetyArea const *safety_area;
 
   // variables regarding the MPC controller
   int       n;            // number of states
@@ -305,7 +304,9 @@ MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialize
 
 //{ initialize()
 
-void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+
+  this->safety_area = safety_area;
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
 
@@ -315,47 +316,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   std::vector<double> tempList, tempList2, UvaluesList;
   int                 tempIdx;
-
-  // safety area
-  nh_.param("use_safety_area", use_safety_area, false);
-  // load the main system matrix
-  nh_.getParam("safety_area", tempList);
-
-  // check if the safety area has odd number of numbers (x, y coordinates)
-  if ((tempList.size() % 2) == 1) {
-
-    ROS_ERROR("[MpcTracker]: Safety area is not correctly defined!, Exitting...");
-    ros::shutdown();
-  }
-
-  // how many points are there in the safety area?
-  int safety_area_size = tempList.size() / 2;
-
-  MatrixXd tempMatrix = MatrixXd::Zero(safety_area_size, 2);
-  tempIdx             = 0;
-  for (int i = 0; i < safety_area_size; i++) {
-    for (int j = 0; j < 2; j++) {
-      tempMatrix(i, j) = tempList[tempIdx++];
-    }
-  }
-
-  try {
-
-    safety_area = new mrs_lib::ConvexPolygon(tempMatrix);
-  }
-  catch (mrs_lib::ConvexPolygon::WrongNumberOfVertices) {
-
-    ROS_ERROR("[MpcTracker]: Exception caught. Wrong number of vertices was supplied to create the safety area.");
-    ros::shutdown();
-  }
-  catch (mrs_lib::ConvexPolygon::PolygonNotConvexException) {
-
-    ROS_ERROR("[MpcTracker]: Exception caught. Polygon supplied to create the safety area is not convex.");
-    ros::shutdown();
-  }
-  catch (mrs_lib::ConvexPolygon::WrongNumberOfColumns) {
-    ROS_ERROR("[MpcTracker]: Exception caught. Wrong number of columns was supplied to the safety area.");
-  }
 
   // load parameters for yaw_tracker
   nh_.param("yawTracker/maxYawRate", max_yaw_rate_old, 0.0);
@@ -1033,18 +993,14 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Requ
 
     res.success = false;
     res.message = "Failsafe is active!";
-
-  } else if (!setGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-    res.message = tempStr;
   }
+
+  setGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
+  res.message = tempStr;
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
@@ -1075,17 +1031,14 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
 
     res.success = false;
     res.message = "Failsafe is active!";
-  } else if (!setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-    res.message = tempStr;
   }
+
+  setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
+  res.message = tempStr;
 
   return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
 }
@@ -1116,18 +1069,14 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::
 
     res.success = false;
     res.message = "Failsafe is active!";
-
-  } else if (!setGoal(x(0, 0), x(3, 0), cmd->goal, x_yaw(0, 0), false)) {
-
-    res.success = false;
-    res.message = "Cannot set the goal. It is probably outside of the safety area.";
-  } else {
-
-    res.success = true;
-    char tempStr[100];
-    sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
-    res.message = tempStr;
   }
+
+  setGoal(x(0, 0), x(3, 0), cmd->goal, x_yaw(0, 0), false);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
+  res.message = tempStr;
 
   return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
 }
@@ -1173,11 +1122,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
   } else {
 
     // TODO: should set goal when flying to a setpoint
-    if (!setGoal(x(0, 0), x(3, 0), x(6, 0), mrs_trackers_commons::validateYawSetpoint(cmd->goal), true)) {
-
-      res.success = false;
-      res.message = "Cannot set the goal. It is probably outside of the safety area.";
-    }
+    setGoal(x(0, 0), x(3, 0), x(6, 0), mrs_trackers_commons::validateYawSetpoint(cmd->goal), true);
   }
 
   res.success = true;
@@ -1242,12 +1187,8 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
   } else {
 
-    if (!setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
-                 mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true)) {
-
-      res.success = false;
-      res.message = "Cannot set the goal. It is probably outside of the safety area.";
-    }
+    setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
+            mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true);
   }
 
   res.success = true;
@@ -1469,12 +1410,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, s
 
   if (trajectory_set_) {
 
-    if (!setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true)) {
-
-      res.success = false;
-      res.message = "Cannot set the goal. It is probably outside of the safety area.";
-      return true;
-    }
+    setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true);
 
     if (use_yaw_in_trajectory)
       desired_yaw = des_yaw_whole_trajectory[0];
@@ -2203,14 +2139,6 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
     des_yaw_mutex.unlock();
   }
 
-  if (use_safety_area) {
-
-    if (!safety_area->isPointIn(abs_x, abs_y)) {
-
-      return false;
-    }
-  }
-
   des_trajectory_mutex.lock();
   tracking_trajectory_ = false;
   des_trajectory_mutex.unlock();
@@ -2294,14 +2222,14 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     bool trajectory_is_ok = true;
     // check the safety area
-    if (use_safety_area) {
+    if (safety_area->use_safety_area) {
 
       int last_valid_idx    = 0;
       int first_invalid_idx = -1;
       for (int i = 0; i < trajectory_size; i++) {
 
         // the point is not feasible
-        if (!safety_area->isPointIn(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
+        if (safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
           ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
           trajectory_is_ok = false;
@@ -2469,14 +2397,6 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
     des_yaw_mutex.lock();
     desired_yaw = set_yaw;
     des_yaw_mutex.unlock();
-  }
-
-  if (use_safety_area) {
-
-    if (!safety_area->isPointIn(set_x, set_y)) {
-
-      return false;
-    }
   }
 
   setTrajectory(set_x, set_y, set_z, set_yaw);

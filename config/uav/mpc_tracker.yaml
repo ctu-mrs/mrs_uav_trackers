@@ -83,9 +83,6 @@ cvxgenMpc:
   maxYawRate: 0.5
   maxYawAcceleration: 0.5
 
-  maxAltitude: 20.0
-  minAltitude: 1.0
-
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 30 # 30
