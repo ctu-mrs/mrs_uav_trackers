@@ -382,7 +382,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading          = 0;
       current_horizontal_speed = 0;
 
-      current_vertical_speed = odometry.twist.twist.linear.z;
+      current_vertical_speed = 0;
 
       goal_yaw = odometry_yaw;
 
@@ -401,7 +401,9 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading = atan2(speed_y, speed_x);
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-      current_vertical_speed   = cmd->velocity.z;
+
+      current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
+      current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
 
       goal_yaw = cmd->yaw;
 
@@ -436,7 +438,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 
@@ -723,7 +725,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 
@@ -778,6 +780,13 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     case LANDED_STATE:
       break;
     case HOVER_STATE:
+
+      // | ----- trigger odometry fusion reset after taking off 0---- |
+      if (taking_off) {
+        // TODO
+        ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
+      }
+
       landing    = false;
       taking_off = false;
       break;
