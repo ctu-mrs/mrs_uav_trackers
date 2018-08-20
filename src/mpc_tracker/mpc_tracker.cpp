@@ -181,6 +181,7 @@ private:
   bool     use_yaw_in_trajectory;
 
   bool tracking_trajectory_;  // are we currently tracking a trajectory
+  int trajectory_tracking_timer = 0;
   int  trajectory_idx;        // index in the currently tracked trajectory
   int  trajectory_size;       // size of the tracked trajectory
   int  max_trajectory_size;   // maximum length of the trajectory
@@ -2227,6 +2228,14 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       int first_invalid_idx = -1;
       for (int i = 0; i < trajectory_size; i++) {
 
+        // saturate the trajectory to min and max height
+        if (des_z_whole_trajectory(i) < safety_area->min_altitude) {
+          des_z_whole_trajectory(i) = safety_area->min_altitude;
+        }
+        if (des_z_whole_trajectory(i) > safety_area->max_altitude) {
+          des_z_whole_trajectory(i) = safety_area->max_altitude;
+        }
+
         // the point is not feasible
         if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
@@ -2445,14 +2454,12 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   ros::Time     end;
   ros::Duration interval;
 
-  int timer = 0;
-
   des_trajectory_mutex.lock();
   {
     // if we are tracking trajectory, copy the setpoint
-    if (tracking_trajectory_ && timer++ == 20 && trajectory_idx < (trajectory_size)) {
+    if (tracking_trajectory_ && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
-      timer = 0;
+      trajectory_tracking_timer = 0;
 
       // fill the prediction horizon with the desired trajectory
       for (int i = 0; i < horizon_len; i++) {
