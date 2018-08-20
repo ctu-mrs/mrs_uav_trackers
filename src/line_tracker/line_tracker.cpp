@@ -40,7 +40,7 @@ class LineTracker : public mrs_mav_manager::Tracker {
 public:
   LineTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -148,7 +148,7 @@ LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 
 //{ initialize()
 
-void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area) {
+void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
 
@@ -273,16 +273,18 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       state_z   = cmd->position.z;
       state_yaw = cmd->yaw;
 
-      speed_x         = cmd->velocity.x;
-      speed_y         = cmd->velocity.y;
-      current_heading = atan2(speed_y, speed_x);
-
+      speed_x                  = cmd->velocity.x;
+      speed_y                  = cmd->velocity.y;
+      current_heading          = atan2(speed_y, speed_x);
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-      current_vertical_speed   = cmd->velocity.z;
+
+      current_vertical_speed     = fabs(cmd->velocity.z);
+      current_vertical_direction = cmd->velocity.z > 0 ? +1 : -1;
 
       goal_yaw = cmd->yaw;
 
       ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+      ROS_INFO("[LineTracker]: initial condition: x_dot=%2.2f, y_dot=%2.2f, z_dot=%2.2f", speed_x, speed_y, current_vertical_speed);
 
     } else {
 
@@ -296,7 +298,8 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading          = atan2(speed_y, speed_x);
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-      current_vertical_speed = odometry.twist.twist.linear.z;
+      current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
+      current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
 
       goal_yaw = odometry_yaw;
 
@@ -331,7 +334,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 
@@ -345,6 +348,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
+    ROS_INFO("[LineTracker]: setting z goal to %f", goal_z);
   }
   mutex_goal.unlock();
   mutex_state.unlock();
@@ -679,6 +683,8 @@ bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
   { goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data); }
   mutex_goal.unlock();
 
+  ROS_INFO("[LineTracker]: setting absolute yaw to %3.2f", goal_yaw);
+
   return true;
 }
 
@@ -761,7 +767,7 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::Tri
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 

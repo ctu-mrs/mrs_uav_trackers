@@ -18,7 +18,7 @@ vertical_tracker:
   vertical_acceleration: 1.0
 
   takeoff_speed: 1.0
-  takeoff_acceleration: 0.3
+  takeoff_acceleration: 1.0
 
   landing_speed: 0.3
   landing_acceleration: 0.3

@@ -5,8 +5,8 @@ horizontal_tracker:
   horizontal_acceleration: 1.0
 
 vertical_tracker:
-  vertical_speed: 1.0
-  vertical_acceleration: 1.0
+  vertical_speed: 3.0
+  vertical_acceleration: 2.0
 
 yaw_tracker:
   yaw_gain: 0.5
