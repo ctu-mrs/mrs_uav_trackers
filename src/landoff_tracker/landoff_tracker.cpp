@@ -778,6 +778,13 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     case LANDED_STATE:
       break;
     case HOVER_STATE:
+
+      // | ----- trigger odometry fusion reset after taking off 0---- |
+      if (taking_off) {
+        // TODO
+        ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
+      }
+
       landing    = false;
       taking_off = false;
       break;
