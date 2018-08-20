@@ -482,36 +482,36 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   des_z_filtered = MatrixXd::Zero(horizon_len, 1);
 
   // subscriber for desired trajectory
-  sub_trajectory_ = nh_.subscribe("desired_trajectory", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
+  sub_trajectory_ = nh_.subscribe("set_trajectory_in", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
 
   // service for desired trajectory
-  ser_set_trajectory_ = nh_.advertiseService("set_trajectory", &MpcTracker::callbackSetTrajectory, this);
+  ser_set_trajectory_ = nh_.advertiseService("set_trajectory_in", &MpcTracker::callbackSetTrajectory, this);
 
   // subscriber for rc transmitter
   sub_rc_ = nh_.subscribe("rc_in", 1, &MpcTracker::callbackRadioControl, this, ros::TransportHints().tcpNoDelay());
 
   // service for starting trajectory following
-  ser_start_trajectory_following_ = nh_.advertiseService("start_trajectory_following", &MpcTracker::callbackStartTrajectoryFollowing, this);
+  ser_start_trajectory_following_ = nh_.advertiseService("start_trajectory_following_in", &MpcTracker::callbackStartTrajectoryFollowing, this);
 
   // service for stopping trajectory following
-  ser_stop_trajectory_following_ = nh_.advertiseService("stop_trajectory_following", &MpcTracker::callbackStopTrajectoryFollowing, this);
+  ser_stop_trajectory_following_ = nh_.advertiseService("stop_trajectory_following_in", &MpcTracker::callbackStopTrajectoryFollowing, this);
 
   // service for resuming trajectory following
-  ser_resume_trajectory_following_ = nh_.advertiseService("resume_trajectory_following", &MpcTracker::callbackResumeTrajectoryFollowing, this);
+  ser_resume_trajectory_following_ = nh_.advertiseService("resume_trajectory_following_in", &MpcTracker::callbackResumeTrajectoryFollowing, this);
 
   // service for flying to the trajectory start point
-  ser_fly_to_trajectory_start_ = nh_.advertiseService("fly_to_trajectory_start", &MpcTracker::callbackFlyToTrajectoryStart, this);
+  ser_fly_to_trajectory_start_ = nh_.advertiseService("fly_to_trajectory_start_in", &MpcTracker::callbackFlyToTrajectoryStart, this);
 
   // service for triggering failsafe
-  failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe", &MpcTracker::callbackTriggerFailsafe, this);
+  failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe_in", &MpcTracker::callbackTriggerFailsafe, this);
 
   // publishers for debugging
-  pub_cmd_odom          = nh_.advertise<nav_msgs::Odometry>("cmd_pose", 1);
-  pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("md_acceleration", 1);
-  pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics", 1);
+  pub_cmd_odom          = nh_.advertise<nav_msgs::Odometry>("cmd_pose_out", 1);
+  pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
+  pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics_out", 1);
 
   // publisher for the current setpoint
-  pub_setpoint_pose_ = nh_.advertise<nav_msgs::Odometry>("setpoint_pose", 1);
+  pub_setpoint_pose_ = nh_.advertise<nav_msgs::Odometry>("setpoint_pose_out", 1);
 
   // collision avoidance
   nh_.param("uav_name", uav_name_, std::string());
@@ -1939,7 +1939,6 @@ void MpcTracker::calculateMPC() {
     max_speed_y = fabs(max_speed_y * sin(goto_yaw));
   }
 
-
   filterReference(max_speed_x, max_speed_y, max_speed_z);
   // filter desired yaw reference to be feasible and remove PI rollovers
   filterYawReference();
@@ -2229,7 +2228,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       for (int i = 0; i < trajectory_size; i++) {
 
         // the point is not feasible
-        if (safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
+        if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
           ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
           trajectory_is_ok = false;
