@@ -382,7 +382,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading          = 0;
       current_horizontal_speed = 0;
 
-      current_vertical_speed = odometry.twist.twist.linear.z;
+      current_vertical_speed = 0;
 
       goal_yaw = odometry_yaw;
 
@@ -401,7 +401,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading = atan2(speed_y, speed_x);
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-      current_vertical_speed   = cmd->velocity.z;
+      current_vertical_speed   = odometry.twist.twist.linear.z;
 
       goal_yaw = cmd->yaw;
 

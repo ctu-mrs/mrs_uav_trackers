@@ -283,6 +283,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       goal_yaw = cmd->yaw;
 
       ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+      ROS_INFO("[LineTracker]: initial condition: x_dot=%2.2f, y_dot=%2.2f, z_dot=%2.2f", speed_x, speed_y, current_vertical_speed);
 
     } else {
 
@@ -345,6 +346,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
+    ROS_INFO("[LineTracker]: setting z goal to %f", goal_z);
   }
   mutex_goal.unlock();
   mutex_state.unlock();
@@ -678,6 +680,8 @@ bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
   mutex_goal.lock();
   { goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data); }
   mutex_goal.unlock();
+
+  ROS_INFO("[LineTracker]: setting absolute yaw to %3.2f", goal_yaw);
 
   return true;
 }

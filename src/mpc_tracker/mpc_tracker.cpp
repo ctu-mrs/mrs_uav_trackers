@@ -181,13 +181,13 @@ private:
   bool     use_yaw_in_trajectory;
 
   bool tracking_trajectory_;  // are we currently tracking a trajectory
-  int trajectory_tracking_timer = 0;
-  int  trajectory_idx;        // index in the currently tracked trajectory
-  int  trajectory_size;       // size of the tracked trajectory
-  int  max_trajectory_size;   // maximum length of the trajectory
-  bool trajectory_set_;       // true if trajectory was set
-  int  trajectory_count;      // counting number of trajectories uploaded to the tracker
-  bool loop;                  // whether we are looping the trajectory
+  int  trajectory_tracking_timer = 0;
+  int  trajectory_idx;       // index in the currently tracked trajectory
+  int  trajectory_size;      // size of the tracked trajectory
+  int  max_trajectory_size;  // maximum length of the trajectory
+  bool trajectory_set_;      // true if trajectory was set
+  int  trajectory_count;     // counting number of trajectories uploaded to the tracker
+  bool loop;                 // whether we are looping the trajectory
 
   MatrixXd reference;      // XYZ reference for the controller
   MatrixXd reference_yaw;  // yaw reference for the controlle
@@ -201,6 +201,7 @@ private:
 
   // predicting the future
   MatrixXd                                          predicted_future_trajectory;
+  MatrixXd                                          predicted_future_yaw_trajectory;
   std::string                                       uav_name_;
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
@@ -554,7 +555,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
 
   // preallocate future trajectory
-  predicted_future_trajectory = MatrixXd::Zero(horizon_len * n, 1);
+  predicted_future_trajectory     = MatrixXd::Zero(horizon_len * n, 1);
+  predicted_future_yaw_trajectory = MatrixXd::Zero(horizon_len * n, 1);
 
   collision_free_altitude = 0;
   avoiding_collision_time = ros::Time::now();
@@ -593,8 +595,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
     other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
   }
 
-  is_initialized = true;
-
   // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
@@ -610,6 +610,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   diagnostics_timer       = nh_.createTimer(ros::Rate(diagnostics_rate), &MpcTracker::diagnosticsTimer, this);
   mpc_timer               = nh_.createTimer(ros::Rate(1.0 / dt), &MpcTracker::mpcTimer, this);
 
+  is_initialized = true;
+
   ROS_INFO("[MpcTracker]: MpcTracker initialized");
 }
 
@@ -620,6 +622,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+
     // set the initial condition from the odometry
     x_mutex.lock();
     x(0, 0) = cmd->position.x;
@@ -668,32 +671,49 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   failsafe_triggered   = false;
   tracking_trajectory_ = false;
 
-  // if we got a setpoint with the actiovation command
-  if (cmd && odom_set_) {
+  /* // if we got a setpoint with the activation command */
+  /* if (cmd && odom_set_) { */
 
-    des_yaw_mutex.lock();
-    desired_yaw = cmd->yaw;
-    des_yaw_mutex.unlock();
+  /*   des_yaw_mutex.lock(); */
+  /*   desired_yaw = cmd->yaw; */
+  /*   des_yaw_mutex.unlock(); */
 
-    setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+  /*   setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw); */
 
-    ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-             cmd->yaw);
-    is_active = true;
-  }
+  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
+   */
+  /*            cmd->yaw); */
+  /*   is_active = true; */
+  /* } */
 
-  // if we dont, stay where you are
-  else if (odom_set_) {
+  /* // if we dont, stay where you are */
+  /* else if (odom_set_) { */
 
-    setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation));
-    position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation);
+  /*   setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation)); */
+  /*   position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation); */
 
-    ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are.");
-    is_active = true;
-  }
+  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are."); */
+  /*   is_active = true; */
+  /* } */
+
+  // calculate time needed to stop
+  double time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
+  double time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+  double time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
+
+  // calculate how far will it move before it stops
+  double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
+  double move_y = (x(4, 0) >= 0 ? 1 : -1) * 0.5 * time_y * x(4, 0);
+  double move_z = (x(7, 0) >= 0 ? 1 : -1) * 0.5 * time_z * x(7, 0);
+
+  // stop
+  setRelativeGoal(move_x, move_y, move_z, 0, false);
 
   mpc_start_time  = ros::Time::now();
   mpc_total_delay = 0;
+  is_active       = true;
+
+  ROS_INFO("[MpcTracker]: activated");
 
   publishDiagnostics();
 
@@ -1584,15 +1604,15 @@ bool MpcTracker::triggerFailsafe() {
     des_trajectory_mutex.unlock();
 
     // calculate time needed to stop
-    double time_x = 1.2 * x(1, 0) / max_horizontal_acceleration;
-    double time_y = 1.2 * x(4, 0) / max_horizontal_acceleration;
+    double time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
+    double time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
 
     // calculate how far will it move before it stops
-    double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * max_horizontal_acceleration * time_x * time_x;
-    double move_y = (x(4, 0) >= 0 ? 1 : -1) * 0.5 * max_horizontal_acceleration * time_y * time_y;
+    double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
+    double move_y = (x(4, 0) >= 0 ? 1 : -1) * 0.5 * time_y * x(4, 0);
 
     // stop
-    setRelativeGoal(move_x, move_y, 5, 0, true);
+    setRelativeGoal(move_x, move_y, 5, 0, false);
 
     ROS_WARN("[MpcTracker]: Failsafe ON");
 
@@ -2023,6 +2043,7 @@ void MpcTracker::calculateMPC() {
   cvx_yaw->loadReference(des_yaw_trajectory);
   cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, 0);
   iters_YAW += cvx_yaw->solveCvx();
+  cvx_yaw->getStates(predicted_future_yaw_trajectory);
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
   if (cvx_u(0) > max_horizontal_jerk * 1.01) {
@@ -2435,6 +2456,9 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
 // published diagnostics in reguar intervals
 void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
+  if (!is_initialized)
+    return;
+
   publishDiagnostics();
 }
 
@@ -2447,6 +2471,9 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   if (!is_active) {
     return;
   }
+
+  if (!is_initialized)
+    return;
 
   routine_mpc_timer->start(event);
 
@@ -2526,6 +2553,9 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
     return;
   }
 
+  if (!is_initialized)
+    return;
+
   if (future_was_predicted) {
 
     mrs_msgs::FutureTrajectory future_trajectory_out;
@@ -2558,7 +2588,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
         newPose.position.y = newPoint.y;
         newPose.position.z = newPoint.z;
         tf::Quaternion orientation;
-        orientation.setEuler(0, 0, desired_yaw);
+        orientation.setEuler(0, 0, predicted_future_yaw_trajectory(i * n));
         newPose.orientation.x = orientation.x();
         newPose.orientation.y = orientation.y();
         newPose.orientation.z = orientation.z();
