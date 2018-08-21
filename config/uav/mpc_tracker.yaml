@@ -10,13 +10,13 @@ mrs_collision_avoidance:
   use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav6, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
-  radius: 2.0 # [m]
-  altitude_threshold: 2.95 # [m]
+  radius: 5.0 # [m]
+  altitude_threshold: 2.9 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
-  collision_horizontal_acceleration_coef: 0.5 # when collision detected, keep the acceleration down during the manouvre
-  collision_slow_down_before: 10 # when collision detected, slow down this number of steps before it
+  collision_slow_down_fully: 10 # when collision detected, slow down fully this number of steps before it
+  collision_slow_down_start: 25 # when collision detected, start slowing down this number of steps before it
   collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
@@ -82,8 +82,9 @@ cvxgenMpc:
 
   maxYawRate: 0.5
   maxYawAcceleration: 0.5
+  maxYawJerk: 1.0
 
-cvxWrapper:
+cvxgrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 30 # 30
   Q: [5000, 2000, 0, 5000, 2000, 0]
