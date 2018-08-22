@@ -11,6 +11,8 @@
 
 #include <commons.h>
 
+#include <mrs_lib/ParamLoader.h>
+
 #define STOP_THR 1e-3
 
 namespace mrs_trackers
@@ -183,111 +185,33 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  nh_.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
-  nh_.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
+  mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
-  nh_.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
-  nh_.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
+  param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
+  param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
 
-  nh_.param("vertical_tracker/takeoff_speed", takeoff_speed_, -1.0);
-  nh_.param("vertical_tracker/takeoff_acceleration", takeoff_acceleration_, -1.0);
+  param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
+  param_loader.load_param("vertical_tracker/vertical_acceleration", vertical_acceleration_);
 
-  nh_.param("vertical_tracker/landing_speed", landing_speed_, -1.0);
-  nh_.param("vertical_tracker/landing_acceleration", landing_acceleration_, -1.0);
+  param_loader.load_param("vertical_tracker/takeoff_speed", takeoff_speed_);
+  param_loader.load_param("vertical_tracker/takeoff_acceleration", takeoff_acceleration_);
 
-  nh_.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
-  nh_.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
+  param_loader.load_param("vertical_tracker/landing_speed", landing_speed_);
+  param_loader.load_param("vertical_tracker/landing_acceleration", landing_acceleration_);
 
-  nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
+  param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
+  param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
-  nh_.param("takeoff_height", takeoff_height_, -1.0);
-  nh_.param("landing_height", landing_height_, -1000.0);
-  nh_.param("landing_fast_height", landing_fast_height_, -1.0);
+  param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
-  nh_.param("max_position_difference", max_position_difference_, -1.0);
+  param_loader.load_param("takeoff_height", takeoff_height_);
+  param_loader.load_param("landing_height", landing_height_);
+  param_loader.load_param("landing_fast_height", landing_fast_height_);
 
-  nh_.param("landing_threshold_height", landed_threshold_height_, -1.0);
-  nh_.param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_, false);
+  param_loader.load_param("max_position_difference", max_position_difference_);
 
-  if (horizontal_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (vertical_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: vertical_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (horizontal_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: horizontal_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (vertical_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: vertical_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_rate_ < 0) {
-    ROS_ERROR("[LandoffTracker]: yaw_rate was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_gain_ < 0) {
-    ROS_ERROR("[LandoffTracker]: yaw_gain was not specified!");
-    ros::shutdown();
-  }
-
-  if (tracker_loop_rate_ < 0) {
-    ROS_ERROR("[LandoffTracker]: tracker_loop_rate was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_height_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_height_ < -999) {
-    ROS_ERROR("[LandoffTracker]: landing_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_fast_height_ < -999) {
-    ROS_ERROR("[LandoffTracker]: landing_fast_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (max_position_difference_ < 0) {
-    ROS_ERROR("[LandoffTracker]: max_position_difference was not specified!");
-    ros::shutdown();
-  }
-
-  if (landed_threshold_height_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_threshold_height was not specified!");
-    ros::shutdown();
-  }
+  param_loader.load_param("landing_threshold_height", landed_threshold_height_);
+  param_loader.load_param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -336,9 +260,15 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this);
 
-  ROS_INFO("[LandoffTracker]: initialized");
+  // | ----------------------- finish init ---------------------- |
+
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
 
   is_initialized = true;
+
+  ROS_INFO("[LandoffTracker]: initialized");
 }
 
 //}
