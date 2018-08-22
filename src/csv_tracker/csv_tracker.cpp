@@ -19,6 +19,8 @@
 #include <iostream>
 #include <mutex>
 
+#include <mrs_lib/ParamLoader.h>
+
 using namespace Eigen;
 
 namespace mrs_trackers
@@ -30,7 +32,7 @@ class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -146,17 +148,13 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 //{ initialize()
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const * safety_area) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
-  priv_nh.param("filename", filename_, std::string());
+  mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
 
-  if (filename_.empty()) {
-    ROS_ERROR("[CsvTracker]: The file name has not been filled!");
-    ros::shutdown();
-    return;
-  }
+  param_loader.load_param("filename", filename_);
 
   // posX posY vx vy ax ay theta thrust release
   trajectory = MatrixXd::Zero(5000, 9);
@@ -220,15 +218,15 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   ser_scales_  = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
 
   // load params
-  priv_nh.param("offset/x", x_offset_, 10000.0);
-  priv_nh.param("offset/y", y_offset_, 10000.0);
-  priv_nh.param("offset/z", z_offset_, 10000.0);
+  param_loader.load_param("offset/x", x_offset_);
+  param_loader.load_param("offset/y", y_offset_);
+  param_loader.load_param("offset/z", z_offset_);
 
-  priv_nh.param("scale/x", x_scale_, -1.0);
-  priv_nh.param("scale/y", y_scale_, -1.0);
-  priv_nh.param("scale/z", z_scale_, -1.0);
+  param_loader.load_param("scale/x", x_scale_);
+  param_loader.load_param("scale/y", y_scale_);
+  param_loader.load_param("scale/z", z_scale_);
 
-  priv_nh.param("yaw", yaw_, -1.0);
+  param_loader.load_param("yaw", yaw_);
 
   ROS_WARN("[CsvTracker]: offset/x: %2.2f", x_offset_);
   ROS_WARN("[CsvTracker]: offset/y: %2.2f", y_offset_);
@@ -238,23 +236,8 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   ROS_WARN("[CsvTracker]: scale/z: %2.2f", z_scale_);
   ROS_WARN("[CsvTracker]: yaw: %2.2f", yaw_);
 
-  if (x_offset_ > 1000 || y_offset_ > 1000 || z_offset_ > 1000) {
-    ROS_ERROR("[CsvTracker]: Offsets were not loaded from the config file!");
-    ros::shutdown();
-  }
-
-  if (x_scale_ < 0 || y_scale_ < 0 || z_scale_ < 0) {
-    ROS_ERROR("[CsvTracker]: Scales were not loaded from the config file!");
-    ros::shutdown();
-  }
-
   if (x_scale_ > 1 || y_scale_ > 1 || z_scale_ > 1) {
     ROS_ERROR("[CsvTracker]: Scales are greater than 1");
-    ros::shutdown();
-  }
-
-  if (yaw_ < 0) {
-    ROS_ERROR("[CsvTracker]: Yaw was not set in the config file!");
     ros::shutdown();
   }
 
@@ -266,9 +249,13 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
   main_timer = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this);
 
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
+
   is_initialized = true;
 
-  ROS_INFO("[CsvTracker]: CsvTracker initialized");
+  ROS_INFO("[CsvTracker]: initialized");
 }
 
 //}

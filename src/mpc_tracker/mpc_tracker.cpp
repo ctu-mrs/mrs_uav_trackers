@@ -27,6 +27,8 @@
 
 #include <commons.h>
 
+#include <mrs_lib/ParamLoader.h>
+
 using namespace Eigen;
 
 namespace mrs_trackers
@@ -121,8 +123,6 @@ private:
   double    max_yaw_rate;
   double    max_yaw_acceleration;
   double    max_yaw_jerk;
-  double    max_altitude_;
-  double    min_altitude_;
 
   int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X             = 0;
@@ -317,25 +317,27 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   failsafe_triggered = false;
 
   std::vector<double> tempList, tempList2, UvaluesList;
-  int                 tempIdx;
 
   // load parameters for yaw_tracker
-  nh_.param("yawTracker/maxYawRate", max_yaw_rate_old, 0.0);
-  nh_.param("yawTracker/yawGain", yaw_gain, 0.0);
+
+  mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+
+  param_loader.load_param("yawTracker/maxYawRate", max_yaw_rate_old);
+  param_loader.load_param("yawTracker/yawGain", yaw_gain);
   desired_yaw = 0;
 
   // load the dynamicall model parameters
-  nh_.param("dynamicalModel/numberOfStates", n, -1);
-  nh_.param("dynamicalModel/numberOfInputs", m, -1);
+  param_loader.load_param("dynamicalModel/numberOfStates", n);
+  param_loader.load_param("dynamicalModel/numberOfInputs", m);
 
   // load the dynamicall model parameters
-  nh_.param("yawModel/numberOfStates", n_yaw, -1);
-  nh_.param("yawModel/numberOfInputs", m_yaw, -1);
+  param_loader.load_param("yawModel/numberOfStates", n_yaw);
+  param_loader.load_param("yawModel/numberOfInputs", m_yaw);
 
   // failsafe
-  nh_.param("use_rc_failsafe", use_rc_failsafe, false);
-  nh_.param("rc_failsafe_threshold", rc_failsafe_threshold, 2000);
-  nh_.param("rc_failsafe_channel", rc_failsafe_channel, 9);
+  param_loader.load_param("use_rc_failsafe", use_rc_failsafe);
+  param_loader.load_param("rc_failsafe_threshold", rc_failsafe_threshold);
+  param_loader.load_param("rc_failsafe_channel", rc_failsafe_channel);
   rc_failsafe_time = ros::Time::now();
 
   if (use_rc_failsafe) {
@@ -343,74 +345,43 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   }
 
   // load the main system matrix
-  nh_.getParam("dynamicalModel/A", tempList);
-  A       = MatrixXd::Zero(n, n);
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < n; j++) {
-      A(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("dynamicalModel/A", A, n, n);
 
   // load the input matrix
-  nh_.getParam("dynamicalModel/B", tempList);
-  B       = MatrixXd::Zero(n, m);
-  tempIdx = 0;
-  for (int i = 0; i < n; i++) {
-    for (int j = 0; j < m; j++) {
-      B(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("dynamicalModel/B", B, n, m);
 
   // load the yaw system matrix
-  nh_.getParam("yawModel/A", tempList);
-  A_yaw   = MatrixXd::Zero(n_yaw, n_yaw);
-  tempIdx = 0;
-  for (int i = 0; i < n_yaw; i++) {
-    for (int j = 0; j < n_yaw; j++) {
-      A_yaw(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("yawModel/A", A_yaw, n_yaw, n_yaw);
 
   // load the yaw input matrix
-  nh_.getParam("yawModel/B", tempList);
-  B_yaw   = MatrixXd::Zero(n_yaw, m_yaw);
-  tempIdx = 0;
-  for (int i = 0; i < n_yaw; i++) {
-    for (int j = 0; j < m_yaw; j++) {
-      B_yaw(i, j) = tempList[tempIdx++];
-    }
-  }
+  param_loader.load_matrix_static("yawModel/B", B_yaw, n_yaw, m_yaw);
 
   // load the MPC parameters
-  nh_.param("cvxgenMpc/horizon_len", horizon_len, -1);
-  nh_.param("cvxgenMpc/maxTrajectorySize", max_trajectory_size, -1);
+  param_loader.load_param("cvxgenMpc/horizon_len", horizon_len);
+  param_loader.load_param("cvxgenMpc/maxTrajectorySize", max_trajectory_size);
 
-  nh_.param("cvxgenMpc/dt", dt, -1.0);
-  nh_.param("cvxgenMpc/dt2", dt2, -1.0);
+  param_loader.load_param("cvxgenMpc/dt", dt);
+  param_loader.load_param("cvxgenMpc/dt2", dt2);
 
-  nh_.param("cvxgenMpc/maxHorizontalSpeed", max_horizontal_speed, 0.0);
-  nh_.param("cvxgenMpc/maxHorizontalAcceleration", max_horizontal_acceleration, 0.0);
-  nh_.param("cvxgenMpc/maxHorizontalJerk", max_horizontal_jerk, 0.0);
+  param_loader.load_param("cvxgenMpc/maxHorizontalSpeed", max_horizontal_speed);
+  param_loader.load_param("cvxgenMpc/maxHorizontalAcceleration", max_horizontal_acceleration);
+  param_loader.load_param("cvxgenMpc/maxHorizontalJerk", max_horizontal_jerk);
 
-  nh_.param("cvxgenMpc/maxVerticalAscendingSpeed", max_vertical_ascending_speed, 0.0);
-  nh_.param("cvxgenMpc/maxVerticalAscendingAcceleration", max_vertical_ascending_acceleration, 0.0);
-  nh_.param("cvxgenMpc/maxVerticalAscendingJerk", max_vertical_ascending_jerk, 0.0);
-  nh_.param("cvxgenMpc/maxVerticalDescendingSpeed", max_vertical_descending_speed, 0.0);
-  nh_.param("cvxgenMpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration, 0.0);
-  nh_.param("cvxgenMpc/maxVerticalDescendingJerk", max_vertical_descending_jerk, 0.0);
+  param_loader.load_param("cvxgenMpc/maxVerticalAscendingSpeed", max_vertical_ascending_speed);
+  param_loader.load_param("cvxgenMpc/maxVerticalAscendingAcceleration", max_vertical_ascending_acceleration);
+  param_loader.load_param("cvxgenMpc/maxVerticalAscendingJerk", max_vertical_ascending_jerk);
+  param_loader.load_param("cvxgenMpc/maxVerticalDescendingSpeed", max_vertical_descending_speed);
+  param_loader.load_param("cvxgenMpc/maxVerticalDescendingAcceleration", max_vertical_descending_acceleration);
+  param_loader.load_param("cvxgenMpc/maxVerticalDescendingJerk", max_vertical_descending_jerk);
 
-  nh_.param("cvxgenMpc/maxYawRate", max_yaw_rate, 0.0);
-  nh_.param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration, 0.0);
-  nh_.param("cvxgenMpc/maxYawAcceleration", max_yaw_jerk, 0.0);
+  param_loader.load_param("cvxgenMpc/maxYawRate", max_yaw_rate);
+  param_loader.load_param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration);
+  param_loader.load_param("cvxgenMpc/maxYawAcceleration", max_yaw_jerk);
 
-  nh_.param("cvxgenMpc/maxAltitude", max_altitude_, 0.0);
-  nh_.param("cvxgenMpc/minAltitude", min_altitude_, 1.0);
+  param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots);
 
-  nh_.param("cvxgenMpc/no_overshoots", no_overshoots, true);
-
-  nh_.param("diagnostics_rate", diagnostics_rate, 1.0);
-  nh_.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
+  param_loader.load_param("diagnostics_rate", diagnostics_rate);
+  param_loader.load_param("diagnostic_tracking_threshold", diagnostic_tracking_threshold);
 
   ROS_INFO(
       "MPC parameters: horizon_len: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
@@ -421,25 +392,25 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // CVXGEN wrappers
   bool verbose;
 
-  nh_.param("cvxWrapper/verbose", verbose, false);
-  nh_.param("cvxWrapper/maxNumOfIterations", max_iters_XY, 25);
-  nh_.getParam("cvxWrapper/Q", tempList);
-  nh_.getParam("cvxWrapper/R", tempList2);
+  param_loader.load_param("cvxWrapper/verbose", verbose);
+  param_loader.load_param("cvxWrapper/maxNumOfIterations", max_iters_XY);
+  param_loader.load_param("cvxWrapper/Q", tempList);
+  param_loader.load_param("cvxWrapper/R", tempList2);
 
   cvx_x = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 0);
   cvx_y = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 1);
 
-  nh_.param("cvxWrapperZ/verbose", verbose, false);
-  nh_.param("cvxWrapperZ/maxNumOfIterations", max_iters_Z, 25);
-  nh_.getParam("cvxWrapperZ/Q", tempList);
-  nh_.getParam("cvxWrapperZ/R", tempList2);
+  param_loader.load_param("cvxWrapperZ/verbose", verbose);
+  param_loader.load_param("cvxWrapperZ/maxNumOfIterations", max_iters_Z);
+  param_loader.load_param("cvxWrapperZ/Q", tempList);
+  param_loader.load_param("cvxWrapperZ/R", tempList2);
 
   cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, tempList2, dt, dt2, 2);
 
-  nh_.param("cvxWrapperYaw/verbose", verbose, false);
-  nh_.param("cvxWrapperYaw/maxNumOfIterations", max_iters_YAW, 25);
-  nh_.getParam("cvxWrapperYaw/Q", tempList);
-  nh_.getParam("cvxWrapperYaw/R", tempList2);
+  param_loader.load_param("cvxWrapperYaw/verbose", verbose);
+  param_loader.load_param("cvxWrapperYaw/maxNumOfIterations", max_iters_YAW);
+  param_loader.load_param("cvxWrapperYaw/Q", tempList);
+  param_loader.load_param("cvxWrapperYaw/R", tempList2);
 
   cvx_yaw = new CvxWrapper(verbose, max_iters_YAW, tempList, tempList2, dt, dt2, 0);
 
@@ -516,19 +487,14 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   pub_setpoint_pose_ = nh_.advertise<nav_msgs::Odometry>("setpoint_pose_out", 1);
 
   // collision avoidance
-  nh_.param("uav_name", uav_name_, std::string());
-
-  if (uav_name_.empty()) {
-    ROS_ERROR("[MpcTracker]: uav_name has not been specified!");
-    ros::shutdown();
-  }
+  param_loader.load_param("uav_name", uav_name_);
 
   // extract the numerical name
   sscanf(uav_name_.c_str(), "uav%d", &my_uav_number);
   ROS_INFO("[MpcTracker]: Numerical ID of this UAV is %d", my_uav_number);
   my_uav_priority = my_uav_number;
 
-  nh_.getParam("mrs_collision_avoidance/drone_names", other_drone_names_);
+  param_loader.load_param("mrs_collision_avoidance/drone_names", other_drone_names_);
 
   // exclude this drone from the list
   std::vector<std::string>::iterator it = other_drone_names_.begin();
@@ -548,7 +514,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
     it++;
   }
 
-  nh_.param("mrs_collision_avoidance/enable", mrs_collision_avoidance, false);
+  param_loader.load_param("mrs_collision_avoidance/enable", mrs_collision_avoidance);
 
   // create publisher for predicted trajectory
   predicted_trajectory_publisher       = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
@@ -564,26 +530,21 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   future_was_predicted    = false;
   earliest_collision_idx  = INT_MAX;
 
-  nh_.param("predicted_trajectory_topic", predicted_trajectory_topic, std::string());
+  param_loader.load_param("predicted_trajectory_topic", predicted_trajectory_topic);
 
-  nh_.param("mrs_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate, 1.0);
-  nh_.param("mrs_collision_avoidance/use_priority_swap", use_priority_swap, true);
-  nh_.param("mrs_collision_avoidance/correction", mrs_collision_avoidance_correction, 3.0);
-  nh_.param("mrs_collision_avoidance/radius", mrs_collision_avoidance_radius, 5.0);
-  nh_.param("mrs_collision_avoidance/altitude_threshold", mrs_collision_avoidance_altitude_threshold, 2.9);
-  nh_.param("mrs_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef, 0.25);
-  nh_.param("mrs_collision_avoidance/collision_slow_down_fully", collision_slow_down_fully, 10);
-  nh_.param("mrs_collision_avoidance/collision_slow_down_start", collision_slow_down_start, 25);
-  nh_.param("mrs_collision_avoidance/collision_start_climbing", collision_start_climbing, 25);
-  nh_.param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout, 1.0);
+  param_loader.load_param("mrs_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate);
+  param_loader.load_param("mrs_collision_avoidance/use_priority_swap", use_priority_swap);
+  param_loader.load_param("mrs_collision_avoidance/correction", mrs_collision_avoidance_correction);
+  param_loader.load_param("mrs_collision_avoidance/radius", mrs_collision_avoidance_radius);
+  param_loader.load_param("mrs_collision_avoidance/altitude_threshold", mrs_collision_avoidance_altitude_threshold);
+  param_loader.load_param("mrs_collision_avoidance/collision_horizontal_speed_coef", collision_horizontal_speed_coef);
+  param_loader.load_param("mrs_collision_avoidance/collision_slow_down_fully", collision_slow_down_fully);
+  param_loader.load_param("mrs_collision_avoidance/collision_slow_down_start", collision_slow_down_start);
+  param_loader.load_param("mrs_collision_avoidance/collision_start_climbing", collision_start_climbing);
+  param_loader.load_param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout);
 
   // collision avoidance toggle service
   collision_avoidance_service = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
-
-  if (predicted_trajectory_topic.empty()) {
-    ROS_ERROR("[MpcTracker]: You need to define predicted trajectory topic name in the launch file.");
-    ros::shutdown();
-  }
 
   // create subscribers on other drones diagnostics
   for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
@@ -609,6 +570,12 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   future_trajectory_timer = nh_.createTimer(ros::Rate(predicted_trajectory_publish_rate), &MpcTracker::futureTrajectoryTimer, this);
   diagnostics_timer       = nh_.createTimer(ros::Rate(diagnostics_rate), &MpcTracker::diagnosticsTimer, this);
   mpc_timer               = nh_.createTimer(ros::Rate(1.0 / dt), &MpcTracker::mpcTimer, this);
+
+  // | ----------------------- finish init ---------------------- |
+
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
 
   is_initialized = true;
 

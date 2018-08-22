@@ -12,6 +12,8 @@
 
 #include <commons.h>
 
+#include <mrs_lib/ParamLoader.h>
+
 #define STOP_THR 1e-3
 
 namespace mrs_trackers
@@ -158,51 +160,19 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  nh_.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
-  nh_.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
 
-  nh_.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
-  nh_.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
+  mrs_lib::ParamLoader param_loader(nh_, "LineTracker");
 
-  nh_.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
-  nh_.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
+  param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
+  param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
 
-  nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
+  param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
+  param_loader.load_param("vertical_tracker/vertical_acceleration", vertical_acceleration_);
 
-  if (horizontal_speed_ < 0) {
-    ROS_ERROR("[LineTracker]: horizontal_speed was not specified!");
-    ros::shutdown();
-  }
+  param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
+  param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
-  if (vertical_speed_ < 0) {
-    ROS_ERROR("[LineTracker]: vertical_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (horizontal_acceleration_ < 0) {
-    ROS_ERROR("[LineTracker]: horizontal_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (vertical_acceleration_ < 0) {
-    ROS_ERROR("[LineTracker]: vertical_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_rate_ < 0) {
-    ROS_ERROR("[LineTracker]: yaw_rate was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_gain_ < 0) {
-    ROS_ERROR("[LineTracker]: yaw_gain was not specified!");
-    ros::shutdown();
-  }
-
-  if (tracker_loop_rate_ < 0) {
-    ROS_ERROR("[LineTracker]: tracker_loop_rate was not specified!");
-    ros::shutdown();
-  }
+  param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -245,9 +215,13 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
-  ROS_INFO("[LineTracker]: initialized");
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
 
   is_initialized = true;
+
+  ROS_INFO("[LineTracker]: initialized");
 }
 
 //}
