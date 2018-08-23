@@ -69,6 +69,7 @@ public:
 private:
   ros::ServiceClient service_client_reset_lateral_odometry;
   ros::Time          lateral_odometry_reset_time;
+  bool               lateral_odometry_being_reset = false;
 
 private:
   bool callbacks_enabled = true;
@@ -430,13 +431,6 @@ void LandoffTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  if ((ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.1) {
-
-    state_x = odometry_x;
-    state_y = odometry_y;
-    ROS_INFO("[LandoffTracker]: waiting for KF to settle, setting lateral goal to current odometry.");
-  }
-
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -461,6 +455,70 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
+
+  if (lateral_odometry_being_reset && (ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.3) {
+
+    mutex_odometry.lock();
+    mutex_state.lock();
+    {
+      goal_x = state_x = odometry.pose.pose.position.x;
+      goal_y = state_y = odometry.pose.pose.position.y;
+
+      speed_x         = odometry.twist.twist.linear.x;
+      speed_y         = odometry.twist.twist.linear.y;
+      current_heading = atan2(speed_y, speed_x);
+
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+    }
+    mutex_state.unlock();
+    mutex_odometry.unlock();
+    ROS_INFO("[LandoffTracker]: waiting for KF to settle, setting lateral goal to current odometry.");
+  } else if (lateral_odometry_being_reset) {
+
+    lateral_odometry_being_reset = false;
+
+    // --------------------------------------------------------------
+    // |          horizontal initial conditions prediction          |
+    // --------------------------------------------------------------
+    mutex_odometry.lock();
+    mutex_state.lock();
+    { current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2)); }
+    mutex_state.unlock();
+    mutex_odometry.unlock();
+
+    double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
+
+    mutex_state.lock();
+    {
+      horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+      horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+      stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+      stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+    }
+    mutex_state.unlock();
+
+    // --------------------------------------------------------------
+    // |                        set the goal                        |
+    // --------------------------------------------------------------
+
+    mutex_state.lock();
+    mutex_goal.lock();
+    {
+      goal_x = state_x + stop_dist_x;
+      goal_y = state_y + stop_dist_y;
+    }
+    mutex_goal.unlock();
+    mutex_state.unlock();
+
+    goal_x = state_x = odometry.pose.pose.position.x;
+    goal_y = state_y = odometry.pose.pose.position.y;
+
+    speed_x         = odometry.twist.twist.linear.x;
+    speed_y         = odometry.twist.twist.linear.y;
+    current_heading = 0;
+
+    changeState(STOP_MOTION_STATE);
+  }
 
   mutex_state.lock();
   {
@@ -1286,6 +1344,7 @@ void LandoffTracker::resetLateralOdometry(void) {
   service_client_reset_lateral_odometry.call(reset_out);
 
   lateral_odometry_reset_time = ros::Time::now();
+  lateral_odometry_being_reset = true;
 }
 
 //}
