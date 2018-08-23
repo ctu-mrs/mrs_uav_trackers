@@ -64,6 +64,12 @@ public:
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
+  void resetLateralOdometry(void);
+
+private:
+  ros::ServiceClient service_client_reset_lateral_odometry;
+  ros::Time          lateral_odometry_reset_time;
+
 private:
   bool callbacks_enabled = true;
 
@@ -182,6 +188,8 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   ros::Time::waitForValid();
 
+  lateral_odometry_reset_time = ros::Time(0);
+
   // --------------------------------------------------------------
   // |                       load parameters                      |
   // --------------------------------------------------------------
@@ -255,6 +263,8 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   service_takeoff = nh_.advertiseService("takeoff", &LandoffTracker::callbackTakeoff, this);
   service_land    = nh_.advertiseService("land", &LandoffTracker::callbackLand, this);
+
+  service_client_reset_lateral_odometry = nh_.serviceClient<std_srvs::Trigger>("reset_lateral_odometry_out");
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -419,6 +429,13 @@ void LandoffTracker::deactivate(void) {
 //{ update()
 
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  if ((ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.1) {
+
+    state_x = odometry_x;
+    state_y = odometry_y;
+    ROS_INFO("[LandoffTracker]: waiting for KF to settle, setting lateral goal to current odometry.");
+  }
 
   mutex_odometry.lock();
   {
@@ -721,11 +738,8 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
       // | ----- trigger odometry fusion reset after taking off 0---- |
       if (taking_off) {
 
-        state_x = odometry_x;
-        state_y = odometry_y;
-
-        // TODO
         ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
+        resetLateralOdometry();
       }
 
       landing    = false;
@@ -1258,6 +1272,20 @@ bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Tri
   changeState(STOP_MOTION_STATE);
 
   return true;
+}
+
+//}
+
+// | --------------------- other routines --------------------- |
+
+/* resetLateralOdometry() //{ */
+
+void LandoffTracker::resetLateralOdometry(void) {
+
+  std_srvs::Trigger reset_out;
+  service_client_reset_lateral_odometry.call(reset_out);
+
+  lateral_odometry_reset_time = ros::Time::now();
 }
 
 //}
