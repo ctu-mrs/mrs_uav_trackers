@@ -93,6 +93,7 @@ private:
   bool   is_active;
   bool   first_iter;
   bool   takeoff_disable_lateral_gains_;
+  double takeoff_disable_lateral_gains_height_;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -212,6 +213,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   param_loader.load_param("landing_threshold_height", landed_threshold_height_);
   param_loader.load_param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_);
+  param_loader.load_param("takeoff_disable_lateral_gains_height", takeoff_disable_lateral_gains_height_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -462,11 +464,16 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   mutex_state.unlock();
 
   if (takeoff_disable_lateral_gains_) {
-    if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE)) {
-      position_output.disable_position_gains = true;
-    } else {
-      position_output.disable_position_gains = false;
+    mutex_odometry.lock();
+    {
+      if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE) &&
+          odometry_z < takeoff_disable_lateral_gains_height_) {
+        position_output.disable_position_gains = true;
+      } else {
+        position_output.disable_position_gains = false;
+      }
     }
+    mutex_odometry.unlock();
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -713,6 +720,10 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
 
       // | ----- trigger odometry fusion reset after taking off 0---- |
       if (taking_off) {
+
+        state_x = odometry_x;
+        state_y = odometry_y;
+
         // TODO
         ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
       }
