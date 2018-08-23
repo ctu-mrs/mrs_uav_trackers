@@ -1763,11 +1763,11 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
           } else {
             // the other drone should be avoiding, except for priority swap
             if (use_priority_swap && first_collision) {
-              if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z && (ros::Time::now() - priority_time).toSec() > 0.0) {
+              if (u->second.points[v].z + 0.3 < future_trajectory_out.points[v].z) {
                 priority_time = ros::Time::now();
                 ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z
                                                                                           << "  my: " << future_trajectory_out.points[0].z);
-                if (my_uav_priority < 600) {
+                if (my_uav_priority < 1050) {
                   // To prevent priority swapping runaway scenario
                   my_uav_priority += 100;
                 } else {
@@ -1778,8 +1778,8 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
             }
             // the other uav should avoid us
             ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_uav_priority << ", not avoiding (My priority is higher)");
+            first_collision = false;
           }
-          first_collision = false;
         }
         if (checkCollisionInflated(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0), predicted_future_trajectory(v * 9 + 6, 0),
                                    u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
