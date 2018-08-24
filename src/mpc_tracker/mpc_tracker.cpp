@@ -295,6 +295,8 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   mrs_lib::Routine * routine_mpc_timer;
+  mrs_lib::Routine * routine_diagnostics_timer;
+  mrs_lib::Routine * routine_future_trajectory_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -560,8 +562,10 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler          = new mrs_lib::Profiler(nh_, "MpcTracker");
-  routine_mpc_timer = profiler->registerRoutine("mpc_tracker_loop", int(1.0 / dt), 0.002);
+  profiler                        = new mrs_lib::Profiler(nh_, "MpcTracker");
+  routine_mpc_timer               = profiler->registerRoutine("mpc_interation", int(1.0 / dt), 0.002);
+  routine_diagnostics_timer       = profiler->registerRoutine("diagnostics_publisher");
+  routine_future_trajectory_timer = profiler->registerRoutine("future_trajectory_publisher");
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -2426,7 +2430,11 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
+  routine_diagnostics_timer->start();
+
   publishDiagnostics();
+
+  routine_diagnostics_timer->start();
 }
 
 //}
@@ -2523,6 +2531,8 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
+  routine_future_trajectory_timer->start();
+
   if (future_was_predicted) {
 
     mrs_msgs::FutureTrajectory future_trajectory_out;
@@ -2579,6 +2589,8 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
     }
   }
+
+  routine_future_trajectory_timer->end();
 }
 
 //}
