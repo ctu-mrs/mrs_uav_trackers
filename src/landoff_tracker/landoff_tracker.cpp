@@ -1106,7 +1106,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       state_z = goal_z = odometry_z;
     }
 
-    if (taking_off && odometry_z > 1.0 && !takeoff_odometry_was_reset) {
+    if (taking_off && odometry_z > takeoff_reset_odometry_height_ && !takeoff_odometry_was_reset) {
 
       takeoff_odometry_was_reset = true;
       resetLateralOdometry();
