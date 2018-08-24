@@ -2109,7 +2109,7 @@ void MpcTracker::calculateMPC() {
   if (no_overshoots) {
     if (tracking_trajectory_) {
       vel_qx = 8000;
-    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0) {
+    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0) {
       vel_qx = 8000;
     }
   }
