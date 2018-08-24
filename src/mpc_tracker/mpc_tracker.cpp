@@ -234,8 +234,8 @@ private:
   int    collision_start_climbing;
   int    earliest_collision_idx;
   double collision_trajectory_timeout;
-  bool   vel_qx;  // are we currently tracking a trajectory
-  bool   vel_qy;  // are we currently tracking a trajectory
+  int   vel_qx;
+  int   vel_qy;
 
 private:
   ros::Timer future_trajectory_timer;
