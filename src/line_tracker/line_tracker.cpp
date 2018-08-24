@@ -138,7 +138,6 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   mrs_lib::Routine * routine_main_timer;
-  mrs_lib::Routine * routine_update;
 };
 
 LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
@@ -207,7 +206,6 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
 
   profiler           = new mrs_lib::Profiler(nh_, "LineTracker");
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
-  routine_update     = profiler->registerRoutine("update");
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -353,8 +351,6 @@ void LineTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  routine_update->start();
-
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -374,7 +370,6 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
   if (!is_active) {
 
-    routine_update->end();
     return mrs_msgs::PositionCommand::Ptr();
   }
 
@@ -399,7 +394,6 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   }
   mutex_state.unlock();
 
-  routine_update->end();
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
 
