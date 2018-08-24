@@ -68,9 +68,9 @@ cvxgenMpc:
 
   no_overshoots: true # disable for more aggresive flight
 
-  maxHorizontalSpeed: 8.0
-  maxHorizontalAcceleration: 2.0
-  maxHorizontalJerk: 3.0
+  maxHorizontalSpeed: 3.0
+  maxHorizontalAcceleration: 1.0
+  maxHorizontalJerk: 1.0
 
   maxVerticalAscendingSpeed: 3.0
   maxVerticalAscendingAcceleration: 2.0
@@ -80,9 +80,9 @@ cvxgenMpc:
   maxVerticalDescendingAcceleration: 2.0
   maxVerticalDescendingJerk: 2.0
 
-  maxYawRate: 0.5
+  maxYawRate: 0.3
   maxYawAcceleration: 0.5
-  maxYawJerk: 1.0
+  maxYawJerk: 0.5
 
 cvxWrapper:
   verbose: false # cvxgen's debug output

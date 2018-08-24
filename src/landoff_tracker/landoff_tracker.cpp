@@ -65,10 +65,12 @@ public:
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
   void resetLateralOdometry(void);
+  void replicateOdometry(void);
 
 private:
   ros::ServiceClient service_client_reset_lateral_odometry;
   ros::Time          lateral_odometry_reset_time;
+  bool               lateral_odometry_being_reset = false;
 
 private:
   bool callbacks_enabled = true;
@@ -98,8 +100,11 @@ private:
   bool   is_initialized;
   bool   is_active;
   bool   first_iter;
+
   bool   takeoff_disable_lateral_gains_;
   double takeoff_disable_lateral_gains_height_;
+  double takeoff_reset_odometry_height_;
+  bool   takeoff_odometry_was_reset = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -222,6 +227,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   param_loader.load_param("landing_threshold_height", landed_threshold_height_);
   param_loader.load_param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_);
   param_loader.load_param("takeoff_disable_lateral_gains_height", takeoff_disable_lateral_gains_height_);
+  param_loader.load_param("takeoff_reset_odometry_height", takeoff_reset_odometry_height_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -430,13 +436,6 @@ void LandoffTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  if ((ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.1) {
-
-    state_x = odometry_x;
-    state_y = odometry_y;
-    ROS_INFO("[LandoffTracker]: waiting for KF to settle, setting lateral goal to current odometry.");
-  }
-
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -462,6 +461,31 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
 
+  if (lateral_odometry_being_reset && (ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.1) {
+
+    mutex_odometry.lock();
+    mutex_state.lock();
+    {
+      goal_x = state_x = odometry.pose.pose.position.x;
+      goal_y = state_y = odometry.pose.pose.position.y;
+
+      speed_x         = odometry.twist.twist.linear.x;
+      speed_y         = odometry.twist.twist.linear.y;
+      current_heading = atan2(speed_y, speed_x);
+
+      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+    }
+    mutex_state.unlock();
+    mutex_odometry.unlock();
+    ROS_INFO("[LandoffTracker]: waiting for KF to settle, height: %f", odometry_z);
+
+  } else if (lateral_odometry_being_reset) {
+
+    lateral_odometry_being_reset = false;
+
+    replicateOdometry();
+  }
+
   mutex_state.lock();
   {
     position_output.position.x = state_x;
@@ -483,8 +507,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   if (takeoff_disable_lateral_gains_) {
     mutex_odometry.lock();
     {
-      if (taking_off && (current_state_vertical == ACCELERATING_STATE || current_state_vertical == DECELERATING_STATE) &&
-          odometry_z < takeoff_disable_lateral_gains_height_) {
+      if (taking_off && !takeoff_odometry_was_reset) {
         position_output.disable_position_gains = true;
       } else {
         position_output.disable_position_gains = false;
@@ -738,8 +761,7 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
       // | ----- trigger odometry fusion reset after taking off 0---- |
       if (taking_off) {
 
-        ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
-        resetLateralOdometry();
+        /* ROS_WARN("[LandoffTracker]: calling for odometry fusion reset"); */
       }
 
       landing    = false;
@@ -752,6 +774,11 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     case DECELERATING_STATE:
       break;
     case STOPPING_STATE:
+
+      if (taking_off) {
+
+        /* replicateOdometry(); */
+      }
       break;
   }
 
@@ -1079,6 +1106,12 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       state_z = goal_z = odometry_z;
     }
 
+    if (taking_off && odometry_z > takeoff_reset_odometry_height_ && !takeoff_odometry_was_reset) {
+
+      takeoff_odometry_was_reset = true;
+      resetLateralOdometry();
+    }
+
     // --------------------------------------------------------------
     // |              motion saturation during takeoff              |
     // --------------------------------------------------------------
@@ -1217,6 +1250,7 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
 
   taking_off = true;
   landing    = false;
+  takeoff_odometry_was_reset = false;
 
   res.success = true;
   res.message = "taking off";
@@ -1285,10 +1319,65 @@ void LandoffTracker::resetLateralOdometry(void) {
   std_srvs::Trigger reset_out;
   service_client_reset_lateral_odometry.call(reset_out);
 
-  lateral_odometry_reset_time = ros::Time::now();
+  lateral_odometry_reset_time  = ros::Time::now();
+  lateral_odometry_being_reset = true;
 }
 
 //}
+
+/* replicateOdometru() //{ */
+
+void LandoffTracker::replicateOdometry(void) {
+
+  // --------------------------------------------------------------
+  // |          horizontal initial conditions prediction          |
+  // --------------------------------------------------------------
+  /* mutex_odometry.lock(); */
+  /* mutex_state.lock(); */
+  /* { */
+  current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+  current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
+  /* } */
+  /* mutex_state.unlock(); */
+  /* mutex_odometry.unlock(); */
+
+  double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
+
+  /* mutex_state.lock(); */
+  /* { */
+  horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
+  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+  stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+  /* } */
+  /* mutex_state.unlock(); */
+
+  // --------------------------------------------------------------
+  // |                        set the goal                        |
+  // --------------------------------------------------------------
+
+  state_x = odometry.pose.pose.position.x;
+  state_y = odometry.pose.pose.position.y;
+
+  speed_x = odometry.twist.twist.linear.x;
+  speed_y = odometry.twist.twist.linear.y;
+
+  /* mutex_state.lock(); */
+  /* mutex_goal.lock(); */
+  /* { */
+  goal_x = state_x + stop_dist_x;
+  goal_y = state_y + stop_dist_y;
+  /* } */
+  /* mutex_goal.unlock(); */
+  /* mutex_state.unlock(); */
+
+  ROS_INFO("[LandoffTracker]: replicating odometry and stopping: current: %f %f, goal: %f %f", state_x, state_y, goal_x, goal_y);
+
+  changeStateHorizontal(STOP_MOTION_STATE);
+}
+
+//}
+
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
