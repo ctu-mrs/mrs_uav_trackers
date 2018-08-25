@@ -4,7 +4,7 @@
 #include <tf/LinearMath/Transform.h>
 
 #include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/SwitchTracker.h>
+#include <mrs_msgs/String.h>
 
 #include <mrs_mav_manager/Tracker.h>
 
@@ -197,7 +197,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   }
 
   service_goTo           = priv_nh.serviceClient<mrs_msgs::Vec4>("goTo_out");
-  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::SwitchTracker>("SwitchTracker_out");
+  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::String>("SwitchTracker_out");
 
   publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
   pub_weight            = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
@@ -721,8 +721,8 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
     ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, replaying the last poing...");
 
-    mrs_msgs::SwitchTracker SwitchTracker;
-    SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";
+    mrs_msgs::String SwitchTracker;
+    SwitchTracker.request.value = "mrs_trackers/MpcTracker";
     service_switch_tracker.call(SwitchTracker);
   }
 }
