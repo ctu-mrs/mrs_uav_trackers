@@ -1636,7 +1636,6 @@ double MpcTracker::checkCollisionInflated(const double ax, const double ay, cons
 
 //}
 
-
 //{ checkTrajectoryForCollisions()
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
@@ -2212,7 +2211,10 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       loop = false;
     }
 
-    bool trajectory_is_ok = true;
+    bool   trajectory_is_ok = true;
+    double min_height       = safety_area->getMinHeight();
+    double max_height       = safety_area->getMaxHeight();
+
     // check the safety area
     if (safety_area->use_safety_area) {
 
@@ -2221,11 +2223,11 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       for (int i = 0; i < trajectory_size; i++) {
 
         // saturate the trajectory to min and max height
-        if (des_z_whole_trajectory(i) < safety_area->min_altitude) {
-          des_z_whole_trajectory(i) = safety_area->min_altitude;
+        if (des_z_whole_trajectory(i) < min_height) {
+          des_z_whole_trajectory(i) = min_height;
         }
-        if (des_z_whole_trajectory(i) > safety_area->max_altitude) {
-          des_z_whole_trajectory(i) = safety_area->max_altitude;
+        if (des_z_whole_trajectory(i) > max_height) {
+          des_z_whole_trajectory(i) = max_height;
         }
 
         // the point is not feasible
