@@ -483,7 +483,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
     lateral_odometry_being_reset = false;
 
-    replicateOdometry();
+    /* replicateOdometry(); */
   }
 
   mutex_state.lock();
