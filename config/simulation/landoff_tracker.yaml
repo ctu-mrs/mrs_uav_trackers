@@ -12,7 +12,7 @@ takeoff_reset_odometry_height: 0.5 # [m]
 max_position_difference: 0.5
 
 horizontal_tracker:
-  horizontal_speed: 2.0
+  horizontal_speed: 3.0
   horizontal_acceleration: 1.0
 
 vertical_tracker:
@@ -20,7 +20,7 @@ vertical_tracker:
   vertical_acceleration: 1.0
 
   takeoff_speed: 1.0
-  takeoff_acceleration: 1.0
+  takeoff_acceleration: 0.5
 
   landing_speed: 0.2
   landing_acceleration: 0.1
