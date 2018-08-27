@@ -152,7 +152,6 @@ private:
   MatrixXd initial_z           = MatrixXd::Zero(3, 1);  // initial z state to be used by cvxgen
   MatrixXd initial_yaw         = MatrixXd::Zero(3, 1);  // initial yaw state to be used by cvxgen
 
-
   double diagnostic_tracking_threshold;
 
   CvxWrapper *cvx_x;
@@ -2510,7 +2509,7 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
   publishDiagnostics();
 
-  routine_diagnostics_timer->start();
+  routine_diagnostics_timer->end();
 }
 
 //}
