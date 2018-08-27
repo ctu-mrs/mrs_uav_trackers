@@ -382,7 +382,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
   param_loader.load_param("cvxgenMpc/maxYawRate", max_yaw_rate);
   param_loader.load_param("cvxgenMpc/maxYawAcceleration", max_yaw_acceleration);
-  param_loader.load_param("cvxgenMpc/maxYawAcceleration", max_yaw_jerk);
+  param_loader.load_param("cvxgenMpc/maxYawJerk", max_yaw_jerk);
 
   param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots);
 
