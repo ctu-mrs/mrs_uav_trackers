@@ -2251,8 +2251,6 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     ROS_WARN("[MpcTracker]: %s", message.c_str());
     return false;
 
-    ROS_INFO("[MpcTracker]: MpcTracker: ");
-
   } else {
 
     des_trajectory_mutex.lock();
