@@ -26,13 +26,13 @@ using namespace Eigen;
 namespace mrs_trackers
 {
 
-//{ class CsvTracker
+/* //{ class CsvTracker */
 
 class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -47,6 +47,8 @@ public:
   virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+
+  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
   virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
   virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
@@ -146,9 +148,9 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 // | ------------------- tracker's interface ------------------ |
 
-//{ initialize()
+/* //{ initialize() */
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
@@ -260,7 +262,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
 //}
 
-//{ activate()
+/* //{ activate() */
 
 bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -302,7 +304,7 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 //}
 
-//{ deactivate()
+/* //{ deactivate() */
 
 void CsvTracker::deactivate(void) {
 
@@ -314,7 +316,7 @@ void CsvTracker::deactivate(void) {
 
 //}
 
-//{ update()
+/* //{ update() */
 
 const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -341,7 +343,7 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
 //}
 
-//{ getStatus()
+/* //{ getStatus() */
 
 const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
@@ -364,7 +366,7 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
 //}
 
-//{ enableCallbacks()
+/* //{ enableCallbacks() */
 
 const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
@@ -394,7 +396,7 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
 
 // | -------------- setpoint topics and services -------------- |
 
-//{ goTo() service
+/* //{ goTo() service */
 
 const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -403,7 +405,7 @@ const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Requ
 
 //}
 
-//{ goTo() topic
+/* //{ goTo() topic */
 
 bool CsvTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
@@ -411,7 +413,7 @@ bool CsvTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
 //}
 
-//{ goToRelative() service
+/* //{ goToRelative() service */
 
 const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -420,7 +422,7 @@ const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::
 
 //}
 
-//{ goToRelative() topic
+/* //{ goToRelative() topic */
 
 bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
@@ -428,7 +430,7 @@ bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) 
 
 //}
 
-//{ goToAltitude() service
+/* //{ goToAltitude() service */
 
 const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -437,7 +439,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::
 
 //}
 
-//{ goToAltitude() topic
+/* //{ goToAltitude() topic */
 
 bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
   return false;
@@ -445,7 +447,7 @@ bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYaw() service
+/* //{ setYaw() service */
 
 const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
   return mrs_msgs::Vec1Response::Ptr();
@@ -453,7 +455,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw(const mrs_msgs::Vec1Re
 
 //}
 
-//{ setYaw() topic
+/* //{ setYaw() topic */
 
 bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
   return false;
@@ -461,7 +463,7 @@ bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYawRelative() service
+/* //{ setYawRelative() service */
 
 const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
   return mrs_msgs::Vec1Response::Ptr();
@@ -469,7 +471,7 @@ const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative(const mrs_msgs
 
 //}
 
-//{ setYawRelative() topic
+/* //{ setYawRelative() topic */
 
 bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
   return false;
@@ -477,7 +479,7 @@ bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ hover()
+/* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
@@ -485,9 +487,18 @@ const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::Trig
 
 //}
 
+/* //{ setConstraints() service */
+
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr CsvTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+
+  return mrs_msgs::TrackerConstraintsResponse::Ptr();
+}
+
+//}
+
 // | ------------------------ callbacks ----------------------- |
 
-//{ odometryCallbacks()
+/* //{ odometryCallbacks() */
 
 void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
@@ -501,7 +512,7 @@ void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
 
 //}
 
-//{ start_callback()
+/* //{ start_callback() */
 
 bool CsvTracker::start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -510,7 +521,7 @@ bool CsvTracker::start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigg
 
 //}
 
-//{ setInitPoint()
+/* //{ setInitPoint() */
 
 void CsvTracker::setInitPoint(void) {
 
@@ -537,7 +548,7 @@ void CsvTracker::setInitPoint(void) {
 
 //}
 
-//{ setXYScale()
+/* //{ setXYScale() */
 
 bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -561,7 +572,7 @@ bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setYScale()
+/* //{ setYScale() */
 
 bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -585,7 +596,7 @@ bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setZScale()
+/* //{ setZScale() */
 
 bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -609,7 +620,7 @@ bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setScales()
+/* //{ setScales() */
 
 bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -637,7 +648,7 @@ bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 // | ------------------------- timers ------------------------- |
 
-//{ mainTimer()
+/* //{ mainTimer() */
 
 void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 

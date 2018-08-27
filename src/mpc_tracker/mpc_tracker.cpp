@@ -40,7 +40,7 @@ class MpcTracker : public mrs_mav_manager::Tracker {
 public:
   MpcTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -61,6 +61,8 @@ public:
   virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+
+  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
 private:
   bool callbacks_enabled = true;
@@ -100,7 +102,7 @@ private:
   double yaw_gain;
 
   // safety area
-  mrs_mav_manager::SafetyArea const *safety_area;
+  mrs_mav_manager::SafetyArea_t const *safety_area;
 
   // variables regarding the MPC controller
   int       n;            // number of states
@@ -112,17 +114,20 @@ private:
   int       active_collision_index         = INT_MAX;
   double    coef_scaler                    = 0;
   ros::Time coef_time;
-  double    max_horizontal_speed;
-  double    max_horizontal_acceleration;
-  double    max_vertical_ascending_acceleration;
-  double    max_vertical_ascending_speed;
-  double    max_vertical_ascending_jerk;
-  double    max_vertical_descending_speed;
-  double    max_vertical_descending_acceleration;
-  double    max_vertical_descending_jerk;
-  double    max_yaw_rate;
-  double    max_yaw_acceleration;
-  double    max_yaw_jerk;
+
+  // constraints
+  std::mutex mutex_constraints;
+  double     max_horizontal_speed;
+  double     max_horizontal_acceleration;
+  double     max_vertical_ascending_acceleration;
+  double     max_vertical_ascending_speed;
+  double     max_vertical_ascending_jerk;
+  double     max_vertical_descending_speed;
+  double     max_vertical_descending_acceleration;
+  double     max_vertical_descending_jerk;
+  double     max_yaw_rate;
+  double     max_yaw_acceleration;
+  double     max_yaw_jerk;
 
   int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X             = 0;
@@ -308,7 +313,7 @@ MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialize
 
 //{ initialize()
 
-void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
 
   this->safety_area = safety_area;
 
@@ -668,9 +673,16 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   /* } */
 
   // calculate time needed to stop
-  double time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
-  double time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
-  double time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
+  double time_x;
+  double time_y;
+  double time_z;
+  mutex_constraints.lock();
+  {
+    time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
+    time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+    time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
+  }
+  mutex_constraints.unlock();
 
   // calculate how far will it move before it stops
   double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
@@ -1221,10 +1233,47 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ hover()
+//{ hover() service
 
 const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+/* //{ setConstraints() service */
+
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+
+  mrs_msgs::TrackerConstraintsResponse res;
+
+  // this is the place to copy the constraints
+  mutex_constraints.lock();
+  {
+    max_horizontal_speed        = cmd->horizontal_speed;
+    max_horizontal_acceleration = cmd->horizontal_acceleration;
+    max_horizontal_jerk         = cmd->horizontal_jerk;
+
+    max_vertical_ascending_speed        = cmd->vertical_ascending_speed;
+    max_vertical_ascending_acceleration = cmd->vertical_ascending_acceleration;
+    max_vertical_ascending_jerk         = cmd->vertical_ascending_jerk;
+
+    max_vertical_descending_speed        = cmd->vertical_descending_speed;
+    max_vertical_descending_acceleration = cmd->vertical_descending_acceleration;
+    max_vertical_descending_jerk         = cmd->vertical_descending_jerk;
+
+    max_yaw_rate         = cmd->yaw_speed;
+    max_yaw_acceleration = cmd->yaw_acceleration;
+    max_yaw_jerk         = cmd->yaw_snap;
+  }
+  mutex_constraints.unlock();
+
+  ROS_INFO("[LineTracker]: updating constraints");
+
+  res.success = true;
+  res.message = "constraints updated";
+
+  return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
 }
 
 //}
@@ -1575,8 +1624,14 @@ bool MpcTracker::triggerFailsafe() {
     des_trajectory_mutex.unlock();
 
     // calculate time needed to stop
-    double time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
-    double time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+    double time_x;
+    double time_y;
+    mutex_constraints.lock();
+    {
+      time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
+      time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+    }
+    mutex_constraints.unlock();
 
     // calculate how far will it move before it stops
     double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
@@ -1863,20 +1918,25 @@ void MpcTracker::calculateMPC() {
     minimum_collison_free_altitude = checkTrajectoryForCollisions(lowest_z, first_collision_index);
   }
 
-  max_jerk_x = max_horizontal_jerk;
-  max_jerk_y = max_horizontal_jerk;
-  // State and input constraints
-  max_speed_x = max_horizontal_speed;
-  max_speed_y = max_horizontal_speed;
-  max_acc_x   = max_horizontal_acceleration;
-  max_acc_y   = max_horizontal_acceleration;
+  mutex_constraints.lock();
+  {
+    max_jerk_x = max_horizontal_jerk;
+    max_jerk_y = max_horizontal_jerk;
 
-  max_speed_z = max_vertical_ascending_speed;
-  max_acc_z   = max_vertical_ascending_acceleration;
-  max_jerk_z  = max_vertical_ascending_jerk;
-  min_speed_z = max_vertical_descending_speed;
-  min_acc_z   = max_vertical_descending_acceleration;
-  min_jerk_z  = max_vertical_descending_jerk;
+    // State and input constraints
+    max_speed_x = max_horizontal_speed;
+    max_speed_y = max_horizontal_speed;
+    max_acc_x   = max_horizontal_acceleration;
+    max_acc_y   = max_horizontal_acceleration;
+
+    max_speed_z = max_vertical_ascending_speed;
+    max_acc_z   = max_vertical_ascending_acceleration;
+    max_jerk_z  = max_vertical_ascending_jerk;
+    min_speed_z = max_vertical_descending_speed;
+    min_acc_z   = max_vertical_descending_acceleration;
+    min_jerk_z  = max_vertical_descending_jerk;
+  }
+  mutex_constraints.unlock();
 
   if (first_collision_index < horizon_len) {
     // the tmp variable is used to scale the speed of our drone in collision avoidance, depending on how far away the collision is
@@ -1905,8 +1965,12 @@ void MpcTracker::calculateMPC() {
     }
 
     // We are close to a possible collision, better slow down a bit to give everyone more time
-    max_speed_x = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
-    max_speed_y = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
+    mutex_constraints.lock();
+    {
+      max_speed_x = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
+      max_speed_y = max_horizontal_speed * ((collision_horizontal_speed_coef * coef_scaler) + (1.0 - coef_scaler));
+    }
+    mutex_constraints.unlock();
   }
 
   if (collision_free_altitude > lowest_z) {
@@ -1917,8 +1981,12 @@ void MpcTracker::calculateMPC() {
     min_speed_z = 4.0;
     min_acc_z   = 2.0;
     min_jerk_z  = 4.0;
-    max_speed_x = max_horizontal_speed * (collision_horizontal_speed_coef);
-    max_speed_y = max_horizontal_speed * (collision_horizontal_speed_coef);
+    mutex_constraints.lock();
+    {
+      max_speed_x = max_horizontal_speed * (collision_horizontal_speed_coef);
+      max_speed_y = max_horizontal_speed * (collision_horizontal_speed_coef);
+    }
+    mutex_constraints.unlock();
   }
 
   if (!tracking_trajectory_ && (dist(x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
@@ -2002,45 +2070,51 @@ void MpcTracker::calculateMPC() {
 
   cvx_z->setInitialState(initial_z);
   cvx_z->loadReference(des_z_filtered_offset);
-  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk, vel_q);
+  mutex_constraints.lock();
+  { cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk, vel_q); }
+  mutex_constraints.unlock();
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
 
-
   // | ---------------------- cvxgen YAW axis --------------------- |
   cvx_yaw->setInitialState(x_yaw);
   cvx_yaw->loadReference(des_yaw_trajectory);
-  cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, 0);
+  mutex_constraints.lock();
+  { cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, 0); }
+  mutex_constraints.unlock();
   iters_YAW += cvx_yaw->solveCvx();
   cvx_yaw->getStates(predicted_future_yaw_trajectory);
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
-  if (cvx_u(0) > max_horizontal_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
-    cvx_u(0) = max_horizontal_jerk;
+  mutex_constraints.lock();
+  {
+    if (cvx_u(0) > max_horizontal_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk X: " << cvx_u(0));
+      cvx_u(0) = max_horizontal_jerk;
+    }
+    if (cvx_u(0) < -max_horizontal_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jert X: " << cvx_u(0));
+      cvx_u(0) = -max_horizontal_jerk;
+    }
+    if (cvx_u(1) > max_horizontal_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
+      cvx_u(1) = max_horizontal_jerk;
+    }
+    if (cvx_u(1) < -max_horizontal_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
+      cvx_u(1) = -max_horizontal_jerk;
+    }
+    if (cvx_u(2) > max_vertical_ascending_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
+      cvx_u(2) = max_vertical_ascending_jerk;
+    }
+    if (cvx_u(2) < -max_vertical_descending_jerk * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
+      cvx_u(2) = -max_vertical_descending_jerk;
+    }
   }
-  if (cvx_u(0) < -max_horizontal_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jert X: " << cvx_u(0));
-    cvx_u(0) = -max_horizontal_jerk;
-  }
-  if (cvx_u(1) > max_horizontal_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
-    cvx_u(1) = max_horizontal_jerk;
-  }
-  if (cvx_u(1) < -max_horizontal_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Y: " << cvx_u(1));
-    cvx_u(1) = -max_horizontal_jerk;
-  }
-  if (cvx_u(2) > max_vertical_ascending_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
-    cvx_u(2) = max_vertical_ascending_jerk;
-  }
-
-  if (cvx_u(2) < -max_vertical_descending_jerk * 1.01) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Saturating jerk Z: " << cvx_u(2));
-    cvx_u(2) = -max_vertical_descending_jerk;
-  }
+  mutex_constraints.unlock();
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
   if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
