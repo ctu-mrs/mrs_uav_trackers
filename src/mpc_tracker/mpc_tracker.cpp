@@ -1264,7 +1264,7 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
 
     max_yaw_rate         = cmd->yaw_speed;
     max_yaw_acceleration = cmd->yaw_acceleration;
-    max_yaw_jerk         = cmd->yaw_snap;
+    max_yaw_jerk         = cmd->yaw_jerk;
   }
   mutex_constraints.unlock();
 
