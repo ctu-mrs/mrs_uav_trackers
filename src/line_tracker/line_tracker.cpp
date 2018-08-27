@@ -19,7 +19,7 @@
 namespace mrs_trackers
 {
 
-//{ class LandoffTracker
+/* //{ class LandoffTracker */
 
 // state machine
 typedef enum
@@ -42,7 +42,7 @@ class LineTracker : public mrs_mav_manager::Tracker {
 public:
   LineTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -61,6 +61,8 @@ public:
   virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
   virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
   virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
+
+  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -113,12 +115,13 @@ private:
 
 private:
   // dynamical constraints
-  double horizontal_speed_;
-  double vertical_speed_;
-  double horizontal_acceleration_;
-  double vertical_acceleration_;
-  double yaw_rate_;
-  double yaw_gain_;
+  double     horizontal_speed_;
+  double     vertical_speed_;
+  double     horizontal_acceleration_;
+  double     vertical_acceleration_;
+  double     yaw_rate_;
+  double     yaw_gain_;
+  std::mutex mutex_constraints;
 
 private:
   // desired goal
@@ -147,9 +150,9 @@ LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
 
 // | -------------- tracker's interface routines -------------- |
 
-//{ initialize()
+/* //{ initialize() */
 
-void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
 
@@ -224,7 +227,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
 
 //}
 
-//{ activate()
+/* //{ activate() */
 
 bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -336,7 +339,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 //}
 
-//{ deactivate()
+/* //{ deactivate() */
 
 void LineTracker::deactivate(void) {
 
@@ -347,7 +350,7 @@ void LineTracker::deactivate(void) {
 
 //}
 
-//{ update()
+/* //{ update() */
 
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -399,7 +402,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
 //}
 
-//{ getStatus()
+/* //{ getStatus() */
 
 const mrs_msgs::TrackerStatus::Ptr LineTracker::getStatus() {
 
@@ -422,7 +425,7 @@ const mrs_msgs::TrackerStatus::Ptr LineTracker::getStatus() {
 
 //}
 
-//{ enableCallbacks()
+/* //{ enableCallbacks() */
 
 const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
@@ -452,7 +455,7 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
 
 // | -------------- setpoint topics and services -------------- |
 
-//{ goTo() service
+/* //{ goTo() service */
 
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -481,7 +484,7 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
 //}
 
-//{ goTo() topic
+/* //{ goTo() topic */
 
 bool LineTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
@@ -505,7 +508,7 @@ bool LineTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
 //}
 
-//{ goToRelative() service
+/* //{ goToRelative() service */
 
 const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -540,7 +543,7 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
 
 //}
 
-//{ goToRelative() topic
+/* //{ goToRelative() topic */
 
 bool LineTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
@@ -566,7 +569,7 @@ bool LineTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg)
 
 //}
 
-//{ goToAltitude() service
+/* //{ goToAltitude() service */
 
 const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -597,7 +600,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs:
 
 //}
 
-//{ goToAltitude() topic
+/* //{ goToAltitude() topic */
 
 bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
@@ -623,7 +626,7 @@ bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYaw() service
+/* //{ setYaw() service */
 
 const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -643,7 +646,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
 
 //}
 
-//{ setYaw() topic
+/* //{ setYaw() topic */
 
 bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
@@ -658,7 +661,7 @@ bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYawRelative() service
+/* //{ setYawRelative() service */
 
 const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -680,7 +683,7 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msg
 
 //}
 
-//{ setYawRelative() topic
+/* //{ setYawRelative() topic */
 
 bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
@@ -697,7 +700,7 @@ bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ hover()
+/* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
@@ -761,9 +764,38 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover(const std_srvs::Tri
 
 //}
 
+/* //{ setConstraints() service */
+
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+
+  mrs_msgs::TrackerConstraintsResponse res;
+
+  // this is the place to copy the constraints
+  mutex_constraints.lock();
+  {
+    horizontal_speed_        = cmd->horizontal_speed;
+    horizontal_acceleration_ = cmd->horizontal_acceleration;
+
+    vertical_speed_        = cmd->vertical_ascending_speed;
+    vertical_acceleration_ = cmd->vertical_ascending_acceleration;
+
+    yaw_rate_ = cmd->yaw_speed;
+  }
+  mutex_constraints.unlock();
+
+  ROS_INFO("[LineTracker]: updating constraints");
+
+  res.success = true;
+  res.message = "constraints updated";
+
+  return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+}
+
+//}
+
 // | ----------------- state machine routines ----------------- |
 
-//{ changeStateHorizontal()
+/* //{ changeStateHorizontal() */
 
 void LineTracker::changeStateHorizontal(States_t new_state) {
 
@@ -776,7 +808,7 @@ void LineTracker::changeStateHorizontal(States_t new_state) {
 
 //}
 
-//{ changeStateVertical()
+/* //{ changeStateVertical() */
 
 void LineTracker::changeStateVertical(States_t new_state) {
 
@@ -789,7 +821,7 @@ void LineTracker::changeStateVertical(States_t new_state) {
 
 //}
 
-//{ changeState()
+/* //{ changeState() */
 
 void LineTracker::changeState(States_t new_state) {
 
@@ -801,7 +833,7 @@ void LineTracker::changeState(States_t new_state) {
 
 // | --------------------- motion routines -------------------- |
 
-//{ stopHorizontalMotion()
+/* //{ stopHorizontalMotion() */
 
 void LineTracker::stopHorizontalMotion(void) {
 
@@ -817,7 +849,7 @@ void LineTracker::stopHorizontalMotion(void) {
 
 //}
 
-//{ stopVerticalMotion()
+/* //{ stopVerticalMotion() */
 
 void LineTracker::stopVerticalMotion(void) {
 
@@ -833,7 +865,7 @@ void LineTracker::stopVerticalMotion(void) {
 
 //}
 
-//{ accelerateHorizontal()
+/* //{ accelerateHorizontal() */
 
 void LineTracker::accelerateHorizontal(void) {
 
@@ -863,7 +895,7 @@ void LineTracker::accelerateHorizontal(void) {
 
 //}
 
-//{ accelerateVertical()
+/* //{ accelerateVertical() */
 
 void LineTracker::accelerateVertical(void) {
 
@@ -895,7 +927,7 @@ void LineTracker::accelerateVertical(void) {
 
 //}
 
-//{ decelerateHorizontal()
+/* //{ decelerateHorizontal() */
 
 void LineTracker::decelerateHorizontal(void) {
 
@@ -915,7 +947,7 @@ void LineTracker::decelerateHorizontal(void) {
 
 //}
 
-//{ decelerateVertical()
+/* //{ decelerateVertical() */
 
 void LineTracker::decelerateVertical(void) {
 
@@ -935,7 +967,7 @@ void LineTracker::decelerateVertical(void) {
 
 //}
 
-//{ stopHorizontal()
+/* //{ stopHorizontal() */
 
 void LineTracker::stopHorizontal(void) {
 
@@ -946,7 +978,7 @@ void LineTracker::stopHorizontal(void) {
 
 //}
 
-//{ stopVertical()
+/* //{ stopVertical() */
 
 void LineTracker::stopVertical(void) {
 
@@ -958,7 +990,7 @@ void LineTracker::stopVertical(void) {
 
 // | ------------------------- timers ------------------------- |
 
-//{ mainTimer()
+/* //{ mainTimer() */
 
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
@@ -971,6 +1003,7 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
   mutex_state.lock();
   mutex_goal.lock();
   mutex_odometry.lock();
+  mutex_constraints.lock();
   {
     switch (current_state_horizontal) {
 
@@ -1098,6 +1131,7 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
       state_yaw = goal_yaw;
     }
   }
+  mutex_constraints.unlock();
   mutex_odometry.unlock();
   mutex_goal.unlock();
   mutex_state.unlock();
