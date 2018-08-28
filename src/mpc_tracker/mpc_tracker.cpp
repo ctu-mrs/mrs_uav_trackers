@@ -205,6 +205,7 @@ private:
   double desired_yaw;
 
   // predicting the future
+  MatrixXd                 predicted_future_yaw_trajectory;
   MatrixXd                 predicted_future_trajectory;
   std::string              uav_name_;
   std::vector<std::string> other_drone_names_;
@@ -236,8 +237,8 @@ private:
   int    collision_start_climbing;
   int    earliest_collision_idx;
   double collision_trajectory_timeout;
-  int   vel_qx;
-  int   vel_qy;
+  int    vel_qx;
+  int    vel_qy;
 
 private:
   ros::Timer future_trajectory_timer;
