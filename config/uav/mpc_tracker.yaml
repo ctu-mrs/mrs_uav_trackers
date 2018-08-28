@@ -3,6 +3,7 @@ rc_failsafe_threshold: 1500         # [1000, 2000]
 rc_failsafe_channel: 9              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
+publish_debug_trajectory: false     # publish the mpc predicted trajectory at
 
 # mrs collision avoidance
 mrs_collision_avoidance:
@@ -10,8 +11,9 @@ mrs_collision_avoidance:
   use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav6, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
-  radius: 5.0 # [m]
-  altitude_threshold: 2.9 # [m]
+  radius: 3.0 # [m]
+  inflation_radius: 1.0 # [m] if a collision is detected in (radius + inflation radius) the uav will start to slow down. Do not set this variable lower than 0.5
+  altitude_threshold: 2.95 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
   collision_horizontal_speed_coef: 0.25 # when collision detected, slow down during the manouver
@@ -19,85 +21,87 @@ mrs_collision_avoidance:
   collision_slow_down_start: 25 # when collision detected, start slowing down this number of steps before it
   collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
-dynamicalModel:
-  numberOfStates: 9
-  numberOfInputs: 3
+  dynamicalModel:
+    numberOfStates: 9
+    numberOfInputs: 3
 
-  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
-      0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
-      0, 0, 0, 0, 0, 0, 0, 0, 1]
+    A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 0.01, 0, 0, 0, 0, 0, 0,
+    0, 0, 1, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 0.01, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 0.01, 0, 0, 0,
+    0, 0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 1, 0.01, 0,
+    0, 0, 0, 0, 0, 0, 0, 1, 0.01,
+    0, 0, 0, 0, 0, 0, 0, 0, 1]
 
-  B: [0, 0, 0,
-      0, 0, 0,
-      0.01, 0, 0,
-      0, 0, 0,
-      0, 0, 0,
-      0, 0.01, 0,
-      0, 0, 0,
-      0, 0, 0,
-      0, 0, 0.01]
+    B: [0, 0, 0,
+    0, 0, 0,
+    0.01, 0, 0,
+    0, 0, 0,
+    0, 0, 0,
+    0, 0.01, 0,
+    0, 0, 0,
+    0, 0, 0,
+    0, 0, 0.01]
 
-yawModel:
-  numberOfStates: 3
-  numberOfInputs: 1
+    yawModel:
+      numberOfStates: 3
+      numberOfInputs: 1
 
-  A: [1, 0.01, 0,
+      A: [1, 0.01, 0,
       0, 1, 0.01,
       0, 0, 1]
 
-  B: [0,
+      B: [0,
       0,
       0.01]
 
-yawTracker:
-  yawGain: 1.0
-  maxYawRate: 1.0
+      yawTracker:
+        yawGain: 1.0
+        maxYawRate: 1.0
 
-cvxgenMpc:
-  horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
-  maxTrajectorySize: 5000
+        cvxgenMpc:
+          horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
+          maxTrajectorySize: 5000
 
-  dt: 0.01
-  dt2: 0.2
+          dt: 0.01
+          dt2: 0.2
 
-  no_overshoots: true # disable for more aggresive flight
+          no_overshoots: true # disable for more aggresive flight
 
-  maxHorizontalSpeed: 5.0
-  maxHorizontalAcceleration: 2.0
-  maxHorizontalJerk: 3.0
+          maxHorizontalSpeed: 5.0
+          maxHorizontalAcceleration: 2.0
+          maxHorizontalJerk: 3.0
 
-  maxVerticalAscendingSpeed: 1.0
-  maxVerticalAscendingAcceleration: 1.0
-  maxVerticalAscendingJerk: 1.0
+          maxVerticalAscendingSpeed: 1.0
+          maxVerticalAscendingAcceleration: 1.0
+          maxVerticalAscendingJerk: 1.0
 
-  maxVerticalDescendingSpeed: 1.0
-  maxVerticalDescendingAcceleration: 1.0
-  maxVerticalDescendingJerk: 1.0
+          maxVerticalDescendingSpeed: 1.0
+          maxVerticalDescendingAcceleration: 1.0
+          maxVerticalDescendingJerk: 1.0
 
-  maxYawRate: 0.5
-  maxYawAcceleration: 0.5
-  maxYawJerk: 1.0
+          maxYawRate: 0.5
+          maxYawAcceleration: 0.5
 
-cvxgrapper:
-  verbose: false # cvxgen's debug output
-  maxNumOfIterations: 30 # 30
-  Q: [5000, 2000, 0, 5000, 2000, 0]
-  R: [500, 500]
+          maxAltitude: 20.0
+          minAltitude: 1.0
 
-cvxWrapperZ:
-  verbose: false # cvxgen's debug output
-  maxNumOfIterations: 20 # 20
-  Q: [5000, 2000, 0]
-  R: [500]
+          cvxWrapper:
+            verbose: false # cvxgen's debug output
+            maxNumOfIterations: 30 # 30
+            Q: [5000, 2000, 0, 5000, 2000, 0]
+            R: [500, 500]
 
-cvxWrapperYaw:
-  verbose: false # cvxgen's debug output
-  maxNumOfIterations: 20 # 20
-  Q: [5000, 2000, 0]
-  R: [500]
+            cvxWrapperZ:
+              verbose: false # cvxgen's debug output
+              maxNumOfIterations: 20 # 20
+              Q: [5000, 2000, 0]
+              R: [500]
+
+              cvxWrapperYaw:
+                verbose: false # cvxgen's debug output
+                maxNumOfIterations: 20 # 20
+                Q: [5000, 2000, 0]
+                R: [500]

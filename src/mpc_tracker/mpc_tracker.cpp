@@ -87,7 +87,8 @@ private:
 
   nav_msgs::Odometry odom_;  // odometry
 
-  mrs_msgs::PositionCommand position_cmd_;  // message being returned
+  mrs_msgs::FutureTrajectory future_trajectory_out;
+  mrs_msgs::PositionCommand  position_cmd_;  // message being returned
 
   bool      odom_set_, is_active, is_initialized;
   double    kx_[3], kv_[3];
@@ -112,6 +113,7 @@ private:
   int       active_collision_index         = INT_MAX;
   double    coef_scaler                    = 0;
   ros::Time coef_time;
+  ros::Time priority_time;
   double    max_horizontal_speed;
   double    max_horizontal_acceleration;
   double    max_vertical_ascending_acceleration;
@@ -123,6 +125,9 @@ private:
   double    max_yaw_rate;
   double    max_yaw_acceleration;
   double    max_yaw_jerk;
+  double    max_altitude_;
+  double    min_altitude_;
+  bool      publish_debug_trajectory;
 
   int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X             = 0;
@@ -200,47 +205,48 @@ private:
   double desired_yaw;
 
   // predicting the future
-  MatrixXd                                          predicted_future_trajectory;
-  MatrixXd                                          predicted_future_yaw_trajectory;
-  std::string                                       uav_name_;
-  std::vector<std::string>                          other_drone_names_;
+  MatrixXd                 predicted_future_trajectory;
+  std::string              uav_name_;
+  std::vector<std::string> other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-  std::vector<ros::Subscriber>                      other_drones_subscribers;
-  ros::Publisher                                    predicted_trajectory_publisher;
-  ros::Publisher                                    debug_predicted_trajectory_publisher;
-  bool                                              mrs_collision_avoidance;
-  bool                                              use_priority_swap;
-  double                                            predicted_trajectory_publish_rate;
-  double                                            mrs_collision_avoidance_radius;
-  double                                            mrs_collision_avoidance_correction;
-  std::mutex                                        mutex_predicted_trajectory;
-  std::string                                       predicted_trajectory_topic;
-  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool                                              future_was_predicted;
-  double                                            mrs_collision_avoidance_altitude_threshold;
-  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  double    checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  std::vector<ros::Subscriber> other_drones_subscribers;
+  ros::Publisher               predicted_trajectory_publisher;
+  ros::Publisher               debug_predicted_trajectory_publisher;
+  bool                         mrs_collision_avoidance;
+  bool                         use_priority_swap;
+  double                       predicted_trajectory_publish_rate;
+  double                       mrs_collision_avoidance_radius;
+  double                       mrs_collision_avoidance_correction;
+  std::mutex                   mutex_predicted_trajectory;
+  std::string                  predicted_trajectory_topic;
+  void callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool   future_was_predicted;
+  double mrs_collision_avoidance_altitude_threshold;
+  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  double checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   int       my_uav_number;
   int       my_uav_priority;
   double    collision_free_altitude;
   ros::Time avoiding_collision_time;
   ros::Time being_avoided_time;
-  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double    collision_horizontal_speed_coef;
-  int       collision_slow_down_fully;
-  int       collision_slow_down_start;
-  int       collision_start_climbing;
-  int       earliest_collision_idx;
-  double    collision_trajectory_timeout;
+  bool callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double collision_horizontal_speed_coef;
+  int    collision_slow_down_fully;
+  int    collision_slow_down_start;
+  int    collision_start_climbing;
+  int    earliest_collision_idx;
+  double collision_trajectory_timeout;
+  int   vel_qx;
+  int   vel_qy;
 
 private:
   ros::Timer future_trajectory_timer;
-  void       futureTrajectoryTimer(const ros::TimerEvent &event);
+  void futureTrajectoryTimer(const ros::TimerEvent &event);
 
 private:
   ros::Timer diagnostics_timer;
   double     diagnostics_rate;
-  void       diagnosticsTimer(const ros::TimerEvent &event);
+  void diagnosticsTimer(const ros::TimerEvent &event);
 
 private:
   MatrixXd   outputTrajectory;
@@ -262,32 +268,33 @@ private:
   double    mpc_total_delay = 0;
 
   // methods
-  void     mpcTimer(const ros::TimerEvent &event);
-  void     pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void     callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void     callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
-  bool     callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
-  bool     callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  bool     callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
-  void     calculateMPC();
-  void     setTrajectory(float x, float y, float z, float yaw);
-  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
-  double   checkTrajectoryForCollisions(double lowest_z, int &first_collision_index);
-  void     filterReference(double max_speed_x, double max_speed_y, double max_speed_z);
+  void mpcTimer(const ros::TimerEvent &event);
+  void pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
+  bool callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
+  bool callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void odom_cb(const nav_msgs::OdometryConstPtr &msg);
+  void calculateMPC();
+  void setTrajectory(float x, float y, float z, float yaw);
+  bool loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  double checkTrajectoryForCollisions(double lowest_z, int &first_collision_index);
+  void filterReferenceXY(double max_speed_x, double max_speed_y);
+  void filterReferenceZ(double max_speed_z);
   void     filterYawReference(void);
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
-  bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-  bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-  void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
-  bool     triggerFailsafe();
-  void     publishDiagnostics();
-  double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
-  bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
+  bool setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
+  bool goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
+  bool callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  void callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
+  bool   triggerFailsafe();
+  void   publishDiagnostics();
+  double triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
+  bool pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
   bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
@@ -380,8 +387,12 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
   param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots);
 
-  param_loader.load_param("diagnostics_rate", diagnostics_rate);
-  param_loader.load_param("diagnostic_tracking_threshold", diagnostic_tracking_threshold);
+  nh_.param("cvxgenMpc/no_overshoots", no_overshoots, true);
+
+  nh_.param("publish_debug_trajectory", publish_debug_trajectory, false);
+
+  nh_.param("diagnostics_rate", diagnostics_rate, 1.0);
+  nh_.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
 
   ROS_INFO(
       "MPC parameters: horizon_len: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
@@ -424,6 +435,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
   // trajectory tracking
   coef_time                = ros::Time(0);
+  priority_time            = ros::Time(0);
   des_x_whole_trajectory   = VectorXd::Zero(max_trajectory_size);
   des_y_whole_trajectory   = VectorXd::Zero(max_trajectory_size);
   des_z_whole_trajectory   = VectorXd::Zero(max_trajectory_size);
@@ -453,6 +465,21 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   des_x_filtered = MatrixXd::Zero(horizon_len, 1);
   des_y_filtered = MatrixXd::Zero(horizon_len, 1);
   des_z_filtered = MatrixXd::Zero(horizon_len, 1);
+
+  // fill last trajectory with initial data
+  future_trajectory_out.stamp               = ros::Time::now();
+  future_trajectory_out.uav_name            = uav_name_;
+  future_trajectory_out.priority            = my_uav_priority;
+  future_trajectory_out.collision_avoidance = mrs_collision_avoidance;
+
+  mrs_msgs::FuturePoint newPoint;
+  newPoint.x = std::numeric_limits<float>::max();
+  newPoint.y = std::numeric_limits<float>::max();
+  newPoint.z = std::numeric_limits<float>::min();
+
+  for (int i = 0; i < horizon_len; i++) {
+    future_trajectory_out.points.push_back(newPoint);
+  }
 
   // subscriber for desired trajectory
   sub_trajectory_ = nh_.subscribe("set_trajectory_in", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
@@ -529,6 +556,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   being_avoided_time      = ros::Time::now();
   future_was_predicted    = false;
   earliest_collision_idx  = INT_MAX;
+  vel_qx                  = 0;
+  vel_qy                  = 0;
 
   param_loader.load_param("predicted_trajectory_topic", predicted_trajectory_topic);
 
@@ -1632,7 +1661,6 @@ double MpcTracker::checkCollisionInflated(const double ax, const double ay, cons
 
 //}
 
-
 //{ checkTrajectoryForCollisions()
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
@@ -1643,8 +1671,8 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
   bool avoiding         = false;
   // This variable is used for collision avoidance priority swapping,only the first detected collision is considered for priority swap, subsequent collisons are
   // irrelevant
-  bool                                                        first_collision = true;
-  std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u               = other_drones_trajectories.begin();
+  bool first_collision = true;
+  std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
   while (u != other_drones_trajectories.end()) {
     first_collision = true;
     // is the other's trajectory fresh enought?
@@ -1655,7 +1683,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
                            u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
           // collision is detected
           int other_uav_priority = INT_MAX;
-          // get the id of the other uav
+          // get the priority of the other uav
           /* sscanf(u->first.c_str(), "uav%d", &other_uav_priority); */
           other_uav_priority = u->second.priority;
           // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
@@ -1668,10 +1696,13 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
             }
             ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_uav_priority);
           } else {
+            // the other drone should be avoiding, except for priority swap
             if (use_priority_swap && first_collision) {
-              if (u->second.points[v].z < predicted_future_trajectory(v * 9 + 6, 0) - 0.5) {
-                ROS_ERROR("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION");
-                if (my_uav_priority < 600) {
+              if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z) {
+                priority_time = ros::Time::now();
+                ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z
+                                                                                          << "  my: " << future_trajectory_out.points[0].z);
+                if (my_uav_priority < 1050) {
                   // To prevent priority swapping runaway scenario
                   my_uav_priority += 100;
                 } else {
@@ -1680,9 +1711,9 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
                 continue;
               }
             }
-            first_collision = false;
             // the other uav should avoid us
             ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_uav_priority << ", not avoiding (My priority is higher)");
+            first_collision = false;
           }
         }
         if (checkCollisionInflated(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0), predicted_future_trajectory(v * 9 + 6, 0),
@@ -1704,7 +1735,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
       collision_free_altitude = 0;
     }
   }
-  if (collision_free_altitude < lowest_z && my_uav_priority != my_uav_number) {
+  if (collision_free_altitude < lowest_z && my_uav_priority != my_uav_number && (ros::Time::now() - priority_time).toSec() > 5.0) {
     // priority swapping ends when the collision free altitude is lower than the lowest point in our trajectory
     my_uav_priority = my_uav_number;
     ROS_WARN("[MpcTracker]: RETURNING TO ORIGINAL PRIORITY");
@@ -1714,30 +1745,24 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
 
 //}
 
-//{ filterReference()
+//{ filterReferenceXY()
 
-void MpcTracker::filterReference(double max_speed_x, double max_speed_y, double max_speed_z) {
+void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
   double difference_x;
   double difference_y;
-  double difference_z;
   double max_sample_x;
   double max_sample_y;
-  double max_sample_z;
   for (int i = 0; i < horizon_len; i++) {
     if (i == 0) {
       max_sample_x = max_speed_x * dt;
       max_sample_y = max_speed_y * dt;
-      max_sample_z = max_speed_z * dt;
       difference_x = des_x_trajectory(i, 0) - x(0, 0);
       difference_y = des_y_trajectory(i, 0) - x(3, 0);
-      difference_z = des_z_trajectory(i, 0) - x(6, 0);
     } else {
       max_sample_x = max_speed_x * dt2;
       max_sample_y = max_speed_y * dt2;
-      max_sample_z = max_speed_z * dt2;
       difference_x = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
       difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
-      difference_z = des_z_trajectory(i, 0) - des_z_filtered(i - 1, 0);
     }
 
     // saturate the difference
@@ -1751,18 +1776,41 @@ void MpcTracker::filterReference(double max_speed_x, double max_speed_y, double 
     else if (difference_y < -max_sample_y)
       difference_y = -max_sample_y;
 
+    if (i == 0) {
+      des_x_filtered(i, 0) = x(0, 0) + difference_x;
+      des_y_filtered(i, 0) = x(3, 0) + difference_y;
+    } else {
+      des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference_x;
+      des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference_y;
+    }
+  }
+}
+
+//}
+
+//{ filterReferenceZ()
+
+void MpcTracker::filterReferenceZ(double max_speed_z) {
+  double difference_z;
+  double max_sample_z;
+  for (int i = 0; i < horizon_len; i++) {
+    if (i == 0) {
+      max_sample_z = max_speed_z * dt;
+      difference_z = des_z_trajectory(i, 0) - x(6, 0);
+    } else {
+      max_sample_z = max_speed_z * dt2;
+      difference_z = des_z_trajectory(i, 0) - des_z_filtered(i - 1, 0);
+    }
+
+    // saturate the difference
     if (difference_z > max_sample_z)
       difference_z = max_sample_z;
     else if (difference_z < -max_sample_z)
       difference_z = -max_sample_z;
 
     if (i == 0) {
-      des_x_filtered(i, 0) = x(0, 0) + difference_x;
-      des_y_filtered(i, 0) = x(3, 0) + difference_y;
       des_z_filtered(i, 0) = x(6, 0) + difference_z;
     } else {
-      des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference_x;
-      des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference_y;
       des_z_filtered(i, 0) = des_z_filtered(i - 1, 0) + difference_z;
     }
   }
@@ -1820,6 +1868,8 @@ void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
   des_z_trajectory.fill(z);
   des_yaw_trajectory.fill(yaw);
   trajectory_setpoint_mutex.unlock();
+  vel_qx = 0;
+  vel_qy = 0;
 }
 
 //}
@@ -1908,34 +1958,14 @@ void MpcTracker::calculateMPC() {
 
   if (collision_free_altitude > lowest_z) {
     // we are avoiding someone, increase Z dynamics limit for faster evasion
-    max_speed_z = 4.0;
+    max_speed_z = 2.0;
     max_acc_z   = 2.0;
-    max_jerk_z  = 4.0;
-    min_speed_z = 4.0;
+    max_jerk_z  = 2.0;
+    min_speed_z = 2.0;
     min_acc_z   = 2.0;
-    min_jerk_z  = 4.0;
+    min_jerk_z  = 2.0;
     max_speed_x = max_horizontal_speed * (collision_horizontal_speed_coef);
     max_speed_y = max_horizontal_speed * (collision_horizontal_speed_coef);
-  }
-
-  if (!tracking_trajectory_ && (dist(x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
-    // yaw angle at which my drone "sees" the goto reference point
-    double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
-
-    // Circle saturation of maximum velocity
-    max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-    max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  }
-
-  filterReference(max_speed_x, max_speed_y, max_speed_z);
-  // filter desired yaw reference to be feasible and remove PI rollovers
-  filterYawReference();
-  for (int i = 0; i < horizon_len; i++) {
-    if (des_z_filtered(i, 0) < minimum_collison_free_altitude) {
-      des_z_filtered_offset(i, 0) = minimum_collison_free_altitude;
-    } else {
-      des_z_filtered_offset(i, 0) = des_z_filtered(i, 0);
-    }
   }
 
   // First control input generated by cvxgen
@@ -1950,48 +1980,22 @@ void MpcTracker::calculateMPC() {
 
   ros::Time time_begin = ros::Time::now();
 
-  // | ---------------------- cvxgen X axis --------------------- |
-  initial_x(0, 0) = x(0, 0);
-  initial_x(1, 0) = x(1, 0);
-  initial_x(2, 0) = x(2, 0);
-
-  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0 && no_overshoots) {
-    vel_q = 8000;
-  } else {
-    vel_q = 0;
+  filterReferenceZ(max_speed_z);
+  // filter desired yaw reference to be feasible and remove PI rollovers
+  for (int i = 0; i < horizon_len; i++) {
+    if (des_z_filtered(i, 0) < minimum_collison_free_altitude) {
+      des_z_filtered_offset(i, 0) = minimum_collison_free_altitude;
+    } else {
+      des_z_filtered_offset(i, 0) = des_z_filtered(i, 0);
+    }
   }
-
-  cvx_x->setInitialState(initial_x);
-  cvx_x->loadReference(des_x_filtered);
-  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, vel_q);
-  iters_X += cvx_x->solveCvx();
-  cvx_x->getStates(predicted_future_trajectory);
-  cvx_u(0) = cvx_x->getFirstControlInput();
-
-  // | ---------------------- cvxgen Y axis --------------------- |
-  initial_y(0, 0) = x(3, 0);
-  initial_y(1, 0) = x(4, 0);
-  initial_y(2, 0) = x(5, 0);
-
-  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0 && no_overshoots) {
-    vel_q = 8000;
-  } else {
-    vel_q = 0;
-  }
-
-  cvx_y->setInitialState(initial_y);
-  cvx_y->loadReference(des_y_filtered);
-  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, vel_q);
-  iters_Y += cvx_y->solveCvx();
-  cvx_y->getStates(predicted_future_trajectory);
-  cvx_u(1) = cvx_y->getFirstControlInput();
 
   // | ---------------------- cvxgen Z axis --------------------- |
   initial_z(0, 0) = x(6, 0);
   initial_z(1, 0) = x(7, 0);
   initial_z(2, 0) = x(8, 0);
 
-  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 6, 0) - des_z_trajectory(0, 0)) < 2.0 && no_overshoots) {
+  if (no_overshoots) {
     vel_q = 8000;
   } else {
     vel_q = 0;
@@ -2003,6 +2007,66 @@ void MpcTracker::calculateMPC() {
   iters_Z += cvx_z->solveCvx();
   cvx_z->getStates(predicted_future_trajectory);
   cvx_u(2) = cvx_z->getFirstControlInput();
+
+
+  // If we are climbing to avoid a collision, reduce or arrest our horizontal velocity
+  double ascend = (predicted_future_trajectory(7, 0) / max_speed_z);
+  if (ascend > 0 && collision_free_altitude > lowest_z) {
+    max_speed_y = max_speed_y * (1.0 - ascend);
+    max_speed_x = max_speed_x * (1.0 - ascend);
+  }
+
+  if (!tracking_trajectory_ && (dist(x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
+    // yaw angle at which my drone "sees" the goto reference point
+    double goto_yaw = atan2(des_y_trajectory(0, 0) - x(3, 0), des_x_trajectory(0, 0) - x(0, 0));
+
+    // Circle saturation of maximum velocity
+    max_speed_x = fabs(max_speed_x * cos(goto_yaw));
+    max_speed_y = fabs(max_speed_y * sin(goto_yaw));
+  }
+
+  filterYawReference();
+  filterReferenceXY(max_speed_x, max_speed_y);
+
+  // | ---------------------- cvxgen X axis --------------------- |
+  initial_x(0, 0) = x(0, 0);
+  initial_x(1, 0) = x(1, 0);
+  initial_x(2, 0) = x(2, 0);
+
+  if (no_overshoots) {
+    if (tracking_trajectory_) {
+      vel_qx = 8000;
+    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0) {
+      vel_qx = 8000;
+    }
+  }
+
+  cvx_x->setInitialState(initial_x);
+  cvx_x->loadReference(des_x_filtered);
+  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, vel_qx);
+  iters_X += cvx_x->solveCvx();
+  cvx_x->getStates(predicted_future_trajectory);
+  cvx_u(0) = cvx_x->getFirstControlInput();
+
+  // | ---------------------- cvxgen Y axis --------------------- |
+  initial_y(0, 0) = x(3, 0);
+  initial_y(1, 0) = x(4, 0);
+  initial_y(2, 0) = x(5, 0);
+
+  if (no_overshoots) {
+    if (tracking_trajectory_) {
+      vel_qy = 8000;
+    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0) {
+      vel_qy = 8000;
+    }
+  }
+
+  cvx_y->setInitialState(initial_y);
+  cvx_y->loadReference(des_y_filtered);
+  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, vel_qy);
+  iters_Y += cvx_y->solveCvx();
+  cvx_y->getStates(predicted_future_trajectory);
+  cvx_u(1) = cvx_y->getFirstControlInput();
 
 
   // | ---------------------- cvxgen YAW axis --------------------- |
@@ -2506,6 +2570,39 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   }
 
   mpc_computed_ = true;
+  if (publish_debug_trajectory) {
+    geometry_msgs::PoseArray debug_trajectory_out;
+    debug_trajectory_out.header.stamp    = ros::Time::now();
+    debug_trajectory_out.header.frame_id = "local_origin";
+
+    mutex_predicted_trajectory.lock();
+    {
+      for (int i = 0; i < horizon_len; i++) {
+
+        geometry_msgs::Pose newPose;
+
+        newPose.position.x = predicted_future_trajectory(i * n);
+        newPose.position.y = predicted_future_trajectory(i * n + 3);
+        newPose.position.z = predicted_future_trajectory(i * n + 6);
+
+        tf::Quaternion orientation;
+        orientation.setEuler(0, 0, desired_yaw);
+        newPose.orientation.x = orientation.x();
+        newPose.orientation.y = orientation.y();
+        newPose.orientation.z = orientation.z();
+        newPose.orientation.w = orientation.w();
+
+        debug_trajectory_out.poses.push_back(newPose);
+      }
+    }
+    mutex_predicted_trajectory.unlock();
+    try {
+      debug_predicted_trajectory_publisher.publish(geometry_msgs::PoseArrayConstPtr(new geometry_msgs::PoseArray(debug_trajectory_out)));
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+    }
+  }
 
   routine_mpc_timer->end();
 }
@@ -2525,16 +2622,11 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 
   if (future_was_predicted) {
 
-    mrs_msgs::FutureTrajectory future_trajectory_out;
-    future_trajectory_out.stamp    = ros::Time::now();
-    future_trajectory_out.uav_name = uav_name_;
-    future_trajectory_out.priority = my_uav_priority;
-
+    future_trajectory_out.points.clear();
+    future_trajectory_out.stamp               = ros::Time::now();
+    future_trajectory_out.uav_name            = uav_name_;
+    future_trajectory_out.priority            = my_uav_priority;
     future_trajectory_out.collision_avoidance = mrs_collision_avoidance;
-
-    geometry_msgs::PoseArray debug_trajectory_out;
-    debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = "local_origin";
 
     // fill the trajectory
     mutex_predicted_trajectory.lock();
@@ -2548,20 +2640,6 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
         newPoint.z = predicted_future_trajectory(i * n + 6);
 
         future_trajectory_out.points.push_back(newPoint);
-
-        geometry_msgs::Pose newPose;
-
-        newPose.position.x = newPoint.x;
-        newPose.position.y = newPoint.y;
-        newPose.position.z = newPoint.z;
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, predicted_future_yaw_trajectory(i * n));
-        newPose.orientation.x = orientation.x();
-        newPose.orientation.y = orientation.y();
-        newPose.orientation.z = orientation.z();
-        newPose.orientation.w = orientation.w();
-
-        debug_trajectory_out.poses.push_back(newPose);
       }
     }
     mutex_predicted_trajectory.unlock();
@@ -2571,12 +2649,6 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
-    }
-    try {
-      debug_predicted_trajectory_publisher.publish(geometry_msgs::PoseArrayConstPtr(new geometry_msgs::PoseArray(debug_trajectory_out)));
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
     }
   }
 }
