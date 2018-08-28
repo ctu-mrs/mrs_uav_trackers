@@ -1,8 +1,9 @@
-use_rc_failsafe: false
+use_rc_failsafe: true
 rc_failsafe_threshold: 1500         # [1000, 2000]
 rc_failsafe_channel: 9              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
+publish_debug_trajectory: true      # publish the mpc predicted trajectory at [Hz]
 
 # mrs collision avoidance
 mrs_collision_avoidance:
@@ -10,7 +11,8 @@ mrs_collision_avoidance:
   use_priority_swap: true
   trajectory_timeout: 2.0 # [s]
   drone_names: [uav1, uav2, uav3, uav4, uav5, uav6, uav7, uav8, uav11, uav12, uav13, uav14, uav15]
-  radius: 5.0 # [m]
+  radius: 3.0 # [m]
+  inflation_radius: 1.0 # [m] if a collision is detected in (radius + inflation radius) the uav will start to slow down. Do not set this variable lower than 0.5
   altitude_threshold: 2.9 # [m]
   correction: 3.0 # [m]
   predicted_trajectory_publish_rate: 2 # [Hz]
