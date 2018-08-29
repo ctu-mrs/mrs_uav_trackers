@@ -1,7 +1,10 @@
 #include <ros/ros.h>
 
 #include <geometry_msgs/PoseStamped.h>
+
 #include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/Vec1.h>
+
 #include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
 #include <mrs_lib/Profiler.h>
@@ -95,7 +98,6 @@ private:
 private:
   // tracker's inner states
   int    tracker_loop_rate_;
-  double takeoff_height_;
   double landing_height_;
   double landing_fast_height_;
   double tracker_dt_;
@@ -138,7 +140,7 @@ private:
   void decelerateVertical(void);
   void stopHorizontal(void);
   void stopVertical(void);
-  bool callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   bool callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
 private:
@@ -220,7 +222,6 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
-  param_loader.load_param("takeoff_height", takeoff_height_);
   param_loader.load_param("landing_height", landing_height_);
   param_loader.load_param("landing_fast_height", landing_fast_height_);
 
@@ -1201,7 +1202,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
 /* //{ callbackTakeoff() */
 
-bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
   char message[100];
 
@@ -1232,6 +1233,15 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     return true;
   }
 
+  if (req.goal < 0.5 || req.goal > 3.0) {
+    
+    sprintf((char *)&message, "Can't take off, the goal should be within [0.5, 3.0] m!");
+    ROS_ERROR("[LandoffTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
   mutex_odometry.lock();
   mutex_state.lock();
   mutex_goal.lock();
@@ -1243,7 +1253,7 @@ bool LandoffTracker::callbackTakeoff(std_srvs::Trigger::Request &req, std_srvs::
     goal_y  = odometry_y;
 
     state_z = odometry_z;
-    goal_z  = takeoff_height_;
+    goal_z  = req.goal;
 
     state_yaw = odometry_yaw;
     goal_yaw  = odometry_yaw;

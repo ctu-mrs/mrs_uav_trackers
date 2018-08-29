@@ -1,9 +1,8 @@
 tracker_loop_rate: 100 # [Hz]
 
-takeoff_height: 1.5
 landing_fast_height: 1.5
-landing_height: -0.25
-landing_threshold_height: 0.4 # This is not the parameter to change if you want to stop motors at different height during landing!!!
+landing_height: -1.0
+landing_threshold_height: 0.4
 
 takeoff_disable_lateral_gains: false
 takeoff_disable_lateral_gains_height: 0.3 # [m]
