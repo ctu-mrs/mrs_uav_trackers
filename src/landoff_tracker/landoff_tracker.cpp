@@ -308,6 +308,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     mutex_odometry.lock();
     {
       if (!safety_area->isPointInSafetyArea2d(odometry.pose.pose.position.x, odometry.pose.pose.position.y)) {
+        ROS_INFO("[LandoffTracker]: current x=%f y=%f", odometry.pose.pose.position.x, odometry.pose.pose.position.y);
         ROS_ERROR("[LandoffTracker]: can't activate(), we are outside of the safety area");
         mutex_odometry.unlock();
         return false;

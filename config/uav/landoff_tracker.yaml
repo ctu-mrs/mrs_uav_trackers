@@ -3,11 +3,11 @@ tracker_loop_rate: 100 # [Hz]
 takeoff_height: 1.5
 landing_fast_height: 1.5
 landing_height: -0.25
-landing_threshold_height: 0.4
+landing_threshold_height: 0.4 # This is not the parameter to change if you want to stop motors at different height during landing!!!
 
-takeoff_disable_lateral_gains: true
-takeoff_disable_lateral_gains_height: 0.5 # [m]
-takeoff_reset_odometry_height: 0.5 # [m]
+takeoff_disable_lateral_gains: false
+takeoff_disable_lateral_gains_height: 0.3 # [m]
+takeoff_reset_odometry_height: 0.2 # [m]
 
 max_position_difference: 0.5
 
@@ -20,10 +20,10 @@ vertical_tracker:
   vertical_acceleration: 1.0
 
   takeoff_speed: 1.0
-  takeoff_acceleration: 0.5
+  takeoff_acceleration: 0.3
 
-  landing_speed: 0.2
-  landing_acceleration: 0.1
+  landing_speed: 1.0
+  landing_acceleration: 0.3
 
 yaw_tracker:
   yaw_gain: 0.2
