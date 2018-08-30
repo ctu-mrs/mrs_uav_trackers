@@ -140,6 +140,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
+  bool profiler_enabled_ = false;
   mrs_lib::Routine * routine_main_timer;
 };
 
@@ -164,6 +165,8 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
 
 
   mrs_lib::ParamLoader param_loader(nh_, "LineTracker");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
   param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
@@ -207,7 +210,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler           = new mrs_lib::Profiler(nh_, "LineTracker");
+  profiler           = new mrs_lib::Profiler(nh_, "LineTracker", profiler_enabled_);
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
 
   // --------------------------------------------------------------
