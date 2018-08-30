@@ -177,6 +177,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
+  bool profiler_enabled_ = false;
   mrs_lib::Routine * routine_main_timer;
 };
 
@@ -204,6 +205,8 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
   param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
@@ -263,7 +266,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker");
+  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker", profiler_enabled_);
   routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
 
   // --------------------------------------------------------------

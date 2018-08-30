@@ -304,6 +304,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
+  bool profiler_enabled_ = false;
   mrs_lib::Routine * routine_mpc_timer;
   mrs_lib::Routine * routine_diagnostics_timer;
   mrs_lib::Routine * routine_future_trajectory_timer;
@@ -333,6 +334,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // load parameters for yaw_tracker
 
   mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("yawTracker/maxYawRate", max_yaw_rate_old);
   param_loader.load_param("yawTracker/yawGain", yaw_gain);
@@ -594,7 +597,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler                        = new mrs_lib::Profiler(nh_, "MpcTracker");
+  profiler                        = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
   routine_mpc_timer               = profiler->registerRoutine("mpcIteration", int(1.0 / dt), 0.004);
   routine_diagnostics_timer       = profiler->registerRoutine("diagnosticsTimer");
   routine_future_trajectory_timer = profiler->registerRoutine("futureTrajectoryTimer");
