@@ -39,6 +39,7 @@ public:
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -150,7 +151,7 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 /* //{ initialize() */
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_mav_manager::SafetyArea_t const *safety_area) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
@@ -390,6 +391,13 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
   res.success = true;
 
   return std_srvs::SetBoolResponse::ConstPtr(new std_srvs::SetBoolResponse(res));
+}
+
+//}
+
+/* switchOdometrySource() //{ */
+
+void CsvTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 }
 
 //}

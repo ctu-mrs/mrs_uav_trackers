@@ -14,7 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_mav_manager
   )
 
-set(CMAKE_CXX_FLAGS "-std=c++11 -Os -fno-diagnostics-color -Wall")
+set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
 set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall")
 
 # include Eigen3
