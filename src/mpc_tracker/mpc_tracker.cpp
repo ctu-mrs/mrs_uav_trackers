@@ -34,7 +34,7 @@ using namespace Eigen;
 namespace mrs_trackers
 {
 
-//{ class MpcTracker
+/* //{ class MpcTracker */
 
 class MpcTracker : public mrs_mav_manager::Tracker {
 public:
@@ -47,6 +47,7 @@ public:
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -87,7 +88,8 @@ private:
   ros::Publisher pub_setpoint_pose_;
   ros::Publisher pub_diagnostics_;
 
-  nav_msgs::Odometry odom_;  // odometry
+  nav_msgs::Odometry odometry;
+  std::mutex         mutex_odometry;
 
   mrs_msgs::FutureTrajectory future_trajectory_out;
   mrs_msgs::PositionCommand  position_cmd_;  // message being returned
@@ -171,21 +173,26 @@ private:
   MatrixXd B_yaw;  // input matrix for yaw
 
   // trajectories
-  MatrixXd des_x_trajectory;                  // trajectory reference over the prediction horizon
-  MatrixXd des_y_trajectory;                  // trajectory reference over the prediction horizon
-  MatrixXd des_z_trajectory;                  // trajectory reference over the prediction horizon
-  MatrixXd des_z_filtered_offset;             // trajectory reference over the prediction horizon
-  MatrixXd des_yaw_trajectory;                // trajectory reference over the prediction horizon
-  MatrixXd des_x_filtered;                    // filtered trajectory reference over the horizon
-  MatrixXd des_y_filtered;                    // filtered trajectory reference over the horizon
-  MatrixXd des_z_filtered;                    // filtered trajectory reference over the horizon
+  MatrixXd des_x_trajectory;    // trajectory reference over the prediction horizon
+  MatrixXd des_y_trajectory;    // trajectory reference over the prediction horizon
+  MatrixXd des_z_trajectory;    // trajectory reference over the prediction horizon
+  MatrixXd des_yaw_trajectory;  // trajectory reference over the prediction horizon
+
+  MatrixXd des_z_filtered_offset;  // trajectory reference over the prediction horizon
+  MatrixXd des_x_filtered;         // filtered trajectory reference over the horizon
+  MatrixXd des_y_filtered;         // filtered trajectory reference over the horizon
+  MatrixXd des_z_filtered;         // filtered trajectory reference over the horizon
+
   VectorXd cvxgen_horizontal_vel_constraint;  // velocity constraint for the XY cvxgen solver
   VectorXd cvxgen_horizontal_acc_constraint;  // acceleration constraint for the XY cvxgen solver
-  VectorXd des_x_whole_trajectory;            // long trajectory reference
-  VectorXd des_y_whole_trajectory;            // long trajectory reference
-  VectorXd des_z_whole_trajectory;            // long trajectory reference
-  VectorXd des_yaw_whole_trajectory;          // long trajectory reference
-  bool     use_yaw_in_trajectory;
+
+  VectorXd   des_x_whole_trajectory;    // long trajectory reference
+  VectorXd   des_y_whole_trajectory;    // long trajectory reference
+  VectorXd   des_z_whole_trajectory;    // long trajectory reference
+  VectorXd   des_yaw_whole_trajectory;  // long trajectory reference
+  std::mutex mutex_des_whole_trajectory;
+
+  bool use_yaw_in_trajectory;
 
   bool tracking_trajectory_;  // are we currently tracking a trajectory
   int  trajectory_tracking_timer = 0;
@@ -207,8 +214,10 @@ private:
   double desired_yaw;
 
   // predicting the future
-  MatrixXd                                          predicted_future_yaw_trajectory;
-  MatrixXd                                          predicted_future_trajectory;
+  MatrixXd   predicted_future_yaw_trajectory;
+  MatrixXd   predicted_future_trajectory;
+  std::mutex mutex_predicted_trajectory;
+
   std::string                                       uav_name_;
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
@@ -220,7 +229,6 @@ private:
   double                                            predicted_trajectory_publish_rate;
   double                                            mrs_collision_avoidance_radius;
   double                                            mrs_collision_avoidance_correction;
-  std::mutex                                        mutex_predicted_trajectory;
   std::string                                       predicted_trajectory_topic;
   void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
   bool                                              future_was_predicted;
@@ -253,7 +261,7 @@ private:
 
 private:
   MatrixXd   outputTrajectory;
-  std::mutex x_mutex, trajectory_setpoint_mutex, des_yaw_mutex, des_trajectory_mutex;
+  std::mutex x_mutex, mutex_des_trajectory, des_yaw_mutex;
 
   ros::Timer mpc_timer;
 
@@ -304,7 +312,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
-  bool profiler_enabled_ = false;
+  bool               profiler_enabled_ = false;
   mrs_lib::Routine * routine_mpc_timer;
   mrs_lib::Routine * routine_diagnostics_timer;
   mrs_lib::Routine * routine_future_trajectory_timer;
@@ -317,7 +325,7 @@ MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialize
 
 // | -------------- tracker's interface routines -------------- |
 
-//{ initialize()
+/* //{ initialize() */
 
 void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
 
@@ -623,7 +631,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
 //}
 
-//{ activate()
+/* //{ activate() */
 
 bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -654,16 +662,16 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     // set the initial condition from the odometry
     x_mutex.lock();
-    x(0, 0) = odom_.pose.pose.position.x;
-    x(1, 0) = odom_.twist.twist.linear.x;
+    x(0, 0) = odometry.pose.pose.position.x;
+    x(1, 0) = odometry.twist.twist.linear.x;
     x(2, 0) = 0;
 
-    x(3, 0) = odom_.pose.pose.position.y;
-    x(4, 0) = odom_.twist.twist.linear.y;
+    x(3, 0) = odometry.pose.pose.position.y;
+    x(4, 0) = odometry.twist.twist.linear.y;
     x(5, 0) = 0;
 
-    x(6, 0) = odom_.pose.pose.position.z;
-    x(7, 0) = odom_.twist.twist.linear.z;
+    x(6, 0) = odometry.pose.pose.position.z;
+    x(7, 0) = odometry.twist.twist.linear.z;
     x(8, 0) = 0;
 
     x_yaw(0, 0) = cur_yaw_;
@@ -695,8 +703,9 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   /* // if we dont, stay where you are */
   /* else if (odom_set_) { */
 
-  /*   setTrajectory(odom_.pose.pose.position.x, odom_.pose.pose.position.y, odom_.pose.pose.position.z, tf::getYaw(odom_.pose.pose.orientation)); */
-  /*   position_cmd_.yaw = tf::getYaw(odom_.pose.pose.orientation); */
+  /*   setTrajectory(odometry.pose.pose.position.x, odometry.pose.pose.position.y, odometry.pose.pose.position.z, tf::getYaw(odometry.pose.pose.orientation));
+   */
+  /*   position_cmd_.yaw = tf::getYaw(odometry.pose.pose.orientation); */
 
   /*   ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are."); */
   /*   is_active = true; */
@@ -736,7 +745,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 //}
 
-//{ deactivate()
+/* //{ deactivate() */
 
 void MpcTracker::deactivate(void) {
 
@@ -744,10 +753,10 @@ void MpcTracker::deactivate(void) {
   odom_set_ = false;
 
   // turn off trajectory tracking
-  des_trajectory_mutex.lock();
+  mutex_des_trajectory.lock();
   tracking_trajectory_ = false;
   trajectory_idx       = 0;
-  des_trajectory_mutex.unlock();
+  mutex_des_trajectory.unlock();
 
   ROS_INFO("[MpcTracker]: MPC tracker deactivated");
 
@@ -756,12 +765,15 @@ void MpcTracker::deactivate(void) {
 
 //}
 
-//{ update()
+/* //{ update() */
 
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // copy the odometry from the message
-  odom_    = *msg;
+  mutex_odometry.lock();
+  { odometry = *msg; }
+  mutex_odometry.unlock();
+
   cur_yaw_ = tf::getYaw(msg->pose.pose.orientation);
 
   odom_set_ = true;
@@ -805,24 +817,28 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   // chech wheather all outputs are finite
   bool arefinite = true;
   for (int i = 0; i < 9; i++) {
-    if (!std::isfinite(x(i, 0)))
+    if (!std::isfinite(x(i, 0))) {
       arefinite = false;
+    }
   }
 
   if (arefinite) {
+
     x_mutex.lock();
-    // set the desired states base on the result of the mpc
-    position_cmd_.position.x     = x(0, 0);
-    position_cmd_.velocity.x     = x(1, 0);
-    position_cmd_.acceleration.x = x(2, 0);
+    {
+      // set the desired states base on the result of the mpc
+      position_cmd_.position.x     = x(0, 0);
+      position_cmd_.velocity.x     = x(1, 0);
+      position_cmd_.acceleration.x = x(2, 0);
 
-    position_cmd_.position.y     = x(3, 0);
-    position_cmd_.velocity.y     = x(4, 0);
-    position_cmd_.acceleration.y = x(5, 0);
+      position_cmd_.position.y     = x(3, 0);
+      position_cmd_.velocity.y     = x(4, 0);
+      position_cmd_.acceleration.y = x(5, 0);
 
-    position_cmd_.position.z     = x(6, 0);
-    position_cmd_.velocity.z     = x(7, 0);
-    position_cmd_.acceleration.z = x(8, 0);
+      position_cmd_.position.z     = x(6, 0);
+      position_cmd_.velocity.z     = x(7, 0);
+      position_cmd_.acceleration.z = x(8, 0);
+    }
     x_mutex.unlock();
 
   } else {
@@ -866,15 +882,8 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
     yaw += 2 * PI;
   }
 
-  if (std::isfinite(yaw_rate) && std::isfinite(yaw)) {
-    // set the yaw output - PD controller
-    /* position_cmd_.yaw_dot = yaw_rate; */
-    /* position_cmd_.yaw     = yaw; */
-  } else {
-    ROS_INFO("[MpcTracker]: Output YAW is not finite!");
-  }
-
   if (std::isfinite(x_yaw(0, 0)) && std::isfinite(x_yaw(1, 0))) {
+
     // set the yaw output - cvxgen MPC controller
     position_cmd_.yaw     = x_yaw(0, 0);
     position_cmd_.yaw_dot = x_yaw(1, 0);
@@ -940,15 +949,19 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   setpoint_odom_out.header.stamp    = ros::Time::now();
   setpoint_odom_out.header.frame_id = "local_origin";
 
-  setpoint_odom_out.pose.pose.position.x = des_x_trajectory(0, 0);
-  setpoint_odom_out.pose.pose.position.y = des_y_trajectory(0, 0);
-  setpoint_odom_out.pose.pose.position.z = des_z_trajectory(0, 0);
+  mutex_des_trajectory.lock();
+  {
+    setpoint_odom_out.pose.pose.position.x = des_x_trajectory(0, 0);
+    setpoint_odom_out.pose.pose.position.y = des_y_trajectory(0, 0);
+    setpoint_odom_out.pose.pose.position.z = des_z_trajectory(0, 0);
 
-  orientation.setEuler(0, 0, desired_yaw);
-  setpoint_odom_out.pose.pose.orientation.x = orientation.x();
-  setpoint_odom_out.pose.pose.orientation.y = orientation.y();
-  setpoint_odom_out.pose.pose.orientation.z = orientation.z();
-  setpoint_odom_out.pose.pose.orientation.w = orientation.w();
+    orientation.setEuler(0, 0, desired_yaw);
+    setpoint_odom_out.pose.pose.orientation.x = orientation.x();
+    setpoint_odom_out.pose.pose.orientation.y = orientation.y();
+    setpoint_odom_out.pose.pose.orientation.z = orientation.z();
+    setpoint_odom_out.pose.pose.orientation.w = orientation.w();
+  }
+  mutex_des_trajectory.unlock();
 
   try {
     pub_setpoint_pose_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
@@ -964,7 +977,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
 
 //}
 
-//{ getStatus()
+/* //{ getStatus() */
 
 const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
 
@@ -987,7 +1000,7 @@ const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
 
 //}
 
-//{ enableCallbacks()
+/* //{ enableCallbacks() */
 
 const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
@@ -1015,9 +1028,63 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 //}
 
+/* switchOdometrySource() //{ */
+
+void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  // | --------- recalculate the goal to new coordinates -------- |
+  double dx, dy, dz;
+
+  mutex_odometry.lock();
+  {
+    dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+    dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+    dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+    // TODO yaw?
+  }
+  mutex_odometry.unlock();
+
+  mutex_des_whole_trajectory.lock();
+  mutex_des_trajectory.lock();
+  x_mutex.lock();
+  {
+    if (tracking_trajectory_) {
+
+      for (int i = 0; i < trajectory_size; i++) {
+        des_x_whole_trajectory(i) += dx;
+        des_y_whole_trajectory(i) += dy;
+        des_z_whole_trajectory(i) += dz;
+      }
+
+    } else {
+
+      // TODO: should set goal when flying to a setpoint
+      for (int i = 0; i < horizon_len; i++) {
+        des_x_trajectory(i, 0) += dx;
+        des_y_trajectory(i, 0) += dy;
+        des_z_trajectory(i, 0) += dz;
+      }
+    }
+
+    x(0, 0) = msg->pose.pose.position.x;
+    x(1, 0) = msg->twist.twist.linear.x;
+
+    x(3, 0) = msg->pose.pose.position.y;
+    x(4, 0) = msg->twist.twist.linear.y;
+
+    x(6, 0) = msg->pose.pose.position.z;
+    x(7, 0) = msg->twist.twist.linear.z;
+  }
+  x_mutex.unlock();
+  mutex_des_trajectory.unlock();
+  mutex_des_whole_trajectory.unlock();
+}
+
+//}
+
 // | -------------- setpoint topics and services -------------- |
 
-//{ goTo() service
+/* //{ goTo() service */
 
 const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -1041,7 +1108,7 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Requ
 
 //}
 
-//{ goTo() topic
+/* //{ goTo() topic */
 
 bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
@@ -1055,7 +1122,7 @@ bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
 //}
 
-//{ goToRelative() service
+/* //{ goToRelative() service */
 
 const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
@@ -1079,7 +1146,7 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
 
 //}
 
-//{ goToRelative() topic
+/* //{ goToRelative() topic */
 
 bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
@@ -1093,7 +1160,7 @@ bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) 
 
 //}
 
-//{ goToAltitude() service
+/* //{ goToAltitude() service */
 
 const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -1117,7 +1184,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::
 
 //}
 
-//{ goToAltitude() topic
+/* //{ goToAltitude() topic */
 
 bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
@@ -1131,7 +1198,7 @@ bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYaw() service
+/* //{ setYaw() service */
 
 const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -1145,13 +1212,8 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
 
   if (tracking_trajectory_) {
 
-    des_trajectory_mutex.lock();
-    {
-      for (int i = 0; i < horizon_len; i++) {
-        des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-      }
-    }
-    des_trajectory_mutex.unlock();
+    // TODO implement
+    ROS_ERROR("[MpcTracker]: TODO, implement");
 
   } else {
 
@@ -1169,7 +1231,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
 
 //}
 
-//{ setYaw() topic
+/* //{ setYaw() topic */
 
 bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
@@ -1177,13 +1239,13 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
     if (tracking_trajectory_) {
 
-      des_trajectory_mutex.lock();
+      mutex_des_trajectory.lock();
       {
         for (int i = 0; i < horizon_len; i++) {
           des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
       }
-      des_trajectory_mutex.unlock();
+      mutex_des_trajectory.unlock();
 
     } else {
 
@@ -1197,7 +1259,7 @@ bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ setYawRelative() service
+/* //{ setYawRelative() service */
 
 const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
@@ -1211,13 +1273,13 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
   if (tracking_trajectory_) {
 
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
     {
       for (int i = 0; i < horizon_len; i++) {
         des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(cmd->goal);
       }
     }
-    des_trajectory_mutex.unlock();
+    mutex_des_trajectory.unlock();
 
   } else {
 
@@ -1235,7 +1297,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
 //}
 
-//{ setYawRelative() topic
+/* //{ setYawRelative() topic */
 
 bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
@@ -1243,13 +1305,13 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
     if (tracking_trajectory_) {
 
-      des_trajectory_mutex.lock();
+      mutex_des_trajectory.lock();
       {
         for (int i = 0; i < horizon_len; i++) {
           des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
       }
-      des_trajectory_mutex.unlock();
+      mutex_des_trajectory.unlock();
 
     } else {
 
@@ -1263,7 +1325,7 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 //}
 
-//{ hover() service
+/* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
@@ -1314,7 +1376,7 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
 
 // | ------------------------ callbacks ----------------------- |
 
-//{ callbackOtherMavTrajectory()
+/* //{ callbackOtherMavTrajectory() */
 
 void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
@@ -1326,7 +1388,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
 //}
 
-//{ callbackToggleCollisionAvoidance()
+/* //{ callbackToggleCollisionAvoidance() */
 
 bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
@@ -1347,7 +1409,7 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
 //}
 
-//{ callbackRadioControl()
+/* //{ callbackRadioControl() */
 
 void MpcTracker::callbackRadioControl(const mavros_msgs::RCInConstPtr &msg) {
 
@@ -1375,7 +1437,7 @@ void MpcTracker::callbackRadioControl(const mavros_msgs::RCInConstPtr &msg) {
 
 //}
 
-//{ callbackStartTrajectoryFollowing()
+/* //{ callbackStartTrajectoryFollowing() */
 
 bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -1395,10 +1457,10 @@ bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &re
 
   if (trajectory_set_) {
 
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
     tracking_trajectory_ = true;
     trajectory_idx       = 0;
-    des_trajectory_mutex.unlock();
+    mutex_des_trajectory.unlock();
 
     ROS_INFO("[MpcTracker]: Starting trajectory following.");
 
@@ -1419,7 +1481,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &re
 
 //}
 
-//{ callbackStopTrajectoryFollowing()
+/* //{ callbackStopTrajectoryFollowing() */
 
 bool MpcTracker::callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -1432,14 +1494,14 @@ bool MpcTracker::callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req
 
   if (tracking_trajectory_) {
 
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
     tracking_trajectory_ = false;
 
     x_mutex.lock();
     setTrajectory(x(0, 0), x(3, 0), x(6, 0), x_yaw(0, 0));
     x_mutex.unlock();
 
-    des_trajectory_mutex.unlock();
+    mutex_des_trajectory.unlock();
 
     ROS_INFO("[MpcTracker]: Stopping trajectory following, staying at x: %2.2f, y: %2.2f, z: %2.2f.", x(0, 0), x(3, 0), x(6, 0));
 
@@ -1461,7 +1523,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req
 
 //}
 
-//{ callbackFlyToTrajectoryStart()
+/* //{ callbackFlyToTrajectoryStart() */
 
 bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -1481,14 +1543,16 @@ bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, s
 
   if (trajectory_set_) {
 
-    setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true);
+    mutex_des_whole_trajectory.lock();
+    { setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true); }
+    mutex_des_whole_trajectory.unlock();
 
     if (use_yaw_in_trajectory)
       desired_yaw = des_yaw_whole_trajectory[0];
 
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
     tracking_trajectory_ = false;
-    des_trajectory_mutex.unlock();
+    mutex_des_trajectory.unlock();
 
     char tempStr[100];
     if (use_yaw_in_trajectory) {
@@ -1519,7 +1583,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, s
 
 //}
 
-//{ callbackResumeTrajectoryFollowing()
+/* //{ callbackResumeTrajectoryFollowing() */
 
 bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -1541,9 +1605,9 @@ bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &r
 
     if (trajectory_idx < (trajectory_size - 1)) {
 
-      des_trajectory_mutex.lock();
+      mutex_des_trajectory.lock();
       tracking_trajectory_ = true;
-      des_trajectory_mutex.unlock();
+      mutex_des_trajectory.unlock();
 
       ROS_INFO("[MpcTracker]: Resuming trajectory following.");
       res.success = true;
@@ -1568,7 +1632,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &r
 
 //}
 
-//{ callbackTriggerFailsafe()
+/* //{ callbackTriggerFailsafe() */
 
 bool MpcTracker::callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
@@ -1589,7 +1653,7 @@ bool MpcTracker::callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_sr
 
 //}
 
-//{ callbackSetTrajectory()
+/* //{ callbackSetTrajectory() */
 
 // service for setting desired trajectory
 bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res) {
@@ -1609,7 +1673,7 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
 
 //}
 
-//{ callbackDesiredTrajectory()
+/* //{ callbackDesiredTrajectory() */
 
 // callback for loading desired trajectory
 void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
@@ -1633,7 +1697,7 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 
 // | -------------------- setpoint handlign ------------------- |
 
-//{ triggerFailsafe()
+/* //{ triggerFailsafe() */
 
 bool MpcTracker::triggerFailsafe() {
 
@@ -1648,10 +1712,10 @@ bool MpcTracker::triggerFailsafe() {
   } else {
 
     // turn off potential trajectory tracking
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
     tracking_trajectory_ = false;
     trajectory_idx       = 0;
-    des_trajectory_mutex.unlock();
+    mutex_des_trajectory.unlock();
 
     // calculate time needed to stop
     double time_x;
@@ -1682,7 +1746,7 @@ bool MpcTracker::triggerFailsafe() {
 
 //}
 
-//{ dist()
+/* //{ dist() */
 
 double dist(const double ax, const double ay, const double bx, const double by) {
 
@@ -1691,7 +1755,7 @@ double dist(const double ax, const double ay, const double bx, const double by) 
 
 //}
 
-//{ checkCollision()
+/* //{ checkCollision() */
 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
@@ -1706,7 +1770,7 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 //}
 
-//{ checkCollisionInflated()
+/* //{ checkCollisionInflated() */
 
 double MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
@@ -1721,73 +1785,85 @@ double MpcTracker::checkCollisionInflated(const double ax, const double ay, cons
 
 //}
 
-//{ checkTrajectoryForCollisions()
+/* //{ checkTrajectoryForCollisions() */
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
 double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_collision_index) {
 
-  trajectory_setpoint_mutex.lock();
+  mutex_des_trajectory.lock();
   first_collision_index = INT_MAX;
   bool avoiding         = false;
+
   // This variable is used for collision avoidance priority swapping,only the first detected collision is considered for priority swap, subsequent collisons are
   // irrelevant
   bool                                                        first_collision = true;
   std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u               = other_drones_trajectories.begin();
-  while (u != other_drones_trajectories.end()) {
-    first_collision = true;
-    // is the other's trajectory fresh enought?
-    if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
-      for (int v = 0; v < horizon_len; v++) {
-        // check all points of the trajectory for possible collisions
-        if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0), predicted_future_trajectory(v * 9 + 6, 0),
-                           u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
-          // collision is detected
-          int other_uav_priority = INT_MAX;
-          // get the priority of the other uav
-          /* sscanf(u->first.c_str(), "uav%d", &other_uav_priority); */
-          other_uav_priority = u->second.priority;
-          // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
-          if ((u->second.collision_avoidance == false) || (other_uav_priority < my_uav_priority)) {
-            // we should be avoiding
-            avoiding                 = true;
-            double tmp_safe_altitude = u->second.points[v].z + mrs_collision_avoidance_correction;
-            if (tmp_safe_altitude > collision_free_altitude && v <= collision_start_climbing) {
-              collision_free_altitude = tmp_safe_altitude;
-            }
-            ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_uav_priority);
-          } else {
-            // the other drone should be avoiding, except for priority swap
-            if (use_priority_swap && first_collision) {
-              if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z) {
-                priority_time = ros::Time::now();
-                ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z
-                                                                                          << "  my: " << future_trajectory_out.points[0].z);
-                if (my_uav_priority < 1050) {
-                  // To prevent priority swapping runaway scenario
-                  my_uav_priority += 100;
-                } else {
-                  ROS_ERROR("[MpcTracker]: Saturating UAV priority");
-                }
-                continue;
+
+  mutex_predicted_trajectory.lock();
+  {
+    while (u != other_drones_trajectories.end()) {
+
+      first_collision = true;
+
+      // is the other's trajectory fresh enought?
+      if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
+
+        for (int v = 0; v < horizon_len; v++) {
+
+          // check all points of the trajectory for possible collisions
+          if (checkCollision(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0), predicted_future_trajectory(v * 9 + 6, 0),
+                             u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+
+            // collision is detected
+            int other_uav_priority = INT_MAX;
+            // get the priority of the other uav
+            /* sscanf(u->first.c_str(), "uav%d", &other_uav_priority); */
+            other_uav_priority = u->second.priority;
+            // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
+            if ((u->second.collision_avoidance == false) || (other_uav_priority < my_uav_priority)) {
+              // we should be avoiding
+              avoiding                 = true;
+              double tmp_safe_altitude = u->second.points[v].z + mrs_collision_avoidance_correction;
+              if (tmp_safe_altitude > collision_free_altitude && v <= collision_start_climbing) {
+                collision_free_altitude = tmp_safe_altitude;
               }
+              ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_uav_priority);
+            } else {
+              // the other drone should be avoiding, except for priority swap
+              if (use_priority_swap && first_collision) {
+                if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z) {
+                  priority_time = ros::Time::now();
+                  ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z
+                                                                                            << "  my: " << future_trajectory_out.points[0].z);
+                  if (my_uav_priority < 1050) {
+                    // To prevent priority swapping runaway scenario
+                    my_uav_priority += 100;
+                  } else {
+                    ROS_ERROR("[MpcTracker]: Saturating UAV priority");
+                  }
+                  continue;
+                }
+              }
+              // the other uav should avoid us
+              ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_uav_priority << ", not avoiding (My priority is higher)");
+              first_collision = false;
             }
-            // the other uav should avoid us
-            ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_uav_priority << ", not avoiding (My priority is higher)");
-            first_collision = false;
           }
-        }
-        if (checkCollisionInflated(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0), predicted_future_trajectory(v * 9 + 6, 0),
-                                   u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
-          // collision is detected
-          if (first_collision_index > v) {
-            first_collision_index = v;
+          if (checkCollisionInflated(predicted_future_trajectory(v * 9, 0), predicted_future_trajectory(v * 9 + 3, 0),
+                                     predicted_future_trajectory(v * 9 + 6, 0), u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+            // collision is detected
+            if (first_collision_index > v) {
+              first_collision_index = v;
+            }
           }
         }
       }
+      u++;
     }
-    u++;
   }
-  trajectory_setpoint_mutex.unlock();
+  mutex_predicted_trajectory.unlock();
+
+  mutex_des_trajectory.unlock();
   if (!avoiding) {
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude -= 0.02;
@@ -1805,14 +1881,17 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
 
 //}
 
-//{ filterReferenceXY()
+/* //{ filterReferenceXY() */
 
 void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
+
   double difference_x;
   double difference_y;
   double max_sample_x;
   double max_sample_y;
+
   for (int i = 0; i < horizon_len; i++) {
+
     if (i == 0) {
       max_sample_x = max_speed_x * dt;
       max_sample_y = max_speed_y * dt;
@@ -1848,7 +1927,7 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
 
 //}
 
-//{ filterReferenceZ()
+/* //{ filterReferenceZ() */
 
 void MpcTracker::filterReferenceZ(double max_speed_z) {
   double difference_z;
@@ -1878,7 +1957,7 @@ void MpcTracker::filterReferenceZ(double max_speed_z) {
 
 //}
 
-//{ filterYawReference()
+/* //{ filterYawReference() */
 
 void MpcTracker::filterYawReference(void) {
 
@@ -1917,24 +1996,26 @@ void MpcTracker::filterYawReference(void) {
 
 //}
 
-//{ setTrajectory()
+/* //{ setTrajectory() */
 
 // sets the desired trajectory based on a single setpoint
 void MpcTracker::setTrajectory(float x, float y, float z, float yaw) {
 
-  trajectory_setpoint_mutex.lock();
-  des_x_trajectory.fill(x);
-  des_y_trajectory.fill(y);
-  des_z_trajectory.fill(z);
-  des_yaw_trajectory.fill(yaw);
-  trajectory_setpoint_mutex.unlock();
+  mutex_des_trajectory.lock();
+  {
+    des_x_trajectory.fill(x);
+    des_y_trajectory.fill(y);
+    des_z_trajectory.fill(z);
+    des_yaw_trajectory.fill(yaw);
+  }
+  mutex_des_trajectory.unlock();
   vel_qx = 0;
   vel_qy = 0;
 }
 
 //}
 
-//{ integrate()
+/* //{ integrate() */
 
 VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_const) {
 
@@ -1952,7 +2033,7 @@ VectorXd MpcTracker::integrate(VectorXd &in, double dt, double integrational_con
 
 //}
 
-//{ calculateMPC()
+/* //{ calculateMPC() */
 
 void MpcTracker::calculateMPC() {
 
@@ -2078,12 +2159,19 @@ void MpcTracker::calculateMPC() {
   cvx_z->loadReference(des_z_filtered_offset);
   cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk, vel_q);
   iters_Z += cvx_z->solveCvx();
-  cvx_z->getStates(predicted_future_trajectory);
+
+  mutex_predicted_trajectory.lock();
+  { cvx_z->getStates(predicted_future_trajectory); }
+  mutex_predicted_trajectory.unlock();
+
   cvx_u(2) = cvx_z->getFirstControlInput();
 
-
   // If we are climbing to avoid a collision, reduce or arrest our horizontal velocity
-  double ascend = (predicted_future_trajectory(7, 0) / max_speed_z);
+  double ascend;
+  mutex_predicted_trajectory.lock();
+  { ascend = (predicted_future_trajectory(7, 0) / max_speed_z); }
+  mutex_predicted_trajectory.unlock();
+
   if (ascend > 0 && collision_free_altitude > lowest_z) {
     max_speed_y = max_speed_y * (1.0 - ascend);
     max_speed_x = max_speed_x * (1.0 - ascend);
@@ -2107,18 +2195,24 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = x(2, 0);
 
   if (no_overshoots) {
-    if (tracking_trajectory_) {
-      vel_qx = 8000;
-    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0) {
-      vel_qx = 8000;
+    mutex_predicted_trajectory.lock();
+    {
+      if (tracking_trajectory_) {
+        vel_qx = 8000;
+      } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9, 0) - des_x_trajectory(0, 0)) < 2.0) {
+        vel_qx = 8000;
+      }
     }
+    mutex_predicted_trajectory.unlock();
   }
 
   cvx_x->setInitialState(initial_x);
   cvx_x->loadReference(des_x_filtered);
   cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, vel_qx);
   iters_X += cvx_x->solveCvx();
-  cvx_x->getStates(predicted_future_trajectory);
+  mutex_predicted_trajectory.lock();
+  { cvx_x->getStates(predicted_future_trajectory); }
+  mutex_predicted_trajectory.unlock();
   cvx_u(0) = cvx_x->getFirstControlInput();
 
   // | ---------------------- cvxgen Y axis --------------------- |
@@ -2127,18 +2221,24 @@ void MpcTracker::calculateMPC() {
   initial_y(2, 0) = x(5, 0);
 
   if (no_overshoots) {
-    if (tracking_trajectory_) {
-      vel_qy = 8000;
-    } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0) {
-      vel_qy = 8000;
+    mutex_predicted_trajectory.lock();
+    {
+      if (tracking_trajectory_) {
+        vel_qy = 8000;
+      } else if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 3, 0) - des_y_trajectory(0, 0)) < 2.0) {
+        vel_qy = 8000;
+      }
     }
+    mutex_predicted_trajectory.unlock();
   }
 
   cvx_y->setInitialState(initial_y);
   cvx_y->loadReference(des_y_filtered);
   cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, vel_qy);
   iters_Y += cvx_y->solveCvx();
-  cvx_y->getStates(predicted_future_trajectory);
+  mutex_predicted_trajectory.lock();
+  { cvx_y->getStates(predicted_future_trajectory); }
+  mutex_predicted_trajectory.unlock();
   cvx_u(1) = cvx_y->getFirstControlInput();
 
   // | ---------------------- cvxgen Z axis --------------------- |
@@ -2146,11 +2246,15 @@ void MpcTracker::calculateMPC() {
   initial_z(1, 0) = x(7, 0);
   initial_z(2, 0) = x(8, 0);
 
-  if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 6, 0) - des_z_trajectory(0, 0)) < 2.0 && no_overshoots) {
-    vel_q = 8000;
-  } else {
-    vel_q = 0;
+  mutex_predicted_trajectory.lock();
+  {
+    if (fabs(predicted_future_trajectory((horizon_len - 1) * 9 + 6, 0) - des_z_trajectory(0, 0)) < 2.0 && no_overshoots) {
+      vel_q = 8000;
+    } else {
+      vel_q = 0;
+    }
   }
+  mutex_predicted_trajectory.unlock();
 
   cvx_z->setInitialState(initial_z);
   cvx_z->loadReference(des_z_filtered_offset);
@@ -2158,7 +2262,9 @@ void MpcTracker::calculateMPC() {
   { cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_vertical_ascending_jerk, max_vertical_descending_jerk, vel_q); }
   mutex_constraints.unlock();
   iters_Z += cvx_z->solveCvx();
-  cvx_z->getStates(predicted_future_trajectory);
+  mutex_predicted_trajectory.lock();
+  { cvx_z->getStates(predicted_future_trajectory); }
+  mutex_predicted_trajectory.unlock();
   cvx_u(2) = cvx_z->getFirstControlInput();
 
   // | ---------------------- cvxgen YAW axis --------------------- |
@@ -2168,7 +2274,9 @@ void MpcTracker::calculateMPC() {
   { cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, 0); }
   mutex_constraints.unlock();
   iters_YAW += cvx_yaw->solveCvx();
-  cvx_yaw->getStates(predicted_future_yaw_trajectory);
+  mutex_predicted_trajectory.lock();
+  { cvx_yaw->getStates(predicted_future_yaw_trajectory); }
+  mutex_predicted_trajectory.unlock();
   cvx_u_yaw = cvx_yaw->getFirstControlInput();
 
   mutex_constraints.lock();
@@ -2206,6 +2314,7 @@ void MpcTracker::calculateMPC() {
                                                                   << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
                                                                   << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
+
   x_mutex.lock();
   {
     x     = A * x + B * cvx_u;
@@ -2219,12 +2328,13 @@ void MpcTracker::calculateMPC() {
     }
   }
   x_mutex.unlock();
+
   future_was_predicted = true;
 }
 
 //}
 
-//{ publishDiagnostics()
+/* //{ publishDiagnostics() */
 
 void MpcTracker::publishDiagnostics(void) {
 
@@ -2273,7 +2383,7 @@ void MpcTracker::publishDiagnostics(void) {
 
 //}
 
-//{ setRelativeGoal()
+/* //{ setRelativeGoal() */
 
 bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {
 
@@ -2288,9 +2398,9 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
     des_yaw_mutex.unlock();
   }
 
-  des_trajectory_mutex.lock();
+  mutex_des_trajectory.lock();
   tracking_trajectory_ = false;
-  des_trajectory_mutex.unlock();
+  mutex_des_trajectory.unlock();
 
   setTrajectory(abs_x, abs_y, abs_z, abs_yaw);
 
@@ -2309,7 +2419,7 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
 
 //}
 
-//{ loadTrajectory()
+/* //{ loadTrajectory() */
 
 // method for setting desired trajectory
 bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message) {
@@ -2338,214 +2448,218 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
   } else {
 
-    des_trajectory_mutex.lock();
+    mutex_des_trajectory.lock();
+    mutex_des_whole_trajectory.lock();
+    {
 
-    trajectory_size = msg.points.size();
+      trajectory_size = msg.points.size();
 
-    // copy the trajectories
-    for (int i = 0; i < trajectory_size; i++) {
+      // copy the trajectories
+      for (int i = 0; i < trajectory_size; i++) {
 
-      des_x_whole_trajectory(i) = msg.points[i].x;
-      des_y_whole_trajectory(i) = msg.points[i].y;
-      des_z_whole_trajectory(i) = msg.points[i].z;
-    }
+        des_x_whole_trajectory(i) = msg.points[i].x;
+        des_y_whole_trajectory(i) = msg.points[i].y;
+        des_z_whole_trajectory(i) = msg.points[i].z;
+      }
 
-    // set looping
-    if (msg.loop) {
+      // set looping
+      if (msg.loop) {
 
-      // check whether the trajectory iss loopable
-      if (dist(des_x_whole_trajectory(0), des_y_whole_trajectory(0), des_x_whole_trajectory(trajectory_size - 1), des_y_whole_trajectory(trajectory_size - 1)) <
-          4) {
+        // check whether the trajectory iss loopable
+        if (dist(des_x_whole_trajectory(0), des_y_whole_trajectory(0), des_x_whole_trajectory(trajectory_size - 1),
+                 des_y_whole_trajectory(trajectory_size - 1)) < 4) {
 
-        loop = true;
+          loop = true;
 
+        } else {
+
+          loop = false;
+        }
       } else {
-
         loop = false;
       }
-    } else {
-      loop = false;
-    }
 
-    bool   trajectory_is_ok = true;
-    double min_height       = safety_area->getMinHeight();
-    double max_height       = safety_area->getMaxHeight();
+      bool   trajectory_is_ok = true;
+      double min_height       = safety_area->getMinHeight();
+      double max_height       = safety_area->getMaxHeight();
 
-    // check the safety area
-    if (safety_area->use_safety_area) {
+      // check the safety area
+      if (safety_area->use_safety_area) {
 
-      int last_valid_idx    = 0;
-      int first_invalid_idx = -1;
-      for (int i = 0; i < trajectory_size; i++) {
+        int last_valid_idx    = 0;
+        int first_invalid_idx = -1;
+        for (int i = 0; i < trajectory_size; i++) {
 
-        // saturate the trajectory to min and max height
-        if (des_z_whole_trajectory(i) < min_height) {
-          des_z_whole_trajectory(i) = min_height;
-        }
-        if (des_z_whole_trajectory(i) > max_height) {
-          des_z_whole_trajectory(i) = max_height;
-        }
-
-        // the point is not feasible
-        if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
-
-          ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
-          trajectory_is_ok = false;
-
-          // we found the left point
-          if (first_invalid_idx == -1) {
-
-            first_invalid_idx = i;
-
-            last_valid_idx = i - 1;
+          // saturate the trajectory to min and max height
+          if (des_z_whole_trajectory(i) < min_height) {
+            des_z_whole_trajectory(i) = min_height;
+          }
+          if (des_z_whole_trajectory(i) > max_height) {
+            des_z_whole_trajectory(i) = max_height;
           }
 
-          // the point is ok
-        } else {
+          // the point is not feasible
+          if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
-          // we found the right point
-          if (first_invalid_idx != -1) {
+            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            trajectory_is_ok = false;
 
-            // interpolate
-            // TODO dont do this when fly_now == true and just start the trajectory in the first valid point
-            if (last_valid_idx == -1) {  // special case, we had no valid point so far
+            // we found the left point
+            if (first_invalid_idx == -1) {
 
-              // interpolate between the current position and the valid point
-              double angle           = atan2((des_y_whole_trajectory(i) - x(3, 0)), (des_x_whole_trajectory(i) - x(0, 0)));
-              double dist_two_points = dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x(0, 0), x(3, 0));
-              double step            = dist_two_points / i;
+              first_invalid_idx = i;
 
-              for (int j = 0; j < i; j++) {
-
-                des_x_whole_trajectory(j) = x(0, 0) + j * cos(angle) * step;
-                des_y_whole_trajectory(j) = x(3, 0) + j * sin(angle) * step;
-              }
-
-              // we have a valid point in the past
-            } else {
-
-              // iterpolate between the valid point and this point
-              double angle = atan2((des_y_whole_trajectory(i) - des_y_whole_trajectory(last_valid_idx)),
-                                   (des_x_whole_trajectory(i) - des_x_whole_trajectory(last_valid_idx)));
-              double dist_two_points =
-                  dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), des_x_whole_trajectory(last_valid_idx), des_y_whole_trajectory(last_valid_idx));
-              double step = dist_two_points / (i - last_valid_idx);
-
-              for (int j = last_valid_idx + 1; j < i; j++) {
-
-                des_x_whole_trajectory(j) = des_x_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * cos(angle) * step;
-                des_y_whole_trajectory(j) = des_y_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * sin(angle) * step;
-              }
+              last_valid_idx = i - 1;
             }
 
-            first_invalid_idx = -1;
+            // the point is ok
+          } else {
+
+            // we found the right point
+            if (first_invalid_idx != -1) {
+
+              // interpolate
+              // TODO dont do this when fly_now == true and just start the trajectory in the first valid point
+              if (last_valid_idx == -1) {  // special case, we had no valid point so far
+
+                // interpolate between the current position and the valid point
+                double angle           = atan2((des_y_whole_trajectory(i) - x(3, 0)), (des_x_whole_trajectory(i) - x(0, 0)));
+                double dist_two_points = dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x(0, 0), x(3, 0));
+                double step            = dist_two_points / i;
+
+                for (int j = 0; j < i; j++) {
+
+                  des_x_whole_trajectory(j) = x(0, 0) + j * cos(angle) * step;
+                  des_y_whole_trajectory(j) = x(3, 0) + j * sin(angle) * step;
+                }
+
+                // we have a valid point in the past
+              } else {
+
+                // iterpolate between the valid point and this point
+                double angle = atan2((des_y_whole_trajectory(i) - des_y_whole_trajectory(last_valid_idx)),
+                                     (des_x_whole_trajectory(i) - des_x_whole_trajectory(last_valid_idx)));
+                double dist_two_points =
+                    dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), des_x_whole_trajectory(last_valid_idx), des_y_whole_trajectory(last_valid_idx));
+                double step = dist_two_points / (i - last_valid_idx);
+
+                for (int j = last_valid_idx + 1; j < i; j++) {
+
+                  des_x_whole_trajectory(j) = des_x_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * cos(angle) * step;
+                  des_y_whole_trajectory(j) = des_y_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * sin(angle) * step;
+                }
+              }
+
+              first_invalid_idx = -1;
+            }
+          }
+        }
+
+        // special case, the trajectory does not end with a valid point
+        if (first_invalid_idx != -1) {
+
+          // super special case, the whole trajectory is invalid
+          if (first_invalid_idx == 0) {
+
+            // stay where we are
+            for (int i = 0; i < trajectory_size; i++) {
+
+              des_x_whole_trajectory(i) = x(0, 0);
+              des_y_whole_trajectory(i) = x(3, 0);
+            }
+
+          } else {
+
+            // delete the end of the trajectory beginning with the last invalid point
+            for (int i = last_valid_idx + 1; i < trajectory_size; i++) {
+
+              des_x_whole_trajectory(i) = des_x_whole_trajectory(last_valid_idx);
+              des_y_whole_trajectory(i) = des_y_whole_trajectory(last_valid_idx);
+            }
           }
         }
       }
 
-      // special case, the trajectory does not end with a valid point
-      if (first_invalid_idx != -1) {
+      // extend it so it has smooth ending
+      for (int i = 0; i < horizon_len; i++) {
 
-        // super special case, the whole trajectory is invalid
-        if (first_invalid_idx == 0) {
+        des_x_whole_trajectory(i + trajectory_size) = des_x_whole_trajectory(i + trajectory_size - 1);
+        des_y_whole_trajectory(i + trajectory_size) = des_y_whole_trajectory(i + trajectory_size - 1);
+        des_z_whole_trajectory(i + trajectory_size) = des_z_whole_trajectory(i + trajectory_size - 1);
+      }
 
-          // stay where we are
-          for (int i = 0; i < trajectory_size; i++) {
+      if (msg.use_yaw) {
 
-            des_x_whole_trajectory(i) = x(0, 0);
-            des_y_whole_trajectory(i) = x(3, 0);
-          }
+        use_yaw_in_trajectory = true;
 
-        } else {
+        for (int i = 0; i < trajectory_size; i++) {
 
-          // delete the end of the trajectory beginning with the last invalid point
-          for (int i = last_valid_idx + 1; i < trajectory_size; i++) {
+          des_yaw_whole_trajectory(i) = msg.points[i].yaw;
+        }
 
-            des_x_whole_trajectory(i) = des_x_whole_trajectory(last_valid_idx);
-            des_y_whole_trajectory(i) = des_y_whole_trajectory(last_valid_idx);
-          }
+        for (int i = 0; i < horizon_len; i++) {
+
+          des_yaw_whole_trajectory(i + trajectory_size) = des_yaw_whole_trajectory(i + trajectory_size - 1);
+        }
+      } else {
+
+        des_yaw_whole_trajectory.fill(desired_yaw);
+        use_yaw_in_trajectory = false;
+      }
+
+      if (msg.fly_now) {
+
+        tracking_trajectory_ = true;
+      } else {
+
+        tracking_trajectory_ = false;
+      }
+
+      // set the starting index accoarding to the message
+      if (msg.start_index >= 0 && msg.start_index < trajectory_size)
+        trajectory_idx = msg.start_index;
+      else
+        trajectory_idx = 0;
+
+      trajectory_set_ = true;
+      trajectory_count++;
+
+      // if we are tracking trajectory, copy the setpoint
+      if (tracking_trajectory_) {
+
+        for (int i = 0; i < horizon_len; i++) {
+
+          des_x_trajectory(i)   = des_x_whole_trajectory(i);
+          des_y_trajectory(i)   = des_y_whole_trajectory(i);
+          des_z_trajectory(i)   = des_z_whole_trajectory(i);
+          des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
+        }
+
+        if (use_yaw_in_trajectory) {
+          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
         }
       }
-    }
 
-    // extend it so it has smooth ending
-    for (int i = 0; i < horizon_len; i++) {
+      ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
 
-      des_x_whole_trajectory(i + trajectory_size) = des_x_whole_trajectory(i + trajectory_size - 1);
-      des_y_whole_trajectory(i + trajectory_size) = des_y_whole_trajectory(i + trajectory_size - 1);
-      des_z_whole_trajectory(i + trajectory_size) = des_z_whole_trajectory(i + trajectory_size - 1);
-    }
+      publishDiagnostics();
 
-    if (msg.use_yaw) {
-
-      use_yaw_in_trajectory = true;
-
-      for (int i = 0; i < trajectory_size; i++) {
-
-        des_yaw_whole_trajectory(i) = msg.points[i].yaw;
-      }
-
-      for (int i = 0; i < horizon_len; i++) {
-
-        des_yaw_whole_trajectory(i + trajectory_size) = des_yaw_whole_trajectory(i + trajectory_size - 1);
-      }
-    } else {
-
-      des_yaw_whole_trajectory.fill(desired_yaw);
-      use_yaw_in_trajectory = false;
-    }
-
-    if (msg.fly_now) {
-
-      tracking_trajectory_ = true;
-    } else {
-
-      tracking_trajectory_ = false;
-    }
-
-    // set the starting index accoarding to the message
-    if (msg.start_index >= 0 && msg.start_index < trajectory_size)
-      trajectory_idx = msg.start_index;
-    else
-      trajectory_idx = 0;
-
-    trajectory_set_ = true;
-    trajectory_count++;
-
-    // if we are tracking trajectory, copy the setpoint
-    if (tracking_trajectory_) {
-
-      for (int i = 0; i < horizon_len; i++) {
-
-        des_x_trajectory(i)   = des_x_whole_trajectory(i);
-        des_y_trajectory(i)   = des_y_whole_trajectory(i);
-        des_z_trajectory(i)   = des_z_whole_trajectory(i);
-        des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
-      }
-
-      if (use_yaw_in_trajectory) {
-        desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+      if (trajectory_is_ok) {
+        message = "The trajectory successfully loaded.";
+      } else {
+        message = "The trajectory was modified because it contains points outside of the safety area!";
       }
     }
+    mutex_des_trajectory.unlock();
+    mutex_des_whole_trajectory.unlock();
 
-    des_trajectory_mutex.unlock();
-
-    ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
-
-    publishDiagnostics();
-
-    if (trajectory_is_ok) {
-      message = "The trajectory successfully loaded.";
-    } else {
-      message = "The trajectory was modified because it contains points outside of the safety area!";
-    }
     return true;
   }
 }
 
 //}
 
-//{ setGoal()
+/* //{ setGoal() */
 
 // set absolute goal
 bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw) {
@@ -2559,9 +2673,7 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
 
   setTrajectory(set_x, set_y, set_z, set_yaw);
 
-  des_trajectory_mutex.lock();
   tracking_trajectory_ = false;
-  des_trajectory_mutex.unlock();
 
   if (set_use_yaw) {
     ROS_INFO("[MpcTracker]: Setting Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f", set_x, set_y, set_z, set_yaw);
@@ -2580,7 +2692,7 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
 // |                           timers                           |
 // --------------------------------------------------------------
 
-//{ diagnosticsTimer()
+/* //{ diagnosticsTimer() */
 
 // published diagnostics in reguar intervals
 void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
@@ -2597,7 +2709,7 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ mpcTimer()
+/* //{ mpcTimer() */
 
 void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
@@ -2614,7 +2726,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   ros::Time     end;
   ros::Duration interval;
 
-  des_trajectory_mutex.lock();
+  mutex_des_trajectory.lock();
   {
     // if we are tracking trajectory, copy the setpoint
     if (tracking_trajectory_ && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
@@ -2633,10 +2745,14 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
           }
         }
 
-        des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
-        des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
-        des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
-        des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
+        mutex_des_whole_trajectory.lock();
+        {
+          des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
+          des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
+          des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
+          des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
+        }
+        mutex_des_whole_trajectory.unlock();
       }
 
       if (use_yaw_in_trajectory)
@@ -2657,8 +2773,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       }
     }
   }
-
-  des_trajectory_mutex.unlock();
+  mutex_des_trajectory.unlock();
 
   // run the mpc
   calculateMPC();
@@ -2673,6 +2788,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
   mpc_computed_ = true;
   if (publish_debug_trajectory) {
+
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
     debug_trajectory_out.header.frame_id = "local_origin";
@@ -2698,6 +2814,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       }
     }
     mutex_predicted_trajectory.unlock();
+
     try {
       debug_predicted_trajectory_publisher.publish(geometry_msgs::PoseArrayConstPtr(new geometry_msgs::PoseArray(debug_trajectory_out)));
     }
@@ -2711,7 +2828,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
 //}
 
-//{ futureTrajectoryTimer()
+/* //{ futureTrajectoryTimer() */
 
 void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 

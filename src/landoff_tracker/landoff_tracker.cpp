@@ -52,6 +52,7 @@ public:
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -177,7 +178,7 @@ private:
 
 private:
   mrs_lib::Profiler *profiler;
-  bool profiler_enabled_ = false;
+  bool               profiler_enabled_ = false;
   mrs_lib::Routine * routine_main_timer;
 };
 
@@ -579,6 +580,58 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 //}
 
+/* switchOdometrySource() //{ */
+
+void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
+
+  // | --------- recalculate the goal to new coordinates -------- |
+  double dx, dy, dz;
+
+  mutex_odometry.lock();
+  {
+    dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+    dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+    dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+    // TODO yaw?
+  }
+  mutex_odometry.unlock();
+
+  mutex_goal.lock();
+  {
+    goal_x += dx;
+    goal_y += dy;
+    goal_z += dz;
+    have_goal = true;
+  }
+  mutex_goal.unlock();
+
+  // | -------------------- update the state -------------------- |
+
+  mutex_state.lock();
+  {
+    state_x = msg->pose.pose.position.x; 
+    state_y = msg->pose.pose.position.y; 
+    state_z = msg->pose.pose.position.z; 
+  }
+  mutex_state.unlock();
+
+  // | ------- copy the new odometry as the current state ------- |
+
+  mutex_state.lock();
+  {
+    current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
+    current_vertical_speed   = msg->twist.twist.linear.z;
+    current_heading = atan2(goal_y - state_y, goal_x - state_x);
+  }
+  mutex_state.unlock();
+
+  // | ---------- switch to stop motion, which should  ---------- |
+
+  changeState(STOP_MOTION_STATE);  
+}
+
+//}
+
 // | -------------- setpoint topics and services -------------- |
 
 /* //{ goTo() service */
@@ -685,6 +738,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::
   {
     current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
     current_vertical_speed   = odometry.twist.twist.linear.z;
+    current_heading = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
   }
   mutex_state.unlock();
   mutex_odometry.unlock();
@@ -1237,7 +1291,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
   }
 
   if (req.goal < 0.5 || req.goal > 3.0) {
-    
+
     sprintf((char *)&message, "Can't take off, the goal should be within [0.5, 3.0] m!");
     ROS_ERROR("[LandoffTracker]: %s", message);
     res.success = false;
