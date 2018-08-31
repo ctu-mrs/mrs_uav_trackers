@@ -179,7 +179,6 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
-  mrs_lib::Routine * routine_main_timer;
 };
 
 LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
@@ -267,8 +266,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler           = new mrs_lib::Profiler(nh_, "LandoffTracker", profiler_enabled_);
-  routine_main_timer = profiler->registerRoutine("main", tracker_loop_rate_, 0.002);
+  profiler = new mrs_lib::Profiler(nh_, "LandoffTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                          services                          |
@@ -609,9 +607,9 @@ void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &ms
 
   mutex_state.lock();
   {
-    state_x = msg->pose.pose.position.x; 
-    state_y = msg->pose.pose.position.y; 
-    state_z = msg->pose.pose.position.z; 
+    state_x = msg->pose.pose.position.x;
+    state_y = msg->pose.pose.position.y;
+    state_z = msg->pose.pose.position.z;
   }
   mutex_state.unlock();
 
@@ -621,13 +619,13 @@ void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &ms
   {
     current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
     current_vertical_speed   = msg->twist.twist.linear.z;
-    current_heading = atan2(goal_y - state_y, goal_x - state_x);
+    current_heading          = atan2(goal_y - state_y, goal_x - state_x);
   }
   mutex_state.unlock();
 
   // | ---------- switch to stop motion, which should  ---------- |
 
-  changeState(STOP_MOTION_STATE);  
+  changeState(STOP_MOTION_STATE);
 }
 
 //}
@@ -738,7 +736,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
   {
     current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
     current_vertical_speed   = odometry.twist.twist.linear.z;
-    current_heading = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
+    current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
   }
   mutex_state.unlock();
   mutex_odometry.unlock();
@@ -1077,7 +1075,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  routine_main_timer->start(event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
   mutex_state.lock();
   mutex_goal.lock();
@@ -1249,8 +1247,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
   mutex_odometry.unlock();
   mutex_goal.unlock();
   mutex_state.unlock();
-
-  routine_main_timer->end();
 }
 
 //}

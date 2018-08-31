@@ -313,9 +313,6 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
-  mrs_lib::Routine * routine_mpc_timer;
-  mrs_lib::Routine * routine_diagnostics_timer;
-  mrs_lib::Routine * routine_future_trajectory_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -605,10 +602,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler                        = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
-  routine_mpc_timer               = profiler->registerRoutine("mpcIteration", int(1.0 / dt), 0.004);
-  routine_diagnostics_timer       = profiler->registerRoutine("diagnosticsTimer");
-  routine_future_trajectory_timer = profiler->registerRoutine("futureTrajectoryTimer");
+  profiler = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -2700,11 +2694,9 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_diagnostics_timer->start();
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnosticsTimer");
 
   publishDiagnostics();
-
-  routine_diagnostics_timer->end();
 }
 
 //}
@@ -2720,7 +2712,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_mpc_timer->start(event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mpcIteration", int(1.0 / dt), 0.004, event);
 
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
@@ -2822,8 +2814,6 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
     }
   }
-
-  routine_mpc_timer->end();
 }
 
 //}
@@ -2839,7 +2829,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_future_trajectory_timer->start();
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("futureTrajectoryTimer");
 
   if (future_was_predicted) {
 
@@ -2872,8 +2862,6 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
     }
   }
-
-  routine_future_trajectory_timer->end();
 }
 
 //}
