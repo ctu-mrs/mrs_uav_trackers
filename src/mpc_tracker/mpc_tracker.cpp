@@ -1327,7 +1327,7 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 /* //{ hover() service */
 
-const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
 
@@ -1439,7 +1439,7 @@ void MpcTracker::callbackRadioControl(const mavros_msgs::RCInConstPtr &msg) {
 
 /* //{ callbackStartTrajectoryFollowing() */
 
-bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (failsafe_triggered) {
 
@@ -1483,7 +1483,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &re
 
 /* //{ callbackStopTrajectoryFollowing() */
 
-bool MpcTracker::callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (failsafe_triggered) {
 
@@ -1525,7 +1525,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing(std_srvs::Trigger::Request &req
 
 /* //{ callbackFlyToTrajectoryStart() */
 
-bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (failsafe_triggered) {
 
@@ -1585,7 +1585,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart(std_srvs::Trigger::Request &req, s
 
 /* //{ callbackResumeTrajectoryFollowing() */
 
-bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (failsafe_triggered) {
 
@@ -1634,7 +1634,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request &r
 
 /* //{ callbackTriggerFailsafe() */
 
-bool MpcTracker::callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool MpcTracker::callbackTriggerFailsafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   if (triggerFailsafe()) {
 

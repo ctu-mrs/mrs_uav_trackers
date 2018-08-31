@@ -636,7 +636,7 @@ void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &ms
 
 /* //{ goTo() service */
 
-const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec4Response::Ptr();
 }
@@ -645,7 +645,7 @@ const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goTo(const mrs_msgs::Vec4
 
 /* //{ goTo() topic */
 
-bool LandoffTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+bool LandoffTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
   return false;
 }
@@ -654,7 +654,7 @@ bool LandoffTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
 /* //{ goToRelative() service */
 
-const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec4Response::Ptr();
 }
@@ -663,7 +663,7 @@ const mrs_msgs::Vec4Response::ConstPtr LandoffTracker::goToRelative(const mrs_ms
 
 /* //{ goToRelative() topic */
 
-bool LandoffTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+bool LandoffTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
   return false;
 }
@@ -672,7 +672,7 @@ bool LandoffTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &m
 
 /* //{ goToAltitude() service */
 
-const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -681,7 +681,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::goToAltitude(const mrs_ms
 
 /* //{ goToAltitude() topic */
 
-bool LandoffTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -690,7 +690,7 @@ bool LandoffTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
 /* //{ setYaw() service */
 
-const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -699,7 +699,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYaw(const mrs_msgs::Ve
 
 /* //{ setYaw() topic */
 
-bool LandoffTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -708,7 +708,7 @@ bool LandoffTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
 /* //{ setYawRelative() service */
 
-const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -717,7 +717,7 @@ const mrs_msgs::Vec1Response::ConstPtr LandoffTracker::setYawRelative(const mrs_
 
 /* //{ setYawRelative() topic */
 
-bool LandoffTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+bool LandoffTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -726,7 +726,7 @@ bool LandoffTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 /* //{ hover() service */
 
-const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
   std_srvs::TriggerResponse res;
 
@@ -791,7 +791,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr LandoffTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr LandoffTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
   return mrs_msgs::TrackerConstraintsResponse::Ptr();
 }
@@ -1343,7 +1343,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
 
 /* //{ callbackLand() */
 
-bool LandoffTracker::callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
   char message[100];
 
