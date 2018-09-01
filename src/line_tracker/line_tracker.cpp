@@ -838,8 +838,6 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints
   }
   mutex_constraints.unlock();
 
-  ROS_INFO("[LineTracker]: updating constraints");
-
   res.success = true;
   res.message = "constraints updated";
 

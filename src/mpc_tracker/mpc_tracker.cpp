@@ -22,6 +22,7 @@
 
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
+#include <mrs_lib/Utils.h>
 
 #include "cvx_wrapper.h"
 
@@ -70,6 +71,7 @@ private:
 
 private:
   ros::NodeHandle nh_;
+
   // nodelet variables
   ros::Subscriber    sub_trajectory_;                   // desired trajectory
   ros::Subscriber    sub_rc_;                           // rc transmitter
@@ -213,6 +215,10 @@ private:
   double yaw;
   double desired_yaw;
 
+  // odometry reset
+  bool resetting_odometry = false;
+  bool mpc_result_invalid = false;
+
   // predicting the future
   MatrixXd   predicted_future_yaw_trajectory;
   MatrixXd   predicted_future_trajectory;
@@ -264,6 +270,7 @@ private:
   std::mutex x_mutex, mutex_des_trajectory, des_yaw_mutex;
 
   ros::Timer mpc_timer;
+  bool       running_mpc_timer = false;
 
   bool mpc_computed_;
 
@@ -776,7 +783,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   if (!is_active)
     return mrs_msgs::PositionCommand::Ptr();
 
-  if (!mpc_computed_) {
+  if (!mpc_computed_ && mpc_result_invalid) {
 
     // if the tracker is not computed yet
 
@@ -1026,6 +1033,21 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  resetting_odometry = true;
+  mpc_result_invalid = true;
+
+  ROS_INFO("[MpcTracker]: start of odmetry reset x %f y %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
+
+  mpc_timer.stop();
+  ROS_INFO("[MpcTracker]: stopped mpc timer");
+
+  while (running_mpc_timer) {
+    
+    ROS_ERROR("[MpcTracker]: the MPC is in the middle of an iteration, waiting for it to finish");
+    ros::Duration wait(0.01);
+    wait.sleep();
+  }
+
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz;
 
@@ -1034,6 +1056,10 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
     dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
     dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+
+    ROS_INFO("[MpcTracker]: dx %f dy %f dz %f", dx, dy, dz);
+
+    odometry = *msg;
     // TODO yaw?
   }
   mutex_odometry.unlock();
@@ -1042,22 +1068,16 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   mutex_des_trajectory.lock();
   x_mutex.lock();
   {
-    if (tracking_trajectory_) {
+    for (int i = 0; i < trajectory_size; i++) {
+      des_x_whole_trajectory(i) += dx;
+      des_y_whole_trajectory(i) += dy;
+      des_z_whole_trajectory(i) += dz;
+    }
 
-      for (int i = 0; i < trajectory_size; i++) {
-        des_x_whole_trajectory(i) += dx;
-        des_y_whole_trajectory(i) += dy;
-        des_z_whole_trajectory(i) += dz;
-      }
-
-    } else {
-
-      // TODO: should set goal when flying to a setpoint
-      for (int i = 0; i < horizon_len; i++) {
-        des_x_trajectory(i, 0) += dx;
-        des_y_trajectory(i, 0) += dy;
-        des_z_trajectory(i, 0) += dz;
-      }
+    for (int i = 0; i < horizon_len; i++) {
+      des_x_trajectory(i, 0) += dx;
+      des_y_trajectory(i, 0) += dy;
+      des_z_trajectory(i, 0) += dz;
     }
 
     x(0, 0) = msg->pose.pose.position.x;
@@ -1072,6 +1092,13 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   x_mutex.unlock();
   mutex_des_trajectory.unlock();
   mutex_des_whole_trajectory.unlock();
+
+  ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+
+  mpc_timer.start();
+  ROS_INFO("[MpcTracker]: started mpc timer");
+
+  resetting_odometry = false;
 }
 
 //}
@@ -2323,6 +2350,8 @@ void MpcTracker::calculateMPC() {
   }
   x_mutex.unlock();
 
+  /* ROS_INFO("[MpcTracker]: end of mpc calculation x %f y %f xvel %f yvel %f xacc %f yacc %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), x(2, 0), x(5, 0)); */
+
   future_was_predicted = true;
 }
 
@@ -2694,7 +2723,7 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnosticsTimer");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnosticsTimer", diagnostics_rate, 0.01, event);
 
   publishDiagnostics();
 }
@@ -2704,6 +2733,15 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 /* //{ mpcTimer() */
 
 void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
+
+  if (resetting_odometry) {
+    ROS_ERROR("[MpcTracker]: MPC tried to run while reseting odometry");
+    return;
+  }
+
+  mrs_lib::ContextUnset unset_running(running_mpc_timer);
+
+  bool started_with_invalid = mpc_result_invalid;
 
   if (!is_active) {
     return;
@@ -2814,6 +2852,13 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
     }
   }
+
+  if (started_with_invalid) {
+    mpc_result_invalid = false;
+    ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+  } else {
+    /* ROS_INFO("[MpcTracker]: calculated a general result, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)); */
+  }
 }
 
 //}
@@ -2829,7 +2874,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("futureTrajectoryTimer");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("futureTrajectoryTimer", predicted_trajectory_publish_rate, 0.01, event);
 
   if (future_was_predicted) {
 
