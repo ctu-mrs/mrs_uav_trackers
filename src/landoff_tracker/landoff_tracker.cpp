@@ -7,7 +7,6 @@
 
 #include <mrs_mav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
-#include <mrs_lib/Profiler.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -15,6 +14,7 @@
 #include <commons.h>
 
 #include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/Profiler.h>
 
 #define STOP_THR 1e-3
 
@@ -114,6 +114,7 @@ private:
 private:
   void       mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer;
+  bool       running_main_timer = false;
 
 private:
   ros::ServiceServer service_takeoff;

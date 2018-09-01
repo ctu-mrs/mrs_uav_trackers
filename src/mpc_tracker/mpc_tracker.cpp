@@ -23,12 +23,11 @@
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Utils.h>
+#include <mrs_lib/ParamLoader.h>
 
 #include "cvx_wrapper.h"
 
 #include <commons.h>
-
-#include <mrs_lib/ParamLoader.h>
 
 using namespace Eigen;
 
@@ -1042,7 +1041,7 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   ROS_INFO("[MpcTracker]: stopped mpc timer");
 
   while (running_mpc_timer) {
-    
+
     ROS_ERROR("[MpcTracker]: the MPC is in the middle of an iteration, waiting for it to finish");
     ros::Duration wait(0.01);
     wait.sleep();
@@ -1093,7 +1092,8 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   mutex_des_trajectory.unlock();
   mutex_des_whole_trajectory.unlock();
 
-  ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+  ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), des_x_trajectory(0, 0),
+           des_y_trajectory(0, 0));
 
   mpc_timer.start();
   ROS_INFO("[MpcTracker]: started mpc timer");
@@ -2739,7 +2739,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  mrs_lib::ContextUnset unset_running(running_mpc_timer);
+  mrs_lib::ScopeUnset unset_running(running_mpc_timer);
 
   bool started_with_invalid = mpc_result_invalid;
 
@@ -2855,9 +2855,11 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
   if (started_with_invalid) {
     mpc_result_invalid = false;
-    ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+    ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0),
+             des_y_trajectory(0, 0));
   } else {
-    /* ROS_INFO("[MpcTracker]: calculated a general result, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)); */
+    /* ROS_INFO("[MpcTracker]: calculated a general result, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+     */
   }
 }
 
