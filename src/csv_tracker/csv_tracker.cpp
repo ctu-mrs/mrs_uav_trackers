@@ -262,6 +262,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   main_timer = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this);
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[CsvTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 

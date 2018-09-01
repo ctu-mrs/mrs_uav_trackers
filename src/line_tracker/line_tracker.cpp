@@ -220,6 +220,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[LineTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 

@@ -621,6 +621,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // | ----------------------- finish init ---------------------- |
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[MpcTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 

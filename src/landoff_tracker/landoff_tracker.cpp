@@ -287,6 +287,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
   // | ----------------------- finish init ---------------------- |
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 
