@@ -1,11 +1,11 @@
 #include <ros/ros.h>
 
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
+
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_mav_manager/Tracker.h>
-#include <nav_msgs/Odometry.h>
-#include <mrs_lib/Profiler.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -13,6 +13,7 @@
 #include <commons.h>
 
 #include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/Profiler.h>
 
 #define STOP_THR 1e-3
 
@@ -356,6 +357,8 @@ void LineTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -373,8 +376,8 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   }
   mutex_odometry.unlock();
 
+  // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
-
     return mrs_msgs::PositionCommand::Ptr();
   }
 

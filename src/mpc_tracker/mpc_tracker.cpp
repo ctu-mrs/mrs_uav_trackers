@@ -769,6 +769,8 @@ void MpcTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+
   // copy the odometry from the message
   mutex_odometry.lock();
   { odometry = *msg; }
@@ -778,9 +780,10 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
 
   odom_set_ = true;
 
-  // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!is_active)
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
+  }
 
   if (!mpc_computed_ && mpc_result_invalid) {
 

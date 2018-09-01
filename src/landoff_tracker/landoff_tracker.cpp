@@ -443,6 +443,8 @@ void LandoffTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+
   mutex_odometry.lock();
   {
     odometry   = *msg;
@@ -460,8 +462,8 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   }
   mutex_odometry.unlock();
 
+  // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
-
     return mrs_msgs::PositionCommand::Ptr();
   }
 
