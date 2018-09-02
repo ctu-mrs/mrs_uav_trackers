@@ -501,13 +501,13 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   }
 
   // subscriber for desired trajectory
-  sub_trajectory_ = nh_.subscribe("set_trajectory_in", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
+  sub_trajectory_ = nh_.subscribe("set_trajectory_in", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().udp());
 
   // service for desired trajectory
   ser_set_trajectory_ = nh_.advertiseService("set_trajectory_in", &MpcTracker::callbackSetTrajectory, this);
 
   // subscriber for rc transmitter
-  sub_rc_ = nh_.subscribe("rc_in", 1, &MpcTracker::callbackRadioControl, this, ros::TransportHints().tcpNoDelay());
+  sub_rc_ = nh_.subscribe("rc_in", 1, &MpcTracker::callbackRadioControl, this, ros::TransportHints().udp());
 
   // service for starting trajectory following
   ser_start_trajectory_following_ = nh_.advertiseService("start_trajectory_following_in", &MpcTracker::callbackStartTrajectoryFollowing, this);
@@ -601,7 +601,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
     ROS_INFO("[MpcTracker]: subscribing to %s", topic_name.c_str());
 
-    other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
+    other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().udp()));
   }
 
   // --------------------------------------------------------------
