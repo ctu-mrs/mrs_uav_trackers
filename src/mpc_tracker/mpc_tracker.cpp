@@ -685,40 +685,14 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   failsafe_triggered   = false;
   tracking_trajectory_ = false;
 
-  /* // if we got a setpoint with the activation command */
-  /* if (cmd && odom_set_) { */
-
-  /*   des_yaw_mutex.lock(); */
-  /*   desired_yaw = cmd->yaw; */
-  /*   des_yaw_mutex.unlock(); */
-
-  /*   setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw); */
-
-  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-   */
-  /*            cmd->yaw); */
-  /*   is_active = true; */
-  /* } */
-
-  /* // if we dont, stay where you are */
-  /* else if (odom_set_) { */
-
-  /*   setTrajectory(odometry.pose.pose.position.x, odometry.pose.pose.position.y, odometry.pose.pose.position.z, tf::getYaw(odometry.pose.pose.orientation));
-   */
-  /*   position_cmd_.yaw = tf::getYaw(odometry.pose.pose.orientation); */
-
-  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are."); */
-  /*   is_active = true; */
-  /* } */
-
   // calculate time needed to stop
   double time_x;
   double time_y;
   double time_z;
   mutex_constraints.lock();
   {
-    time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
-    time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+    time_x = 1.5 * x(1, 0) / (max_horizontal_acceleration/1.414);
+    time_y = 1.5 * x(4, 0) / (max_horizontal_acceleration/1.414);
     time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
   }
   mutex_constraints.unlock();
