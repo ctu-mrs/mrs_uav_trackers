@@ -2619,40 +2619,40 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       if (trajectory_size > 1 || trajectory_is_ok) {
 
         if (msg.fly_now) {
-        
+
           tracking_trajectory_ = true;
         } else {
-        
+
           tracking_trajectory_ = false;
         }
-        
+
         // set the starting index accoarding to the message
         if (msg.start_index >= 0 && msg.start_index < trajectory_size)
           trajectory_idx = msg.start_index;
         else
           trajectory_idx = 0;
-        
+
         trajectory_set_ = true;
         trajectory_count++;
-        
+
         // if we are tracking trajectory, copy the setpoint
         if (tracking_trajectory_) {
-        
+
           for (int i = 0; i < horizon_len; i++) {
-        
+
             des_x_trajectory(i)   = des_x_whole_trajectory(i);
             des_y_trajectory(i)   = des_y_whole_trajectory(i);
             des_z_trajectory(i)   = des_z_whole_trajectory(i);
             des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
           }
-        
+
           if (use_yaw_in_trajectory) {
             desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
           }
         }
-        
+
         ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
-        
+
         publishDiagnostics();
       }
 
