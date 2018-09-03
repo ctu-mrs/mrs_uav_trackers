@@ -297,7 +297,7 @@ private:
   void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void     calculateMPC();
   void     setTrajectory(float x, float y, float z, float yaw);
-  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified);
   double   checkTrajectoryForCollisions(double lowest_z, int &first_collision_index);
   void     filterReferenceXY(double max_speed_x, double max_speed_y);
   void     filterReferenceZ(double max_speed_z);
@@ -1667,9 +1667,9 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
     return true;
   }
 
-  std::string message;
-  res.success = loadTrajectory(req.trajectory_msg, message);
-  res.message = message;
+  bool modified;
+  res.success  = loadTrajectory(req.trajectory_msg, res.message, modified);
+  res.modified = modified;
   return true;
 }
 
@@ -1692,7 +1692,8 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
   }
 
   std::string message;
-  loadTrajectory(*msg, message);
+  bool        modified;
+  loadTrajectory(*msg, message, modified);
 }
 
 //}
@@ -2426,7 +2427,7 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
 /* //{ loadTrajectory() */
 
 // method for setting desired trajectory
-bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message) {
+bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified) {
 
   if (failsafe_triggered) {
 
@@ -2497,9 +2498,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // saturate the trajectory to min and max height
           if (des_z_whole_trajectory(i) < min_height) {
             des_z_whole_trajectory(i) = min_height;
+            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            trajectory_is_ok = false;
           }
           if (des_z_whole_trajectory(i) > max_height) {
             des_z_whole_trajectory(i) = max_height;
+            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            trajectory_is_ok = false;
           }
 
           // the point is not feasible
@@ -2611,47 +2616,66 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         use_yaw_in_trajectory = false;
       }
 
-      if (msg.fly_now) {
+      if (trajectory_size > 1 || trajectory_is_ok) {
 
-        tracking_trajectory_ = true;
-      } else {
-
-        tracking_trajectory_ = false;
-      }
-
-      // set the starting index accoarding to the message
-      if (msg.start_index >= 0 && msg.start_index < trajectory_size)
-        trajectory_idx = msg.start_index;
-      else
-        trajectory_idx = 0;
-
-      trajectory_set_ = true;
-      trajectory_count++;
-
-      // if we are tracking trajectory, copy the setpoint
-      if (tracking_trajectory_) {
-
-        for (int i = 0; i < horizon_len; i++) {
-
-          des_x_trajectory(i)   = des_x_whole_trajectory(i);
-          des_y_trajectory(i)   = des_y_whole_trajectory(i);
-          des_z_trajectory(i)   = des_z_whole_trajectory(i);
-          des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
+        if (msg.fly_now) {
+        
+          tracking_trajectory_ = true;
+        } else {
+        
+          tracking_trajectory_ = false;
         }
-
-        if (use_yaw_in_trajectory) {
-          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+        
+        // set the starting index accoarding to the message
+        if (msg.start_index >= 0 && msg.start_index < trajectory_size)
+          trajectory_idx = msg.start_index;
+        else
+          trajectory_idx = 0;
+        
+        trajectory_set_ = true;
+        trajectory_count++;
+        
+        // if we are tracking trajectory, copy the setpoint
+        if (tracking_trajectory_) {
+        
+          for (int i = 0; i < horizon_len; i++) {
+        
+            des_x_trajectory(i)   = des_x_whole_trajectory(i);
+            des_y_trajectory(i)   = des_y_whole_trajectory(i);
+            des_z_trajectory(i)   = des_z_whole_trajectory(i);
+            des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
+          }
+        
+          if (use_yaw_in_trajectory) {
+            desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+          }
         }
+        
+        ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
+        
+        publishDiagnostics();
       }
-
-      ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
-
-      publishDiagnostics();
 
       if (trajectory_is_ok) {
-        message = "The trajectory successfully loaded.";
+
+        message  = "The trajectory successfully loaded.";
+        modified = false;
+
       } else {
-        message = "The trajectory was modified because it contains points outside of the safety area!";
+
+        if (trajectory_size == 1) {
+
+          message  = "The trajectory is a single point outside of safety area.";
+          modified = false;
+
+          mutex_des_trajectory.unlock();
+          mutex_des_whole_trajectory.unlock();
+          return false;
+
+        } else {
+          message  = "The trajectory was modified because it contains points outside of the safety area!";
+          modified = true;
+        }
       }
     }
     mutex_des_trajectory.unlock();
