@@ -22,12 +22,12 @@
 
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
+#include <mrs_lib/Utils.h>
+#include <mrs_lib/ParamLoader.h>
 
 #include "cvx_wrapper.h"
 
 #include <commons.h>
-
-#include <mrs_lib/ParamLoader.h>
 
 using namespace Eigen;
 
@@ -70,6 +70,7 @@ private:
 
 private:
   ros::NodeHandle nh_;
+
   // nodelet variables
   ros::Subscriber    sub_trajectory_;                   // desired trajectory
   ros::Subscriber    sub_rc_;                           // rc transmitter
@@ -85,7 +86,7 @@ private:
   // debugging publishers
   ros::Publisher pub_cmd_odom;
   ros::Publisher pub_cmd_acceleration_;
-  ros::Publisher pub_setpoint_pose_;
+  ros::Publisher pub_setpoint_odom;
   ros::Publisher pub_diagnostics_;
 
   nav_msgs::Odometry odometry;
@@ -213,6 +214,10 @@ private:
   double yaw;
   double desired_yaw;
 
+  // odometry reset
+  bool resetting_odometry = false;
+  bool mpc_result_invalid = false;
+
   // predicting the future
   MatrixXd   predicted_future_yaw_trajectory;
   MatrixXd   predicted_future_trajectory;
@@ -264,6 +269,7 @@ private:
   std::mutex x_mutex, mutex_des_trajectory, des_yaw_mutex;
 
   ros::Timer mpc_timer;
+  bool       running_mpc_timer = false;
 
   bool mpc_computed_;
 
@@ -291,7 +297,7 @@ private:
   void     odom_cb(const nav_msgs::OdometryConstPtr &msg);
   void     calculateMPC();
   void     setTrajectory(float x, float y, float z, float yaw);
-  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message);
+  bool     loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified);
   double   checkTrajectoryForCollisions(double lowest_z, int &first_collision_index);
   void     filterReferenceXY(double max_speed_x, double max_speed_y);
   void     filterReferenceZ(double max_speed_z);
@@ -313,9 +319,6 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
-  mrs_lib::Routine * routine_mpc_timer;
-  mrs_lib::Routine * routine_diagnostics_timer;
-  mrs_lib::Routine * routine_future_trajectory_timer;
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -522,12 +525,11 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe_in", &MpcTracker::callbackTriggerFailsafe, this);
 
   // publishers for debugging
-  pub_cmd_odom          = nh_.advertise<nav_msgs::Odometry>("cmd_pose_out", 1);
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
   pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics_out", 1);
 
   // publisher for the current setpoint
-  pub_setpoint_pose_ = nh_.advertise<nav_msgs::Odometry>("setpoint_pose_out", 1);
+  pub_setpoint_odom = nh_.advertise<nav_msgs::Odometry>("setpoint_odom_out", 1);
 
   // collision avoidance
   param_loader.load_param("uav_name", uav_name_);
@@ -605,10 +607,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler                        = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
-  routine_mpc_timer               = profiler->registerRoutine("mpcIteration", int(1.0 / dt), 0.004);
-  routine_diagnostics_timer       = profiler->registerRoutine("diagnosticsTimer");
-  routine_future_trajectory_timer = profiler->registerRoutine("futureTrajectoryTimer");
+  profiler = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -621,6 +620,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // | ----------------------- finish init ---------------------- |
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[MpcTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 
@@ -685,40 +685,14 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   failsafe_triggered   = false;
   tracking_trajectory_ = false;
 
-  /* // if we got a setpoint with the activation command */
-  /* if (cmd && odom_set_) { */
-
-  /*   des_yaw_mutex.lock(); */
-  /*   desired_yaw = cmd->yaw; */
-  /*   des_yaw_mutex.unlock(); */
-
-  /*   setTrajectory(cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw); */
-
-  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with setpoint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->position.x, cmd->position.y, cmd->position.z,
-   */
-  /*            cmd->yaw); */
-  /*   is_active = true; */
-  /* } */
-
-  /* // if we dont, stay where you are */
-  /* else if (odom_set_) { */
-
-  /*   setTrajectory(odometry.pose.pose.position.x, odometry.pose.pose.position.y, odometry.pose.pose.position.z, tf::getYaw(odometry.pose.pose.orientation));
-   */
-  /*   position_cmd_.yaw = tf::getYaw(odometry.pose.pose.orientation); */
-
-  /*   ROS_INFO("[MpcTracker]: MPC tracker activated with no setpoint, staying where we are."); */
-  /*   is_active = true; */
-  /* } */
-
   // calculate time needed to stop
   double time_x;
   double time_y;
   double time_z;
   mutex_constraints.lock();
   {
-    time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
-    time_y = 1.5 * x(4, 0) / max_horizontal_acceleration;
+    time_x = 1.5 * x(1, 0) / (max_horizontal_acceleration/1.414);
+    time_y = 1.5 * x(4, 0) / (max_horizontal_acceleration/1.414);
     time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
   }
   mutex_constraints.unlock();
@@ -769,6 +743,8 @@ void MpcTracker::deactivate(void) {
 
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+
   // copy the odometry from the message
   mutex_odometry.lock();
   { odometry = *msg; }
@@ -778,11 +754,12 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
 
   odom_set_ = true;
 
-  // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!is_active)
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
+  }
 
-  if (!mpc_computed_) {
+  if (!mpc_computed_ && mpc_result_invalid) {
 
     // if the tracker is not computed yet
 
@@ -897,31 +874,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   position_cmd_.header.stamp    = msg->header.stamp;
   position_cmd_.header.frame_id = msg->header.frame_id;
 
-  // publish position for debugging purposes
-  nav_msgs::Odometry cmd_odom_out;
-
-  cmd_odom_out.header.stamp    = ros::Time::now();
-  cmd_odom_out.header.frame_id = "local_origin";
-
-  cmd_odom_out.pose.pose.position = position_cmd_.position;
-  tf::Quaternion orientation;
-  orientation.setEuler(0, 0, yaw);
-  cmd_odom_out.pose.pose.orientation.x = orientation.x();
-  cmd_odom_out.pose.pose.orientation.y = orientation.y();
-  cmd_odom_out.pose.pose.orientation.z = orientation.z();
-  cmd_odom_out.pose.pose.orientation.w = orientation.w();
-
-  cmd_odom_out.twist.twist.linear.x = position_cmd_.velocity.x;
-  cmd_odom_out.twist.twist.linear.y = position_cmd_.velocity.y;
-  cmd_odom_out.twist.twist.linear.z = position_cmd_.velocity.z;
-
-  try {
-    pub_cmd_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(cmd_odom_out)));
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_odom.getTopic().c_str());
-  }
-
   // publish velocity for debugging purposes
   geometry_msgs::Vector3 outVelocity;
 
@@ -949,6 +901,9 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   setpoint_odom_out.header.stamp    = ros::Time::now();
   setpoint_odom_out.header.frame_id = "local_origin";
 
+  tf::Quaternion orientation;
+  orientation.setEuler(0, 0, yaw);
+
   mutex_des_trajectory.lock();
   {
     setpoint_odom_out.pose.pose.position.x = des_x_trajectory(0, 0);
@@ -964,10 +919,10 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   mutex_des_trajectory.unlock();
 
   try {
-    pub_setpoint_pose_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
+    pub_setpoint_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
   }
   catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_pose_.getTopic().c_str());
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_odom.getTopic().c_str());
   }
 
   // u have to return a position command
@@ -1032,6 +987,21 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  resetting_odometry = true;
+  mpc_result_invalid = true;
+
+  ROS_INFO("[MpcTracker]: start of odmetry reset x %f y %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
+
+  mpc_timer.stop();
+  ROS_INFO("[MpcTracker]: stopped mpc timer");
+
+  while (running_mpc_timer) {
+
+    ROS_ERROR("[MpcTracker]: the MPC is in the middle of an iteration, waiting for it to finish");
+    ros::Duration wait(0.01);
+    wait.sleep();
+  }
+
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz;
 
@@ -1040,6 +1010,10 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
     dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
     dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+
+    ROS_INFO("[MpcTracker]: dx %f dy %f dz %f", dx, dy, dz);
+
+    odometry = *msg;
     // TODO yaw?
   }
   mutex_odometry.unlock();
@@ -1048,22 +1022,16 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   mutex_des_trajectory.lock();
   x_mutex.lock();
   {
-    if (tracking_trajectory_) {
+    for (int i = 0; i < trajectory_size; i++) {
+      des_x_whole_trajectory(i) += dx;
+      des_y_whole_trajectory(i) += dy;
+      des_z_whole_trajectory(i) += dz;
+    }
 
-      for (int i = 0; i < trajectory_size; i++) {
-        des_x_whole_trajectory(i) += dx;
-        des_y_whole_trajectory(i) += dy;
-        des_z_whole_trajectory(i) += dz;
-      }
-
-    } else {
-
-      // TODO: should set goal when flying to a setpoint
-      for (int i = 0; i < horizon_len; i++) {
-        des_x_trajectory(i, 0) += dx;
-        des_y_trajectory(i, 0) += dy;
-        des_z_trajectory(i, 0) += dz;
-      }
+    for (int i = 0; i < horizon_len; i++) {
+      des_x_trajectory(i, 0) += dx;
+      des_y_trajectory(i, 0) += dy;
+      des_z_trajectory(i, 0) += dz;
     }
 
     x(0, 0) = msg->pose.pose.position.x;
@@ -1078,6 +1046,14 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   x_mutex.unlock();
   mutex_des_trajectory.unlock();
   mutex_des_whole_trajectory.unlock();
+
+  ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), des_x_trajectory(0, 0),
+           des_y_trajectory(0, 0));
+
+  mpc_timer.start();
+  ROS_INFO("[MpcTracker]: started mpc timer");
+
+  resetting_odometry = false;
 }
 
 //}
@@ -1665,9 +1641,9 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
     return true;
   }
 
-  std::string message;
-  res.success = loadTrajectory(req.trajectory_msg, message);
-  res.message = message;
+  bool modified;
+  res.success  = loadTrajectory(req.trajectory_msg, res.message, modified);
+  res.modified = modified;
   return true;
 }
 
@@ -1690,7 +1666,8 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
   }
 
   std::string message;
-  loadTrajectory(*msg, message);
+  bool        modified;
+  loadTrajectory(*msg, message, modified);
 }
 
 //}
@@ -2329,6 +2306,8 @@ void MpcTracker::calculateMPC() {
   }
   x_mutex.unlock();
 
+  /* ROS_INFO("[MpcTracker]: end of mpc calculation x %f y %f xvel %f yvel %f xacc %f yacc %f", x(0, 0), x(3, 0), x(1, 0), x(4, 0), x(2, 0), x(5, 0)); */
+
   future_was_predicted = true;
 }
 
@@ -2422,7 +2401,7 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
 /* //{ loadTrajectory() */
 
 // method for setting desired trajectory
-bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message) {
+bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified) {
 
   if (failsafe_triggered) {
 
@@ -2493,9 +2472,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // saturate the trajectory to min and max height
           if (des_z_whole_trajectory(i) < min_height) {
             des_z_whole_trajectory(i) = min_height;
+            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            trajectory_is_ok = false;
           }
           if (des_z_whole_trajectory(i) > max_height) {
             des_z_whole_trajectory(i) = max_height;
+            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            trajectory_is_ok = false;
           }
 
           // the point is not feasible
@@ -2543,7 +2526,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
                     dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), des_x_whole_trajectory(last_valid_idx), des_y_whole_trajectory(last_valid_idx));
                 double step = dist_two_points / (i - last_valid_idx);
 
-                for (int j = last_valid_idx + 1; j < i; j++) {
+                for (int j = last_valid_idx; j < i; j++) {
 
                   des_x_whole_trajectory(j) = des_x_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * cos(angle) * step;
                   des_y_whole_trajectory(j) = des_y_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * sin(angle) * step;
@@ -2607,47 +2590,66 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         use_yaw_in_trajectory = false;
       }
 
-      if (msg.fly_now) {
+      if (trajectory_size > 1 || trajectory_is_ok) {
 
-        tracking_trajectory_ = true;
-      } else {
+        if (msg.fly_now) {
 
-        tracking_trajectory_ = false;
-      }
+          tracking_trajectory_ = true;
+        } else {
 
-      // set the starting index accoarding to the message
-      if (msg.start_index >= 0 && msg.start_index < trajectory_size)
-        trajectory_idx = msg.start_index;
-      else
-        trajectory_idx = 0;
-
-      trajectory_set_ = true;
-      trajectory_count++;
-
-      // if we are tracking trajectory, copy the setpoint
-      if (tracking_trajectory_) {
-
-        for (int i = 0; i < horizon_len; i++) {
-
-          des_x_trajectory(i)   = des_x_whole_trajectory(i);
-          des_y_trajectory(i)   = des_y_whole_trajectory(i);
-          des_z_trajectory(i)   = des_z_whole_trajectory(i);
-          des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
+          tracking_trajectory_ = false;
         }
 
-        if (use_yaw_in_trajectory) {
-          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+        // set the starting index accoarding to the message
+        if (msg.start_index >= 0 && msg.start_index < trajectory_size)
+          trajectory_idx = msg.start_index;
+        else
+          trajectory_idx = 0;
+
+        trajectory_set_ = true;
+        trajectory_count++;
+
+        // if we are tracking trajectory, copy the setpoint
+        if (tracking_trajectory_) {
+
+          for (int i = 0; i < horizon_len; i++) {
+
+            des_x_trajectory(i)   = des_x_whole_trajectory(i);
+            des_y_trajectory(i)   = des_y_whole_trajectory(i);
+            des_z_trajectory(i)   = des_z_whole_trajectory(i);
+            des_yaw_trajectory(i) = des_yaw_whole_trajectory(i);
+          }
+
+          if (use_yaw_in_trajectory) {
+            desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+          }
         }
+
+        ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
+
+        publishDiagnostics();
       }
-
-      ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
-
-      publishDiagnostics();
 
       if (trajectory_is_ok) {
-        message = "The trajectory successfully loaded.";
+
+        message  = "The trajectory successfully loaded.";
+        modified = false;
+
       } else {
-        message = "The trajectory was modified because it contains points outside of the safety area!";
+
+        if (trajectory_size == 1) {
+
+          message  = "The trajectory is a single point outside of safety area.";
+          modified = false;
+
+          mutex_des_trajectory.unlock();
+          mutex_des_whole_trajectory.unlock();
+          return false;
+
+        } else {
+          message  = "The trajectory was modified because it contains points outside of the safety area!";
+          modified = true;
+        }
       }
     }
     mutex_des_trajectory.unlock();
@@ -2700,11 +2702,9 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_diagnostics_timer->start();
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnosticsTimer", diagnostics_rate, 0.01, event);
 
   publishDiagnostics();
-
-  routine_diagnostics_timer->end();
 }
 
 //}
@@ -2713,6 +2713,15 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
+  if (resetting_odometry) {
+    ROS_ERROR("[MpcTracker]: MPC tried to run while reseting odometry");
+    return;
+  }
+
+  mrs_lib::ScopeUnset unset_running(running_mpc_timer);
+
+  bool started_with_invalid = mpc_result_invalid;
+
   if (!is_active) {
     return;
   }
@@ -2720,7 +2729,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_mpc_timer->start(event);
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mpcIteration", int(1.0 / dt), 0.004, event);
 
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
@@ -2823,7 +2832,14 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     }
   }
 
-  routine_mpc_timer->end();
+  if (started_with_invalid) {
+    mpc_result_invalid = false;
+    ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0),
+             des_y_trajectory(0, 0));
+  } else {
+    /* ROS_INFO("[MpcTracker]: calculated a general result, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(3, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0));
+     */
+  }
 }
 
 //}
@@ -2839,7 +2855,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  routine_future_trajectory_timer->start();
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("futureTrajectoryTimer", predicted_trajectory_publish_rate, 0.01, event);
 
   if (future_was_predicted) {
 
@@ -2872,8 +2888,6 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
     }
   }
-
-  routine_future_trajectory_timer->end();
 }
 
 //}
