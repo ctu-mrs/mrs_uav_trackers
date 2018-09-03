@@ -86,7 +86,7 @@ private:
   // debugging publishers
   ros::Publisher pub_cmd_odom;
   ros::Publisher pub_cmd_acceleration_;
-  ros::Publisher pub_setpoint_pose_;
+  ros::Publisher pub_setpoint_odom;
   ros::Publisher pub_diagnostics_;
 
   nav_msgs::Odometry odometry;
@@ -525,12 +525,11 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe_in", &MpcTracker::callbackTriggerFailsafe, this);
 
   // publishers for debugging
-  pub_cmd_odom          = nh_.advertise<nav_msgs::Odometry>("cmd_pose_out", 1);
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
   pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics_out", 1);
 
   // publisher for the current setpoint
-  pub_setpoint_pose_ = nh_.advertise<nav_msgs::Odometry>("setpoint_pose_out", 1);
+  pub_setpoint_odom = nh_.advertise<nav_msgs::Odometry>("setpoint_odom_out", 1);
 
   // collision avoidance
   param_loader.load_param("uav_name", uav_name_);
@@ -901,31 +900,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   position_cmd_.header.stamp    = msg->header.stamp;
   position_cmd_.header.frame_id = msg->header.frame_id;
 
-  // publish position for debugging purposes
-  nav_msgs::Odometry cmd_odom_out;
-
-  cmd_odom_out.header.stamp    = ros::Time::now();
-  cmd_odom_out.header.frame_id = "local_origin";
-
-  cmd_odom_out.pose.pose.position = position_cmd_.position;
-  tf::Quaternion orientation;
-  orientation.setEuler(0, 0, yaw);
-  cmd_odom_out.pose.pose.orientation.x = orientation.x();
-  cmd_odom_out.pose.pose.orientation.y = orientation.y();
-  cmd_odom_out.pose.pose.orientation.z = orientation.z();
-  cmd_odom_out.pose.pose.orientation.w = orientation.w();
-
-  cmd_odom_out.twist.twist.linear.x = position_cmd_.velocity.x;
-  cmd_odom_out.twist.twist.linear.y = position_cmd_.velocity.y;
-  cmd_odom_out.twist.twist.linear.z = position_cmd_.velocity.z;
-
-  try {
-    pub_cmd_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(cmd_odom_out)));
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_odom.getTopic().c_str());
-  }
-
   // publish velocity for debugging purposes
   geometry_msgs::Vector3 outVelocity;
 
@@ -953,6 +927,9 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   setpoint_odom_out.header.stamp    = ros::Time::now();
   setpoint_odom_out.header.frame_id = "local_origin";
 
+  tf::Quaternion orientation;
+  orientation.setEuler(0, 0, yaw);
+
   mutex_des_trajectory.lock();
   {
     setpoint_odom_out.pose.pose.position.x = des_x_trajectory(0, 0);
@@ -968,10 +945,10 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   mutex_des_trajectory.unlock();
 
   try {
-    pub_setpoint_pose_.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
+    pub_setpoint_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
   }
   catch (...) {
-    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_pose_.getTopic().c_str());
+    ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_odom.getTopic().c_str());
   }
 
   // u have to return a position command
