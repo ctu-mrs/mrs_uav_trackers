@@ -240,10 +240,9 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     return false;
   }
 
-  mutex_odometry.lock();
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+
     if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
       // the last command is usable
@@ -285,9 +284,6 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       ROS_WARN("[LineTracker]: the previous command is not usable for activation, using Odometry instead.");
     }
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
-  mutex_odometry.unlock();
 
   // --------------------------------------------------------------
   // |          horizontal initial conditions prediction          |
@@ -295,14 +291,14 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
     horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
     stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
     stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |           vertical initial conditions prediction           |
@@ -310,27 +306,25 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   double vertical_t_stop, vertical_stop_dist;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
     vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |              yaw initial condition  prediction             |
   // --------------------------------------------------------------
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
     ROS_INFO("[LineTracker]: setting z goal to %f", goal_z);
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   is_active = true;
 
@@ -360,8 +354,9 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  mutex_odometry.lock();
   {
+    std::scoped_lock lock(mutex_odometry);
+
     odometry   = *msg;
     odometry_x = odometry.pose.pose.position.x;
     odometry_y = odometry.pose.pose.position.y;
@@ -375,7 +370,6 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
     got_odometry = true;
   }
-  mutex_odometry.unlock();
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
@@ -385,8 +379,9 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     position_output.position.x = state_x;
     position_output.position.y = state_y;
     position_output.position.z = state_z;
@@ -401,7 +396,6 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
     position_output.acceleration.y = 0;
     position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
   }
-  mutex_state.unlock();
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
 }
@@ -463,46 +457,32 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
 
 void LineTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz;
 
-  mutex_odometry.lock();
-  {
-    dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-    dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-    dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
-    // TODO yaw?
-  }
-  mutex_odometry.unlock();
+  dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+  dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+  dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+  // TODO yaw?
 
-  mutex_goal.lock();
-  {
-    goal_x += dx;
-    goal_y += dy;
-    goal_z += dz;
-    have_goal = true;
-  }
-  mutex_goal.unlock();
+  goal_x += dx;
+  goal_y += dy;
+  goal_z += dz;
+  have_goal = true;
 
   // | -------------------- update the state -------------------- |
 
-  mutex_state.lock();
-  {
-    state_x = msg->pose.pose.position.x;
-    state_y = msg->pose.pose.position.y;
-    state_z = msg->pose.pose.position.z;
-  }
-  mutex_state.unlock();
+  state_x = msg->pose.pose.position.x;
+  state_y = msg->pose.pose.position.y;
+  state_z = msg->pose.pose.position.z;
 
   // | ------- copy the new odometry as the current state ------- |
 
-  mutex_state.lock();
-  {
-    current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
-    current_vertical_speed   = msg->twist.twist.linear.z;
-    current_heading          = atan2(goal_y - state_y, goal_x - state_x);
-  }
-  mutex_state.unlock();
+  current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
+  current_vertical_speed   = msg->twist.twist.linear.z;
+  current_heading          = atan2(goal_y - state_y, goal_x - state_x);
 
   // | ---------- switch to stop motion, which should  ---------- |
 
@@ -519,14 +499,14 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
   mrs_msgs::Vec4Response res;
 
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal);
+
     goal_x   = cmd->goal[0];
     goal_y   = cmd->goal[1];
     goal_z   = cmd->goal[2];
     goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal[3]);
   }
-  mutex_goal.unlock();
 
   ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -546,14 +526,14 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Req
 
 bool LineTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal);
+
     goal_x   = msg->position.x;
     goal_y   = msg->position.y;
     goal_z   = msg->position.z;
     goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->position.yaw);
   }
-  mutex_goal.unlock();
 
   ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -572,20 +552,14 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
 
   mrs_msgs::Vec4Response res;
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
-    mutex_odometry.lock();
-    {
-      goal_x   = state_x + cmd->goal[0];
-      goal_y   = state_y + cmd->goal[1];
-      goal_z   = state_z + cmd->goal[2];
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
-    }
-    mutex_odometry.unlock();
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
+    goal_x   = state_x + cmd->goal[0];
+    goal_y   = state_y + cmd->goal[1];
+    goal_z   = state_z + cmd->goal[2];
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -605,16 +579,14 @@ const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs:
 
 bool LineTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x   = state_x + msg->position.x;
     goal_y   = state_y + msg->position.y;
     goal_z   = state_z + msg->position.z;
     goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->position.yaw);
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -633,9 +605,9 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs:
 
   mrs_msgs::Vec1Response res;
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x   = state_x;
     goal_y   = state_y;
     goal_z   = cmd->goal;
@@ -643,8 +615,6 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs:
 
     have_goal = true;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
 
@@ -662,9 +632,9 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs:
 
 bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x   = state_x;
     goal_y   = state_y;
     goal_z   = msg->data;
@@ -672,8 +642,6 @@ bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
     have_goal = true;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
 
@@ -690,9 +658,11 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
 
   mrs_msgs::Vec1Response res;
 
-  mutex_goal.lock();
-  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal); }
-  mutex_goal.unlock();
+  {
+    std::scoped_lock lock(mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
+  }
 
   ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
 
@@ -708,9 +678,11 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1R
 
 bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
-  mutex_goal.lock();
-  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data); }
-  mutex_goal.unlock();
+  {
+    std::scoped_lock lock(mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
+  }
 
   ROS_INFO("[LineTracker]: setting absolute yaw to %3.2f", goal_yaw);
 
@@ -725,11 +697,11 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msg
 
   mrs_msgs::Vec1Response res;
 
-  mutex_goal.lock();
-  mutex_state.lock();
-  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal); }
-  mutex_state.unlock();
-  mutex_goal.unlock();
+  {
+    std::scoped_lock lock(mutex_state, mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
+  }
 
   ROS_INFO("[LineTracker]: setting relative yaw by %3.2f", goal_yaw);
 
@@ -745,11 +717,11 @@ const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msg
 
 bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
-  mutex_goal.lock();
-  mutex_state.lock();
-  { goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data); }
-  mutex_state.unlock();
-  mutex_goal.unlock();
+  {
+    std::scoped_lock lock(mutex_state, mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
+  }
 
   ROS_INFO("[LineTracker]: received relative yaw by %3.2f", goal_yaw);
 
@@ -767,26 +739,24 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
   // --------------------------------------------------------------
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
-  mutex_odometry.lock();
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state, mutex_odometry);
+
     current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
     current_vertical_speed   = odometry.twist.twist.linear.z;
     current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
   }
-  mutex_state.unlock();
-  mutex_odometry.unlock();
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
     horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
     stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
     stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |           vertical initial conditions prediction           |
@@ -794,26 +764,24 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
 
   double vertical_t_stop, vertical_stop_dist;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
     vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |                        set the goal                        |
   // --------------------------------------------------------------
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   res.message = "Hover initiated.";
   res.success = true;
@@ -830,8 +798,9 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints
   mrs_msgs::TrackerConstraintsResponse res;
 
   // this is the place to copy the constraints
-  mutex_constraints.lock();
   {
+    std::scoped_lock lock(mutex_constraints);
+
     horizontal_speed_        = cmd->horizontal_speed;
     horizontal_acceleration_ = cmd->horizontal_acceleration;
 
@@ -840,7 +809,6 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints
 
     yaw_rate_ = cmd->yaw_speed;
   }
-  mutex_constraints.unlock();
 
   res.success = true;
   res.message = "constraints updated";
@@ -1057,11 +1025,9 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
-  mutex_state.lock();
-  mutex_goal.lock();
-  mutex_odometry.lock();
-  mutex_constraints.lock();
   {
+    std::scoped_lock lock(mutex_constraints, mutex_odometry, mutex_goal, mutex_state);
+
     switch (current_state_horizontal) {
 
       case IDLE_STATE:
@@ -1188,10 +1154,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
       state_yaw = goal_yaw;
     }
   }
-  mutex_constraints.unlock();
-  mutex_odometry.unlock();
-  mutex_goal.unlock();
-  mutex_state.unlock();
 }
 
 //}
