@@ -686,9 +686,9 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   tracking_trajectory_ = false;
 
   // calculate time needed to stop
-  double time_x = 1.5 * x(1, 0) / (max_horizontal_acceleration / 1.414);
-  double time_y = 1.5 * x(4, 0) / (max_horizontal_acceleration / 1.414);
-  double time_z = 1.5 * x(7, 0) / max_vertical_ascending_acceleration;
+  double time_x = x(1, 0) / (max_horizontal_acceleration / 1.414);
+  double time_y = x(4, 0) / (max_horizontal_acceleration / 1.414);
+  double time_z = x(7, 0) / max_vertical_ascending_acceleration;
 
   // calculate how far will it move before it stops
   double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
