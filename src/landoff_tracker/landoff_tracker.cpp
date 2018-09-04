@@ -310,22 +310,20 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   // we should not activate if we are not in the safety area
   if (odometry_z < landed_threshold_height_) {
 
-    mutex_odometry.lock();
     {
+      std::scoped_lock lock(mutex_odometry);
+
       if (!safety_area->isPointInSafetyArea2d(odometry.pose.pose.position.x, odometry.pose.pose.position.y)) {
         ROS_INFO("[LandoffTracker]: current x=%f y=%f", odometry.pose.pose.position.x, odometry.pose.pose.position.y);
         ROS_ERROR("[LandoffTracker]: can't activate(), we are outside of the safety area");
-        mutex_odometry.unlock();
         return false;
       }
     }
-    mutex_odometry.unlock();
   }
 
-  mutex_odometry.lock();
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+
     if (cmd == mrs_msgs::PositionCommand::Ptr() || (odometry_z < landed_threshold_height_)) {
 
       state_x   = odometry.pose.pose.position.x;
@@ -366,9 +364,6 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z, state_yaw);
     }
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
-  mutex_odometry.unlock();
 
   // --------------------------------------------------------------
   // |          horizontal initial conditions prediction          |
@@ -376,14 +371,14 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
     horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
     stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
     stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |           vertical initial conditions prediction           |
@@ -391,26 +386,24 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   double vertical_t_stop, vertical_stop_dist;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
     vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |              yaw initial condition  prediction             |
   // --------------------------------------------------------------
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   landing    = false;
   taking_off = false;
@@ -446,8 +439,9 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  mutex_odometry.lock();
   {
+    std::scoped_lock lock(mutex_odometry);
+
     odometry   = *msg;
     odometry_x = odometry.pose.pose.position.x;
     odometry_y = odometry.pose.pose.position.y;
@@ -461,7 +455,6 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
     got_odometry = true;
   }
-  mutex_odometry.unlock();
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
@@ -473,9 +466,9 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
   if (lateral_odometry_being_reset && (ros::Time::now() - lateral_odometry_reset_time).toSec() < 0.1) {
 
-    mutex_odometry.lock();
-    mutex_state.lock();
     {
+      std::scoped_lock lock(mutex_state, mutex_odometry);
+
       goal_x = state_x = odometry.pose.pose.position.x;
       goal_y = state_y = odometry.pose.pose.position.y;
 
@@ -485,8 +478,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
     }
-    mutex_state.unlock();
-    mutex_odometry.unlock();
+
     ROS_INFO("[LandoffTracker]: waiting for KF to settle, height: %f", odometry_z);
 
   } else if (lateral_odometry_being_reset) {
@@ -496,8 +488,9 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
     /* replicateOdometry(); */
   }
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     position_output.position.x = state_x;
     position_output.position.y = state_y;
     position_output.position.z = state_z;
@@ -512,18 +505,17 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
     position_output.acceleration.y = 0;
     position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
   }
-  mutex_state.unlock();
 
   if (takeoff_disable_lateral_gains_) {
-    mutex_odometry.lock();
     {
+      std::scoped_lock lock(mutex_odometry);
+
       if (taking_off && !takeoff_odometry_was_reset) {
         position_output.disable_position_gains = true;
       } else {
         position_output.disable_position_gains = false;
       }
     }
-    mutex_odometry.unlock();
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -586,46 +578,31 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
+  std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+
   // | --------- recalculate the goal to new coordinates -------- |
-  double dx, dy, dz;
 
-  mutex_odometry.lock();
-  {
-    dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-    dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-    dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
-    // TODO yaw?
-  }
-  mutex_odometry.unlock();
+  double dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+  double dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+  double dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+  // TODO yaw?
 
-  mutex_goal.lock();
-  {
-    goal_x += dx;
-    goal_y += dy;
-    goal_z += dz;
-    have_goal = true;
-  }
-  mutex_goal.unlock();
+  goal_x += dx;
+  goal_y += dy;
+  goal_z += dz;
+  have_goal = true;
 
   // | -------------------- update the state -------------------- |
 
-  mutex_state.lock();
-  {
-    state_x = msg->pose.pose.position.x;
-    state_y = msg->pose.pose.position.y;
-    state_z = msg->pose.pose.position.z;
-  }
-  mutex_state.unlock();
+  state_x = msg->pose.pose.position.x;
+  state_y = msg->pose.pose.position.y;
+  state_z = msg->pose.pose.position.z;
 
   // | ------- copy the new odometry as the current state ------- |
 
-  mutex_state.lock();
-  {
-    current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
-    current_vertical_speed   = msg->twist.twist.linear.z;
-    current_heading          = atan2(goal_y - state_y, goal_x - state_x);
-  }
-  mutex_state.unlock();
+  current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
+  current_vertical_speed   = msg->twist.twist.linear.z;
+  current_heading          = atan2(goal_y - state_y, goal_x - state_x);
 
   // | ---------- switch to stop motion, which should  ---------- |
 
@@ -735,26 +712,24 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
   // --------------------------------------------------------------
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
-  mutex_odometry.lock();
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state, mutex_odometry);
+
     current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
     current_vertical_speed   = odometry.twist.twist.linear.z;
     current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
   }
-  mutex_state.unlock();
-  mutex_odometry.unlock();
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
     horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
     stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
     stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |           vertical initial conditions prediction           |
@@ -762,26 +737,24 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
 
   double vertical_t_stop, vertical_stop_dist;
 
-  mutex_state.lock();
   {
+    std::scoped_lock lock(mutex_state);
+
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
     vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
-  mutex_state.unlock();
 
   // --------------------------------------------------------------
   // |                        set the goal                        |
   // --------------------------------------------------------------
 
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_state, mutex_goal);
+
     goal_x = state_x + stop_dist_x;
     goal_y = state_y + stop_dist_y;
     goal_z = state_z + vertical_stop_dist;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
 
   res.message = "Hover initiated.";
   res.success = true;
@@ -1081,10 +1054,9 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
-  mutex_state.lock();
-  mutex_goal.lock();
-  mutex_odometry.lock();
   {
+    std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+
     switch (current_state_horizontal) {
 
       case IDLE_STATE:
@@ -1248,9 +1220,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       state_yaw = goal_yaw;
     }
   }
-  mutex_odometry.unlock();
-  mutex_goal.unlock();
-  mutex_state.unlock();
 }
 
 //}
@@ -1299,10 +1268,9 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
     return true;
   }
 
-  mutex_odometry.lock();
-  mutex_state.lock();
-  mutex_goal.lock();
   {
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+
     state_x = odometry_x;
     goal_x  = odometry_x;
 
@@ -1321,9 +1289,6 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
 
     have_goal = true;
   }
-  mutex_goal.unlock();
-  mutex_state.unlock();
-  mutex_odometry.unlock();
 
   ROS_INFO("[LandoffTracker]: taking off");
 
@@ -1411,25 +1376,15 @@ void LandoffTracker::replicateOdometry(void) {
   // --------------------------------------------------------------
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
-  /* mutex_odometry.lock(); */
-  /* mutex_state.lock(); */
-  /* { */
   current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
   current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
-  /* } */
-  /* mutex_state.unlock(); */
-  /* mutex_odometry.unlock(); */
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  /* mutex_state.lock(); */
-  /* { */
   horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
   horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
   stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
   stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-  /* } */
-  /* mutex_state.unlock(); */
 
   // --------------------------------------------------------------
   // |                        set the goal                        |
@@ -1441,14 +1396,8 @@ void LandoffTracker::replicateOdometry(void) {
   speed_x = odometry.twist.twist.linear.x;
   speed_y = odometry.twist.twist.linear.y;
 
-  /* mutex_state.lock(); */
-  /* mutex_goal.lock(); */
-  /* { */
   goal_x = state_x + stop_dist_x;
   goal_y = state_y + stop_dist_y;
-  /* } */
-  /* mutex_goal.unlock(); */
-  /* mutex_state.unlock(); */
 
   ROS_INFO("[LandoffTracker]: replicating odometry and stopping: current: %f %f, goal: %f %f", state_x, state_y, goal_x, goal_y);
 
