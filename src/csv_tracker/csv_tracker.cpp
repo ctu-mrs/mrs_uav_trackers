@@ -336,9 +336,11 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  mutex_odom.lock();
-  { odom = *msg; }
-  mutex_odom.unlock();
+  {
+    std::scoped_lock lock(mutex_odom);
+
+    odom = *msg;
+  }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
@@ -355,9 +357,11 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
   mrs_msgs::PositionCommand::ConstPtr out;
 
-  mutex_position_cmd.lock();
-  { out = mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd)); }
-  mutex_position_cmd.unlock();
+  {
+    std::scoped_lock lock(mutex_position_cmd);
+
+    out = mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  }
 
   return out;
 }
@@ -678,8 +682,9 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  mutex_position_cmd.lock();
   {
+    std::scoped_lock lock(mutex_position_cmd);
+
     // set the message according to the file
     position_cmd.header.stamp    = ros::Time::now();
     position_cmd.header.frame_id = "local_origin";
@@ -700,7 +705,6 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     position_cmd.yaw     = yaw_;
     position_cmd.yaw_dot = 0;
   }
-  mutex_position_cmd.unlock();
 
   // debugging current pitch
   std_msgs::Float64 odom_pitch_msg;
