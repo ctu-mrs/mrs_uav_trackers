@@ -357,11 +357,11 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-      current_horizontal_acceleration = 0;
-      current_vertical_acceleration   = 0;
-
       current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
       current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
+
+      current_horizontal_acceleration = 0;
+      current_vertical_acceleration   = 0;
 
       goal_yaw = cmd->yaw;
 
@@ -1015,10 +1015,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       case STOP_MOTION_STATE:
 
         stopHorizontalMotion();
-
-        if (current_horizontal_speed == 0) {
-          changeStateHorizontal(STOPPING_STATE);
-        }
         break;
 
       case ACCELERATING_STATE:
@@ -1047,10 +1043,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       case STOP_MOTION_STATE:
 
         stopVerticalMotion();
-
-        if (current_vertical_speed == 0) {
-          changeStateVertical(STOPPING_STATE);
-        }
         break;
 
       case ACCELERATING_STATE:
@@ -1067,6 +1059,17 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
         stopVertical();
         break;
+    }
+
+    if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
+
+      if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
+        if (have_goal) {
+          changeState(ACCELERATING_STATE);
+        } else {
+          changeState(STOPPING_STATE);
+        }
+      }
     }
 
     if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
