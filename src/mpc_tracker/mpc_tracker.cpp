@@ -1730,6 +1730,13 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 bool MpcTracker::callbackHeadlessMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   headless_mode = req.data;
+  char buffer[100];
+
+  sprintf(buffer, "Headless mode %s", headless_mode ? "ON" : "OFF");
+  res.message = buffer;
+  ROS_INFO("[MpcTracker]: %s", buffer);
+
+  res.success = true;
 
   return true;
 }
@@ -2873,24 +2880,23 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       if (use_yaw_in_trajectory)
         desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
 
-        if (loop) {  // if we are looping, the loop it
-          if (++trajectory_idx == trajectory_size) {
-            trajectory_idx = 0;
-          }
-        } else {
-          // if we are at the end, select the last point as a constant setpoint
-          if (++trajectory_idx == (trajectory_size)) {
-
-            tracking_trajectory = false;
-            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-            publishDiagnostics();
-          }
+      if (loop) {  // if we are looping, the loop it
+        if (++trajectory_idx == trajectory_size) {
+          trajectory_idx = 0;
         }
+      } else {
+        // if we are at the end, select the last point as a constant setpoint
+        if (++trajectory_idx == (trajectory_size)) {
+
+          tracking_trajectory = false;
+          ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+          publishDiagnostics();
+        }
+      }
     }
   }
 
-  double old_des_x, old_des_y, old_des_z;
-  bool wait_for_heading = false;
+  bool   wait_for_heading = false;
 
   if (headless_mode && !tracking_trajectory) {
 
@@ -2909,11 +2915,11 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     }
   }
 
-  if (wait_for_heading && !tracking_trajectory) {
+  double old_des_x = des_x_trajectory(1);
+  double old_des_y = des_y_trajectory(1);
+  double old_des_z = des_z_trajectory(1);
 
-    old_des_x = des_x_trajectory(1);
-    old_des_y = des_y_trajectory(1);
-    old_des_z = des_z_trajectory(1);
+  if (wait_for_heading && !tracking_trajectory) {
 
     for (int i = 0; i < horizon_len_; i++) {
       des_x_trajectory(i) = x(0, 0);
