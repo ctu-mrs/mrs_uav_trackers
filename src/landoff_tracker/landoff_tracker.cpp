@@ -11,6 +11,8 @@
 
 #include <commons.h>
 
+#include <mrs_lib/ParamLoader.h>
+
 #define STOP_THR 1e-3
 
 namespace mrs_trackers
@@ -40,7 +42,7 @@ class LandoffTracker : public mrs_mav_manager::Tracker {
 public:
   LandoffTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -64,6 +66,9 @@ public:
 
 private:
   bool callbacks_enabled = true;
+
+private:
+  mrs_mav_manager::SafetyArea const *safety_area;
 
 private:
   nav_msgs::Odometry odometry;
@@ -168,7 +173,9 @@ LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
 
 //{ initialize()
 
-void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+
+  this->safety_area = safety_area;
 
   ros::NodeHandle nh_(parent_nh, "landoff_tracker");
 
@@ -178,111 +185,33 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  nh_.param("horizontal_tracker/horizontal_speed", horizontal_speed_, -1.0);
-  nh_.param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_, -1.0);
+  mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
-  nh_.param("vertical_tracker/vertical_speed", vertical_speed_, -1.0);
-  nh_.param("vertical_tracker/vertical_acceleration", vertical_acceleration_, -1.0);
+  param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
+  param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
 
-  nh_.param("vertical_tracker/takeoff_speed", takeoff_speed_, -1.0);
-  nh_.param("vertical_tracker/takeoff_acceleration", takeoff_acceleration_, -1.0);
+  param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
+  param_loader.load_param("vertical_tracker/vertical_acceleration", vertical_acceleration_);
 
-  nh_.param("vertical_tracker/landing_speed", landing_speed_, -1.0);
-  nh_.param("vertical_tracker/landing_acceleration", landing_acceleration_, -1.0);
+  param_loader.load_param("vertical_tracker/takeoff_speed", takeoff_speed_);
+  param_loader.load_param("vertical_tracker/takeoff_acceleration", takeoff_acceleration_);
 
-  nh_.param("yaw_tracker/yaw_rate", yaw_rate_, -1.0);
-  nh_.param("yaw_tracker/yaw_gain", yaw_gain_, -1.0);
+  param_loader.load_param("vertical_tracker/landing_speed", landing_speed_);
+  param_loader.load_param("vertical_tracker/landing_acceleration", landing_acceleration_);
 
-  nh_.param("tracker_loop_rate", tracker_loop_rate_, -1);
+  param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
+  param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
-  nh_.param("takeoff_height", takeoff_height_, -1.0);
-  nh_.param("landing_height", landing_height_, -1000.0);
-  nh_.param("landing_fast_height", landing_fast_height_, -1.0);
+  param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
-  nh_.param("max_position_difference", max_position_difference_, -1.0);
+  param_loader.load_param("takeoff_height", takeoff_height_);
+  param_loader.load_param("landing_height", landing_height_);
+  param_loader.load_param("landing_fast_height", landing_fast_height_);
 
-  nh_.param("landing_threshold_height", landed_threshold_height_, -1.0);
-  nh_.param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_, false);
+  param_loader.load_param("max_position_difference", max_position_difference_);
 
-  if (horizontal_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: horizontal_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (vertical_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: vertical_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (horizontal_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: horizontal_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (vertical_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: vertical_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_rate_ < 0) {
-    ROS_ERROR("[LandoffTracker]: yaw_rate was not specified!");
-    ros::shutdown();
-  }
-
-  if (yaw_gain_ < 0) {
-    ROS_ERROR("[LandoffTracker]: yaw_gain was not specified!");
-    ros::shutdown();
-  }
-
-  if (tracker_loop_rate_ < 0) {
-    ROS_ERROR("[LandoffTracker]: tracker_loop_rate was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_speed_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_speed was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_acceleration_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_acceleration was not specified!");
-    ros::shutdown();
-  }
-
-  if (takeoff_height_ < 0) {
-    ROS_ERROR("[LandoffTracker]: takeoff_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_height_ < -999) {
-    ROS_ERROR("[LandoffTracker]: landing_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (landing_fast_height_ < -999) {
-    ROS_ERROR("[LandoffTracker]: landing_fast_height was not specified!");
-    ros::shutdown();
-  }
-
-  if (max_position_difference_ < 0) {
-    ROS_ERROR("[LandoffTracker]: max_position_difference was not specified!");
-    ros::shutdown();
-  }
-
-  if (landed_threshold_height_ < 0) {
-    ROS_ERROR("[LandoffTracker]: landing_threshold_height was not specified!");
-    ros::shutdown();
-  }
+  param_loader.load_param("landing_threshold_height", landed_threshold_height_);
+  param_loader.load_param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -331,9 +260,15 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh) {
 
   main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this);
 
-  ROS_INFO("[LandoffTracker]: initialized");
+  // | ----------------------- finish init ---------------------- |
+
+  if (!param_loader.loaded_successfully()) {
+    ros::shutdown();
+  }
 
   is_initialized = true;
+
+  ROS_INFO("[LandoffTracker]: initialized");
 }
 
 //}
@@ -345,6 +280,20 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   if (!got_odometry) {
     ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
     return false;
+  }
+
+  // we should not activate if we are not in the safety area
+  if (odometry_z < landed_threshold_height_) {
+
+    mutex_odometry.lock();
+    {
+      if (!safety_area->isPointInSafetyArea2d(odometry.pose.pose.position.x, odometry.pose.pose.position.y)) {
+        ROS_ERROR("[LandoffTracker]: can't activate(), we are outside of the safety area");
+        mutex_odometry.unlock();
+        return false;
+      }
+    }
+    mutex_odometry.unlock();
   }
 
   mutex_odometry.lock();
@@ -363,7 +312,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading          = 0;
       current_horizontal_speed = 0;
 
-      current_vertical_speed = odometry.twist.twist.linear.z;
+      current_vertical_speed = 0;
 
       goal_yaw = odometry_yaw;
 
@@ -382,7 +331,9 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_heading = atan2(speed_y, speed_x);
 
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-      current_vertical_speed   = cmd->velocity.z;
+
+      current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
+      current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
 
       goal_yaw = cmd->yaw;
 
@@ -417,7 +368,7 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 
@@ -704,7 +655,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover(const std_srvs::
   mutex_state.lock();
   {
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
   }
   mutex_state.unlock();
 
@@ -759,6 +710,13 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     case LANDED_STATE:
       break;
     case HOVER_STATE:
+
+      // | ----- trigger odometry fusion reset after taking off 0---- |
+      if (taking_off) {
+        // TODO
+        ROS_WARN("[LandoffTracker]: calling for odometry fusion reset");
+      }
+
       landing    = false;
       taking_off = false;
       break;
