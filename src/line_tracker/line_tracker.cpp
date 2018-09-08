@@ -259,6 +259,9 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
       current_vertical_speed     = fabs(cmd->velocity.z);
       current_vertical_direction = cmd->velocity.z > 0 ? +1 : -1;
 
+      current_horizontal_acceleration = 0;
+      current_vertical_acceleration = 0;
+
       goal_yaw = cmd->yaw;
 
       ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
@@ -278,6 +281,9 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
       current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
       current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
+
+      current_horizontal_acceleration = 0;
+      current_vertical_acceleration = 0;
 
       goal_yaw = odometry_yaw;
 
@@ -785,6 +791,8 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
 
   res.message = "Hover initiated.";
   res.success = true;
+
+  changeState(STOP_MOTION_STATE);
 
   return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }

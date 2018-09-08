@@ -4,6 +4,7 @@ rc_failsafe_channel: 8              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
 publish_debug_trajectory: true      # publish the mpc predicted trajectory at [Hz]
+headless_mode: false
 
 # mrs collision avoidance
 mrs_collision_avoidance:
