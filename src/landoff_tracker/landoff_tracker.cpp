@@ -99,7 +99,7 @@ private:
 private:
   // tracker's inner states
   int    tracker_loop_rate_;
-  double landing_height_;
+  double landing_reference_;
   double landing_fast_height_;
   double tracker_dt_;
   bool   is_initialized;
@@ -224,7 +224,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manage
 
   param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
-  param_loader.load_param("landing_height", landing_height_);
+  param_loader.load_param("landing_reference", landing_reference_);
   param_loader.load_param("landing_fast_height", landing_fast_height_);
 
   param_loader.load_param("max_position_difference", max_position_difference_);
@@ -919,6 +919,7 @@ void LandoffTracker::accelerateVertical(void) {
     current_vertical_acceleration = used_acceleration;
   }
 
+  // stopping condition to change to decelerate state
   if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * tracker_dt_))) {
     current_vertical_acceleration = 0;
     changeStateVertical(DECELERATING_STATE);
@@ -1048,6 +1049,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       case ACCELERATING_STATE:
 
         accelerateVertical();
+
         break;
 
       case DECELERATING_STATE:
@@ -1060,6 +1062,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
         stopVertical();
         break;
     }
+
 
     if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
 
@@ -1158,6 +1161,18 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
     if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
       state_yaw = goal_yaw;
+    }
+  }
+
+  // --------------------------------------------------------------
+  // |                      landing setpoint                      |
+  // --------------------------------------------------------------
+
+  if (landing) {
+    {
+      std::scoped_lock lock(mutex_odometry);
+
+      goal_z = odometry_z + landing_reference_;
     }
   }
 }
@@ -1276,7 +1291,11 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request &r
     return true;
   }
 
-  goal_z = landing_height_;
+  {
+    std::scoped_lock lock(mutex_odometry);
+
+    goal_z = odometry_z + landing_reference_;
+  }
 
   ROS_INFO("[LandoffTracker]: landing");
 
