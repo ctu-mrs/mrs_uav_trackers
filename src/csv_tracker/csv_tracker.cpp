@@ -4,7 +4,7 @@
 #include <tf/LinearMath/Transform.h>
 
 #include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/SwitchTracker.h>
+#include <mrs_msgs/String.h>
 
 #include <mrs_mav_manager/Tracker.h>
 
@@ -20,25 +20,27 @@
 #include <mutex>
 
 #include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/Profiler.h>
 
 using namespace Eigen;
 
 namespace mrs_trackers
 {
 
-//{ class CsvTracker
+/* //{ class CsvTracker */
 
 class CsvTracker : public mrs_mav_manager::Tracker {
 public:
   CsvTracker(void);
 
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -48,6 +50,8 @@ public:
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
+  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
+
   virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
   virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
   virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
@@ -55,8 +59,6 @@ public:
   virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-
-  void odometryCallback(const nav_msgs::OdometryConstPtr &msg);
 
   bool setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
   bool setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
@@ -137,6 +139,10 @@ private:
   double z_scale_ = 1;
 
   double yaw_ = 0;
+
+private:
+  mrs_lib::Profiler *profiler;
+  bool               profiler_enabled_ = false;
 };
 
 CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
@@ -146,13 +152,15 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 // | ------------------- tracker's interface ------------------ |
 
-//{ initialize()
+/* //{ initialize() */
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea const *safety_area) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_mav_manager::SafetyArea_t const *safety_area) {
 
   ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
   mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
+
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("filename", filename_);
 
@@ -197,13 +205,11 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   }
 
   service_goTo           = priv_nh.serviceClient<mrs_msgs::Vec4>("goTo_out");
-  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::SwitchTracker>("SwitchTracker_out");
+  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::String>("SwitchTracker_out");
 
   publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
   pub_weight            = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
   publisher_trajectory_ = priv_nh.advertise<mrs_msgs::TrackerTrajectory>("desired_trajectory", 1);
-
-  subscriber_odom = priv_nh.subscribe("odom_in", 1, &CsvTracker::odometryCallback, this, ros::TransportHints().tcpNoDelay());
 
   publisher_odom_pitch_    = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
   publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
@@ -244,12 +250,19 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   CsvTracker::setInitPoint();
 
   // --------------------------------------------------------------
+  // |                          profiler                          |
+  // --------------------------------------------------------------
+
+  profiler = new mrs_lib::Profiler(nh_, "CsvTracker", profiler_enabled_);
+
+  // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
 
   main_timer = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this);
 
   if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[CsvTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 
@@ -260,7 +273,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
 
 //}
 
-//{ activate()
+/* //{ activate() */
 
 bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -295,6 +308,7 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     ROS_INFO("[CsvTracker]: CSV tracker activated");
     is_active = true;
     tracking  = true;
+    main_timer.start();
   }
 
   return is_active;
@@ -302,25 +316,36 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 //}
 
-//{ deactivate()
+/* //{ deactivate() */
 
 void CsvTracker::deactivate(void) {
 
   is_active = false;
   odom_set  = false;
 
+  main_timer.stop();
+
   ROS_INFO("[CsvTracker]: CSV tracker deactivated");
 }
 
 //}
 
-//{ update()
+/* //{ update() */
 
 const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
-  // very important, return null pointer when the tracker is not active, but we can still do some stuff
-  if (!is_active)
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+
+  {
+    std::scoped_lock lock(mutex_odom);
+
+    odom = *msg;
+  }
+
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
+  }
 
   // calculate the current angle
   double                    odom_roll, odom_pitch, odom_yaw;
@@ -332,16 +357,18 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
   mrs_msgs::PositionCommand::ConstPtr out;
 
-  mutex_position_cmd.lock();
-  { out = mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd)); }
-  mutex_position_cmd.unlock();
+  {
+    std::scoped_lock lock(mutex_position_cmd);
+
+    out = mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  }
 
   return out;
 }
 
 //}
 
-//{ getStatus()
+/* //{ getStatus() */
 
 const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
@@ -364,7 +391,7 @@ const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
 
 //}
 
-//{ enableCallbacks()
+/* //{ enableCallbacks() */
 
 const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
@@ -392,125 +419,131 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
 
 //}
 
+/* switchOdometrySource() //{ */
+
+void CsvTracker::switchOdometrySource([[maybe_unused]] const nav_msgs::Odometry::ConstPtr &msg) {
+  // TODO
+}
+
+//}
+
 // | -------------- setpoint topics and services -------------- |
 
-//{ goTo() service
+/* //{ goTo() service */
 
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-//}
-
-//{ goTo() topic
-
-bool CsvTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-  return false;
-}
-
-//}
-
-//{ goToRelative() service
-
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec4Response::Ptr();
 }
 
 //}
 
-//{ goToRelative() topic
+/* //{ goTo() topic */
 
-bool CsvTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+bool CsvTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
   return false;
 }
 
 //}
 
-//{ goToAltitude() service
+/* //{ goToRelative() service */
 
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+
+  return mrs_msgs::Vec4Response::Ptr();
+}
+
+//}
+
+/* //{ goToRelative() topic */
+
+bool CsvTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+  return false;
+}
+
+//}
+
+/* //{ goToAltitude() service */
+
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
 
 //}
 
-//{ goToAltitude() topic
+/* //{ goToAltitude() topic */
 
-bool CsvTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
 //}
 
-//{ setYaw() service
+/* //{ setYaw() service */
 
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
   return mrs_msgs::Vec1Response::Ptr();
 }
 
 //}
 
-//{ setYaw() topic
+/* //{ setYaw() topic */
 
-bool CsvTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
 //}
 
-//{ setYawRelative() service
+/* //{ setYawRelative() service */
 
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
   return mrs_msgs::Vec1Response::Ptr();
 }
 
 //}
 
-//{ setYawRelative() topic
+/* //{ setYawRelative() topic */
 
-bool CsvTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+bool CsvTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
   return false;
 }
 
 //}
 
-//{ hover()
+/* //{ hover() service */
 
-const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+/* //{ setConstraints() service */
+
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr CsvTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+
+  return mrs_msgs::TrackerConstraintsResponse::Ptr();
 }
 
 //}
 
 // | ------------------------ callbacks ----------------------- |
 
-//{ odometryCallbacks()
+/* //{ start_callback() */
 
-void CsvTracker::odometryCallback(const nav_msgs::OdometryConstPtr &msg) {
+bool CsvTracker::start_callback([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-  got_odom = true;
-
-  // tady tim to neni
-  mutex_odom.lock();
-  { odom = *msg; }
-  mutex_odom.unlock();
-}
-
-//}
-
-//{ start_callback()
-
-bool CsvTracker::start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+  res.success = true;
+  res.message = "started";
 
   return true;
 }
 
 //}
 
-//{ setInitPoint()
+/* //{ setInitPoint() */
 
 void CsvTracker::setInitPoint(void) {
 
@@ -537,7 +570,7 @@ void CsvTracker::setInitPoint(void) {
 
 //}
 
-//{ setXYScale()
+/* //{ setXYScale() */
 
 bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -561,7 +594,7 @@ bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setYScale()
+/* //{ setYScale() */
 
 bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -585,7 +618,7 @@ bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setZScale()
+/* //{ setZScale() */
 
 bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -609,7 +642,7 @@ bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 //}
 
-//{ setScales()
+/* //{ setScales() */
 
 bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
 
@@ -637,9 +670,11 @@ bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 // | ------------------------- timers ------------------------- |
 
-//{ mainTimer()
+/* //{ mainTimer() */
 
 void CsvTracker::mainTimer(const ros::TimerEvent &event) {
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", 100, 0.005, event);
 
   if (!got_odom) {
 
@@ -647,12 +682,9 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  if (!is_active) {
-    return;
-  }
-
-  mutex_position_cmd.lock();
   {
+    std::scoped_lock lock(mutex_position_cmd);
+
     // set the message according to the file
     position_cmd.header.stamp    = ros::Time::now();
     position_cmd.header.frame_id = "local_origin";
@@ -673,7 +705,6 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     position_cmd.yaw     = yaw_;
     position_cmd.yaw_dot = 0;
   }
-  mutex_position_cmd.unlock();
 
   // debugging current pitch
   std_msgs::Float64 odom_pitch_msg;
@@ -721,8 +752,8 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
     ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, replaying the last poing...");
 
-    mrs_msgs::SwitchTracker SwitchTracker;
-    SwitchTracker.request.tracker = "mrs_trackers/MpcTracker";
+    mrs_msgs::String SwitchTracker;
+    SwitchTracker.request.value = "mrs_trackers/MpcTracker";
     service_switch_tracker.call(SwitchTracker);
   }
 }
