@@ -88,6 +88,7 @@ private:
   ros::Publisher pub_cmd_acceleration_;
   ros::Publisher pub_setpoint_odom;
   ros::Publisher pub_diagnostics_;
+  ros::Publisher pub_debug_trajectory;
 
   nav_msgs::Odometry odometry;
   double             odometry_yaw, odometry_pitch, odometry_roll;
@@ -574,6 +575,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   // create publisher for predicted trajectory
   predicted_trajectory_publisher       = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
+  pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1);
 
   // preallocate future trajectory
   predicted_future_trajectory     = MatrixXd::Zero(horizon_len_ * n, 1);
@@ -2741,6 +2743,34 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
 
+        geometry_msgs::PoseArray debug_trajectory_out;
+        debug_trajectory_out.header.stamp    = ros::Time::now();
+        debug_trajectory_out.header.frame_id = "local_origin";
+
+        for (int i = 0; i < trajectory_size; i++) {
+
+          geometry_msgs::Pose newPose;
+
+          newPose.position.x = des_x_whole_trajectory(i);
+          newPose.position.y = des_y_whole_trajectory(i);
+          newPose.position.z = des_z_whole_trajectory(i);
+
+          tf::Quaternion orientation;
+          orientation.setEuler(0, 0, des_yaw_whole_trajectory(i));
+          newPose.orientation.x = orientation.x();
+          newPose.orientation.y = orientation.y();
+          newPose.orientation.z = orientation.z();
+          newPose.orientation.w = orientation.w();
+
+          debug_trajectory_out.poses.push_back(newPose);
+        }
+
+        try {
+          pub_debug_trajectory.publish(debug_trajectory_out);
+        } catch (...) {
+          ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_trajectory.getTopic().c_str());
+        }
+      
         publishDiagnostics();
       }
 
@@ -2896,7 +2926,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     }
   }
 
-  bool   wait_for_heading = false;
+  bool wait_for_heading = false;
 
   if (headless_mode && !tracking_trajectory) {
 
