@@ -825,6 +825,11 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
       position_cmd_.position.z     = x(6, 0);
       position_cmd_.velocity.z     = x(7, 0);
       position_cmd_.acceleration.z = x(8, 0);
+
+      position_cmd_.use_position = 1;
+      position_cmd_.use_velocity = 1;
+      position_cmd_.use_acceleration = 1;
+      position_cmd_.use_euler_attitude = 1;
     }
 
   } else {
