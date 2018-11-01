@@ -23,38 +23,46 @@ mrs_collision_avoidance:
   collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
-  numberOfStates: 9
+  numberOfStates: 12
   numberOfInputs: 3
 
-  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
-      0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
-      0, 0, 0, 0, 0, 0, 0, 0, 1]
+  A: [1, 0.01, 0.00005,       0, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    1,    0.01, 0.00005, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       1,    0.01, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       0,       1, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       0,       0, 1, 0.01, 0.00005,       0, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    1,    0.01, 0.00005, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       1,    0.01, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       0,       1, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       0,       0, 1, 0.01, 0.00005,       0,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    1,    0.01, 0.00005,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    0,       1,    0.01,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    0,       0,       1]
 
   B: [0, 0, 0,
       0, 0, 0,
+      0, 0, 0,
       0.01, 0, 0,
+      0, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0.01, 0,
       0, 0, 0,
       0, 0, 0,
+      0, 0, 0,
       0, 0, 0.01]
 
 yawModel:
-  numberOfStates: 3
+  numberOfStates: 4
   numberOfInputs: 1
 
-  A: [1, 0.01, 0,
-      0, 1, 0.01,
-      0, 0, 1]
+  A: [1, 0.01, 0.00005,       0,
+      0,    1,    0.01, 0.00005,
+      0,    0,       1,    0.01,
+      0,    0,       0,       1]
 
   B: [0,
+      0,
       0,
       0.01]
 
@@ -74,33 +82,37 @@ cvxgenMpc:
   maxHorizontalSpeed: 2.0
   maxHorizontalAcceleration: 1.0
   maxHorizontalJerk: 1.0
+  maxHorizontalSnap: 1.0
 
   maxVerticalAscendingSpeed: 1.0
   maxVerticalAscendingAcceleration: 1.0
   maxVerticalAscendingJerk: 1.0
+  maxVerticalAscendingSnap: 1.0
 
   maxVerticalDescendingSpeed: 1.0
   maxVerticalDescendingAcceleration: 1.0
   maxVerticalDescendingJerk: 1.0
+  maxVerticalDescendingSnap: 1.0
 
   maxYawRate: 0.3
   maxYawAcceleration: 0.5
   maxYawJerk: 0.5
+  maxYawSnap: 0.5
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
+  Q: [5000, 0, 0, 0]
   R: [500]
 
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
+  Q: [5000, 0, 0, 0]
   R: [500]
 
 cvxWrapperYaw:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
+  Q: [5000, 0, 0, 0]
   R: [500]
