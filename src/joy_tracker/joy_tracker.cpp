@@ -82,7 +82,6 @@ namespace mrs_trackers
   private:
     // dynamical constraints
     double     yaw_rate_;
-    double     yaw_gain_;
     std::mutex mutex_constraints;
 
   private:
@@ -144,7 +143,6 @@ namespace mrs_trackers
     param_loader.load_param("max_tilt", max_tilt_);
 
     param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
-    param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
     tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -284,11 +282,11 @@ namespace mrs_trackers
 
       tf::Quaternion desired_orientation;
 
-      double pes = 0.99;
+      double affine_coef = 0.99;
       if (fabs(odometry.twist.twist.linear.x) > 5 || fabs(odometry.twist.twist.linear.y) > 5) {
-        attitude_coeff = pes*attitude_coeff;
+        attitude_coeff = affine_coef*attitude_coeff;
       } else {
-        attitude_coeff = pes*attitude_coeff + (1-pes);
+        attitude_coeff = affine_coef*attitude_coeff + (1-affine_coef);
       }
 
       desired_orientation = tf::createQuaternionFromRPY(-desired_roll*attitude_coeff, desired_pitch*attitude_coeff, state_yaw);

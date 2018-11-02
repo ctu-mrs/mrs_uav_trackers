@@ -80,30 +80,30 @@ cvxgenMpc:
   no_overshoots: true # disable for more aggresive flight
 
   # State constrains:
-  maxHorizontalSpeed: 2.0
-  maxHorizontalAcceleration: 1.0
-  maxHorizontalJerk: 1.0
+  maxHorizontalSpeed: 8.3
+  maxHorizontalAcceleration: 3.3
+  maxHorizontalJerk: 5.0
   # Input constrains:
-  maxHorizontalSnap: 1.0
+  maxHorizontalSnap: 5.0
 
   # State constrains:
-  maxVerticalAscendingSpeed: 1.0
+  maxVerticalAscendingSpeed: 2.0
   maxVerticalAscendingAcceleration: 1.0
-  maxVerticalAscendingJerk: 1.0
+  maxVerticalAscendingJerk: 5.0
   # Input constrains:
-  maxVerticalAscendingSnap: 1.0
+  maxVerticalAscendingSnap: 5.0
 
   # State constrains:
-  maxVerticalDescendingSpeed: 1.0
+  maxVerticalDescendingSpeed: 2.0
   maxVerticalDescendingAcceleration: 1.0
-  maxVerticalDescendingJerk: 1.0
+  maxVerticalDescendingJerk: 5.0
   # Input constrains:
-  maxVerticalDescendingSnap: 1.0
+  maxVerticalDescendingSnap: 5.0
 
   # State constrains:
   maxYawRate: 0.3
   maxYawAcceleration: 0.5
-  maxYawJerk: 0.5
+  maxYawJerk: 3.0
   # Input constrains:
   maxYawSnap: 0.5
 
