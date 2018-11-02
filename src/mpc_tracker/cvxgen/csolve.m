@@ -206,6 +206,86 @@
 %     x_38(3) >= -x_min_3
 %     x_39(3) >= -x_min_3
 %     x_40(3) >= -x_min_3
+%     x_1(4) <= x_max_4
+%     x_2(4) <= x_max_4
+%     x_3(4) <= x_max_4
+%     x_4(4) <= x_max_4
+%     x_5(4) <= x_max_4
+%     x_6(4) <= x_max_4
+%     x_7(4) <= x_max_4
+%     x_8(4) <= x_max_4
+%     x_9(4) <= x_max_4
+%     x_10(4) <= x_max_4
+%     x_11(4) <= x_max_4
+%     x_12(4) <= x_max_4
+%     x_13(4) <= x_max_4
+%     x_14(4) <= x_max_4
+%     x_15(4) <= x_max_4
+%     x_16(4) <= x_max_4
+%     x_17(4) <= x_max_4
+%     x_18(4) <= x_max_4
+%     x_19(4) <= x_max_4
+%     x_20(4) <= x_max_4
+%     x_21(4) <= x_max_4
+%     x_22(4) <= x_max_4
+%     x_23(4) <= x_max_4
+%     x_24(4) <= x_max_4
+%     x_25(4) <= x_max_4
+%     x_26(4) <= x_max_4
+%     x_27(4) <= x_max_4
+%     x_28(4) <= x_max_4
+%     x_29(4) <= x_max_4
+%     x_30(4) <= x_max_4
+%     x_31(4) <= x_max_4
+%     x_32(4) <= x_max_4
+%     x_33(4) <= x_max_4
+%     x_34(4) <= x_max_4
+%     x_35(4) <= x_max_4
+%     x_36(4) <= x_max_4
+%     x_37(4) <= x_max_4
+%     x_38(4) <= x_max_4
+%     x_39(4) <= x_max_4
+%     x_40(4) <= x_max_4
+%     x_1(4) >= -x_min_4
+%     x_2(4) >= -x_min_4
+%     x_3(4) >= -x_min_4
+%     x_4(4) >= -x_min_4
+%     x_5(4) >= -x_min_4
+%     x_6(4) >= -x_min_4
+%     x_7(4) >= -x_min_4
+%     x_8(4) >= -x_min_4
+%     x_9(4) >= -x_min_4
+%     x_10(4) >= -x_min_4
+%     x_11(4) >= -x_min_4
+%     x_12(4) >= -x_min_4
+%     x_13(4) >= -x_min_4
+%     x_14(4) >= -x_min_4
+%     x_15(4) >= -x_min_4
+%     x_16(4) >= -x_min_4
+%     x_17(4) >= -x_min_4
+%     x_18(4) >= -x_min_4
+%     x_19(4) >= -x_min_4
+%     x_20(4) >= -x_min_4
+%     x_21(4) >= -x_min_4
+%     x_22(4) >= -x_min_4
+%     x_23(4) >= -x_min_4
+%     x_24(4) >= -x_min_4
+%     x_25(4) >= -x_min_4
+%     x_26(4) >= -x_min_4
+%     x_27(4) >= -x_min_4
+%     x_28(4) >= -x_min_4
+%     x_29(4) >= -x_min_4
+%     x_30(4) >= -x_min_4
+%     x_31(4) >= -x_min_4
+%     x_32(4) >= -x_min_4
+%     x_33(4) >= -x_min_4
+%     x_34(4) >= -x_min_4
+%     x_35(4) >= -x_min_4
+%     x_36(4) >= -x_min_4
+%     x_37(4) >= -x_min_4
+%     x_38(4) >= -x_min_4
+%     x_39(4) >= -x_min_4
+%     x_40(4) >= -x_min_4
 %     u_0(1) <= u_max
 %     u_1(1) <= u_max
 %     u_2(1) <= u_max
@@ -328,102 +408,104 @@
 %     u_37   1 x 1
 %     u_38   1 x 1
 %     u_39   1 x 1
-%      x_1   3 x 1
-%      x_2   3 x 1
-%      x_3   3 x 1
-%      x_4   3 x 1
-%      x_5   3 x 1
-%      x_6   3 x 1
-%      x_7   3 x 1
-%      x_8   3 x 1
-%      x_9   3 x 1
-%     x_10   3 x 1
-%     x_11   3 x 1
-%     x_12   3 x 1
-%     x_13   3 x 1
-%     x_14   3 x 1
-%     x_15   3 x 1
-%     x_16   3 x 1
-%     x_17   3 x 1
-%     x_18   3 x 1
-%     x_19   3 x 1
-%     x_20   3 x 1
-%     x_21   3 x 1
-%     x_22   3 x 1
-%     x_23   3 x 1
-%     x_24   3 x 1
-%     x_25   3 x 1
-%     x_26   3 x 1
-%     x_27   3 x 1
-%     x_28   3 x 1
-%     x_29   3 x 1
-%     x_30   3 x 1
-%     x_31   3 x 1
-%     x_32   3 x 1
-%     x_33   3 x 1
-%     x_34   3 x 1
-%     x_35   3 x 1
-%     x_36   3 x 1
-%     x_37   3 x 1
-%     x_38   3 x 1
-%     x_39   3 x 1
-%     x_40   3 x 1
+%      x_1   4 x 1
+%      x_2   4 x 1
+%      x_3   4 x 1
+%      x_4   4 x 1
+%      x_5   4 x 1
+%      x_6   4 x 1
+%      x_7   4 x 1
+%      x_8   4 x 1
+%      x_9   4 x 1
+%     x_10   4 x 1
+%     x_11   4 x 1
+%     x_12   4 x 1
+%     x_13   4 x 1
+%     x_14   4 x 1
+%     x_15   4 x 1
+%     x_16   4 x 1
+%     x_17   4 x 1
+%     x_18   4 x 1
+%     x_19   4 x 1
+%     x_20   4 x 1
+%     x_21   4 x 1
+%     x_22   4 x 1
+%     x_23   4 x 1
+%     x_24   4 x 1
+%     x_25   4 x 1
+%     x_26   4 x 1
+%     x_27   4 x 1
+%     x_28   4 x 1
+%     x_29   4 x 1
+%     x_30   4 x 1
+%     x_31   4 x 1
+%     x_32   4 x 1
+%     x_33   4 x 1
+%     x_34   4 x 1
+%     x_35   4 x 1
+%     x_36   4 x 1
+%     x_37   4 x 1
+%     x_38   4 x 1
+%     x_39   4 x 1
+%     x_40   4 x 1
 %
 % and parameters
-%        A   3 x 3
-%       Af   3 x 3
-%        B   3 x 1
-%       Bf   3 x 1
-%        Q   3 x 3    positive, PSD, diagonal
+%        A   4 x 4
+%       Af   4 x 4
+%        B   4 x 1
+%       Bf   4 x 1
+%        Q   4 x 4    positive, PSD, diagonal
 %        R   1 x 1    positive, PSD
 %       R2   1 x 1    positive, PSD
 %    u_max   1 x 1
 %    u_min   1 x 1
-%      x_0   3 x 1
+%      x_0   4 x 1
 %  x_max_2   1 x 1
 %  x_max_3   1 x 1
+%  x_max_4   1 x 1
 %  x_min_2   1 x 1
 %  x_min_3   1 x 1
-%   x_ss_1   3 x 1
-%   x_ss_2   3 x 1
-%   x_ss_3   3 x 1
-%   x_ss_4   3 x 1
-%   x_ss_5   3 x 1
-%   x_ss_6   3 x 1
-%   x_ss_7   3 x 1
-%   x_ss_8   3 x 1
-%   x_ss_9   3 x 1
-%  x_ss_10   3 x 1
-%  x_ss_11   3 x 1
-%  x_ss_12   3 x 1
-%  x_ss_13   3 x 1
-%  x_ss_14   3 x 1
-%  x_ss_15   3 x 1
-%  x_ss_16   3 x 1
-%  x_ss_17   3 x 1
-%  x_ss_18   3 x 1
-%  x_ss_19   3 x 1
-%  x_ss_20   3 x 1
-%  x_ss_21   3 x 1
-%  x_ss_22   3 x 1
-%  x_ss_23   3 x 1
-%  x_ss_24   3 x 1
-%  x_ss_25   3 x 1
-%  x_ss_26   3 x 1
-%  x_ss_27   3 x 1
-%  x_ss_28   3 x 1
-%  x_ss_29   3 x 1
-%  x_ss_30   3 x 1
-%  x_ss_31   3 x 1
-%  x_ss_32   3 x 1
-%  x_ss_33   3 x 1
-%  x_ss_34   3 x 1
-%  x_ss_35   3 x 1
-%  x_ss_36   3 x 1
-%  x_ss_37   3 x 1
-%  x_ss_38   3 x 1
-%  x_ss_39   3 x 1
-%  x_ss_40   3 x 1
+%  x_min_4   1 x 1
+%   x_ss_1   4 x 1
+%   x_ss_2   4 x 1
+%   x_ss_3   4 x 1
+%   x_ss_4   4 x 1
+%   x_ss_5   4 x 1
+%   x_ss_6   4 x 1
+%   x_ss_7   4 x 1
+%   x_ss_8   4 x 1
+%   x_ss_9   4 x 1
+%  x_ss_10   4 x 1
+%  x_ss_11   4 x 1
+%  x_ss_12   4 x 1
+%  x_ss_13   4 x 1
+%  x_ss_14   4 x 1
+%  x_ss_15   4 x 1
+%  x_ss_16   4 x 1
+%  x_ss_17   4 x 1
+%  x_ss_18   4 x 1
+%  x_ss_19   4 x 1
+%  x_ss_20   4 x 1
+%  x_ss_21   4 x 1
+%  x_ss_22   4 x 1
+%  x_ss_23   4 x 1
+%  x_ss_24   4 x 1
+%  x_ss_25   4 x 1
+%  x_ss_26   4 x 1
+%  x_ss_27   4 x 1
+%  x_ss_28   4 x 1
+%  x_ss_29   4 x 1
+%  x_ss_30   4 x 1
+%  x_ss_31   4 x 1
+%  x_ss_32   4 x 1
+%  x_ss_33   4 x 1
+%  x_ss_34   4 x 1
+%  x_ss_35   4 x 1
+%  x_ss_36   4 x 1
+%  x_ss_37   4 x 1
+%  x_ss_38   4 x 1
+%  x_ss_39   4 x 1
+%  x_ss_40   4 x 1
 %
 % Note:
 %   - Check status.converged, which will be 1 if optimization succeeded.
@@ -434,7 +516,7 @@
 %
 % Specify params.A, ..., params.x_ss_40, then run
 %   [vars, status] = csolve(params, settings)
-% Produced by CVXGEN, 2018-08-17 05:06:15 -0400.
+% Produced by CVXGEN, 2018-11-01 09:02:33 -0400.
 % CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com.
 % The code in this file is Copyright (C) 2006-2017 Jacob Mattingley.
 % CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial
