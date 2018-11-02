@@ -37,6 +37,7 @@
     <mrs_mav_manager plugin="${prefix}/mpc_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/csv_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/line_tracker.xml" />
+    <mrs_mav_manager plugin="${prefix}/joy_tracker.xml" />
     <mrs_mav_manager plugin="${prefix}/landoff_tracker.xml" />
   </export>
 

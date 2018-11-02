@@ -100,6 +100,19 @@ target_link_libraries(LandoffTracker
   ${catkin_LIBRARIES}
   )
 
+# Joy Tracker
+
+add_library(JoyTracker
+  src/joy_tracker/joy_tracker.cpp
+  )
+add_dependencies(JoyTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(JoyTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############

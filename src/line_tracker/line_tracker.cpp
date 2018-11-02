@@ -20,7 +20,7 @@
 namespace mrs_trackers
 {
 
-/* //{ class LandoffTracker */
+/* //{ class LineTracker */
 
 // state machine
 typedef enum
