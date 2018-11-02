@@ -101,11 +101,11 @@ cvxgenMpc:
   maxVerticalDescendingSnap: 5.0
 
   # State constrains:
-  maxYawRate: 0.3
-  maxYawAcceleration: 0.5
-  maxYawJerk: 3.0
+  maxYawRate: 2.0
+  maxYawAcceleration: 2.0
+  maxYawJerk: 5.0
   # Input constrains:
-  maxYawSnap: 0.5
+  maxYawSnap: 5.0
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
