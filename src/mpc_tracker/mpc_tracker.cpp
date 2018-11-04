@@ -1100,11 +1100,11 @@ namespace mrs_trackers
       x(0, 0) = msg->pose.pose.position.x;
       x(1, 0) = msg->twist.twist.linear.x;
 
-      x(3, 0) = msg->pose.pose.position.y;
-      x(4, 0) = msg->twist.twist.linear.y;
+      x(4, 0) = msg->pose.pose.position.y;
+      x(5, 0) = msg->twist.twist.linear.y;
 
-      x(6, 0) = msg->pose.pose.position.z;
-      x(7, 0) = msg->twist.twist.linear.z;
+      x(8, 0) = msg->pose.pose.position.z;
+      x(9, 0) = msg->twist.twist.linear.z;
     }
 
     ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(4, 0), x(1, 0), x(5, 0),
