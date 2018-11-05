@@ -1422,21 +1422,25 @@ namespace mrs_trackers
       max_horizontal_speed        = cmd->horizontal_speed;
       max_horizontal_acceleration = cmd->horizontal_acceleration;
       max_horizontal_jerk         = cmd->horizontal_jerk;
+      max_horizontal_snap         = cmd->horizontal_snap;
 
       max_vertical_ascending_speed        = cmd->vertical_ascending_speed;
       max_vertical_ascending_acceleration = cmd->vertical_ascending_acceleration;
       max_vertical_ascending_jerk         = cmd->vertical_ascending_jerk;
+      max_vertical_ascending_snap         = cmd->vertical_ascending_snap;
 
       max_vertical_descending_speed        = cmd->vertical_descending_speed;
       max_vertical_descending_acceleration = cmd->vertical_descending_acceleration;
       max_vertical_descending_jerk         = cmd->vertical_descending_jerk;
+      max_vertical_descending_snap         = cmd->vertical_descending_snap;
 
       max_yaw_rate         = cmd->yaw_speed;
       max_yaw_acceleration = cmd->yaw_acceleration;
       max_yaw_jerk         = cmd->yaw_jerk;
+      max_yaw_snap         = cmd->yaw_snap;
     }
 
-    ROS_INFO("[LineTracker]: updating constraints");
+    ROS_INFO("[MpcTracker]: updating constraints");
 
     res.success = true;
     res.message = "constraints updated";
