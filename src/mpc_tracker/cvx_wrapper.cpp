@@ -95,7 +95,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[6] = dt2;
   params.A[7] = 0.5 * dt2 * dt2;
   params.A[8] = 0.5 * dt2 * dt2;
-  params.A[8] = 1/6 * dt2 * dt2 * dt2;
+  params.A[8] = 1 / 6 * dt2 * dt2 * dt2;
 
   params.B[0] = dt2;
 
@@ -108,13 +108,14 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.Af[6] = dt;
   params.Af[7] = 0.5 * dt * dt;
   params.Af[8] = 0.5 * dt * dt;
-  params.Af[9] = 1/6 * dt * dt * dt;
+  params.Af[9] = 1 / 6 * dt * dt * dt;
 
   params.Bf[0] = dt;
 
   ROS_INFO("Cvx wrapper initiated");
 }
-void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap, double min_snap, int q_vel) {
+void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap,
+                           double min_snap, int q_vel) {
   params.x_max_2[0] = max_speed;
   params.x_min_2[0] = min_speed;
   params.x_max_3[0] = max_acc;
@@ -123,7 +124,7 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   params.x_min_4[0] = min_jerk;
   params.u_max[0]   = max_snap;
   params.u_min[0]   = min_snap;
-  params.Q[1]       = q_vel;
+  /* params.Q[1]       = q_vel; */
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {
@@ -132,6 +133,43 @@ void CvxWrapper::setInitialState(MatrixXd& x) {
   params.x_0[2] = x(2, 0);
   params.x_0[3] = x(3, 0);
 }
+
+bool CvxWrapper::setQ(std::vector<double> Qnew) {
+  bool result = true;
+  if (Qnew.size() == 4) {
+    for (int i = 0; i < 4; i++) {
+      if (Qnew[i] >= 0 && std::isfinite(Qnew[i])) {
+        params.Q[i] = Qnew[i];
+      } else {
+        ROS_ERROR_STREAM("[MpcTracker]: CvxWrapper - Q matrix has to be PSD - parameter " << i << " !!!");
+        result = false;
+      }
+    }
+  } else {
+    ROS_ERROR("[MpcTracker]: CvxWrapper - wrong dimension received when setting Q");
+    result = false;
+  }
+  if(result){
+    ROS_INFO("[MpcTracker]: CvxWrapper - successfully set matrix Q");
+  }
+  return result;
+}
+
+bool CvxWrapper::setR(double Rnew) {
+  bool result = true;
+  if (Rnew >= 0) {
+    params.R[0]  = Rnew;
+    params.R2[0] = Rnew / 20;
+  } else {
+    ROS_ERROR("[MpcTracker]: CvxWrapper - new R has to be non-negative!");
+    result = false;
+  }
+  if(result){
+    ROS_INFO("[MpcTracker]: CvxWrapper - successfully set matrix R");
+  }
+  return result;
+}
+
 void CvxWrapper::loadReference(MatrixXd& reference) {
   for (int i = 0; i < horizon_len; i++) {
     *params.x_ss[i + 1] = reference(i, 0);
