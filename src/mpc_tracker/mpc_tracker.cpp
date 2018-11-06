@@ -326,7 +326,7 @@ private:
   bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
-  bool     callbackSetMatrices(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res);
+  bool     callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res);
   bool     triggerFailsafe();
   void     publishDiagnostics();
   double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
@@ -449,24 +449,21 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   param_loader.load_param("cvxWrapper/verbose", verbose);
   param_loader.load_param("cvxWrapper/maxNumOfIterations", max_iters_XY);
   param_loader.load_param("cvxWrapper/Q", tempList);
-  param_loader.load_param("cvxWrapper/R", tempList2);
 
-  cvx_x = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 0);
-  cvx_y = new CvxWrapper(verbose, max_iters_XY, tempList, tempList2, dt, dt2, 1);
+  cvx_x = new CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 0);
+  cvx_y = new CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 1);
 
   param_loader.load_param("cvxWrapperZ/verbose", verbose);
   param_loader.load_param("cvxWrapperZ/maxNumOfIterations", max_iters_Z);
   param_loader.load_param("cvxWrapperZ/Q", tempList);
-  param_loader.load_param("cvxWrapperZ/R", tempList2);
 
-  cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, tempList2, dt, dt2, 2);
+  cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, dt, dt2, 2);
 
   param_loader.load_param("cvxWrapperYaw/verbose", verbose);
   param_loader.load_param("cvxWrapperYaw/maxNumOfIterations", max_iters_YAW);
   param_loader.load_param("cvxWrapperYaw/Q", tempList);
-  param_loader.load_param("cvxWrapperYaw/R", tempList2);
 
-  cvx_yaw = new CvxWrapper(verbose, max_iters_YAW, tempList, tempList2, dt, dt2, 0);
+  cvx_yaw = new CvxWrapper(verbose, max_iters_YAW, tempList, dt, dt2, 0);
 
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
   ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
@@ -549,7 +546,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::S
   failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe_in", &MpcTracker::callbackTriggerFailsafe, this);
 
   // service for triggering failsafe
-  set_set_mpc_matrix = nh_.advertiseService("set_mpc_matrix_in", &MpcTracker::callbackSetMatrices, this);
+  set_set_mpc_matrix = nh_.advertiseService("set_mpc_matrix_in", &MpcTracker::callbackSetQ, this);
 
   // publishers for debugging
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
@@ -1745,9 +1742,9 @@ bool MpcTracker::callbackTriggerFailsafe([[maybe_unused]] std_srvs::Trigger::Req
 
 //}
 
-/* //{ callbackSetMatrices() service */
+/* //{ callbackSetQ() service */
 
-bool MpcTracker::callbackSetMatrices(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res) {
+bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res) {
 
   std::vector<double> Qvec(4);
   bool                response = true;
@@ -1760,11 +1757,6 @@ bool MpcTracker::callbackSetMatrices(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::
     }
   }
 
-  if (req.R < 0.0) {
-    response = false;
-    res.message += "R has to be PSD! ";
-  }
-
   if (req.axis != "xy" && req.axis != "z" && req.axis != "yaw" && req.axis != "all") {
     response = false;
     res.message += "Enter axis description! [xy, z, yaw, all] ";
@@ -1773,22 +1765,18 @@ bool MpcTracker::callbackSetMatrices(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::
   if (response) {
     if (req.axis == "xy" || req.axis == "all") {
       response &= cvx_x->setQ(Qvec);
-      response &= cvx_x->setR(req.R);
       response &= cvx_y->setQ(Qvec);
-      response &= cvx_y->setR(req.R);
     }
     if (req.axis == "z" || req.axis == "all") {
       response &= cvx_y->setQ(Qvec);
-      response &= cvx_y->setR(req.R);
     }
     if (req.axis == "yaw" || req.axis == "all") {
       response &= cvx_yaw->setQ(Qvec);
-      response &= cvx_yaw->setR(req.R);
     }
 
     char tempStr[100];
-    sprintf((char *)&tempStr, "Setting matrices for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f, R: %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3],
-            req.R);
+    sprintf((char *)&tempStr, "Setting matrix for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3]
+            );
     res.message = tempStr;
   } else {
     res.message += " Error setting matrices";
