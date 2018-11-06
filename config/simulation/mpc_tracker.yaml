@@ -117,8 +117,8 @@ cvxWrapper:
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 6500, 0, 0] # For standard flight
-  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
+  # Q: [5000, 6500, 0, 0] # For standard flight
+  Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
   R: [5]
 
 cvxWrapperYaw:
