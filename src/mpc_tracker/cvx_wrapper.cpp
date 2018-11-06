@@ -19,7 +19,7 @@ Settings  settings;
 /* z - 2 */
 /* yaw - 0 */
 
-CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, std::vector<double> tempR, double dt, double dt2, int dimension) {
+CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dimension) {
 
   set_defaults();
   setup_indexing();
@@ -59,23 +59,6 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
     params.Q[3] = 0;
   }
 
-  if (tempR.size() == 1) {
-    for (int i = 0; i < 1; i++) {
-      if (tempR[i] >= 0 && std::isfinite(tempR[i])) {
-        params.R[i]  = tempR[i];
-        params.R2[i] = tempR[i] / 20;
-      } else {
-        ROS_ERROR_STREAM("CvxWrapper - R matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
-        params.R[i]  = 500;
-        params.R2[i] = 500 / 20;
-      }
-    }
-  } else {
-    ROS_ERROR_STREAM("CvxWrapper - R matrix wrong size " << tempR.size() << " !!! Safe values set instead");
-    params.R[0]  = 500;
-    params.R2[0] = 500 / 20;
-  }
-
   if (dt <= 0 || !std::isfinite(dt)) {
     ROS_ERROR_STREAM("CvxWrapper - dt parameter wrong " << dt << " !!! Safe value of 0.01 set instead");
     dt = 0.01;
@@ -95,7 +78,6 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.A[6] = dt2;
   params.A[7] = 0.5 * dt2 * dt2;
   params.A[8] = 0.5 * dt2 * dt2;
-  params.A[8] = 1 / 6 * dt2 * dt2 * dt2;
 
   params.B[0] = dt2;
 
@@ -108,7 +90,6 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, s
   params.Af[6] = dt;
   params.Af[7] = 0.5 * dt * dt;
   params.Af[8] = 0.5 * dt * dt;
-  params.Af[9] = 1 / 6 * dt * dt * dt;
 
   params.Bf[0] = dt;
 
@@ -151,21 +132,6 @@ bool CvxWrapper::setQ(std::vector<double> Qnew) {
   }
   if(result){
     ROS_INFO("[MpcTracker]: CvxWrapper - successfully set matrix Q");
-  }
-  return result;
-}
-
-bool CvxWrapper::setR(double Rnew) {
-  bool result = true;
-  if (Rnew >= 0) {
-    params.R[0]  = Rnew;
-    params.R2[0] = Rnew / 20;
-  } else {
-    ROS_ERROR("[MpcTracker]: CvxWrapper - new R has to be non-negative!");
-    result = false;
-  }
-  if(result){
-    ROS_INFO("[MpcTracker]: CvxWrapper - successfully set matrix R");
   }
   return result;
 }

@@ -1,4 +1,4 @@
-/* Produced by CVXGEN, 2018-11-01 09:02:52 -0400.  */
+/* Produced by CVXGEN, 2018-11-06 10:21:31 -0500.  */
 /* CVXGEN is Copyright (C) 2006-2017 Jacob Mattingley, jem@cvxgen.com. */
 /* The code in this file is Copyright (C) 2006-2017 Jacob Mattingley. */
 /* CVXGEN, or solvers produced by CVXGEN, cannot be used for commercial */
@@ -213,6 +213,7 @@ void setup_indexed_optvars(void) {
   vars.x[38] = vars.x_38;
   vars.x[39] = vars.x_39;
   vars.x[40] = vars.x_40;
+  vars.u[0] = vars.u_0;
   vars.u[1] = vars.u_1;
   vars.u[2] = vars.u_2;
   vars.u[3] = vars.u_3;
@@ -252,7 +253,6 @@ void setup_indexed_optvars(void) {
   vars.u[37] = vars.u_37;
   vars.u[38] = vars.u_38;
   vars.u[39] = vars.u_39;
-  vars.u[0] = vars.u_0;
 }
 void setup_indexing(void) {
   setup_pointers();
@@ -435,7 +435,7 @@ void better_start(void) {
   /* Calculates a better starting point, using a similar approach to CVXOPT. */
   /* Not yet speed optimized. */
   int i;
-  double *x, *s, *z, *y;
+  double *x, *z, *y;
   double alpha;
   work.block_33[0] = -1;
   /* Make sure sinvz is 1 to make hijacked KKT system ok. */
@@ -448,7 +448,6 @@ void better_start(void) {
   ldl_solve(work.rhs, work.lhs_aff);
   /* Don't do any refinement for now. Precision doesn't matter too much. */
   x = work.lhs_aff;
-  s = work.lhs_aff + 200;
   z = work.lhs_aff + 520;
   y = work.lhs_aff + 840;
   /* Just set x and y as is. */

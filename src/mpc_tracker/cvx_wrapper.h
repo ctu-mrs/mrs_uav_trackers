@@ -9,11 +9,10 @@
 class CvxWrapper {
 
 public:
-  CvxWrapper(bool verbose, int max_iters, std::vector<double> tempR, std::vector<double> tempQ, double dt, double dt2, int dim);
+  CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dim);
 
   void setInitialState(Eigen::MatrixXd &x);
   bool setQ(std::vector<double> Qnew);
-  bool setR(double Rnew);
   void loadReference(Eigen::MatrixXd &reference);
   void setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap, double min_snap, int q_vel);
   int  solveCvx();
