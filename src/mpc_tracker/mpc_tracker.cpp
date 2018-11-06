@@ -1775,8 +1775,8 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
     }
 
     char tempStr[100];
-    sprintf((char *)&tempStr, "Setting matrices for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f, R: %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3],
-            req.R);
+    sprintf((char *)&tempStr, "Setting matrix for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3]
+            );
     res.message = tempStr;
   } else {
     res.message += " Error setting matrices";
