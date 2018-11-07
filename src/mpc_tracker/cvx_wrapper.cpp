@@ -21,6 +21,7 @@ Settings  settings;
 
 CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dimension) {
 
+  myQ = std::vector<double> (4);
   set_defaults();
   setup_indexing();
   setup_indexed_params();
@@ -45,18 +46,18 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
   if (tempQ.size() == 4) {
     for (int i = 0; i < 4; i++) {
       if (tempQ[i] >= 0 && std::isfinite(tempQ[i])) {
-        params.Q[i] = tempQ[i];
+        myQ[i] = tempQ[i];
       } else {
         ROS_ERROR_STREAM("CvxWrapper - Q matrix has to be PSD - parameter " << i << " !!! Safe value of 500 set instead");
-        params.Q[i] = 500;
+        myQ[i] = 500;
       }
     }
   } else {
     ROS_ERROR_STREAM("CvxWrapper - Q matrix wrong size " << tempQ.size() << " !!! Safe values set instead");
-    params.Q[0] = 5000;
-    params.Q[1] = 0;
-    params.Q[2] = 0;
-    params.Q[3] = 0;
+    myQ[0] = 5000;
+    myQ[1] = 0;
+    myQ[2] = 0;
+    myQ[3] = 0;
   }
 
   if (dt <= 0 || !std::isfinite(dt)) {
@@ -105,7 +106,7 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   params.x_min_4[0] = min_jerk;
   params.u_max[0]   = max_snap;
   params.u_min[0]   = min_snap;
-  /* params.Q[1]       = q_vel; */
+  /* myQ[1]       = q_vel; */
 }
 
 void CvxWrapper::setInitialState(MatrixXd& x) {
@@ -120,7 +121,7 @@ bool CvxWrapper::setQ(std::vector<double> Qnew) {
   if (Qnew.size() == 4) {
     for (int i = 0; i < 4; i++) {
       if (Qnew[i] >= 0 && std::isfinite(Qnew[i])) {
-        params.Q[i] = Qnew[i];
+        myQ[i] = Qnew[i];
       } else {
         ROS_ERROR_STREAM("[MpcTracker]: CvxWrapper - Q matrix has to be PSD - parameter " << i << " !!!");
         result = false;
@@ -130,7 +131,7 @@ bool CvxWrapper::setQ(std::vector<double> Qnew) {
     ROS_ERROR("[MpcTracker]: CvxWrapper - wrong dimension received when setting Q");
     result = false;
   }
-  if(result){
+  if (result) {
     ROS_INFO("[MpcTracker]: CvxWrapper - successfully set matrix Q");
   }
   return result;
@@ -142,6 +143,9 @@ void CvxWrapper::loadReference(MatrixXd& reference) {
   }
 }
 int CvxWrapper::solveCvx() {
+  for (int i = 0; i < 4; i++) {
+    params.Q[i] = myQ[i];
+  }
   return solve();
 }
 void CvxWrapper::getStates(MatrixXd& future_traj) {

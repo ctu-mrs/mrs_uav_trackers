@@ -1768,7 +1768,7 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
       response &= cvx_y->setQ(Qvec);
     }
     if (req.axis == "z" || req.axis == "all") {
-      response &= cvx_y->setQ(Qvec);
+      response &= cvx_z->setQ(Qvec);
     }
     if (req.axis == "yaw" || req.axis == "all") {
       response &= cvx_yaw->setQ(Qvec);
