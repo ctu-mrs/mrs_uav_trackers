@@ -1,0 +1,5 @@
+<library path="lib/libJoyTracker">
+  <class name="mrs_trackers/JoyTracker" type="mrs_trackers::JoyTracker" base_class_type="mrs_mav_manager::Tracker">
+    <description>This is the joystick tracker.</description>
+  </class>
+</library>

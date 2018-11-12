@@ -23,38 +23,46 @@ mrs_collision_avoidance:
   collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
 dynamicalModel:
-  numberOfStates: 9
+  numberOfStates: 12
   numberOfInputs: 3
 
-  A: [1, 0.01, 0, 0, 0, 0, 0, 0, 0,
-      0, 1, 0.01, 0, 0, 0, 0, 0, 0,
-      0, 0, 1, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 1, 0.01, 0, 0, 0, 0,
-      0, 0, 0, 0, 1, 0.01, 0, 0, 0,
-      0, 0, 0, 0, 0, 1, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 1, 0.01, 0,
-      0, 0, 0, 0, 0, 0, 0, 1, 0.01,
-      0, 0, 0, 0, 0, 0, 0, 0, 1]
+  A: [1, 0.01, 0.00005,       0, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    1,    0.01, 0.00005, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       1,    0.01, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       0,       1, 0,   0,        0,       0, 0,    0,       0,       0,
+      0,    0,       0,       0, 1, 0.01, 0.00005,       0, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    1,    0.01, 0.00005, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       1,    0.01, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       0,       1, 0,    0,       0,       0,
+      0,    0,       0,       0, 0,    0,       0,       0, 1, 0.01, 0.00005,       0,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    1,    0.01, 0.00005,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    0,       1,    0.01,
+      0,    0,       0,       0, 0,    0,       0,       0, 0,    0,       0,       1]
 
   B: [0, 0, 0,
       0, 0, 0,
+      0, 0, 0,
       0.01, 0, 0,
+      0, 0, 0,
       0, 0, 0,
       0, 0, 0,
       0, 0.01, 0,
       0, 0, 0,
       0, 0, 0,
+      0, 0, 0,
       0, 0, 0.01]
 
 yawModel:
-  numberOfStates: 3
+  numberOfStates: 4
   numberOfInputs: 1
 
-  A: [1, 0.01, 0,
-      0, 1, 0.01,
-      0, 0, 1]
+  A: [1, 0.01, 0.00005,       0,
+      0,    1,    0.01, 0.00005,
+      0,    0,       1,    0.01,
+      0,    0,       0,       1]
 
   B: [0,
+      0,
       0,
       0.01]
 
@@ -71,36 +79,48 @@ cvxgenMpc:
 
   no_overshoots: true # disable for more aggresive flight
 
-  maxHorizontalSpeed: 2.0
-  maxHorizontalAcceleration: 1.0
-  maxHorizontalJerk: 1.0
+  # State constrains:
+  maxHorizontalSpeed: 5.0
+  maxHorizontalAcceleration: 2.0
+  maxHorizontalJerk: 3.0
+  # Input constrains:
+  maxHorizontalSnap: 5.0
 
+  # State constrains:
   maxVerticalAscendingSpeed: 1.0
   maxVerticalAscendingAcceleration: 1.0
-  maxVerticalAscendingJerk: 1.0
+  maxVerticalAscendingJerk: 3.0
+  # Input constrains:
+  maxVerticalAscendingSnap: 5.0
 
+  # State constrains:
   maxVerticalDescendingSpeed: 1.0
   maxVerticalDescendingAcceleration: 1.0
-  maxVerticalDescendingJerk: 1.0
+  maxVerticalDescendingJerk: 3.0
+  # Input constrains:
+  maxVerticalDescendingSnap: 5.0
 
-  maxYawRate: 0.3
-  maxYawAcceleration: 0.5
-  maxYawJerk: 0.5
+  # State constrains:
+  maxYawRate: 1.0
+  maxYawAcceleration: 1.0
+  maxYawJerk: 3.0
+  # Input constrains:
+  maxYawSnap: 5.0
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
-  R: [500]
+  Q: [5000, 2500, 0, 0] # For standard flight
+  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
 
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
-  R: [500]
+  Q: [5000, 2500, 0, 0] # For standard flight
+  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
 
 cvxWrapperYaw:
   verbose: false # cvxgen's debug output
   maxNumOfIterations: 25 # 25
-  Q: [5000, 0, 0]
-  R: [500]
+  Q: [5000, 2500, 0, 0] # For standard flight
+  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
