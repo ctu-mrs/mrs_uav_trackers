@@ -1414,37 +1414,55 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
 
 const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
+  bool can_change = (fabs(x(2, 0)) < cmd->horizontal_acceleration) &&
+                    (fabs(x(3, 0)) < cmd->horizontal_jerk) &&
+                    (fabs(x(6, 0)) < cmd->horizontal_acceleration) &&
+                    (fabs(x(7, 0)) < cmd->horizontal_jerk) &&
+                    (x(10, 0) < cmd->vertical_ascending_acceleration) &&
+                    (x(10, 0) > -cmd->vertical_descending_acceleration) &&
+                    (x(11, 0) < cmd->vertical_ascending_jerk) &&
+                    (x(11, 0) > -cmd->vertical_descending_jerk) &&
+                    (fabs(x_yaw(2, 0)) < cmd->yaw_acceleration) &&
+                    (fabs(x_yaw(3, 0)) < cmd->yaw_jerk);
+
   mrs_msgs::TrackerConstraintsResponse res;
 
-  // this is the place to copy the constraints
-  {
-    std::scoped_lock lock(mutex_constraints);
+  if (can_change) {
+    {
+      std::scoped_lock lock(mutex_constraints);
 
-    max_horizontal_speed        = cmd->horizontal_speed;
-    max_horizontal_acceleration = cmd->horizontal_acceleration;
-    max_horizontal_jerk         = cmd->horizontal_jerk;
-    max_horizontal_snap         = cmd->horizontal_snap;
+      max_horizontal_speed        = cmd->horizontal_speed;
+      max_horizontal_acceleration = cmd->horizontal_acceleration;
+      max_horizontal_jerk         = cmd->horizontal_jerk;
+      max_horizontal_snap         = cmd->horizontal_snap;
 
-    max_vertical_ascending_speed        = cmd->vertical_ascending_speed;
-    max_vertical_ascending_acceleration = cmd->vertical_ascending_acceleration;
-    max_vertical_ascending_jerk         = cmd->vertical_ascending_jerk;
-    max_vertical_ascending_snap         = cmd->vertical_ascending_snap;
+      max_vertical_ascending_speed        = cmd->vertical_ascending_speed;
+      max_vertical_ascending_acceleration = cmd->vertical_ascending_acceleration;
+      max_vertical_ascending_jerk         = cmd->vertical_ascending_jerk;
+      max_vertical_ascending_snap         = cmd->vertical_ascending_snap;
 
-    max_vertical_descending_speed        = cmd->vertical_descending_speed;
-    max_vertical_descending_acceleration = cmd->vertical_descending_acceleration;
-    max_vertical_descending_jerk         = cmd->vertical_descending_jerk;
-    max_vertical_descending_snap         = cmd->vertical_descending_snap;
+      max_vertical_descending_speed        = cmd->vertical_descending_speed;
+      max_vertical_descending_acceleration = cmd->vertical_descending_acceleration;
+      max_vertical_descending_jerk         = cmd->vertical_descending_jerk;
+      max_vertical_descending_snap         = cmd->vertical_descending_snap;
 
-    max_yaw_rate         = cmd->yaw_speed;
-    max_yaw_acceleration = cmd->yaw_acceleration;
-    max_yaw_jerk         = cmd->yaw_jerk;
-    max_yaw_snap         = cmd->yaw_snap;
+      max_yaw_rate         = cmd->yaw_speed;
+      max_yaw_acceleration = cmd->yaw_acceleration;
+      max_yaw_jerk         = cmd->yaw_jerk;
+      max_yaw_snap         = cmd->yaw_snap;
+    }
+
+    ROS_INFO("[MpcTracker]: updating constraints");
+
+    res.success = true;
+    res.message = "constraints updated";
+  } else {
+
+    ROS_ERROR("[MpcTracker]: cannot update constrains, the drone is accelerating faster than the constrains allow");
+    
+    res.success = false;
+    res.message = "constraints cannot be updated";
   }
-
-  ROS_INFO("[MpcTracker]: updating constraints");
-
-  res.success = true;
-  res.message = "constraints updated";
 
   return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
 }
@@ -1775,8 +1793,7 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
     }
 
     char tempStr[100];
-    sprintf((char *)&tempStr, "Setting matrix for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3]
-            );
+    sprintf((char *)&tempStr, "Setting matrix for %s axis, Q: %5.1f, %5.1f, %5.1f, %5.1f", req.axis.c_str(), req.Q[0], req.Q[1], req.Q[2], req.Q[3]);
     res.message = tempStr;
   } else {
     res.message += " Error setting matrices";
