@@ -7,9 +7,6 @@
 
   <maintainer email="tomas.baca@fel.cvut.cz">Tomas Baca</maintainer>
 
-  <!-- One license tag required, multiple allowed, one license per tag -->
-  <!-- Commonly used license strings: -->
-  <!--   BSD, MIT, Boost Software License, GPLv2, GPLv3, LGPLv2.1, LGPLv3 -->
   <license>TODO</license>
 
   <buildtool_depend>catkin</buildtool_depend>
@@ -34,11 +31,7 @@
   <run_depend>mrs_msgs</run_depend>
 
   <export>
-    <mrs_mav_manager plugin="${prefix}/mpc_tracker.xml" />
-    <mrs_mav_manager plugin="${prefix}/csv_tracker.xml" />
-    <mrs_mav_manager plugin="${prefix}/line_tracker.xml" />
-    <mrs_mav_manager plugin="${prefix}/joy_tracker.xml" />
-    <mrs_mav_manager plugin="${prefix}/landoff_tracker.xml" />
+    <mrs_mav_manager plugin="${prefix}/plugins.xml" />
   </export>
 
 </package>
