@@ -13,6 +13,8 @@ Params    params;
 Workspace work;
 Settings  settings;
 
+/* CvxWrapper() //{ */
+
 /* dim is used to offset the result in the output vecor, according to which dimension (x,y,z) is being calculated */
 /* x - 0 */
 /* y - 1 */
@@ -96,6 +98,11 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
 
   ROS_INFO("Cvx wrapper initiated");
 }
+
+//}
+
+/* setLimits() //{ */
+
 void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap,
                            double min_snap, int q_vel) {
   params.x_max_2[0] = max_speed;
@@ -109,12 +116,20 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   /* myQ[1]       = q_vel; */
 }
 
+//}
+
+/* setInitialState() //{ */
+
 void CvxWrapper::setInitialState(MatrixXd& x) {
   params.x_0[0] = x(0, 0);
   params.x_0[1] = x(1, 0);
   params.x_0[2] = x(2, 0);
   params.x_0[3] = x(3, 0);
 }
+
+//}
+
+/* setQ() //{ */
 
 bool CvxWrapper::setQ(std::vector<double> Qnew) {
   bool result = true;
@@ -137,17 +152,31 @@ bool CvxWrapper::setQ(std::vector<double> Qnew) {
   return result;
 }
 
+//}
+
+/* loadReference() //{ */
+
 void CvxWrapper::loadReference(MatrixXd& reference) {
   for (int i = 0; i < horizon_len; i++) {
     *params.x_ss[i + 1] = reference(i, 0);
   }
 }
+
+//}
+
+/* solveCvx //{ */
+
 int CvxWrapper::solveCvx() {
   for (int i = 0; i < 4; i++) {
     params.Q[i] = myQ[i];
   }
   return solve();
 }
+
+//}
+
+/* getStates() //{ */
+
 void CvxWrapper::getStates(MatrixXd& future_traj) {
   for (int i = 0; i < horizon_len; i++) {
     future_traj(0 + dim + (i * 12)) = *(vars.x[i + 1]);
@@ -156,6 +185,13 @@ void CvxWrapper::getStates(MatrixXd& future_traj) {
     future_traj(3 + dim + (i * 12)) = *(vars.x[i + 1] + 3);
   }
 }
+
+//}
+
+/* getFirstControlInput() //{ */
+
 double CvxWrapper::getFirstControlInput() {
   return *(vars.u_0);
 }
+
+//}
