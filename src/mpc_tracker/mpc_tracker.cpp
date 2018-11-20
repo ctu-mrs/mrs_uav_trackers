@@ -13,6 +13,8 @@
 
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
+#include <mrs_msgs/FuturePointInt8.h>
+#include <mrs_msgs/FutureTrajectoryInt8.h>
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
@@ -100,6 +102,7 @@ namespace mrs_trackers
     std::mutex         mutex_odometry;
 
     mrs_msgs::FutureTrajectory future_trajectory_out;
+    mrs_msgs::FutureTrajectoryInt8 future_trajectory_esp_out;
     mrs_msgs::PositionCommand  position_cmd_;  // message being returned
 
     bool      odom_set_, is_active, is_initialized;
@@ -238,6 +241,7 @@ namespace mrs_trackers
     // predicting the future
     MatrixXd   predicted_future_yaw_trajectory;
     MatrixXd   predicted_future_trajectory;
+    MatrixXd   predicted_future_trajectory_esp;
     std::mutex mutex_predicted_trajectory;
 
     std::string                                       uav_name_;
@@ -245,6 +249,7 @@ namespace mrs_trackers
     std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
     std::vector<ros::Subscriber>                      other_drones_subscribers;
     ros::Publisher                                    predicted_trajectory_publisher;
+    ros::Publisher                                    predicted_trajectory_esp_publisher;
     ros::Publisher                                    debug_predicted_trajectory_publisher;
     bool                                              mrs_collision_avoidance;
     bool                                              use_priority_swap;
@@ -521,8 +526,17 @@ namespace mrs_trackers
     newPoint.y = std::numeric_limits<float>::max();
     newPoint.z = std::numeric_limits<float>::min();
 
+    mrs_msgs::FuturePointInt8 newPointInt8;
+    newPointInt8.x = 0;
+    newPointInt8.y = 0;
+    newPointInt8.z = 0;
+
     for (int i = 0; i < horizon_len_; i++) {
       future_trajectory_out.points.push_back(newPoint);
+    }
+
+    for (int i = 0; i < horizon_len_; i++) {
+      future_trajectory_esp_out.points.push_back(newPointInt8);
     }
 
     // subscriber for desired trajectory
@@ -591,6 +605,7 @@ namespace mrs_trackers
 
     // create publisher for predicted trajectory
     predicted_trajectory_publisher       = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
+    predicted_trajectory_esp_publisher   = nh_.advertise<mrs_msgs::FutureTrajectoryInt8>("predicted_trajectory_esp", 1);
     debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
     pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1);
 
@@ -3180,6 +3195,36 @@ namespace mrs_trackers
       catch (...) {
         ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
       }
+
+      future_trajectory_esp_out.points.clear();
+      future_trajectory_esp_out.stamp               = ros::Time::now();
+      future_trajectory_esp_out.uav_name            = uav_name_;
+      future_trajectory_esp_out.priority            = my_uav_priority;
+      future_trajectory_esp_out.collision_avoidance = mrs_collision_avoidance;
+
+      // fill the trajectory
+      {
+        std::scoped_lock lock(mutex_predicted_trajectory);
+
+        for (int i = 0; i < horizon_len_; i++) {
+
+          mrs_msgs::FuturePointInt8 newPoint;
+
+          newPoint.x = predicted_future_trajectory(i * n);
+          newPoint.y = predicted_future_trajectory(i * n + 4);
+          newPoint.z = predicted_future_trajectory(i * n + 8);
+
+          future_trajectory_esp_out.points.push_back(newPoint);
+        }
+      }
+
+      try {
+        predicted_trajectory_esp_publisher.publish(mrs_msgs::FutureTrajectoryInt8ConstPtr(new mrs_msgs::FutureTrajectoryInt8(future_trajectory_esp_out)));
+      }
+      catch (...) {
+        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_esp_publisher.getTopic().c_str());
+      }
+
     }
   }
 
