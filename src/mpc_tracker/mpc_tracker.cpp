@@ -1424,6 +1424,14 @@ namespace mrs_trackers
     sprintf((char *)&tempStr, "Hovering");
     res.message = tempStr;
 
+    geometry_msgs::PoseArray kocka;
+
+    try {
+      debug_predicted_trajectory_publisher.publish(kocka);
+    } catch (...) {
+      ROS_ERROR("Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+    }
+
     return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
   }
 
