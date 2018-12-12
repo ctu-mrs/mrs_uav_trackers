@@ -885,19 +885,22 @@ namespace mrs_trackers
     double used_speed;
 
     if (taking_off) {
+
       used_speed        = takeoff_speed_;
       used_acceleration = takeoff_acceleration_;
+
     } else if (landing) {
 
-      if (odometry_z > 2 * landing_fast_height_) {
+      if (odometry_z > landing_fast_height_) {
+
         used_speed        = vertical_speed_;
         used_acceleration = vertical_acceleration_;
-      } else if (odometry_z > landing_fast_height_) {
-        used_speed        = vertical_speed_ / 2.0;
-        used_acceleration = vertical_acceleration_ / 2.0;
+
       } else {
-        used_speed        = landing_speed_;
-        used_acceleration = landing_acceleration_;
+
+        used_speed        = landing_speed_ / 2.0;
+        used_acceleration = landing_acceleration_ / 2.0;
+
       }
 
     } else {
