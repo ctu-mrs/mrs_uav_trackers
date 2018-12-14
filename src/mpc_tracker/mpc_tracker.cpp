@@ -101,9 +101,9 @@ namespace mrs_trackers
     double             odometry_yaw, odometry_pitch, odometry_roll;
     std::mutex         mutex_odometry;
 
-    mrs_msgs::FutureTrajectory future_trajectory_out;
+    mrs_msgs::FutureTrajectory     future_trajectory_out;
     mrs_msgs::FutureTrajectoryInt8 future_trajectory_esp_out;
-    mrs_msgs::PositionCommand  position_cmd_;  // message being returned
+    mrs_msgs::PositionCommand      position_cmd_;  // message being returned
 
     bool      odom_set_, is_active, is_initialized;
     double    kx_[3], kv_[3];
@@ -296,6 +296,7 @@ namespace mrs_trackers
   private:
     ros::Timer hover_timer;
     void       hoverTimer(const ros::TimerEvent &event);
+    bool       hovering_in_progress = false;
 
     bool mpc_computed_;
 
@@ -743,7 +744,6 @@ namespace mrs_trackers
 
     mpc_start_time  = ros::Time::now();
     mpc_total_delay = 0;
-    is_active       = true;
 
     setRelativeGoal(0, 0, 0, 0, false);
 
@@ -752,6 +752,9 @@ namespace mrs_trackers
     publishDiagnostics();
 
     hover_timer.start();
+
+    hovering_in_progress = true;
+    is_active = true;
 
     // can return false
     return is_active;
@@ -1024,7 +1027,7 @@ namespace mrs_trackers
 
       mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
 
-      if (is_active) {
+      if (is_active && !hovering_in_progress) {
         tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
       } else {
         tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
@@ -1428,7 +1431,8 @@ namespace mrs_trackers
 
     try {
       debug_predicted_trajectory_publisher.publish(kocka);
-    } catch (...) {
+    }
+    catch (...) {
       ROS_ERROR("Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
     }
 
@@ -3232,7 +3236,6 @@ namespace mrs_trackers
       catch (...) {
         ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_esp_publisher.getTopic().c_str());
       }
-
     }
   }
 
@@ -3242,11 +3245,15 @@ namespace mrs_trackers
 
   void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
+    hovering_in_progress = true;
+
     mrs_lib::Routine profiler_routine = profiler->createRoutine("hoverTimer", 10, 0.01, event);
 
     setRelativeGoal(0, 0, 0, 0, false);
 
     if (fabs(x(1, 0)) < 0.1 && fabs(x(5, 0)) < 0.1 && fabs(x(9, 0)) < 0.1) {
+
+      hovering_in_progress = false;
       hover_timer.stop();
     }
   }
