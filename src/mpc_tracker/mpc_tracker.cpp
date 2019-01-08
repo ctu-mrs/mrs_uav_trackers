@@ -2874,7 +2874,7 @@ namespace mrs_trackers
             }
           }
 
-          ROS_INFO_THROTTLE(1, "Setting trajectory with length %d", trajectory_size);
+          ROS_INFO_THROTTLE(1, "[MpcTracker]: Setting trajectory with length %d", trajectory_size);
 
           geometry_msgs::PoseArray debug_trajectory_out;
           debug_trajectory_out.header.stamp    = ros::Time::now();
