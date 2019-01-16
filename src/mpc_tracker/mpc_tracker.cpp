@@ -1090,7 +1090,20 @@ namespace mrs_trackers
     }
 
     // | --------- recalculate the goal to new coordinates -------- |
-    double dx, dy, dz;
+    double dx, dy, dz, dyaw;
+    double odom_roll, odom_pitch, odom_yaw;
+    double msg_roll, msg_pitch, msg_yaw;
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odom_roll, odom_pitch, odom_yaw);
+
+    tf::Quaternion quaternion_msg;
+    quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+    tf::Matrix3x3 m2(quaternion_msg);
+    m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
     {
       std::scoped_lock lock(mutex_odometry);
@@ -1098,11 +1111,12 @@ namespace mrs_trackers
       dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
       dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
       dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+      dyaw = msg_yaw - odom_yaw;
 
-      ROS_INFO("[MpcTracker]: dx %f dy %f dz %f", dx, dy, dz);
+      ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
 
       odometry = *msg;
-      // TODO yaw?
+      
     }
 
     {
@@ -1112,12 +1126,14 @@ namespace mrs_trackers
         des_x_whole_trajectory(i) += dx;
         des_y_whole_trajectory(i) += dy;
         des_z_whole_trajectory(i) += dz;
+        des_yaw_whole_trajectory(i) += dyaw;
       }
 
       for (int i = 0; i < horizon_len_; i++) {
         des_x_trajectory(i, 0) += dx;
         des_y_trajectory(i, 0) += dy;
         des_z_trajectory(i, 0) += dz;
+        des_yaw_trajectory(i, 0) += dyaw;
       }
 
       x(0, 0) = msg->pose.pose.position.x;
@@ -1128,6 +1144,8 @@ namespace mrs_trackers
 
       x(8, 0) = msg->pose.pose.position.z;
       x(9, 0) = msg->twist.twist.linear.z;
+
+      x_yaw(0, 0) = msg_yaw;
     }
 
     ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(4, 0), x(1, 0), x(5, 0),
