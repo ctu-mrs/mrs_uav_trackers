@@ -589,16 +589,31 @@ namespace mrs_trackers
 
     std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
 
+    double odom_roll, odom_pitch, odom_yaw;
+    double msg_roll, msg_pitch, msg_yaw;
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odom_roll, odom_pitch, odom_yaw);
+
+    tf::Quaternion quaternion_msg;
+    quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+    tf::Matrix3x3 m2(quaternion_msg);
+    m2.getRPY(msg_roll, msg_pitch, msg_yaw);
+
     // | --------- recalculate the goal to new coordinates -------- |
 
     double dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
     double dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
     double dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
-    // TODO yaw?
+    double dyaw = msg_yaw - odom_yaw;
 
     goal_x += dx;
     goal_y += dy;
     goal_z += dz;
+    goal_yaw += dyaw;
     have_goal = true;
 
     // | -------------------- update the state -------------------- |
@@ -606,6 +621,7 @@ namespace mrs_trackers
     state_x = msg->pose.pose.position.x;
     state_y = msg->pose.pose.position.y;
     state_z = msg->pose.pose.position.z;
+    state_yaw = msg_yaw;
 
     // | ------- copy the new odometry as the current state ------- |
 
