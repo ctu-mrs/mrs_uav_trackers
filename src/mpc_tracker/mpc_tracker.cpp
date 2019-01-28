@@ -23,7 +23,7 @@
 #include <mrs_msgs/MpcMatrixRequest.h>
 #include <mrs_msgs/MpcMatrixResponse.h>
 
-#include <mrs_mav_manager/Tracker.h>
+#include <mrs_uav_manager/Tracker.h>
 
 #include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
@@ -41,11 +41,11 @@ namespace mrs_trackers
 
   /* //{ class MpcTracker */
 
-  class MpcTracker : public mrs_mav_manager::Tracker {
+  class MpcTracker : public mrs_uav_manager::Tracker {
   public:
     MpcTracker(void);
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
+    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
     virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
     virtual void deactivate(void);
 
@@ -116,7 +116,7 @@ namespace mrs_trackers
     double yaw_gain;
 
     // safety area
-    mrs_mav_manager::SafetyArea_t const *safety_area;
+    mrs_uav_manager::SafetyArea_t const *safety_area;
 
     // variables regarding the MPC controller
     int       n;             // number of states
@@ -364,7 +364,7 @@ namespace mrs_trackers
 
   /* //{ initialize() */
 
-  void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
+  void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area) {
 
     this->safety_area = safety_area;
 
@@ -3280,4 +3280,4 @@ namespace mrs_trackers
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::MpcTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::MpcTracker, mrs_uav_manager::Tracker)

@@ -5,7 +5,7 @@
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
-#include <mrs_mav_manager/Tracker.h>
+#include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -39,11 +39,11 @@ namespace mrs_trackers
 
       "IDLING", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
-  class LineTracker : public mrs_mav_manager::Tracker {
+  class LineTracker : public mrs_uav_manager::Tracker {
   public:
     LineTracker(void);
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
+    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
     virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
     virtual void deactivate(void);
 
@@ -154,7 +154,7 @@ namespace mrs_trackers
 
   /* //{ initialize() */
 
-  void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_mav_manager::SafetyArea_t const *safety_area) {
+  void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
     ros::NodeHandle nh_(parent_nh, "line_tracker");
 
@@ -1189,4 +1189,4 @@ namespace mrs_trackers
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::LineTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::LineTracker, mrs_uav_manager::Tracker)

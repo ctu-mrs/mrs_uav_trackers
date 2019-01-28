@@ -5,7 +5,7 @@
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/Vec1.h>
 
-#include <mrs_mav_manager/Tracker.h>
+#include <mrs_uav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
 
 #include <tf/transform_datatypes.h>
@@ -41,11 +41,11 @@ namespace mrs_trackers
 
       "IDLING", "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
-  class LandoffTracker : public mrs_mav_manager::Tracker {
+  class LandoffTracker : public mrs_uav_manager::Tracker {
   public:
     LandoffTracker(void);
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
+    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
     virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
     virtual void deactivate(void);
 
@@ -82,7 +82,7 @@ namespace mrs_trackers
     bool callbacks_enabled = true;
 
   private:
-    mrs_mav_manager::SafetyArea_t const *safety_area;
+    mrs_uav_manager::SafetyArea_t const *safety_area;
 
   private:
     nav_msgs::Odometry odometry;
@@ -189,7 +189,7 @@ namespace mrs_trackers
 
   /* //{ initialize() */
 
-  void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area) {
+  void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area) {
 
     this->safety_area = safety_area;
 
@@ -1393,4 +1393,4 @@ namespace mrs_trackers
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::LandoffTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::LandoffTracker, mrs_uav_manager::Tracker)

@@ -11,7 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_lib
   mrs_msgs
-  mrs_mav_manager
+  mrs_uav_manager
   )
 
 set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
@@ -25,7 +25,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_lib mrs_mav_manager mrs_msgs
+  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs
   DEPENDS Eigen
   )
 

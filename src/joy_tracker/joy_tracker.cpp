@@ -6,7 +6,7 @@
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
-#include <mrs_mav_manager/Tracker.h>
+#include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -23,11 +23,11 @@ namespace mrs_trackers
 
   /* //{ class JoyTracker */
 
-  class JoyTracker : public mrs_mav_manager::Tracker {
+  class JoyTracker : public mrs_uav_manager::Tracker {
   public:
     JoyTracker(void);
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
+    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
     virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
     virtual void deactivate(void);
 
@@ -123,7 +123,7 @@ namespace mrs_trackers
 
   /* //{ initialize() */
 
-  void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_mav_manager::SafetyArea_t const *safety_area) {
+  void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
     ros::NodeHandle nh_(parent_nh, "joy_tracker");
 
@@ -528,4 +528,4 @@ namespace mrs_trackers
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::JoyTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::JoyTracker, mrs_uav_manager::Tracker)

@@ -19,7 +19,7 @@
   <build_depend>mrs_msgs</build_depend>
   <build_depend>mrs_lib</build_depend>
   <build_depend>mrs_cvxy</build_depend>
-  <build_depend>mrs_mav_manager</build_depend>
+  <build_depend>mrs_uav_manager</build_depend>
 
   <run_depend>pluginlib</run_depend>
   <run_depend>roscpp</run_depend>
@@ -27,11 +27,11 @@
   <run_depend>tf</run_depend>
   <run_depend>message_runtime</run_depend>
   <run_depend>mrs_lib</run_depend>
-  <run_depend>mrs_mav_manager</run_depend>
+  <run_depend>mrs_uav_manager</run_depend>
   <run_depend>mrs_msgs</run_depend>
 
   <export>
-    <mrs_mav_manager plugin="${prefix}/plugins.xml" />
+    <mrs_uav_manager plugin="${prefix}/plugins.xml" />
   </export>
 
 </package>

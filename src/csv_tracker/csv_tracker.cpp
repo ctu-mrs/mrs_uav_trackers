@@ -6,7 +6,7 @@
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/String.h>
 
-#include <mrs_mav_manager/Tracker.h>
+#include <mrs_uav_manager/Tracker.h>
 
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Float32.h>
@@ -29,11 +29,11 @@ namespace mrs_trackers
 
   /* //{ class CsvTracker */
 
-  class CsvTracker : public mrs_mav_manager::Tracker {
+  class CsvTracker : public mrs_uav_manager::Tracker {
   public:
     CsvTracker(void);
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_mav_manager::SafetyArea_t const *safety_area);
+    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
     virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
     virtual void deactivate(void);
 
@@ -154,7 +154,7 @@ namespace mrs_trackers
 
   /* //{ initialize() */
 
-  void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_mav_manager::SafetyArea_t const *safety_area) {
+  void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
     ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
 
@@ -767,4 +767,4 @@ namespace mrs_trackers
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_mav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::CsvTracker, mrs_uav_manager::Tracker)
