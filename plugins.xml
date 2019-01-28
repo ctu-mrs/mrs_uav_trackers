@@ -1,35 +1,35 @@
 <library path="lib/libNullTracker">
-  <class name="mrs_mav_manager/NullTracker" type="mrs_mav_manager::NullTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_uav_manager/NullTracker" type="mrs_uav_manager::NullTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is Null tracker.</description>
   </class>
 </library>
 
 <library path="lib/libLandoffTracker">
-  <class name="mrs_trackers/LandoffTracker" type="mrs_trackers::LandoffTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_trackers/LandoffTracker" type="mrs_trackers::LandoffTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is Landing+Takeoff tracker.</description>
   </class>
 </library>
 
 <library path="lib/libLineTracker">
-  <class name="mrs_trackers/LineTracker" type="mrs_trackers::LineTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_trackers/LineTracker" type="mrs_trackers::LineTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is Line tracker.</description>
   </class>
 </library>
 
 <library path="lib/libJoyTracker">
-  <class name="mrs_trackers/JoyTracker" type="mrs_trackers::JoyTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_trackers/JoyTracker" type="mrs_trackers::JoyTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is the joystick tracker.</description>
   </class>
 </library>
 
 <library path="lib/libCsvTracker">
-  <class name="mrs_trackers/CsvTracker" type="mrs_trackers::CsvTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_trackers/CsvTracker" type="mrs_trackers::CsvTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is CSV tracker.</description>
   </class>
 </library>
 
 <library path="lib/libMpcTracker">
-  <class name="mrs_trackers/MpcTracker" type="mrs_trackers::MpcTracker" base_class_type="mrs_mav_manager::Tracker">
+  <class name="mrs_trackers/MpcTracker" type="mrs_trackers::MpcTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is MPC tracker.</description>
   </class>
 </library>
