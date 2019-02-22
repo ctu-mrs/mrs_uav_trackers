@@ -23,7 +23,7 @@ Settings  settings;
 
 CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dimension) {
 
-  myQ = std::vector<double> (4);
+  myQ = std::vector<double>(4);
   set_defaults();
   setup_indexing();
   setup_indexed_params();
@@ -72,6 +72,8 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
     dt2 = 0.2;
   }
 
+  vel_q_persistent = myQ[1];
+
   params.A[0] = 1;
   params.A[1] = 1;
   params.A[2] = 1;
@@ -104,7 +106,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
 /* setLimits() //{ */
 
 void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap,
-                           double min_snap, int q_vel) {
+                           double min_snap, bool no_overshoots) {
   params.x_max_2[0] = max_speed;
   params.x_min_2[0] = min_speed;
   params.x_max_3[0] = max_acc;
@@ -113,7 +115,11 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   params.x_min_4[0] = min_jerk;
   params.u_max[0]   = max_snap;
   params.u_min[0]   = min_snap;
-  /* myQ[1]       = q_vel; */
+  if (no_overshoots) {
+    myQ[1] = vel_q_persistent;
+  } else {
+    myQ[1] = 1;
+  }
 }
 
 //}

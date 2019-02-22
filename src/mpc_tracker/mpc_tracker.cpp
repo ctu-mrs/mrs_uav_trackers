@@ -50,8 +50,8 @@ namespace mrs_trackers
     virtual void deactivate(void);
 
     virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-    virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
     virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+    virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
     virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
     virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -253,6 +253,7 @@ namespace mrs_trackers
     ros::Publisher                                    debug_predicted_trajectory_publisher;
     bool                                              mrs_collision_avoidance;
     bool                                              use_priority_swap;
+    bool                                              no_overshoots;
     double                                            predicted_trajectory_publish_rate;
     double                                            mrs_collision_avoidance_radius;
     double                                            mrs_collision_avoidance_correction;
@@ -274,8 +275,6 @@ namespace mrs_trackers
     int       collision_start_climbing;
     int       earliest_collision_idx;
     double    collision_trajectory_timeout;
-    int       vel_qx;
-    int       vel_qy;
 
   private:
     ros::Timer future_trajectory_timer;
@@ -417,6 +416,9 @@ namespace mrs_trackers
     param_loader.load_matrix_static("yawModel/B", B_yaw, n_yaw, m_yaw);
 
     // load the MPC parameters
+    
+    param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots, true);
+    
     param_loader.load_param("cvxgenMpc/horizon_len", horizon_len_);
     param_loader.load_param("cvxgenMpc/maxTrajectorySize", max_trajectory_size);
 
@@ -619,8 +621,6 @@ namespace mrs_trackers
     being_avoided_time      = ros::Time::now();
     future_was_predicted    = false;
     earliest_collision_idx  = INT_MAX;
-    vel_qx                  = 0;
-    vel_qy                  = 0;
 
     param_loader.load_param("predicted_trajectory_topic", predicted_trajectory_topic);
 
@@ -2244,8 +2244,6 @@ namespace mrs_trackers
     des_z_trajectory.fill(z);
     des_yaw_trajectory.fill(yaw);
 
-    vel_qx = 0;
-    vel_qy = 0;
   }
 
   //}
@@ -2372,7 +2370,6 @@ namespace mrs_trackers
     iters_X      = 0;
     iters_Y      = 0;
     iters_YAW    = 0;
-    double vel_q = 0;
 
     ros::Time time_begin = ros::Time::now();
 
@@ -2393,7 +2390,7 @@ namespace mrs_trackers
 
     cvx_z->setInitialState(initial_z);
     cvx_z->loadReference(des_z_filtered_offset);
-    cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z, vel_q);
+    cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z, no_overshoots);
     iters_Z += cvx_z->solveCvx();
 
     {
@@ -2438,16 +2435,16 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_predicted_trajectory);
 
-      if (tracking_trajectory) {
-        vel_qx = 8000;
-      } else if (fabs(predicted_future_trajectory((horizon_len_ - 1) * 12, 0) - des_x_trajectory(0, 0)) < 2.0) {
-        vel_qx = 8000;
-      }
+      /* if (tracking_trajectory) { */
+      /*   vel_qx = 8000; */
+      /* } else if (fabs(predicted_future_trajectory((horizon_len_ - 1) * 12, 0) - des_x_trajectory(0, 0)) < 2.0) { */
+      /*   vel_qx = 8000; */
+      /* } */
     }
 
     cvx_x->setInitialState(initial_x);
     cvx_x->loadReference(des_x_filtered);
-    cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x, vel_qx);
+    cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x, no_overshoots);
     iters_X += cvx_x->solveCvx();
 
     {
@@ -2467,16 +2464,16 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_predicted_trajectory);
 
-      if (tracking_trajectory) {
-        vel_qy = 8000;
-      } else if (fabs(predicted_future_trajectory((horizon_len_ - 1) * 12 + 4, 0) - des_y_trajectory(0, 0)) < 2.0) {
-        vel_qy = 8000;
-      }
+      /* if (tracking_trajectory) { */
+      /*   vel_qy = 8000; */
+      /* } else if (fabs(predicted_future_trajectory((horizon_len_ - 1) * 12 + 4, 0) - des_y_trajectory(0, 0)) < 2.0) { */
+      /*   vel_qy = 8000; */
+      /* } */
     }
 
     cvx_y->setInitialState(initial_y);
     cvx_y->loadReference(des_y_filtered);
-    cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y, vel_qy);
+    cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y, no_overshoots);
     iters_Y += cvx_y->solveCvx();
     {
       std::scoped_lock lock(mutex_predicted_trajectory);
@@ -2492,7 +2489,7 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_constraints);
 
-      cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap, 0);
+      cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap, no_overshoots);
     }
     iters_YAW += cvx_yaw->solveCvx();
     {
