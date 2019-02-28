@@ -416,9 +416,9 @@ namespace mrs_trackers
     param_loader.load_matrix_static("yawModel/B", B_yaw, n_yaw, m_yaw);
 
     // load the MPC parameters
-    
+
     param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots, true);
-    
+
     param_loader.load_param("cvxgenMpc/horizon_len", horizon_len_);
     param_loader.load_param("cvxgenMpc/maxTrajectorySize", max_trajectory_size);
 
@@ -754,7 +754,7 @@ namespace mrs_trackers
     hover_timer.start();
 
     hovering_in_progress = true;
-    is_active = true;
+    is_active            = true;
 
     // can return false
     return is_active;
@@ -1108,15 +1108,14 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_odometry);
 
-      dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-      dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-      dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+      dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+      dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+      dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
       dyaw = msg_yaw - odom_yaw;
 
       ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
 
       odometry = *msg;
-      
     }
 
     {
@@ -2243,7 +2242,6 @@ namespace mrs_trackers
     des_y_trajectory.fill(y);
     des_z_trajectory.fill(z);
     des_yaw_trajectory.fill(yaw);
-
   }
 
   //}
@@ -2366,10 +2364,10 @@ namespace mrs_trackers
     VectorXd cvx_u     = VectorXd::Zero(m);
     double   cvx_u_yaw = 0;
 
-    iters_Z      = 0;
-    iters_X      = 0;
-    iters_Y      = 0;
-    iters_YAW    = 0;
+    iters_Z   = 0;
+    iters_X   = 0;
+    iters_Y   = 0;
+    iters_YAW = 0;
 
     ros::Time time_begin = ros::Time::now();
 
@@ -2423,8 +2421,38 @@ namespace mrs_trackers
       max_speed_y = fabs(max_speed_y * sin(goto_yaw));
     }
 
-    filterYawReference();
     filterReferenceXY(max_speed_x, max_speed_y);
+
+    if (true) {
+      for (int i = 0; i < horizon_len_ - 1; i++) {
+        double tmp_yaw = atan2(des_y_filtered(i + 1, 0) - des_y_filtered(i, 0), des_x_filtered(i + 1, 0) - des_x_filtered(i, 0));
+        if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
+          if (i == 0) {
+            des_yaw_trajectory(i, 0) = x_yaw(0, 0);
+          } else {
+            des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0);
+          }
+        } else {
+          des_yaw_trajectory(i, 0) = tmp_yaw;
+        }
+      }
+      des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0);
+
+      double tmp_yaw_error = fabs(des_yaw_trajectory(0, 0) - x_yaw(0, 0));
+      if (tmp_yaw_error > PI) {
+        tmp_yaw_error -= 2 * PI;
+      }
+      if (tmp_yaw_error > 0.1) {
+        max_speed_y = 0;
+        max_speed_x = 0;
+        ROS_WARN_STREAM_THROTTLE(0.2, "[MpcTracker]: limiting horizontal velocity - Headless mode");
+        filterReferenceXY(max_speed_x, max_speed_y);
+      }
+    }
+    ROS_INFO_STREAM_THROTTLE(0.1, "[MpcTracker]: " << des_yaw_trajectory(0, 0) << "  " << des_yaw_trajectory(1, 0) << "  "
+                                                   << des_yaw_trajectory(horizon_len_ - 2, 0) << "  " << des_yaw_trajectory(horizon_len_ - 1, 0) << "  ");
+
+    filterYawReference();
 
     // | ---------------------- cvxgen X axis --------------------- |
     initial_x(0, 0) = x(0, 0);
@@ -2489,7 +2517,8 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_constraints);
 
-      cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap, no_overshoots);
+      cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap,
+                         no_overshoots);
     }
     iters_YAW += cvx_yaw->solveCvx();
     {
