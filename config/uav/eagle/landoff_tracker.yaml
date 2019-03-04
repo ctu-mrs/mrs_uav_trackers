@@ -21,8 +21,8 @@ vertical_tracker:
   takeoff_speed: 0.6
   takeoff_acceleration: 0.3
 
-  landing_speed: 0.25
-  landing_acceleration: 0.3
+  landing_speed: 0.5
+  landing_acceleration: 0.25
 
 yaw_tracker:
   yaw_gain: 0.2
