@@ -1,8 +1,8 @@
 tracker_loop_rate: 100 # [Hz]
 
-landing_fast_height: 3.0
+landing_fast_height: 1.5
 landing_reference: -1.0 # [m]
-landing_threshold_height: 1.0
+landing_threshold_height: 0.5
 
 takeoff_disable_lateral_gains: false
 takeoff_disable_lateral_gains_height: 0.3 # [m]
@@ -18,11 +18,11 @@ vertical_tracker:
   vertical_speed: 1.0
   vertical_acceleration: 1.0
 
-  takeoff_speed: 0.6
-  takeoff_acceleration: 0.3
+  takeoff_speed: 0.4
+  takeoff_acceleration: 0.2
 
   landing_speed: 0.5
-  landing_acceleration: 0.25
+  landing_acceleration: 0.3
 
 yaw_tracker:
   yaw_gain: 0.2
