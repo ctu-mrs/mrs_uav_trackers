@@ -349,9 +349,13 @@ namespace mrs_trackers
     bool               profiler_enabled_ = false;
 
   private:
-    bool               headless_mode = false;
+    bool               headless_mode      = false;
+    bool               time_agnostic_mode = false;
+    bool               headless_limiting  = false;
     bool               callbackHeadlessMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+    bool               callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     ros::ServiceServer service_server_headless_mode;
+    ros::ServiceServer service_server_time_agnostic_mode;
   };
 
   MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -648,8 +652,10 @@ namespace mrs_trackers
       other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
     }
 
-    service_server_headless_mode = nh_.advertiseService("headless_in", &MpcTracker::callbackHeadlessMode, this);
+    service_server_headless_mode      = nh_.advertiseService("headless_in", &MpcTracker::callbackHeadlessMode, this);
+    service_server_time_agnostic_mode = nh_.advertiseService("time_agnostic_in", &MpcTracker::callbackTimeAgnosticMode, this);
     param_loader.load_param("headless_mode", headless_mode, false);
+    param_loader.load_param("time_agnostic_mode", time_agnostic_mode, false);
 
     // --------------------------------------------------------------
     // |                          profiler                          |
@@ -1881,6 +1887,24 @@ namespace mrs_trackers
 
   //}
 
+  /* callbackTimeAgnosticMode() //{ */
+
+  bool MpcTracker::callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+    time_agnostic_mode = req.data;
+    char buffer[100];
+
+    sprintf(buffer, "Time Agnostic mode %s", time_agnostic_mode ? "ON" : "OFF");
+    res.message = buffer;
+    ROS_INFO("[MpcTracker]: %s", buffer);
+
+    res.success = true;
+
+    return true;
+  }
+
+  //}
+
   // | -------------------- setpoint handling ------------------- |
 
   /* //{ triggerFailsafe() */
@@ -2424,16 +2448,27 @@ namespace mrs_trackers
     filterReferenceXY(max_speed_x, max_speed_y);
 
     if (headless_mode) {
+      double tmp_yaw;
+      double last_tmp_yaw;
       for (int i = 0; i < horizon_len_ - 1; i++) {
-        double tmp_yaw = atan2(des_y_filtered(i + 1, 0) - des_y_filtered(i, 0), des_x_filtered(i + 1, 0) - des_x_filtered(i, 0));
+        last_tmp_yaw = tmp_yaw;
+        tmp_yaw      = atan2(des_y_filtered(i + 1, 0) - des_y_filtered(i, 0), des_x_filtered(i + 1, 0) - des_x_filtered(i, 0));
         if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
           if (i == 0) {
-            des_yaw_trajectory(i, 0) = x_yaw(0, 0);
           } else {
             des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0);
           }
         } else {
-          des_yaw_trajectory(i, 0) = tmp_yaw;
+          if (i != 0 && fabs(tmp_yaw - last_tmp_yaw) > 0.5) {
+            for (int j = i; j < horizon_len_; j++) {
+              des_x_filtered(j, 0)     = des_x_filtered(i, 0);
+              des_y_filtered(j, 0)     = des_y_filtered(i, 0);
+              des_yaw_trajectory(j, 0) = tmp_yaw;
+            }
+            break;
+          } else {
+            des_yaw_trajectory(i, 0) = tmp_yaw;
+          }
         }
       }
       des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0);
@@ -2442,11 +2477,15 @@ namespace mrs_trackers
       if (tmp_yaw_error > PI) {
         tmp_yaw_error -= 2 * PI;
       }
-      if (tmp_yaw_error > 0.2) {
-        max_speed_y = 0;
-        max_speed_x = 0;
+      ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: err " << tmp_yaw_error << "   des " << des_yaw_trajectory(0, 0) << "  state " << x_yaw(0, 0));
+      if (tmp_yaw_error > 0.25) {
+        max_speed_y       = 0;
+        max_speed_x       = 0;
+        headless_limiting = true;
         ROS_WARN_STREAM_THROTTLE(0.2, "[MpcTracker]: limiting horizontal velocity - Headless mode");
         filterReferenceXY(max_speed_x, max_speed_y);
+      } else {
+        headless_limiting = false;
       }
     }
     filterYawReference();
@@ -3039,79 +3078,59 @@ namespace mrs_trackers
     {
       std::scoped_lock lock(mutex_des_trajectory);
 
-      // if we are tracking trajectory, copy the setpoint
-      if (tracking_trajectory && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
+      if (time_agnostic_mode && headless_limiting) {
+        ROS_WARN_STREAM_THROTTLE(0.2, "Suspending trajectory tracking to fix desired yaw - time agnostic mode");
+      } else {
+        // if we are tracking trajectory, copy the setpoint
+        if (tracking_trajectory && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
-        trajectory_tracking_timer = 0;
+          trajectory_tracking_timer = 0;
 
-        // fill the prediction horizon with the desired trajectory
-        for (int i = 0; i < horizon_len_; i++) {
+          // fill the prediction horizon with the desired trajectory
+          for (int i = 0; i < horizon_len_; i++) {
 
-          int tempIdx = i + trajectory_idx;
-          if (loop) {
+            int tempIdx = i + trajectory_idx;
+            if (loop) {
 
-            if (tempIdx >= trajectory_size) {
+              if (tempIdx >= trajectory_size) {
 
-              tempIdx = tempIdx % trajectory_size;
+                tempIdx = tempIdx % trajectory_size;
+              }
+            }
+
+            {
+              std::scoped_lock lock(mutex_des_whole_trajectory, mutex_odometry);
+
+              des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
+              des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
+              des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
+              des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
             }
           }
 
-          {
-            std::scoped_lock lock(mutex_des_whole_trajectory, mutex_odometry);
+          if (use_yaw_in_trajectory)
+            desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
 
-            des_x_trajectory(i)   = des_x_whole_trajectory(tempIdx);
-            des_y_trajectory(i)   = des_y_whole_trajectory(tempIdx);
-            des_z_trajectory(i)   = des_z_whole_trajectory(tempIdx);
-            des_yaw_trajectory(i) = des_yaw_whole_trajectory(tempIdx);
+          if (loop) {  // if we are looping, the loop it
+            if (++trajectory_idx == trajectory_size) {
+              trajectory_idx = 0;
+            }
+          } else {
+            // if we are at the end, select the last point as a constant setpoint
+            if (++trajectory_idx == (trajectory_size)) {
+
+              tracking_trajectory = false;
+              ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+              publishDiagnostics();
+            }
           }
         }
-
-        if (use_yaw_in_trajectory)
-          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
-
-        if (loop) {  // if we are looping, the loop it
-          if (++trajectory_idx == trajectory_size) {
-            trajectory_idx = 0;
-          }
-        } else {
-          // if we are at the end, select the last point as a constant setpoint
-          if (++trajectory_idx == (trajectory_size)) {
-
-            tracking_trajectory = false;
-            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-            publishDiagnostics();
-          }
-        }
-      }
-    }
-
-    bool wait_for_heading = false;
-
-    double old_des_x = des_x_trajectory(1);
-    double old_des_y = des_y_trajectory(1);
-    double old_des_z = des_z_trajectory(1);
-
-    if (wait_for_heading && !tracking_trajectory) {
-
-      for (int i = 0; i < horizon_len_; i++) {
-        des_x_trajectory(i) = x(0, 0);
-        des_y_trajectory(i) = x(4, 0);
-        des_z_trajectory(i) = x(8, 0);
       }
     }
 
     manageConstraints();
     // run the mpc
     calculateMPC();
-
-    if (wait_for_heading && !tracking_trajectory) {
-
-      for (int i = 0; i < horizon_len_; i++) {
-        des_x_trajectory(i) = old_des_x;
-        des_y_trajectory(i) = old_des_y;
-        des_z_trajectory(i) = old_des_z;
-      }
-    }
 
     end      = ros::Time::now();
     interval = end - begin;
