@@ -649,7 +649,7 @@ namespace mrs_trackers
     }
 
     service_server_headless_mode = nh_.advertiseService("headless_in", &MpcTracker::callbackHeadlessMode, this);
-    param_loader.load_param("headless_mode", headless_mode);
+    param_loader.load_param("headless_mode", headless_mode, false);
 
     // --------------------------------------------------------------
     // |                          profiler                          |
@@ -2423,7 +2423,7 @@ namespace mrs_trackers
 
     filterReferenceXY(max_speed_x, max_speed_y);
 
-    if (true) {
+    if (headless_mode) {
       for (int i = 0; i < horizon_len_ - 1; i++) {
         double tmp_yaw = atan2(des_y_filtered(i + 1, 0) - des_y_filtered(i, 0), des_x_filtered(i + 1, 0) - des_x_filtered(i, 0));
         if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
@@ -2442,16 +2442,13 @@ namespace mrs_trackers
       if (tmp_yaw_error > PI) {
         tmp_yaw_error -= 2 * PI;
       }
-      if (tmp_yaw_error > 0.1) {
+      if (tmp_yaw_error > 0.2) {
         max_speed_y = 0;
         max_speed_x = 0;
         ROS_WARN_STREAM_THROTTLE(0.2, "[MpcTracker]: limiting horizontal velocity - Headless mode");
         filterReferenceXY(max_speed_x, max_speed_y);
       }
     }
-    ROS_INFO_STREAM_THROTTLE(0.1, "[MpcTracker]: " << des_yaw_trajectory(0, 0) << "  " << des_yaw_trajectory(1, 0) << "  "
-                                                   << des_yaw_trajectory(horizon_len_ - 2, 0) << "  " << des_yaw_trajectory(horizon_len_ - 1, 0) << "  ");
-
     filterYawReference();
 
     // | ---------------------- cvxgen X axis --------------------- |
@@ -2846,14 +2843,15 @@ namespace mrs_trackers
           des_z_whole_trajectory(i + trajectory_size) = des_z_whole_trajectory(i + trajectory_size - 1);
         }
 
-        if (headless_mode) {
 
-          for (int i = 0; i < trajectory_size - 1; i++) {
+        if (msg.use_yaw) {
 
-            des_yaw_whole_trajectory(i) =
-                atan2(des_y_whole_trajectory(i + 1) - des_y_whole_trajectory(i), des_x_whole_trajectory(i + 1) - des_x_whole_trajectory(i));
+          use_yaw_in_trajectory = true;
+
+          for (int i = 0; i < trajectory_size; i++) {
+
+            des_yaw_whole_trajectory(i) = msg.points[i].yaw;
           }
-          des_yaw_whole_trajectory(trajectory_size - 1) = des_yaw_whole_trajectory(trajectory_size - 2);
 
           for (int i = 0; i < horizon_len_; i++) {
 
@@ -2862,25 +2860,8 @@ namespace mrs_trackers
 
         } else {
 
-          if (msg.use_yaw) {
-
-            use_yaw_in_trajectory = true;
-
-            for (int i = 0; i < trajectory_size; i++) {
-
-              des_yaw_whole_trajectory(i) = msg.points[i].yaw;
-            }
-
-            for (int i = 0; i < horizon_len_; i++) {
-
-              des_yaw_whole_trajectory(i + trajectory_size) = des_yaw_whole_trajectory(i + trajectory_size - 1);
-            }
-
-          } else {
-
-            des_yaw_whole_trajectory.fill(desired_yaw);
-            use_yaw_in_trajectory = false;
-          }
+          des_yaw_whole_trajectory.fill(desired_yaw);
+          use_yaw_in_trajectory = false;
         }
 
         if (trajectory_size > 1 || trajectory_is_ok) {
@@ -3105,23 +3086,6 @@ namespace mrs_trackers
     }
 
     bool wait_for_heading = false;
-
-    if (headless_mode && !tracking_trajectory) {
-
-      std::scoped_lock lock(mutex_x);
-
-      double goal_azimuth = atan2(des_y_trajectory(1) - x(4, 0), des_x_trajectory(1) - x(0, 0));
-
-      double dist_to_setpoint = mrs_trackers_commons::dist2(des_x_trajectory(1), x(0, 0), des_y_trajectory(1), x(4, 0));
-
-      if ((tracking_trajectory || dist_to_setpoint > 0.1) &&
-          fabs(mrs_trackers_commons::validateYawSetpoint(goal_azimuth) - mrs_trackers_commons::validateYawSetpoint(x_yaw(0, 0))) > 0.087222) {
-
-        des_yaw_trajectory.fill(goal_azimuth);
-        wait_for_heading = true;
-        ROS_INFO_THROTTLE(1.0, "[MpcTracker]: waiting for heading");
-      }
-    }
 
     double old_des_x = des_x_trajectory(1);
     double old_des_y = des_y_trajectory(1);
