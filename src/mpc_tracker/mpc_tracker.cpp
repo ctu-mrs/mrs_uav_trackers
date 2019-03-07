@@ -2470,8 +2470,11 @@ namespace mrs_trackers
         tmp_yaw_error -= 2 * PI;
       }
       if (fabs(tmp_yaw_error) > 0.785) {
-        max_speed_y = 0;
-        max_speed_x = 0;
+        {
+          std::scoped_lock lock(mutex_constraints);
+          max_speed_y = 0;
+          max_speed_x = 0;
+        }
         ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode");
       }
     }
