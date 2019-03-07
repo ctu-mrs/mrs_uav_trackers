@@ -2475,6 +2475,7 @@ namespace mrs_trackers
           max_speed_y = 0;
           max_speed_x = 0;
         }
+        filterReferenceXY(max_speed_x, max_speed_y);
         ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode");
       }
     }
@@ -3073,14 +3074,14 @@ namespace mrs_trackers
       if (tracking_trajectory && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
         trajectory_tracking_timer = 0;
-
-        /* if (fabs(des_x_trajectory(0, 0) - x(0, 0)) > 0.3 || fabs(des_y_trajectory(0, 0) - x(4, 0)) > 0.3) { */
-        /*   ROS_ERROR_STREAM_THROTTLE(0.5, "xdes " << des_x_trajectory(0, 0) << " x sta " << x(0, 0)); */
-        /*   ROS_ERROR_STREAM_THROTTLE(0.5, "ydes " << des_y_trajectory(0, 0) << " y sta " << x(4, 0)); */
-        /*   trajectory_idx--; */
-        /*   trajectory_idx--; */
-        /*   if (trajectory_idx < 0) { */
-        /*     trajectory_idx = 0; */
+        /* if (time_agnostic_mode) { */
+        /*   if (fabs(des_x_trajectory(0, 0) - x(0, 0)) > 0.3 || fabs(des_y_trajectory(0, 0) - x(4, 0)) > 0.3) { */
+        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "xdes " << des_x_trajectory(0, 0) << " x sta " << x(0, 0)); */
+        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "ydes " << des_y_trajectory(0, 0) << " y sta " << x(4, 0)); */
+        /*     trajectory_idx--; */
+        /*     if (trajectory_idx < 0) { */
+        /*       trajectory_idx = 0; */
+        /*     } */
         /*   } */
         /* } */
 
