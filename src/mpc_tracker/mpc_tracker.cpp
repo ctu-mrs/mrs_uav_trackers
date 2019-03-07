@@ -353,7 +353,6 @@ namespace mrs_trackers
   private:
     bool               headless_mode      = false;
     bool               time_agnostic_mode = false;
-    bool               headless_limiting  = false;
     bool               callbackHeadlessMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     bool               callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
     ros::ServiceServer service_server_headless_mode;
@@ -2451,43 +2450,29 @@ namespace mrs_trackers
 
     if (headless_mode) {
       double tmp_yaw;
-      double last_tmp_yaw;
       for (int i = 0; i < horizon_len_ - 1; i++) {
-        last_tmp_yaw = tmp_yaw;
-        tmp_yaw      = atan2(des_y_filtered(i + 1, 0) - des_y_filtered(i, 0), des_x_filtered(i + 1, 0) - des_x_filtered(i, 0));
+        if (i == 0) {
+          tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0));
+        } else {
+          tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0));
+        }
         if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
-          if (i == 0) {
-          } else {
+          if (i > 0) {
             des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0);
           }
-        } else {
-          if (i != 0 && fabs(tmp_yaw - last_tmp_yaw) > 0.5) {
-            for (int j = i; j < horizon_len_; j++) {
-              des_x_filtered(j, 0)     = des_x_filtered(i, 0);
-              des_y_filtered(j, 0)     = des_y_filtered(i, 0);
-              des_yaw_trajectory(j, 0) = tmp_yaw;
-            }
-            break;
-          } else {
-            des_yaw_trajectory(i, 0) = tmp_yaw;
-          }
         }
+        des_yaw_trajectory(i, 0) = tmp_yaw;
       }
       des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0);
 
-      double tmp_yaw_error = fabs(des_yaw_trajectory(0, 0) - x_yaw(0, 0));
+      double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0));
       if (tmp_yaw_error > PI) {
         tmp_yaw_error -= 2 * PI;
       }
-      ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: err " << tmp_yaw_error << "   des " << des_yaw_trajectory(0, 0) << "  state " << x_yaw(0, 0));
-      if (tmp_yaw_error > 0.25) {
-        max_speed_y       = 0;
-        max_speed_x       = 0;
-        headless_limiting = true;
-        ROS_WARN_STREAM_THROTTLE(0.2, "[MpcTracker]: limiting horizontal velocity - Headless mode");
-        filterReferenceXY(max_speed_x, max_speed_y);
-      } else {
-        headless_limiting = false;
+      if (fabs(tmp_yaw_error) > 0.785) {
+        max_speed_y = 0;
+        max_speed_x = 0;
+        ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode");
       }
     }
     filterYawReference();
@@ -3080,17 +3065,6 @@ namespace mrs_trackers
 
     {
       std::scoped_lock lock(mutex_des_trajectory);
-
-
-      /* if (time_agnostic_mode && headless_limiting && !wait_for_heading) { */
-      /*   wait_for_heading = true; */
-      /*   saved_index      = trajectory_idx; */
-      /* } */
-
-      /* if (time_agnostic_mode && !headless_limiting && wait_for_heading) { */
-      /*   wait_for_heading = false; */
-      /*   trajectory_idx   = saved_index; */
-      /* } */
 
       // if we are tracking trajectory, copy the setpoint
       if (tracking_trajectory && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
