@@ -14,11 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_uav_manager
   )
 
-# -march=native flag must be set either in all or none nodes that are linked together, otherwise segfaults due to mismatched vectorization of Eigen occur
-set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall -march=native")
-set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall -march=native")
-# set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
-# set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall")
+# set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall -march=native")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)
