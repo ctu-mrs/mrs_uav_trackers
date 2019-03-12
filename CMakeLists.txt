@@ -112,6 +112,19 @@ target_link_libraries(JoyTracker
   ${catkin_LIBRARIES}
   )
 
+# Matlab tracker
+
+add_library(MatlabTracker
+  src/matlab_tracker/matlab_tracker.cpp
+  )
+add_dependencies(MatlabTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(MatlabTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############
