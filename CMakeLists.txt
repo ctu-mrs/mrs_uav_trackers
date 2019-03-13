@@ -87,6 +87,18 @@ target_link_libraries(LineTracker
   ${catkin_LIBRARIES}
   )
 
+# Wall Tracker
+
+add_library(WallTracker
+  src/wall_tracker/wall_tracker.cpp
+  )
+add_dependencies(WallTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(WallTracker
+  ${catkin_LIBRARIES}
+  )
 # Landoff Tracker
 
 add_library(LandoffTracker
@@ -121,6 +133,7 @@ install(TARGETS
   MpcTracker
   CsvTracker
   LineTracker
+  WallTracker
   LandoffTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
@@ -137,6 +150,7 @@ install(FILES
   mrs_trackers.xml
   csv_tracker.xml
   line_tracker.xml
+  wall_tracker.xml
   landoff_tracker.xml
   DESTINATION
   ${CATKIN_PACKAGE_SHARE_DESTINATION}
