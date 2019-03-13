@@ -225,7 +225,6 @@ namespace mrs_trackers
     param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
     param_loader.load_param("landing_reference", landing_reference_);
-    param_loader.load_param("landing_fast_height", landing_fast_height_);
 
     param_loader.load_param("max_position_difference", max_position_difference_);
 

@@ -1,6 +1,5 @@
 tracker_loop_rate: 100 # [Hz]
 
-landing_fast_height: 3.0
 landing_reference: -1.0 # [m]
 landing_threshold_height: 1.0
 
