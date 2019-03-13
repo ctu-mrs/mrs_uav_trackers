@@ -1,3 +1,5 @@
+/* includes //{ */
+
 #include <ros/ros.h>
 
 #include <math.h>
@@ -8,7 +10,6 @@
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
-#include <mavros_msgs/RCIn.h>
 #include <nav_msgs/Odometry.h>
 
 #include <mrs_msgs/FuturePoint.h>
@@ -33,6 +34,8 @@
 #include "cvx_wrapper.h"
 
 #include <commons.h>
+
+//}
 
 using namespace Eigen;
 
@@ -86,8 +89,7 @@ namespace mrs_trackers
     ros::ServiceServer ser_fly_to_trajectory_start_;      // fly to the first point of the trajectory
     ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
     ros::ServiceServer set_yaw_service_cmd_cb;
-    ros::ServiceServer failsafe_trigger_service_cmd_;  // this service makes the uav stop and go 5m above
-    ros::ServiceServer set_set_mpc_matrix;             // set matrices in cvxgen
+    ros::ServiceServer set_set_mpc_matrix;  // set matrices in cvxgen
     ros::ServiceServer collision_avoidance_service;
 
     // debugging publishers
@@ -301,13 +303,6 @@ namespace mrs_trackers
 
     bool mpc_computed_;
 
-    // failsafe
-    bool      failsafe_triggered    = false;
-    bool      use_rc_failsafe       = false;
-    int       rc_failsafe_threshold = 2000;
-    int       rc_failsafe_channel;
-    ros::Time rc_failsafe_time;  // remembers the time when failsafe was triggered by the rc
-
     // for integrating the delay caused by long mpc calculations
     ros::Time mpc_start_time;
     double    mpc_total_delay = 0;
@@ -335,10 +330,7 @@ namespace mrs_trackers
     bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
     bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
     bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
-    bool     callbackTriggerFailsafe(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
-    void     callbackRadioControl(const mavros_msgs::RCInConstPtr &msg);
     bool     callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res);
-    bool     triggerFailsafe();
     void     publishDiagnostics();
     double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
     bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
@@ -376,8 +368,6 @@ namespace mrs_trackers
 
     ros::Time::waitForValid();
 
-    failsafe_triggered = false;
-
     std::vector<double> tempList, tempList2, UvaluesList;
 
     // load parameters for yaw_tracker
@@ -397,16 +387,6 @@ namespace mrs_trackers
     // load the dynamicall model parameters
     param_loader.load_param("yawModel/numberOfStates", n_yaw);
     param_loader.load_param("yawModel/numberOfInputs", m_yaw);
-
-    // failsafe
-    param_loader.load_param("use_rc_failsafe", use_rc_failsafe);
-    param_loader.load_param("rc_failsafe_threshold", rc_failsafe_threshold);
-    param_loader.load_param("rc_failsafe_channel", rc_failsafe_channel);
-    rc_failsafe_time = ros::Time::now();
-
-    if (use_rc_failsafe) {
-      ROS_INFO("[MpcTracker]: RC Failsafe ON, channel = %d, threshold = %d", rc_failsafe_channel, rc_failsafe_threshold);
-    }
 
     // load the main system matrix
     param_loader.load_matrix_static("dynamicalModel/A", A, n, n);
@@ -553,9 +533,6 @@ namespace mrs_trackers
     // service for desired trajectory
     ser_set_trajectory_ = nh_.advertiseService("set_trajectory_in", &MpcTracker::callbackSetTrajectory, this);
 
-    // subscriber for rc transmitter
-    sub_rc_ = nh_.subscribe("rc_in", 1, &MpcTracker::callbackRadioControl, this, ros::TransportHints().tcpNoDelay());
-
     // service for starting trajectory following
     ser_start_trajectory_following_ = nh_.advertiseService("start_trajectory_following_in", &MpcTracker::callbackStartTrajectoryFollowing, this);
 
@@ -567,9 +544,6 @@ namespace mrs_trackers
 
     // service for flying to the trajectory start point
     ser_fly_to_trajectory_start_ = nh_.advertiseService("fly_to_trajectory_start_in", &MpcTracker::callbackFlyToTrajectoryStart, this);
-
-    // service for triggering failsafe
-    failsafe_trigger_service_cmd_ = nh_.advertiseService("failsafe_in", &MpcTracker::callbackTriggerFailsafe, this);
 
     // service for triggering failsafe
     set_set_mpc_matrix = nh_.advertiseService("set_mpc_matrix_in", &MpcTracker::callbackSetQ, this);
@@ -746,7 +720,6 @@ namespace mrs_trackers
       yaw = cur_yaw_;
     }
 
-    failsafe_triggered  = false;
     tracking_trajectory = false;
 
     mpc_start_time  = ros::Time::now();
@@ -890,7 +863,7 @@ namespace mrs_trackers
         position_cmd_.use_position       = 1;
         position_cmd_.use_velocity       = 1;
         position_cmd_.use_acceleration   = 1;
-        position_cmd_.use_snap           = 1;
+        position_cmd_.use_jerk           = 1;
         position_cmd_.use_euler_attitude = 1;
       }
 
@@ -1173,12 +1146,6 @@ namespace mrs_trackers
 
     mrs_msgs::Vec4Response res;
 
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
-
     hover_timer.stop();
 
     setGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
@@ -1197,12 +1164,9 @@ namespace mrs_trackers
 
   bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-    if (!failsafe_triggered) {
+    hover_timer.stop();
 
-      hover_timer.stop();
-
-      setGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
-    }
+    setGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 
     return true;
   }
@@ -1214,12 +1178,6 @@ namespace mrs_trackers
   const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
     mrs_msgs::Vec4Response res;
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
 
     hover_timer.stop();
 
@@ -1239,12 +1197,9 @@ namespace mrs_trackers
 
   bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-    if (!failsafe_triggered) {
+    hover_timer.stop();
 
-      hover_timer.stop();
-
-      setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
-    }
+    setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 
     return true;
   }
@@ -1256,12 +1211,6 @@ namespace mrs_trackers
   const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
     mrs_msgs::Vec1Response res;
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
 
     hover_timer.stop();
 
@@ -1281,12 +1230,9 @@ namespace mrs_trackers
 
   bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
-    if (!failsafe_triggered) {
+    hover_timer.stop();
 
-      hover_timer.stop();
-
-      setGoal(x(0, 0), x(4, 0), msg->data, x_yaw(0, 0), false);
-    }
+    setGoal(x(0, 0), x(4, 0), msg->data, x_yaw(0, 0), false);
 
     return true;
   }
@@ -1298,12 +1244,6 @@ namespace mrs_trackers
   const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
     mrs_msgs::Vec1Response res;
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
 
     hover_timer.stop();
 
@@ -1332,25 +1272,22 @@ namespace mrs_trackers
 
   bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
-    if (!failsafe_triggered) {
+    hover_timer.stop();
 
-      hover_timer.stop();
+    if (tracking_trajectory) {
 
-      if (tracking_trajectory) {
+      {
+        std::scoped_lock lock(mutex_des_trajectory);
 
-        {
-          std::scoped_lock lock(mutex_des_trajectory);
-
-          for (int i = 0; i < horizon_len_; i++) {
-            des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(msg->data);
-          }
+        for (int i = 0; i < horizon_len_; i++) {
+          des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
-
-      } else {
-
-        // TODO: should set goal when flying to a setpoint
-        setGoal(x(0, 0), x(4, 0), x(8, 0), mrs_trackers_commons::validateYawSetpoint(msg->data), true);
       }
+
+    } else {
+
+      // TODO: should set goal when flying to a setpoint
+      setGoal(x(0, 0), x(4, 0), x(8, 0), mrs_trackers_commons::validateYawSetpoint(msg->data), true);
     }
 
     return true;
@@ -1363,12 +1300,6 @@ namespace mrs_trackers
   const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
     mrs_msgs::Vec1Response res;
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
 
     hover_timer.stop();
 
@@ -1402,25 +1333,22 @@ namespace mrs_trackers
 
   bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
-    if (!failsafe_triggered) {
+    hover_timer.stop();
 
-      hover_timer.stop();
+    if (tracking_trajectory) {
 
-      if (tracking_trajectory) {
+      {
+        std::scoped_lock lock(mutex_des_trajectory);
 
-        {
-          std::scoped_lock lock(mutex_des_trajectory);
-
-          for (int i = 0; i < horizon_len_; i++) {
-            des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(msg->data);
-          }
+        for (int i = 0; i < horizon_len_; i++) {
+          des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(msg->data);
         }
-
-      } else {
-
-        setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
-                mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
       }
+
+    } else {
+
+      setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
+              mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
     }
 
     return true;
@@ -1433,12 +1361,6 @@ namespace mrs_trackers
   const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
     std_srvs::TriggerResponse res;
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-    }
 
     setRelativeGoal(0, 0, 0, 0, false);
 
@@ -1532,44 +1454,9 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ callbackRadioControl() */
-
-  void MpcTracker::callbackRadioControl(const mavros_msgs::RCInConstPtr &msg) {
-
-    if (use_rc_failsafe) {
-
-      // dont trigger failsafe if it was trigger within last 5 seconds
-      if ((ros::Time::now() - rc_failsafe_time).toSec() < 5)
-        return;
-
-      if (int(msg->channels.size()) < rc_failsafe_channel) {
-
-        ROS_WARN_THROTTLE(1, "rc_failsafe_channel is larger than the field of RC Channels");
-        return;
-      }
-
-      // check for the failsave channel
-      if (msg->channels[rc_failsafe_channel - 1] > rc_failsafe_threshold) {
-
-        ROS_WARN("[MpcTracker]: Toggling Failsafe by RC");
-        rc_failsafe_time = ros::Time::now();
-        triggerFailsafe();
-      }
-    }
-  }
-
-  //}
-
   /* //{ callbackStartTrajectoryFollowing() */
 
   bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-      return true;
-    }
 
     if (!callbacks_enabled) {
 
@@ -1610,13 +1497,6 @@ namespace mrs_trackers
 
   bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-      return true;
-    }
-
     if (tracking_trajectory) {
 
       tracking_trajectory = false;
@@ -1650,13 +1530,6 @@ namespace mrs_trackers
   /* //{ callbackFlyToTrajectoryStart() */
 
   bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-      return true;
-    }
 
     if (!callbacks_enabled) {
 
@@ -1715,13 +1588,6 @@ namespace mrs_trackers
 
   bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
-    if (failsafe_triggered) {
-
-      res.success = false;
-      res.message = "Failsafe is active!";
-      return true;
-    }
-
     if (!callbacks_enabled) {
 
       res.success = false;
@@ -1756,27 +1622,6 @@ namespace mrs_trackers
       res.success = false;
       res.message = "Trajectory not set!";
     }
-
-    return true;
-  }
-
-  //}
-
-  /* //{ callbackTriggerFailsafe() */
-
-  bool MpcTracker::callbackTriggerFailsafe([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
-
-    if (triggerFailsafe()) {
-
-      res.success = true;
-      res.message = "Failsafe activated";
-    } else {
-
-      res.success = true;
-      res.message = "Failsafe deactivated!";
-    }
-
-    publishDiagnostics();
 
     return true;
   }
@@ -1852,11 +1697,6 @@ namespace mrs_trackers
   // callback for loading desired trajectory
   void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
 
-    if (failsafe_triggered) {
-
-      return;
-    }
-
     if (!callbacks_enabled) {
 
       ROS_WARN("[MpcTracker]: Can't set trajectory, callbacks are disabled!");
@@ -1907,57 +1747,6 @@ namespace mrs_trackers
   //}
 
   // | -------------------- setpoint handling ------------------- |
-
-  /* //{ triggerFailsafe() */
-
-  bool MpcTracker::triggerFailsafe() {
-
-    // turn it off
-    if (failsafe_triggered) {
-
-      failsafe_triggered = false;
-      ROS_WARN("[MpcTracker]: Failsafe OFF");
-      return false;
-
-      // turn it on
-    } else {
-
-      // turn off potential trajectory tracking
-      {
-        std::scoped_lock lock(mutex_des_trajectory);
-
-        tracking_trajectory = false;
-        trajectory_idx      = 0;
-      }
-
-      // calculate time needed to stop
-      double time_x;
-      double time_y;
-      {
-        std::scoped_lock lock(mutex_constraints);
-
-        time_x = 1.5 * x(1, 0) / max_horizontal_acceleration;
-        time_y = 1.5 * x(5, 0) / max_horizontal_acceleration;
-      }
-
-      // calculate how far will it move before it stops
-      double move_x = (x(1, 0) >= 0 ? 1 : -1) * 0.5 * time_x * x(1, 0);
-      double move_y = (x(5, 0) >= 0 ? 1 : -1) * 0.5 * time_y * x(5, 0);
-
-      // stop
-      setRelativeGoal(move_x, move_y, 5, 0, false);
-
-      ROS_WARN("[MpcTracker]: Failsafe ON");
-
-      failsafe_triggered = true;
-
-      publishDiagnostics();
-
-      return true;
-    }
-  }
-
-  //}
 
   /* //{ dist() */
 
@@ -2638,7 +2427,6 @@ namespace mrs_trackers
     diagnostics.trajectory_length = trajectory_size;
     diagnostics.trajectory_idx    = trajectory_idx;
     diagnostics.trajectory_count  = trajectory_count;
-    diagnostics.failsafe_active   = failsafe_triggered;
 
     diagnostics.setpoint.position.x = des_x_trajectory(0, 0);
     diagnostics.setpoint.position.y = des_y_trajectory(0, 0);
@@ -2705,13 +2493,6 @@ namespace mrs_trackers
 
   // method for setting desired trajectory
   bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified) {
-
-    if (failsafe_triggered) {
-
-      message = "Failsafe is active!";
-      ROS_WARN("[MpcTracker]: %s", message.c_str());
-      return false;
-    }
 
     if (int(msg.points.size()) > (max_trajectory_size - horizon_len_ - 1)) {
 
