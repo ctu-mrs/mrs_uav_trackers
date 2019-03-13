@@ -106,15 +106,11 @@ namespace mrs_trackers
     void changeState(States_t new_state);
 
   private:
-    void stopHorizontalMotion(void);
-    void stopVerticalMotion(void);
-    void accelerateHorizontal(void);
-    void accelerateVertical(void);
-    void decelerateHorizontal(void);
-    void decelerateVertical(void);
-    void stopHorizontal(void);
-    void stopVertical(void);
-
+    void approachWall(void);
+    void yawControl(void);
+    void coordinateChange(void);
+    void detachWall(void);
+    
   private:
     // dynamical constraints
     double     horizontal_speed_;
@@ -152,11 +148,12 @@ namespace mrs_trackers
 
   // | -------------- tracker's interface routines -------------- |
 
-  /* //{ initialize() */
+  /* //{ initialize() - Inicializace konstant, profiler a timer*/
+   
 
   void WallTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
-    ros::NodeHandle nh_(parent_nh, "line_tracker");
+    ros::NodeHandle nh_(parent_nh, "wall_tracker");
 
     ros::Time::waitForValid();
 
@@ -231,7 +228,7 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ activate() */
+  /* //{ activate() - Aktivace, rozdeleni podle predchozi stavu, vypocet a nacteni zakladnich hodnot */
 
   bool WallTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
@@ -343,7 +340,7 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ deactivate() */
+  /* //{ deactivate() - prepnuti is_active */
 
   void WallTracker::deactivate(void) {
 
@@ -354,7 +351,7 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ update() */
+  /* //{ update() - core - cteni odometrie, uprava prikazu, update */
 
   const mrs_msgs::PositionCommand::ConstPtr WallTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -413,7 +410,7 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ getStatus() */
+  /* //{ getStatus() - poslani status msgs */
 
   const mrs_msgs::TrackerStatus::Ptr WallTracker::getStatus() {
 
@@ -436,7 +433,7 @@ namespace mrs_trackers
 
   //}
 
-  /* //{ enableCallbacks() */
+  /* //{ enableCallbacks() - v pripade ze nechces poslouchat a venovat se jinymu */
 
   const std_srvs::SetBoolResponse::ConstPtr WallTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
@@ -464,7 +461,7 @@ namespace mrs_trackers
 
   //}
 
-  /* switchOdometrySource() //{ */
+  /* switchOdometrySource() - prepocet pro nove souradnice //{ */
 
   void WallTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
@@ -520,376 +517,109 @@ namespace mrs_trackers
 
   // | -------------- setpoint topics and services -------------- |
 
-  /* //{ goTo() service */
 
-  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+/* //{ goTo() service */
 
-    mrs_msgs::Vec4Response res;
+const mrs_msgs::Vec4Response::ConstPtr WallTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
+}
 
-    {
-      std::scoped_lock lock(mutex_goal);
+//}
 
-      goal_x   = cmd->goal[0];
-      goal_y   = cmd->goal[1];
-      goal_z   = cmd->goal[2];
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal[3]);
-    }
+/* //{ goTo() topic */
 
-    ROS_INFO("[WallTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+bool WallTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+  return false;
+}
 
-    have_goal = true;
+//}
 
-    res.success = true;
-    res.message = "setpoint set";
+/* //{ goToRelative() topic */
 
-    changeState(STOP_MOTION_STATE);
+const mrs_msgs::Vec4Response::ConstPtr WallTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec4Response::Ptr();
+}
 
-    return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-  }
+//}
 
-  //}
+/* //{ goToRelative() topic */
 
-  /* //{ goTo() topic */
+bool WallTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+  return false;
+}
 
-  bool WallTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+//}
 
-    {
-      std::scoped_lock lock(mutex_goal);
+/* //{ goToAltitude() service */
 
-      goal_x   = msg->position.x;
-      goal_y   = msg->position.y;
-      goal_z   = msg->position.z;
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->position.yaw);
-    }
+const mrs_msgs::Vec1Response::ConstPtr WallTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
 
-    ROS_INFO("[WallTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+//}
 
-    have_goal = true;
+/* //{ goToAltitude() topic */
 
-    changeState(STOP_MOTION_STATE);
+bool WallTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
 
-    return true;
-  }
+//}
 
-  //}
+/* //{ setYaw() service */
 
-  /* //{ goToRelative() service */
+const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
 
-  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+//}
 
-    mrs_msgs::Vec4Response res;
+/* //{ setYaw() topic */
 
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
+bool WallTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
 
-      goal_x   = state_x + cmd->goal[0];
-      goal_y   = state_y + cmd->goal[1];
-      goal_z   = state_z + cmd->goal[2];
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
-    }
+//}
 
-    ROS_INFO("[WallTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+/* //{ setYawRelative() service */
 
-    have_goal = true;
+const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  return mrs_msgs::Vec1Response::Ptr();
+}
 
-    res.success = true;
-    res.message = "setpoint set";
+//}
 
-    changeState(STOP_MOTION_STATE);
+/* //{ setYawRelative() topic */
 
-    return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-  }
+bool WallTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  return false;
+}
 
-  //}
+//}
 
-  /* //{ goToRelative() topic */
+/* //{ hover() service */
 
-  bool WallTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+const std_srvs::TriggerResponse::ConstPtr WallTracker::hover(const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
 
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
+//}
 
-      goal_x   = state_x + msg->position.x;
-      goal_y   = state_y + msg->position.y;
-      goal_z   = state_z + msg->position.z;
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->position.yaw);
-    }
+/* //{ setConstraints() service */
 
-    ROS_INFO("[WallTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr WallTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
-    have_goal = true;
+  return mrs_msgs::TrackerConstraintsResponse::Ptr();
+}
 
-    changeState(STOP_MOTION_STATE);
-
-    return true;
-  }
-
-  //}
-
-  /* //{ goToAltitude() service */
-
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x;
-      goal_y   = state_y;
-      goal_z   = cmd->goal;
-      goal_yaw = state_yaw;
-
-      have_goal = true;
-    }
-
-    ROS_INFO("[WallTracker]: received new altituded setpoint %3.2f", goal_z);
-
-    res.success = true;
-    res.message = "setpoint set";
-
-    changeState(STOP_MOTION_STATE);
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-  }
-
-  //}
-
-  /* //{ goToAltitude() topic */
-
-  bool WallTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x;
-      goal_y   = state_y;
-      goal_z   = msg->data;
-      goal_yaw = state_yaw;
-
-      have_goal = true;
-    }
-
-    ROS_INFO("[WallTracker]: received new altituded setpoint %3.2f", goal_z);
-
-    changeState(STOP_MOTION_STATE);
-
-    return true;
-  }
-
-  //}
-
-  /* //{ setYaw() service */
-
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-    }
-
-    ROS_INFO("[WallTracker]: setting yaw %3.2f", goal_yaw);
-
-    res.success = true;
-    res.message = "yaw set";
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-  }
-
-  //}
-
-  /* //{ setYaw() topic */
-
-  bool WallTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
-
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
-    }
-
-    ROS_INFO("[WallTracker]: setting absolute yaw to %3.2f", goal_yaw);
-
-    return true;
-  }
-
-  //}
-
-  /* //{ setYawRelative() service */
-
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_state, mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
-    }
-
-    ROS_INFO("[WallTracker]: setting relative yaw by %3.2f", goal_yaw);
-
-    res.success = true;
-    res.message = "yaw set";
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-  }
-
-  //}
-
-  /* //{ setYawRelative() topic */
-
-  bool WallTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
-
-    {
-      std::scoped_lock lock(mutex_state, mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
-    }
-
-    ROS_INFO("[WallTracker]: received relative yaw by %3.2f", goal_yaw);
-
-    return true;
-  }
-
-  //}
-
-  /* //{ hover() service */
-
-  const std_srvs::TriggerResponse::ConstPtr WallTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
-
-    std_srvs::TriggerResponse res;
-
-    // --------------------------------------------------------------
-    // |          horizontal initial conditions prediction          |
-    // --------------------------------------------------------------
-    {
-      std::scoped_lock lock(mutex_state, mutex_odometry);
-
-      current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-      current_vertical_speed   = odometry.twist.twist.linear.z;
-      current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
-    }
-
-    double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
-
-    {
-      std::scoped_lock lock(mutex_state);
-
-      horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-      horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-      stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-      stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-    }
-
-    // --------------------------------------------------------------
-    // |           vertical initial conditions prediction           |
-    // --------------------------------------------------------------
-
-    double vertical_t_stop, vertical_stop_dist;
-
-    {
-      std::scoped_lock lock(mutex_state);
-
-      vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-      vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
-    }
-
-    // --------------------------------------------------------------
-    // |                        set the goal                        |
-    // --------------------------------------------------------------
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x = state_x + stop_dist_x;
-      goal_y = state_y + stop_dist_y;
-      goal_z = state_z + vertical_stop_dist;
-    }
-
-    res.message = "Hover initiated.";
-    res.success = true;
-
-    changeState(STOP_MOTION_STATE);
-
-    return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
-  }
-
-  //}
-
-  /* //{ setConstraints() service */
-
-  const mrs_msgs::TrackerConstraintsResponse::ConstPtr WallTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
-
-    mrs_msgs::TrackerConstraintsResponse res;
-
-    // this is the place to copy the constraints
-    {
-      std::scoped_lock lock(mutex_constraints);
-
-      horizontal_speed_        = cmd->horizontal_speed;
-      horizontal_acceleration_ = cmd->horizontal_acceleration;
-
-      vertical_speed_        = cmd->vertical_ascending_speed;
-      vertical_acceleration_ = cmd->vertical_ascending_acceleration;
-
-      yaw_rate_ = cmd->yaw_speed;
-    }
-
-    res.success = true;
-    res.message = "constraints updated";
-
-    return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
-  }
-
-  //}
-
-  // | ----------------- state machine routines ----------------- |
-
-  /* //{ changeStateHorizontal() */
-
-  void WallTracker::changeStateHorizontal(States_t new_state) {
-
-    previous_state_horizontal = current_state_horizontal;
-    current_state_horizontal  = new_state;
-
-    // just for ROS_INFO
-    ROS_DEBUG("[WallTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
-  }
-
-  //}
-
-  /* //{ changeStateVertical() */
-
-  void WallTracker::changeStateVertical(States_t new_state) {
-
-    previous_state_vertical = current_state_vertical;
-    current_state_vertical  = new_state;
-
-    // just for ROS_INFO
-    ROS_DEBUG("[WallTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
-  }
-
-  //}
-
-  /* //{ changeState() */
-
-  void WallTracker::changeState(States_t new_state) {
-
-    changeStateVertical(new_state);
-    changeStateHorizontal(new_state);
-  }
-
-  //}
+//}
 
   // | --------------------- motion routines -------------------- |
 
-  /* //{ stopHorizontalMotion() */
+  /* //{ approachWall() */
 
-  void WallTracker::stopHorizontalMotion(void) {
+  void WallTracker::approachWall(void) {
 
     current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
@@ -902,142 +632,51 @@ namespace mrs_trackers
   }
 
   //}
+  
+  /* //{ yawControl() */
 
-  /* //{ stopVerticalMotion() */
-
-  void WallTracker::stopVerticalMotion(void) {
-
-    current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
-
-    if (current_vertical_speed < 0) {
-      current_vertical_speed        = 0;
-      current_vertical_acceleration = 0;
-    } else {
-      current_vertical_acceleration = -vertical_acceleration_;
-    }
-  }
-
-  //}
-
-  /* //{ accelerateHorizontal() */
-
-  void WallTracker::accelerateHorizontal(void) {
-
-    current_heading = atan2(goal_y - state_y, goal_x - state_x);
-
-    double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
-
-    horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-    stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-    stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-
-    current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
-
-    if (current_horizontal_speed >= horizontal_speed_) {
-      current_horizontal_speed        = horizontal_speed_;
-      current_horizontal_acceleration = 0;
-    } else {
-      current_horizontal_acceleration = horizontal_acceleration_;
-    }
-
-    if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
-      current_horizontal_acceleration = 0;
-      changeStateHorizontal(DECELERATING_STATE);
-    }
-  }
-
-  //}
-
-  /* //{ accelerateVertical() */
-
-  void WallTracker::accelerateVertical(void) {
-
-    // set the right heading
-    double tar_z = goal_z - state_z;
-
-    // set the right vertical direction
-    current_vertical_direction = mrs_trackers_commons::sign(tar_z);
-
-    // calculate the time to stop and the distance it will take to stop [vertical]
-    double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-    double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
-
-    current_vertical_speed += vertical_acceleration_ * tracker_dt_;
-
-    if (current_vertical_speed >= vertical_speed_) {
-      current_vertical_speed        = vertical_speed_;
-      current_vertical_acceleration = 0;
-    } else {
-      current_vertical_acceleration = vertical_acceleration_;
-    }
-
-    if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
-      current_vertical_acceleration = 0;
-      changeStateVertical(DECELERATING_STATE);
-    }
-  }
-
-  //}
-
-  /* //{ decelerateHorizontal() */
-
-  void WallTracker::decelerateHorizontal(void) {
+  void WallTracker::yawControl(void) {
 
     current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
     if (current_horizontal_speed < 0) {
-      current_horizontal_speed = 0;
+      current_horizontal_speed        = 0;
+      current_horizontal_acceleration = 0;
     } else {
       current_horizontal_acceleration = -horizontal_acceleration_;
     }
+  }
 
-    if (current_horizontal_speed == 0) {
+  //}
+ 
+  /* //{ coordinatesChange() */
+
+  void WallTracker::coordinateChange(void) {
+
+    current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+
+    if (current_horizontal_speed < 0) {
+      current_horizontal_speed        = 0;
       current_horizontal_acceleration = 0;
-      changeStateHorizontal(STOPPING_STATE);
-    }
-  }
-
-  //}
-
-  /* //{ decelerateVertical() */
-
-  void WallTracker::decelerateVertical(void) {
-
-    current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
-
-    if (current_vertical_speed < 0) {
-      current_vertical_speed = 0;
     } else {
-      current_vertical_acceleration = -vertical_acceleration_;
-    }
-
-    if (current_vertical_speed == 0) {
-      current_vertical_acceleration = 0;
-      changeStateVertical(STOPPING_STATE);
+      current_horizontal_acceleration = -horizontal_acceleration_;
     }
   }
 
   //}
+  
+  /* //{ detachWall() */
 
-  /* //{ stopHorizontal() */
+  void WallTracker::detachWall(void) {
 
-  void WallTracker::stopHorizontal(void) {
+    current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
 
-    state_x                         = 0.95 * state_x + 0.05 * goal_x;
-    state_y                         = 0.95 * state_y + 0.05 * goal_y;
-    current_horizontal_acceleration = 0;
-  }
-
-  //}
-
-  /* //{ stopVertical() */
-
-  void WallTracker::stopVertical(void) {
-
-    state_z                       = 0.95 * state_z + 0.05 * goal_z;
-    current_vertical_acceleration = 0;
+    if (current_horizontal_speed < 0) {
+      current_horizontal_speed        = 0;
+      current_horizontal_acceleration = 0;
+    } else {
+      current_horizontal_acceleration = -horizontal_acceleration_;
+    }
   }
 
   //}
