@@ -156,7 +156,7 @@ namespace mrs_trackers
 
   void WallTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
-    ros::NodeHandle nh_(parent_nh, "line_tracker");
+    ros::NodeHandle nh_(parent_nh, "wall_tracker");
 
     ros::Time::waitForValid();
 
