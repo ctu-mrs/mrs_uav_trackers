@@ -29,6 +29,12 @@
   </class>
 </library>
 
+<library path="lib/libMatlabTracker">
+  <class name="mrs_trackers/MatlabTracker" type="mrs_trackers::MatlabTracker" base_class_type="mrs_uav_manager::Tracker">
+    <description>This is the Matlab tracker.</description>
+  </class>
+</library>
+
 <library path="lib/libCsvTracker">
   <class name="mrs_trackers/CsvTracker" type="mrs_trackers::CsvTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is CSV tracker.</description>

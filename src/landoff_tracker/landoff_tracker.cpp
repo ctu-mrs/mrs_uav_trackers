@@ -225,7 +225,6 @@ namespace mrs_trackers
     param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
     param_loader.load_param("landing_reference", landing_reference_);
-    param_loader.load_param("landing_fast_height", landing_fast_height_);
 
     param_loader.load_param("max_position_difference", max_position_difference_);
 
@@ -907,17 +906,8 @@ namespace mrs_trackers
 
     } else if (landing) {
 
-      if (odometry_z > landing_fast_height_) {
-
-        used_speed        = vertical_speed_;
-        used_acceleration = vertical_acceleration_;
-
-      } else {
-
-        used_speed        = landing_speed_ / 2.0;
-        used_acceleration = landing_acceleration_ / 2.0;
-
-      }
+      used_speed        = landing_speed_;
+      used_acceleration = landing_acceleration_;
 
     } else {
       used_speed        = vertical_speed_;

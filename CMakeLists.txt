@@ -14,8 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_uav_manager
   )
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
-set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)
@@ -123,6 +122,19 @@ add_dependencies(JoyTracker
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 target_link_libraries(JoyTracker
+  ${catkin_LIBRARIES}
+  )
+
+# Matlab tracker
+
+add_library(MatlabTracker
+  src/matlab_tracker/matlab_tracker.cpp
+  )
+add_dependencies(MatlabTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(MatlabTracker
   ${catkin_LIBRARIES}
   )
 

@@ -86,7 +86,7 @@ namespace mrs_trackers
 
   private:
     // desired goal
-    double     have_goal = false;
+    double     got_goal = false;
     std::mutex mutex_goal;
 
     // my current state
@@ -183,7 +183,14 @@ namespace mrs_trackers
   bool JoyTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     if (!got_odometry) {
+
       ROS_ERROR("[JoyTracker]: can't activate(), odometry not set");
+      return false;
+    }
+
+    if (!got_goal) {
+
+      ROS_ERROR("[JoyTracker]: can't activate(), missing joystic goal");
       return false;
     }
 
@@ -284,12 +291,12 @@ namespace mrs_trackers
 
       double affine_coef = 0.99;
       if (fabs(odometry.twist.twist.linear.x) > 5 || fabs(odometry.twist.twist.linear.y) > 5) {
-        attitude_coeff = affine_coef*attitude_coeff;
+        attitude_coeff = affine_coef * attitude_coeff;
       } else {
-        attitude_coeff = affine_coef*attitude_coeff + (1-affine_coef);
+        attitude_coeff = affine_coef * attitude_coeff + (1 - affine_coef);
       }
 
-      desired_orientation = tf::createQuaternionFromRPY(-desired_roll*attitude_coeff, desired_pitch*attitude_coeff, state_yaw);
+      desired_orientation = tf::createQuaternionFromRPY(-desired_roll * attitude_coeff, desired_pitch * attitude_coeff, state_yaw);
 
       position_output.attitude.w = desired_orientation.getW();
       position_output.attitude.x = desired_orientation.getX();
@@ -519,6 +526,8 @@ namespace mrs_trackers
     current_yaw_rate       = msg.axes[0] * yaw_rate_;
     desired_pitch          = msg.axes[1] * max_tilt_;
     desired_roll           = msg.axes[3] * max_tilt_;
+
+    got_goal = true;
 
     ROS_INFO_THROTTLE(1.0, "[JoyTracker]: th: %f, yaw: %f, pitch: %f, roll: %f", current_vertical_speed, current_yaw_rate, desired_pitch, desired_roll);
   }

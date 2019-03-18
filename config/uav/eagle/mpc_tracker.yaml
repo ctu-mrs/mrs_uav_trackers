@@ -1,10 +1,8 @@
-use_rc_failsafe: true
-rc_failsafe_threshold: 1500         # [1000, 2000]
-rc_failsafe_channel: 8              # indexing from 1
 diagnostics_rate: 1                 # publish diagnostics at n Hz
 diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
 publish_debug_trajectory: true      # publish the mpc predicted trajectory at [Hz]
-headless_mode: false
+
+headless_mode: false                # Headless mode will ensure that the UAV is always "looking" in the direction of flight
 
 # mrs collision avoidance
 mrs_collision_avoidance:
