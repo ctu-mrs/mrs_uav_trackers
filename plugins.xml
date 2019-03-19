@@ -1,9 +1,3 @@
-<library path="lib/libNullTracker">
-  <class name="mrs_uav_manager/NullTracker" type="mrs_uav_manager::NullTracker" base_class_type="mrs_uav_manager::Tracker">
-    <description>This is Null tracker.</description>
-  </class>
-</library>
-
 <library path="lib/libLandoffTracker">
   <class name="mrs_trackers/LandoffTracker" type="mrs_trackers::LandoffTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is Landing+Takeoff tracker.</description>

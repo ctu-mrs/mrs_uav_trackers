@@ -146,10 +146,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
   )
 
 install(FILES
-  mrs_trackers.xml
-  csv_tracker.xml
-  line_tracker.xml
-  landoff_tracker.xml
+  plugins.xml
   DESTINATION
   ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )
