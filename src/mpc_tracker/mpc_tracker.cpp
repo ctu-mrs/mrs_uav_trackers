@@ -2517,6 +2517,7 @@ namespace mrs_trackers
         trajectory_size = msg.points.size();
 
         // copy the trajectories
+        // TODO: check the points for NaNs
         for (int i = 0; i < trajectory_size; i++) {
 
           des_x_whole_trajectory(i) = msg.points[i].x;
@@ -2527,7 +2528,7 @@ namespace mrs_trackers
         // set looping
         if (msg.loop) {
 
-          // check whether the trajectory iss loopable
+          // check whether the trajectory is loopable
           if (dist(des_x_whole_trajectory(0), des_y_whole_trajectory(0), des_x_whole_trajectory(trajectory_size - 1),
                    des_y_whole_trajectory(trajectory_size - 1)) < 4) {
 
