@@ -1064,7 +1064,7 @@ namespace mrs_trackers
 
     while (running_mpc_timer) {
 
-      ROS_ERROR("[MpcTracker]: the MPC is in the middle of an iteration, waiting for it to finish");
+      ROS_WARN("[MpcTracker]: the MPC is in the middle of an iteration, waiting for it to finish");
       ros::Duration wait(0.01);
       wait.sleep();
     }
