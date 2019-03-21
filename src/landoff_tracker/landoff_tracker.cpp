@@ -119,6 +119,7 @@ namespace mrs_trackers
   private:
     ros::ServiceServer service_takeoff;
     ros::ServiceServer service_land;
+    ros::ServiceServer service_eland;
 
   private:
     States_t current_state_vertical    = IDLE_STATE;
@@ -132,6 +133,7 @@ namespace mrs_trackers
 
     bool taking_off = false;
     bool landing    = false;
+    bool elanding   = false;
 
   private:
     void stopHorizontalMotion(void);
@@ -142,17 +144,20 @@ namespace mrs_trackers
     void stopVertical(void);
     bool callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
     bool callbackLand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+    bool callbackELand(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
   private:
     double horizontal_speed_;
     double vertical_speed_;
     double takeoff_speed_;
     double landing_speed_;
+    double elanding_speed_;
 
     double horizontal_acceleration_;
     double vertical_acceleration_;
     double takeoff_acceleration_;
     double landing_acceleration_;
+    double elanding_acceleration_;
 
     double yaw_rate_;
     double yaw_gain_;
@@ -219,6 +224,9 @@ namespace mrs_trackers
     param_loader.load_param("vertical_tracker/landing_speed", landing_speed_);
     param_loader.load_param("vertical_tracker/landing_acceleration", landing_acceleration_);
 
+    param_loader.load_param("vertical_tracker/elanding_speed", elanding_speed_);
+    param_loader.load_param("vertical_tracker/elanding_acceleration", elanding_acceleration_);
+
     param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
     param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
@@ -270,8 +278,9 @@ namespace mrs_trackers
     // |                          services                          |
     // --------------------------------------------------------------
 
-    service_takeoff = nh_.advertiseService("takeoff", &LandoffTracker::callbackTakeoff, this);
-    service_land    = nh_.advertiseService("land", &LandoffTracker::callbackLand, this);
+    service_takeoff = nh_.advertiseService("takeoff_in", &LandoffTracker::callbackTakeoff, this);
+    service_land    = nh_.advertiseService("land_in", &LandoffTracker::callbackLand, this);
+    service_eland   = nh_.advertiseService("eland_in", &LandoffTracker::callbackELand, this);
 
     service_client_reset_lateral_odometry = nh_.serviceClient<std_srvs::Trigger>("reset_lateral_odometry_out");
 
@@ -604,9 +613,9 @@ namespace mrs_trackers
 
     // | --------- recalculate the goal to new coordinates -------- |
 
-    double dx = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-    double dy = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-    double dz = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+    double dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
+    double dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
+    double dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
     double dyaw = msg_yaw - odom_yaw;
 
     goal_x += dx;
@@ -617,9 +626,9 @@ namespace mrs_trackers
 
     // | -------------------- update the state -------------------- |
 
-    state_x = msg->pose.pose.position.x;
-    state_y = msg->pose.pose.position.y;
-    state_z = msg->pose.pose.position.z;
+    state_x   = msg->pose.pose.position.x;
+    state_y   = msg->pose.pose.position.y;
+    state_z   = msg->pose.pose.position.z;
     state_yaw = msg_yaw;
 
     // | ------- copy the new odometry as the current state ------- |
@@ -906,8 +915,16 @@ namespace mrs_trackers
 
     } else if (landing) {
 
-      used_speed        = landing_speed_;
-      used_acceleration = landing_acceleration_;
+      if (elanding) {
+
+        used_speed        = elanding_speed_;
+        used_acceleration = elanding_acceleration_;
+
+      } else {
+
+        used_speed        = landing_speed_;
+        used_acceleration = landing_acceleration_;
+      }
 
     } else {
       used_speed        = vertical_speed_;
@@ -1264,6 +1281,7 @@ namespace mrs_trackers
 
     taking_off                 = true;
     landing                    = false;
+    elanding                   = false;
     takeoff_odometry_was_reset = false;
 
     res.success = true;
@@ -1290,6 +1308,7 @@ namespace mrs_trackers
       res.message = message;
       taking_off  = false;
       landing     = false;
+      elanding    = false;
       changeState(LANDED_STATE);
       return true;
     }
@@ -1303,6 +1322,7 @@ namespace mrs_trackers
       changeState(LANDED_STATE);
       taking_off = false;
       landing    = false;
+      elanding   = false;
       return true;
     }
 
@@ -1315,11 +1335,67 @@ namespace mrs_trackers
     ROS_INFO("[LandoffTracker]: landing");
 
     landing    = true;
+    elanding   = false;
     taking_off = false;
     have_goal  = true;
 
     res.success = true;
     res.message = "landing";
+
+    changeState(STOP_MOTION_STATE);
+
+    return true;
+  }
+
+  //}
+
+  /* //{ callbackELand() */
+
+  bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    char message[100];
+
+    if (!is_active) {
+
+      sprintf((char *)&message, "Can't eland, the tracker is not active.");
+      ROS_ERROR("[LandoffTracker]: %s", message);
+      res.success = false;
+      res.message = message;
+      taking_off  = false;
+      landing     = false;
+      elanding    = false;
+      changeState(LANDED_STATE);
+      return true;
+    }
+
+    if (odometry_z < landed_threshold_height_) {
+
+      sprintf((char *)&message, "Can't eland, already on the ground.");
+      ROS_ERROR("[LandoffTracker]: %s", message);
+      res.success = false;
+      res.message = message;
+      changeState(LANDED_STATE);
+      taking_off = false;
+      landing    = false;
+      elanding   = false;
+      return true;
+    }
+
+    {
+      std::scoped_lock lock(mutex_odometry);
+
+      goal_z = odometry_z + landing_reference_;
+    }
+
+    ROS_WARN("[LandoffTracker]: emergancy landing");
+
+    landing    = true;
+    elanding   = true;
+    taking_off = false;
+    have_goal  = true;
+
+    res.success = true;
+    res.message = "elanding";
 
     changeState(STOP_MOTION_STATE);
 

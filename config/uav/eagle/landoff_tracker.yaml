@@ -23,6 +23,10 @@ vertical_tracker:
   landing_speed: 0.5
   landing_acceleration: 0.25
 
+  # beware, this is for emergancy landing only
+  elanding_speed: 1.5
+  elanding_acceleration: 1.5
+
 yaw_tracker:
   yaw_gain: 0.2
   yaw_rate: 0.5
