@@ -2516,9 +2516,38 @@ namespace mrs_trackers
 
         trajectory_size = msg.points.size();
 
-        // copy the trajectories
-        // TODO: check the points for NaNs
+        // copy the trajectory to a local array
         for (int i = 0; i < trajectory_size; i++) {
+
+          // check the point for NaN/inf
+          bool no_nans = true;
+
+          if (!std::isfinite(msg.points[i].x)) {
+            ROS_ERROR("NaN detected in variable \"msg.points[%d].x\"!!!", i);
+            no_nans = false;
+          }
+
+          if (!std::isfinite(msg.points[i].y)) {
+            ROS_ERROR("NaN detected in variable \"msg.points[%d].y\"!!!", i);
+            no_nans = false;
+          }
+
+          if (!std::isfinite(msg.points[i].z)) {
+            ROS_ERROR("NaN detected in variable \"msg.points[%d].z\"!!!", i);
+            no_nans = false;
+          }
+
+          if (!std::isfinite(msg.points[i].yaw)) {
+            ROS_ERROR("NaN detected in variable \"msg.points[%d].yaw\"!!!", i);
+            no_nans = false;
+          }
+
+          if (no_nans == false) {
+
+            message = "Trajecotry contains NaNs/infs.";
+            ROS_WARN("[MpcTracker]: %s", message.c_str());
+            return false;
+          }
 
           des_x_whole_trajectory(i) = msg.points[i].x;
           des_y_whole_trajectory(i) = msg.points[i].y;
