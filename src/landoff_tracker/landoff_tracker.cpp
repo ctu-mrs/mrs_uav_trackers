@@ -967,14 +967,17 @@ namespace mrs_trackers
     double used_acceleration;
 
     if (taking_off) {
+
       used_acceleration = takeoff_acceleration_;
+
     } else if (landing) {
 
-      if (odometry_z > 2 * landing_fast_height_) {
-        used_acceleration = vertical_acceleration_;
-      } else if (odometry_z > landing_fast_height_) {
-        used_acceleration = vertical_acceleration_ / 2.0;
+      if (elanding) {
+
+        used_acceleration = elanding_acceleration_;
+
       } else {
+
         used_acceleration = landing_acceleration_;
       }
 
@@ -1097,8 +1100,7 @@ namespace mrs_trackers
 
 
       if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
-
-        if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
+        if (fabs(current_vertical_speed) <= 0.1 && fabs(current_horizontal_speed) <= 0.1) {
           if (have_goal) {
             changeState(ACCELERATING_STATE);
           } else {
@@ -1108,13 +1110,10 @@ namespace mrs_trackers
       }
 
       if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
-
-        if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
-
+        if (fabs(state_x - goal_x) < 0.1 && fabs(state_y - goal_y) < 0.1 && fabs(state_z - goal_z) < 0.1) {
           state_x = goal_x;
           state_y = goal_y;
           state_z = goal_z;
-
           changeState(HOVER_STATE);
         }
       }
