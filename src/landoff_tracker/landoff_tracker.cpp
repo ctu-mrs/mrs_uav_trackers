@@ -116,7 +116,8 @@ private:
   bool   takeoff_disable_lateral_gains_;
   double takeoff_disable_lateral_gains_height_;
   double takeoff_reset_odometry_height_;
-  bool   takeoff_odometry_was_reset = false;
+  bool   takeoff_odometry_was_reset    = false;
+  bool   takeoff_from_moving_platform_ = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -247,6 +248,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
   param_loader.load_param("takeoff_disable_lateral_gains", takeoff_disable_lateral_gains_);
   param_loader.load_param("takeoff_disable_lateral_gains_height", takeoff_disable_lateral_gains_height_);
   param_loader.load_param("takeoff_reset_odometry_height", takeoff_reset_odometry_height_);
+  param_loader.load_param("takeoff_from_moving_platform", takeoff_from_moving_platform_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -495,7 +497,11 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
       speed_y         = odometry.twist.twist.linear.y;
       current_heading = atan2(speed_y, speed_x);
 
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      if (takeoff_from_moving_platform_) {
+        current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      } else {
+        current_horizontal_speed = 0;
+      }
     }
 
     ROS_INFO("[LandoffTracker]: waiting for KF to settle, height: %f", odometry_z);
@@ -1424,7 +1430,7 @@ void LandoffTracker::resetLateralOdometry(void) {
 
 //}
 
-/* replicateOdometru() //{ */
+/* replicateOdometry() //{ */
 
 void LandoffTracker::replicateOdometry(void) {
 
