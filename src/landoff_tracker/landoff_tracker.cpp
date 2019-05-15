@@ -504,7 +504,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
       }
     }
 
-    ROS_INFO("[LandoffTracker]: waiting for KF to settle, height: %f", odometry_z);
+    ROS_INFO("[LandoffTracker]: waiting for odometry to settle, height: %f", odometry_z);
 
   } else if (lateral_odometry_being_reset) {
 
@@ -1166,7 +1166,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
           current_horizontal_speed = 0;
           current_vertical_speed   = 0;
 
-          ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: position difference > %1.3f, saturating the motion", error_size);
+          ROS_WARN_THROTTLE(0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f", error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
         }
       }
     }
