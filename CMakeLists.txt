@@ -6,7 +6,6 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   tf
   std_msgs
-  message_generation
   roscpp
   rospy
   mrs_lib
@@ -14,8 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_uav_manager
   )
 
-set(CMAKE_CXX_FLAGS "-std=c++17 -Os -fno-diagnostics-color -Wall")
-set(CMAKE_C_FLAGS "-Os -fno-diagnostics-color -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color")
 
 # include Eigen3
 find_package(Eigen3 REQUIRED)
@@ -25,7 +23,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS message_runtime geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs
+  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs
   DEPENDS Eigen
   )
 
@@ -113,6 +111,19 @@ target_link_libraries(JoyTracker
   ${catkin_LIBRARIES}
   )
 
+# Matlab tracker
+
+add_library(MatlabTracker
+  src/matlab_tracker/matlab_tracker.cpp
+  )
+add_dependencies(MatlabTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(MatlabTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############
@@ -134,10 +145,7 @@ install(DIRECTORY include/${PROJECT_NAME}/
   )
 
 install(FILES
-  mrs_trackers.xml
-  csv_tracker.xml
-  line_tracker.xml
-  landoff_tracker.xml
+  plugins.xml
   DESTINATION
   ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )
