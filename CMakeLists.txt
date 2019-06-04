@@ -42,7 +42,7 @@ include_directories(
 
 add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
 
-add_library(cvx_wrapper src/mpc_tracker/cvx_wrapper.cpp
+add_library(MpcTrackerCvxgen src/mpc_tracker/cvx_wrapper.cpp
   src/mpc_tracker/cvxgen/ldl.c
   src/mpc_tracker/cvxgen/matrix_support.c
   src/mpc_tracker/cvxgen/solver.c
@@ -56,7 +56,7 @@ add_dependencies(MpcTracker
 
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
-  cvx_wrapper
+  MpcTrackerCvxgen
   )
 
 # CSV Tracker
