@@ -76,7 +76,6 @@ public:
 
   virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
-
 private:
   bool callbacks_enabled = true;
 
@@ -1416,7 +1415,6 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
 }
 
 //}
-
 
 // --------------------------------------------------------------
 // |                  tracker's custom routines                 |
