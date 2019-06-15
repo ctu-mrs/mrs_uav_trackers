@@ -765,7 +765,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, replaying the last poing...");
 
     mrs_msgs::String SwitchTracker;
-    SwitchTracker.request.value = "mrs_trackers/MpcTracker";
+    SwitchTracker.request.value = "MpcTracker";
     service_switch_tracker.call(SwitchTracker);
   }
 }
