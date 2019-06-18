@@ -1,10 +1,14 @@
+/*//{ includes */
 #include <ros/ros.h>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Float64MultiArray.h>
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
+#include <mrs_msgs/TrackerPoint.h>
+#include <mrs_msgs/String.h>
 #include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
@@ -12,138 +16,200 @@
 
 #include <commons.h>
 
+#include <eigen3/Eigen/Eigen>
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
+//}
 
+/*//{ defines */
 #define STOP_THR 1e-3
+#define INITIAL_DIST 2 
+#define JOINT_DIST 0.11
+#define Kdx 100
+#define Kdy 800 
+#define Kdz 100
+/*//}*/
 
 namespace mrs_trackers
 {
 
-  /* //{ class WallTracker */
-
-  // state machine
-  typedef enum
+  namespace wall_tracker
   {
+/* //{ class WallTracker */
 
-    IDLE_STATE,
-    STOP_MOTION_STATE,
-    HOVER_STATE,
-    ACCELERATING_STATE,
-    DECELERATING_STATE,
-    STOPPING_STATE,
+// state machine
+typedef enum
+{
 
-  } States_t;
+  IDLE_STATE,
+  STOP_MOTION_STATE,
+  HOVER_STATE,
+  ACCELERATING_STATE,
+  DECELERATING_STATE,
+  STOPPING_STATE,
+  APPROACHING_STATE,
+  STABILIZING_STATE,
+  DETACHING_STATE
 
-  const char *state_names[6] = {
+} States_t;
 
-      "IDLING", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
+const char *state_names[9] = {
 
-  class WallTracker : public mrs_uav_manager::Tracker {
-  public:
-    WallTracker(void);
+    "IDLING", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING", "APPROACHING", "STABILIZING", "DETACHING"};
 
-    virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
-    virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
-    virtual void deactivate(void);
+class WallTracker : public mrs_uav_manager::Tracker {
+public:
+  WallTracker(void);
 
-    virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-    virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
-    virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-    virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
+  virtual void deactivate(void);
 
-    virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-    virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-    virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-    virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-    virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
+  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
-    virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-    virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-    virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
-    virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
-    virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
+  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
 
-    virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
+  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
+  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
+  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
 
-    virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
-  private:
-    bool callbacks_enabled = true;
+  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
-  private:
-    nav_msgs::Odometry odometry;
-    bool               got_odometry = false;
-    std::mutex         mutex_odometry;
+private:
+  bool callbacks_enabled = true;
 
-    double odometry_x;
-    double odometry_y;
-    double odometry_z;
-    double odometry_yaw;
-    double odometry_roll;
-    double odometry_pitch;
+private:
+  nav_msgs::Odometry odometry;
+  bool               got_odometry = false;
+  std::mutex         mutex_odometry;
 
-  private:
-    // tracker's inner states
-    int    tracker_loop_rate_;
-    double tracker_dt_;
-    bool   is_initialized;
-    bool   is_active;
-    bool   first_iter;
+  double odometry_x;
+  double odometry_y;
+  double odometry_z;
+  double odometry_yaw;
+  double odometry_roll;
+  double odometry_pitch;
 
-  private:
-    void       mainTimer(const ros::TimerEvent &event);
-    ros::Timer main_timer;
+private:
+  // tracker's inner states
+  int    tracker_loop_rate_;
+  double tracker_dt_;
+  bool   is_initialized;
+  bool   is_active;
+  bool   first_iter;
+  double force;
+  double center_dist;
 
-  private:
-    States_t current_state_vertical    = IDLE_STATE;
-    States_t previous_state_vertical   = IDLE_STATE;
-    States_t current_state_horizontal  = IDLE_STATE;
-    States_t previous_state_horizontal = IDLE_STATE;
+private:
+  void       mainTimer(const ros::TimerEvent &event);
+  ros::Timer main_timer;
 
-    void changeStateHorizontal(States_t new_state);
-    void changeStateVertical(States_t new_state);
-    void changeState(States_t new_state);
+private:
+  ros::Subscriber subscriber_force;
+  ros::ServiceServer service_attach;
+  ros::ServiceServer service_detach;
+  ros::ServiceServer service_force;
 
-  private:
-    void stopHorizontalMotion(void);
-    void stopVerticalMotion(void);
-    void accelerateHorizontal(void);
-    void accelerateVertical(void);
-    void decelerateHorizontal(void);
-    void decelerateVertical(void);
-    void stopHorizontal(void);
-    void stopVertical(void);
+  ros::ServiceClient service_client_gains;
 
-  private:
-    // dynamical constraints
-    double     horizontal_speed_;
-    double     vertical_speed_;
-    double     horizontal_acceleration_;
-    double     vertical_acceleration_;
-    double     yaw_rate_;
-    double     yaw_gain_;
-    std::mutex mutex_constraints;
+private:
+  States_t current_state_vertical    = IDLE_STATE;
+  States_t previous_state_vertical   = IDLE_STATE;
+  States_t current_state_horizontal    = IDLE_STATE;
+  States_t previous_state_horizontal   = IDLE_STATE;
 
-  private:
-    // desired goal
-    double     goal_x, goal_y, goal_z, goal_yaw;
-    double     have_goal = false;
-    std::mutex mutex_goal;
+  void changeState(States_t new_state);
+  void changeStateHorizontal(States_t new_state);
+  void changeStateVertical(States_t new_state);
 
-    // my current state
-    double     state_x, state_y, state_z, state_yaw;
-    double     speed_x, speed_y, speed_yaw;
-    double     current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
-    double     current_horizontal_acceleration, current_vertical_acceleration;
-    std::mutex mutex_state;
+private:
+  void approachWallHorizontal(void);
+  void approachWallVertical(void);
+  void stabilizeUavHorizontal(void);
+  void stabilizeUavVertical(void);
+  void detachWallHorizontal(void);
+  void detachWallVertical(void);
 
-    mrs_msgs::PositionCommand position_output;
+  void stopHorizontalMotion(void);
+  void stopVerticalMotion(void);
+  void accelerateHorizontal(void);
+  void accelerateVertical(void);
+  void decelerateHorizontal(void);
+  void decelerateVertical(void);
+  void stopHorizontal(void);
+  void stopVertical(void);
 
-  private:
-    mrs_lib::Profiler *profiler;
-    bool               profiler_enabled_ = false;
-  };
+private:
+  void callbackForce(const std_msgs::Float64MultiArray &msg);
+  bool callbackAttach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackDetach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
+  bool callbackDesiredForce(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool callbackSetGains(mrs_msgs::String::Request &req, mrs_msgs::String::Response &res);
+
+private:
+  // dynamical constraints
+  double     horizontal_speed_;
+  double     vertical_speed_;
+  double     approaching_speed_;
+  double     stabilize_speed_;
+  double     horizontal_acceleration_;
+  double     vertical_acceleration_;
+  double     approaching_acceleration_;
+  double     stabilize_acceleration_;
+  double     yaw_rate_;
+  double     yaw_gain_;
+  double     max_tilt_;
+  std::mutex mutex_constraints;
+
+private: 
+  mrs_msgs::String gains;
+
+private:
+  // desired goal
+  double     goal_x, goal_y, goal_z, goal_yaw;
+  double     relative_x, relative_y, relative_z, relative_yaw, goal_force;
+  double     offset_goal, numerator, offset_tilt_direction;
+  double     have_goal = false;
+  double     read_force = false;
+  int        counter;
+  bool       detach = false;
+  bool       gains_w = false;
+
+  std_msgs::Float64MultiArray forces;
+  std::mutex mutex_goal;
+
+  // my current state
+  double     state_x, state_y, state_z, state_yaw;
+  double     speed_x, speed_y, speed_yaw;
+  double     current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
+  double     current_horizontal_acceleration, current_vertical_acceleration;
+  double     attitude_coeff = 1;
+  double     desired_roll, desired_pitch;
+  std::mutex mutex_state;
+
+  mrs_msgs::PositionCommand position_output;
+
+private:
+    /* Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle); */
+  mrs_msgs::TrackerPointStamped go_fcu(double x, double y, double z , double yaw);
+  mrs_msgs::TrackerPointStamped go_fcu_state(double x, double y, double z , double yaw);
+  mrs_msgs::TrackerPointStamped goal_fcu;
+
+private:
+  mrs_lib::Profiler *profiler;
+  bool               profiler_enabled_ = false;
+};
 
   WallTracker::WallTracker(void) : is_initialized(false), is_active(false) {
   }
@@ -172,11 +238,19 @@ namespace mrs_trackers
     param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
     param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
 
+    param_loader.load_param("approaching_tracker/approaching_speed", approaching_speed_);
+    param_loader.load_param("approaching_tracker/approaching_acceleration", approaching_acceleration_);
+    
+    param_loader.load_param("stabilize_tracker/stabilize_speed", stabilize_speed_);
+    param_loader.load_param("stabilize_tracker/stabilize_acceleration", stabilize_acceleration_);
+
     param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
     param_loader.load_param("vertical_tracker/vertical_acceleration", vertical_acceleration_);
 
     param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
     param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
+
+    param_loader.load_param("max_tilt", max_tilt_);
 
     param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
 
@@ -188,6 +262,11 @@ namespace mrs_trackers
     state_y   = 0;
     state_z   = 0;
     state_yaw = 0;
+
+    relative_x   = 0;
+    relative_y   = 0;
+    relative_z   = 0;
+    relative_yaw = 0;
 
     speed_x   = 0;
     speed_y   = 0;
@@ -201,11 +280,21 @@ namespace mrs_trackers
 
     current_vertical_direction = 0;
 
+    current_state_horizontal  = IDLE_STATE;
+    previous_state_horizontal = IDLE_STATE;
+
     current_state_vertical  = IDLE_STATE;
     previous_state_vertical = IDLE_STATE;
 
-    current_state_horizontal  = IDLE_STATE;
-    previous_state_horizontal = IDLE_STATE;
+    goal_force = 1;
+    numerator = 0;
+    offset_goal = 0;
+    offset_tilt_direction = 0;
+
+    goal_fcu.position.x = 0;
+    goal_fcu.position.y = 0;
+    goal_fcu.position.z = 0;
+    goal_fcu.position.yaw = 0;
 
     // --------------------------------------------------------------
     // |                          profiler                          |
@@ -214,10 +303,31 @@ namespace mrs_trackers
     profiler = new mrs_lib::Profiler(nh_, "WallTracker", profiler_enabled_);
 
     // --------------------------------------------------------------
+    // |                          services                          |
+    // --------------------------------------------------------------
+
+    service_attach = nh_.advertiseService("attach_wall", &WallTracker::callbackAttach, this);
+    service_detach = nh_.advertiseService("detach_wall", &WallTracker::callbackDetach, this);
+    service_force = nh_.advertiseService("set_force", &WallTracker::callbackDesiredForce, this);
+
+    // --------------------------------------------------------------
     // |                           timers                           |
     // --------------------------------------------------------------
 
     main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &WallTracker::mainTimer, this);
+
+    if (!param_loader.loaded_successfully()) {
+      ROS_ERROR("[WallTracker]: Could not load all parameters!");
+      ros::shutdown();
+    }
+
+    // --------------------------------------------------------------
+    // |                         subscribers                        |
+    // --------------------------------------------------------------
+
+    subscriber_force = nh_.subscribe("forces_in", 1, &WallTracker::callbackForce, this);
+
+    service_client_gains    = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
 
     if (!param_loader.loaded_successfully()) {
       ROS_ERROR("[WallTracker]: Could not load all parameters!");
@@ -237,6 +347,11 @@ namespace mrs_trackers
 
     if (!got_odometry) {
       ROS_ERROR("[WallTracker]: can't activate(), odometry not set");
+      return false;
+    }
+
+    if (!read_force) {
+      ROS_ERROR("[WallTracker]: can't activate(), force not set");
       return false;
     }
 
@@ -393,19 +508,20 @@ namespace mrs_trackers
       position_output.position.z = state_z;
       position_output.yaw        = state_yaw;
 
-      position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
-      position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
-      position_output.velocity.z = current_vertical_direction * current_vertical_speed;
-      position_output.yaw_dot    = speed_yaw;
+      position_output.velocity.x = 0;
+      position_output.velocity.y = 0;
+      position_output.velocity.z = 0;
+      position_output.yaw_dot    = 0;
 
       position_output.acceleration.x = 0;
       position_output.acceleration.y = 0;
-      position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
+      position_output.acceleration.z = 0;
 
       position_output.use_position       = 1;
       position_output.use_euler_attitude = 1;
       position_output.use_velocity       = 1;
       position_output.use_acceleration   = 1;
+      position_output.use_quat_attitude  = 0;
     }
 
     return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -522,237 +638,89 @@ namespace mrs_trackers
 
   /* //{ goTo() service */
 
-  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
-    mrs_msgs::Vec4Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_x   = cmd->goal[0];
-      goal_y   = cmd->goal[1];
-      goal_z   = cmd->goal[2];
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal[3]);
-    }
-
-    ROS_INFO("[WallTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-    have_goal = true;
-
-    res.success = true;
-    res.message = "setpoint set";
-
-    changeState(STOP_MOTION_STATE);
-
-    return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+    return mrs_msgs::Vec4Response::Ptr();
   }
 
   //}
 
   /* //{ goTo() topic */
 
-  bool WallTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+  bool WallTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_x   = msg->position.x;
-      goal_y   = msg->position.y;
-      goal_z   = msg->position.z;
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->position.yaw);
-    }
-
-    ROS_INFO("[WallTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-    have_goal = true;
-
-    changeState(STOP_MOTION_STATE);
-
-    return true;
+    return false;
   }
 
   //}
 
   /* //{ goToRelative() service */
 
-  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+  const mrs_msgs::Vec4Response::ConstPtr WallTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
-    mrs_msgs::Vec4Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x + cmd->goal[0];
-      goal_y   = state_y + cmd->goal[1];
-      goal_z   = state_z + cmd->goal[2];
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
-    }
-
-    ROS_INFO("[WallTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-    have_goal = true;
-
-    res.success = true;
-    res.message = "setpoint set";
-
-    changeState(STOP_MOTION_STATE);
-
-    return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
+    return mrs_msgs::Vec4Response::Ptr();
   }
 
   //}
 
   /* //{ goToRelative() topic */
 
-  bool WallTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+  bool WallTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x + msg->position.x;
-      goal_y   = state_y + msg->position.y;
-      goal_z   = state_z + msg->position.z;
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->position.yaw);
-    }
-
-    ROS_INFO("[WallTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-    have_goal = true;
-
-    changeState(STOP_MOTION_STATE);
-
-    return true;
+    return false;
   }
 
   //}
 
   /* //{ goToAltitude() service */
 
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  const mrs_msgs::Vec1Response::ConstPtr WallTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x;
-      goal_y   = state_y;
-      goal_z   = cmd->goal;
-      goal_yaw = state_yaw;
-
-      have_goal = true;
-    }
-
-    ROS_INFO("[WallTracker]: received new altituded setpoint %3.2f", goal_z);
-
-    res.success = true;
-    res.message = "setpoint set";
-
-    changeState(STOP_MOTION_STATE);
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+    return mrs_msgs::Vec1Response::Ptr();
   }
 
   //}
 
   /* //{ goToAltitude() topic */
 
-  bool WallTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
+  bool WallTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x   = state_x;
-      goal_y   = state_y;
-      goal_z   = msg->data;
-      goal_yaw = state_yaw;
-
-      have_goal = true;
-    }
-
-    ROS_INFO("[WallTracker]: received new altituded setpoint %3.2f", goal_z);
-
-    changeState(STOP_MOTION_STATE);
-
-    return true;
+    return false;
   }
 
   //}
 
   /* //{ setYaw() service */
 
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-    }
-
-    ROS_INFO("[WallTracker]: setting yaw %3.2f", goal_yaw);
-
-    res.success = true;
-    res.message = "yaw set";
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  
+    return mrs_msgs::Vec1Response::Ptr();
   }
-
   //}
 
   /* //{ setYaw() topic */
 
-  bool WallTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
+  bool WallTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
-    {
-      std::scoped_lock lock(mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
-    }
-
-    ROS_INFO("[WallTracker]: setting absolute yaw to %3.2f", goal_yaw);
-
-    return true;
+    return false;
   }
 
   //}
 
   /* //{ setYawRelative() service */
 
-  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+  const mrs_msgs::Vec1Response::ConstPtr WallTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
-    mrs_msgs::Vec1Response res;
-
-    {
-      std::scoped_lock lock(mutex_state, mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
-    }
-
-    ROS_INFO("[WallTracker]: setting relative yaw by %3.2f", goal_yaw);
-
-    res.success = true;
-    res.message = "yaw set";
-
-    return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
+    return mrs_msgs::Vec1Response::Ptr();
   }
 
   //}
 
   /* //{ setYawRelative() topic */
 
-  bool WallTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
+  bool WallTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
-    {
-      std::scoped_lock lock(mutex_state, mutex_goal);
-
-      goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
-    }
-
-    ROS_INFO("[WallTracker]: received relative yaw by %3.2f", goal_yaw);
-
-    return true;
+    return false;
   }
 
   //}
@@ -761,94 +729,23 @@ namespace mrs_trackers
 
   const std_srvs::TriggerResponse::ConstPtr WallTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
-    std_srvs::TriggerResponse res;
-
-    // --------------------------------------------------------------
-    // |          horizontal initial conditions prediction          |
-    // --------------------------------------------------------------
-    {
-      std::scoped_lock lock(mutex_state, mutex_odometry);
-
-      current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-      current_vertical_speed   = odometry.twist.twist.linear.z;
-      current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
-    }
-
-    double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
-
-    {
-      std::scoped_lock lock(mutex_state);
-
-      horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-      horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-      stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-      stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
-    }
-
-    // --------------------------------------------------------------
-    // |           vertical initial conditions prediction           |
-    // --------------------------------------------------------------
-
-    double vertical_t_stop, vertical_stop_dist;
-
-    {
-      std::scoped_lock lock(mutex_state);
-
-      vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-      vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
-    }
-
-    // --------------------------------------------------------------
-    // |                        set the goal                        |
-    // --------------------------------------------------------------
-
-    {
-      std::scoped_lock lock(mutex_goal, mutex_state);
-
-      goal_x = state_x + stop_dist_x;
-      goal_y = state_y + stop_dist_y;
-      goal_z = state_z + vertical_stop_dist;
-    }
-
-    res.message = "Hover initiated.";
-    res.success = true;
-
-    changeState(STOP_MOTION_STATE);
-
-    return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+    return std_srvs::TriggerResponse::Ptr();
   }
 
   //}
 
   /* //{ setConstraints() service */
 
-  const mrs_msgs::TrackerConstraintsResponse::ConstPtr WallTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+  const mrs_msgs::TrackerConstraintsResponse::ConstPtr WallTracker::setConstraints([
+      [maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
-    mrs_msgs::TrackerConstraintsResponse res;
-
-    // this is the place to copy the constraints
-    {
-      std::scoped_lock lock(mutex_constraints);
-
-      horizontal_speed_        = cmd->horizontal_speed;
-      horizontal_acceleration_ = cmd->horizontal_acceleration;
-
-      vertical_speed_        = cmd->vertical_ascending_speed;
-      vertical_acceleration_ = cmd->vertical_ascending_acceleration;
-
-      yaw_rate_ = cmd->yaw_speed;
-    }
-
-    res.success = true;
-    res.message = "constraints updated";
-
-    return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+    return mrs_msgs::TrackerConstraintsResponse::Ptr();
   }
 
   //}
-
+  
   // | ----------------- state machine routines ----------------- |
-
+  
   /* //{ changeStateHorizontal() */
 
   void WallTracker::changeStateHorizontal(States_t new_state) {
@@ -878,16 +775,178 @@ namespace mrs_trackers
   /* //{ changeState() */
 
   void WallTracker::changeState(States_t new_state) {
-
-    changeStateVertical(new_state);
+    
     changeStateHorizontal(new_state);
+    changeStateVertical(new_state);
   }
 
   //}
 
   // | --------------------- motion routines -------------------- |
+  
+  /* //{approachWallHorizontal() */
 
-  /* //{ stopHorizontalMotion() */
+  void WallTracker::approachWallHorizontal(void) {
+    current_heading = atan2(goal_y - state_y, goal_x - state_x);
+
+    double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
+
+    horizontal_t_stop    = current_horizontal_speed / approaching_acceleration_;
+    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+    stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
+    stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+
+    current_horizontal_speed += approaching_acceleration_ * tracker_dt_;
+
+    if (current_horizontal_speed >= approaching_speed_) {
+      current_horizontal_speed        = approaching_speed_;
+      current_horizontal_acceleration = 0;
+    } else {
+      current_horizontal_acceleration = approaching_acceleration_;
+    }
+
+    if (force > 3){
+      gains.request.value = "wall"; 
+      gains_w = true;
+      changeState(STABILIZING_STATE);
+      ROS_INFO("[WallTracker] Changing state to STABILIZING_STATE");
+
+      service_client_gains.call(gains);
+    }
+    if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (approaching_speed_ * tracker_dt_)) ) {
+      current_horizontal_acceleration = 0; 
+    } 
+
+    relative_y = -0.005;
+  }
+
+  //}
+
+   /* //{ approachWallVertical() */
+
+  void WallTracker::approachWallVertical(void) {
+    
+    // set the right heading
+    double tar_z = goal_z  - state_z;
+
+    // set the right vertical direction
+    current_vertical_direction = mrs_trackers_commons::sign(tar_z);
+
+    // calculate the time to stop and the distance it will take to stop [vertical]
+    /* double vertical_t_stop    = current_vertical_speed / vertical_acceleration_; */
+    /* double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2; */
+    /* double stop_dist_z        = current_vertical_direction * vertical_stop_dist; */
+
+    current_vertical_speed += vertical_acceleration_ * tracker_dt_;
+
+    if (current_vertical_speed >= vertical_speed_) {
+      current_vertical_speed        = vertical_speed_;
+      current_vertical_acceleration = 0;
+    } else {
+      current_vertical_acceleration = vertical_acceleration_;
+    }
+  }
+
+  //} 
+  
+  /* //{ stabilizeUavHorizontal() */
+
+  void WallTracker::stabilizeUavHorizontal(void) {
+    current_heading = atan2(goal_y - state_y, goal_x - state_x);
+
+    current_horizontal_speed += stabilize_acceleration_ * tracker_dt_;
+
+    if (current_horizontal_speed >= stabilize_speed_) {
+          current_horizontal_speed        = stabilize_speed_;
+          current_horizontal_acceleration = 0;
+    } else {
+      current_horizontal_acceleration = stabilize_acceleration_;
+    }   
+    
+    if (detach == true) {
+        changeState(DETACHING_STATE);
+    } 
+
+  }
+
+  //}
+
+  /* //{ stabilizeUavVertical() */
+
+  void WallTracker::stabilizeUavVertical(void) {
+    //
+    // set the right heading
+    double tar_z = (goal_z + offset_tilt_direction) - state_z;
+
+    // set the right vertical direction
+    current_vertical_direction = mrs_trackers_commons::sign(tar_z);
+
+    // calculate the time to stop and the distance it will take to stop [vertical]
+    /* double vertical_t_stop    = current_vertical_speed / vertical_acceleration_; */
+    /* double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2; */
+    /* double stop_dist_z        = current_vertical_direction * vertical_stop_dist; */
+
+    current_vertical_speed += vertical_acceleration_ * tracker_dt_;
+
+    if (current_vertical_speed >= vertical_speed_) {
+      current_vertical_speed        = vertical_speed_;
+      current_vertical_acceleration = 0;
+    } else {
+      current_vertical_acceleration = vertical_acceleration_;
+    }
+
+  }
+
+  //}
+ 
+  /* //{ detachWallHorizontal() */
+
+  void WallTracker::detachWallHorizontal(void) {
+
+    current_heading = atan2(goal_y - state_y, goal_x - state_x);
+
+    current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
+    if (current_horizontal_speed >= horizontal_speed_) {
+      current_horizontal_speed        = horizontal_speed_;
+      current_horizontal_acceleration = 0;
+    } else {
+      current_horizontal_acceleration = horizontal_acceleration_;
+    }
+
+    gains.request.value = "soft"; 
+    service_client_gains.call(gains);
+    }
+
+  //}
+
+  /* //{ detachWallVertical() */
+
+  void WallTracker::detachWallVertical(void) {
+    //
+    // set the right heading
+    double tar_z = goal_z - state_z;
+
+    // set the right vertical direction
+    current_vertical_direction = mrs_trackers_commons::sign(tar_z);
+
+    // calculate the time to stop and the distance it will take to stop [vertical]
+    /* double vertical_t_stop    = current_vertical_speed / vertical_acceleration_; */
+    /* double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2; */
+    /* double stop_dist_z        = current_vertical_direction * vertical_stop_dist; */
+
+    current_vertical_speed += vertical_acceleration_ * tracker_dt_;
+
+    if (current_vertical_speed >= vertical_speed_) {
+      current_vertical_speed        = vertical_speed_;
+      current_vertical_acceleration = 0;
+    } else {
+      current_vertical_acceleration = vertical_acceleration_;
+    }
+  }
+
+  //}
+
+    /* //{ stopHorizontalMotion() */
 
   void WallTracker::stopHorizontalMotion(void) {
 
@@ -941,9 +1000,10 @@ namespace mrs_trackers
       current_horizontal_acceleration = horizontal_acceleration_;
     }
 
-    if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
+    if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < ((horizontal_speed_ * tracker_dt_))) {
       current_horizontal_acceleration = 0;
       changeStateHorizontal(DECELERATING_STATE);
+      goal_z += 0.2;
     }
   }
 
@@ -973,7 +1033,7 @@ namespace mrs_trackers
       current_vertical_acceleration = vertical_acceleration_;
     }
 
-    if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
+    if (fabs(state_z + stop_dist_z - goal_z) < ((vertical_speed_ * tracker_dt_))) {
       current_vertical_acceleration = 0;
       changeStateVertical(DECELERATING_STATE);
     }
@@ -1017,9 +1077,7 @@ namespace mrs_trackers
       current_vertical_acceleration = 0;
       changeStateVertical(STOPPING_STATE);
     }
-  }
-
-  //}
+  }  //}
 
   /* //{ stopHorizontal() */
 
@@ -1042,6 +1100,108 @@ namespace mrs_trackers
 
   //}
 
+
+  // | ------------------------ callbacks ----------------------- |
+
+  /* callbackForces() //{ */
+
+  void WallTracker::callbackForce(const std_msgs::Float64MultiArray &msg) {
+
+    if (!is_initialized) {
+      return;
+    }
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForce");
+     
+
+    forces = msg;
+    
+    read_force = true;
+    
+  }
+
+  //}
+  
+    /* //{ callbackAttach() */
+
+  bool WallTracker::callbackAttach([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    if (!is_active) {
+
+      res.success = false;
+      res.message = "WallTracker is not active!";
+      return true;
+    }
+
+    if (!callbacks_enabled) {
+
+      res.success = false;
+      res.message = "Callbacks are disabled!";
+      return true;
+    }
+    res.success = true;
+    res.message = "Approaching the wall.";
+
+    ROS_INFO("[WallTracker]: Goal changed -- attaching.");
+    detach = false;
+
+    changeState(APPROACHING_STATE);
+
+    return true;
+  }
+
+  //}
+  
+     /* //{ callbackDetach() */
+
+  bool WallTracker::callbackDetach([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+    if (!is_active) {
+
+      res.success = false;
+      res.message = "WallTracker is not active!";
+      return true;
+    }
+
+    if (!callbacks_enabled) {
+
+      res.success = false;
+      res.message = "Callbacks are disabled!";
+      return true;
+    }
+
+    res.success = true;
+    res.message = "Detaching the wall.";
+    detach = true; 
+
+
+    return true;
+  }
+
+  //}
+  
+  /* callbackDesiredForce() //{ */
+
+  bool WallTracker::callbackDesiredForce(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+
+    if (!is_initialized) {
+      return false;
+    }
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForce");
+     
+    ROS_INFO("[WallTracker]: Goal force changed to %3.2f.", req.goal);
+
+    goal_force = req.goal;
+    res.success = true;
+    res.message = "Force read";
+    return true;
+    
+  }
+
+  //}
+
+
   // | ------------------------- timers ------------------------- |
 
   /* //{ mainTimer() */
@@ -1051,8 +1211,16 @@ namespace mrs_trackers
     if (!is_active) {
       return;
     }
-
+    
     mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
+
+    force = (forces.data[0] + forces.data[1]); //*cos(odometry_roll)
+    if (force > 0){
+      center_dist = (forces.data[1]*JOINT_DIST)/(force) - JOINT_DIST/2;
+    }
+    else{
+      center_dist = 0;
+    }
 
     {
       std::scoped_lock lock(mutex_constraints, mutex_odometry, mutex_goal, mutex_state);
@@ -1065,23 +1233,29 @@ namespace mrs_trackers
 
         case HOVER_STATE:
 
+          ROS_INFO("[WallTracker]: HOVER_STATE");
           break;
 
         case STOP_MOTION_STATE:
 
           stopHorizontalMotion();
 
+          ROS_INFO("[WallTracker]: STOPPING_MOTION_STATE");
           break;
 
         case ACCELERATING_STATE:
 
           accelerateHorizontal();
 
+
+          ROS_INFO("[WallTracker]: ACCELERATING_STATE");
           break;
 
         case DECELERATING_STATE:
 
           decelerateHorizontal();
+
+          ROS_INFO("[WallTracker]: DECELERATING_STATE");
 
           break;
 
@@ -1089,7 +1263,87 @@ namespace mrs_trackers
 
           stopHorizontal();
 
+          ROS_INFO("[WallTracker]: STOPPING_STATE");
+
           break;
+
+        case APPROACHING_STATE:
+
+          goal_fcu = go_fcu_state(0, relative_y, 0, 0);
+
+          goal_x = goal_fcu.position.x;
+          goal_y = goal_fcu.position.y;
+          goal_z = goal_fcu.position.z;
+          goal_yaw = goal_fcu.position.yaw;
+
+          approachWallHorizontal();
+
+          break;
+
+        case STABILIZING_STATE:
+
+          goal_x = state_x;
+          goal_y = state_y;
+          goal_z = state_z;
+
+          numerator = (force-goal_force); 
+
+          relative_y = numerator/Kdy; 
+          relative_yaw = (-center_dist)*force*(0.1); 
+
+          if (force == 0 && goal_force > 0) {
+            relative_y = -0.05; 
+          }
+          if(odometry_roll > 0.25){ 
+            relative_y = 0.01;  
+          }
+          if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) > 1 && relative_y < 0  && force > 0){
+             relative_y = 0; 
+          }
+          if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) < 0.3) {
+             relative_y = -0.15; 
+          }
+          goal_fcu = go_fcu_state(0, relative_y, 0, relative_yaw);
+
+          goal_x = goal_fcu.position.x;
+          goal_y = goal_fcu.position.y;
+          goal_z = goal_fcu.position.z;
+          goal_yaw = goal_fcu.position.yaw;
+
+          stabilizeUavHorizontal();
+
+
+          ROS_INFO("[WallTracker]: STABILIZING_STATE");
+
+          break;
+
+        case DETACHING_STATE:
+          
+          state_x = odometry_x;
+          state_y = odometry_y;
+          state_z = odometry_z;
+
+          relative_x = 0; 
+          relative_y = 2.0;
+          relative_z = -0.2;
+          relative_yaw = 0;
+
+          goal_fcu = go_fcu_state(0, relative_y, relative_z, 0);
+
+          goal_x = goal_fcu.position.x;
+          goal_y = goal_fcu.position.y;
+          goal_z = goal_fcu.position.z;
+          goal_yaw = goal_fcu.position.yaw;
+
+          have_goal = true;
+
+          detachWallHorizontal();
+
+
+          ROS_INFO("[WallTracker]: DETACHING_STATE");
+          changeState(ACCELERATING_STATE);
+
+          break;     
       }
 
       switch (current_state_vertical) {
@@ -1119,6 +1373,21 @@ namespace mrs_trackers
           decelerateVertical();
 
           break;
+        case APPROACHING_STATE:
+
+          decelerateVertical();
+
+          break;       
+        case STABILIZING_STATE:
+
+          decelerateVertical();
+
+          break;        
+        case DETACHING_STATE:
+
+          decelerateVertical();
+
+          break;
 
         case STOPPING_STATE:
 
@@ -1126,6 +1395,9 @@ namespace mrs_trackers
 
           break;
       }
+
+      ROS_INFO("[WallTracker]: AC-Goal odom y: %3.2f,state y: %3.2f, goal y: %3.2f\n", odometry_y, state_y, goal_y);
+
       if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
 
         if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
@@ -1144,6 +1416,7 @@ namespace mrs_trackers
           state_x = goal_x;
           state_y = goal_y;
           state_z = goal_z;
+          current_vertical_speed = 0;
 
           changeState(HOVER_STATE);
         }
@@ -1153,6 +1426,9 @@ namespace mrs_trackers
       state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
       state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
 
+
+      /* ROS_INFO("[WallTracker]: DETACH- goal_x: %3.2f goal_y: %3.2f goal_z: %3.2f \n", goal_x, goal_y, goal_z); */
+      /* ROS_INFO("[WallTracker]: state_z: %3.2f current_dir: %3.2f current_vertical_speed: %3.2f \n", state_z, current_vertical_direction, current_vertical_speed); */
       // --------------------------------------------------------------
       // |                        yaw tracking                        |
       // --------------------------------------------------------------
@@ -1181,12 +1457,61 @@ namespace mrs_trackers
 
       if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
         state_yaw = goal_yaw;
-      }
+      }  
+      speed_yaw = current_yaw_rate;
     }
   }
 
   //}
+ 
+  // | ------------------------ routines ----------------------- |
+
+  /* go_fcu() //{ */
+
+  mrs_msgs::TrackerPointStamped WallTracker::go_fcu(double x, double y, double z, double yaw){
+    mrs_msgs::TrackerPointStamped request;
+    Eigen::Vector2d               des(x, y);
+    Eigen::Rotation2D<double> rot2(odometry_yaw);
+
+    {
+      // rotate it from the frame of the drone
+      des = rot2.toRotationMatrix() * des;
+
+      request.position.x   = des[0] + goal_x;
+      request.position.y   = des[1] + goal_y;
+      request.position.z   = z + state_z;
+      request.position.yaw = yaw + state_yaw;
+    }
+
+  return request;
+  }
+
+  //}
+  
+  /* go_fcu_state() //{ */
+
+  mrs_msgs::TrackerPointStamped WallTracker::go_fcu_state(double x, double y, double z, double yaw){
+    mrs_msgs::TrackerPointStamped request;
+    Eigen::Vector2d               des(x, y);
+    Eigen::Rotation2D<double> rot2(odometry_yaw);
+
+    {
+      // rotate it from the frame of the drone
+      des = rot2.toRotationMatrix() * des;
+
+      request.position.x   = des[0] + state_x;
+      request.position.y   = des[1] + state_y;
+      request.position.z   = z + state_z;
+      request.position.yaw = yaw + state_yaw;
+    }
+
+  return request;
+  }
+
+  //}
+} // namespace wall_tracker
+  
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::WallTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::wall_tracker::WallTracker, mrs_uav_manager::Tracker)
