@@ -1,4 +1,0 @@
-_workspace_packages=( ${(Q)"${(z)$(<<\EO:_workspace_packages
-
-EO:_workspace_packages
-)}"} )

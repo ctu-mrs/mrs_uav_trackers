@@ -33,8 +33,9 @@
 namespace mrs_trackers
 {
 
-  namespace wall_tracker
-  {
+namespace wall_tracker
+{
+
 /* //{ class WallTracker */
 
 // state machine

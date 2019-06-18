@@ -12,7 +12,7 @@
 
 <library path="lib/libWallTracker">
   <class name="mrs_trackers/WallTracker" type="mrs_trackers::wall_tracker::WallTracker" base_class_type="mrs_uav_manager::Tracker">
-    <description>This is Line tracker.</description>
+    <description>This is Wall tracker.</description>
   </class>
 </library>
 

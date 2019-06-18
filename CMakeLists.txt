@@ -143,9 +143,9 @@ target_link_libraries(MatlabTracker
 
 install(TARGETS
   MpcTracker
+  WallTracker
   CsvTracker
   LineTracker
-  WallTracker
   LandoffTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
