@@ -334,12 +334,6 @@ void CsvTracker::deactivate(void) {
   is_active = false;
   odom_set  = false;
   tracking  = false;
-
-  ROS_INFO("[CsvTracker]: begore calling stop");
-
-  main_timer.stop();
-
-  ROS_INFO("[CsvTracker]: CSV tracker deactivated");
 }
 
 //}
@@ -795,6 +789,8 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     service_switch_tracker.call(SwitchTracker);
 
     tracking = false;
+
+    main_timer.stop();
   }
 }
 
