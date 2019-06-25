@@ -1136,11 +1136,12 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       state_z = goal_z = odometry_z;
     }
 
-    if (taking_off && odometry_z > takeoff_reset_odometry_height_ && !takeoff_odometry_was_reset) {
+    // TODO: fix me
+    /* if (taking_off && odometry_z > takeoff_reset_odometry_height_ && !takeoff_odometry_was_reset) { */
 
-      takeoff_odometry_was_reset = true;
-      resetLateralOdometry();
-    }
+    /*   takeoff_odometry_was_reset = true; */
+    /*   resetLateralOdometry(); */
+    /* } */
 
     // --------------------------------------------------------------
     // |              motion saturation during takeoff              |

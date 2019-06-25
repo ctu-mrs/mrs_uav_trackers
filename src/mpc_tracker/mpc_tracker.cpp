@@ -2622,19 +2622,19 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // saturate the trajectory to min and max height
           if (des_z_whole_trajectory(i) < min_height) {
             des_z_whole_trajectory(i) = min_height;
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
           }
           if (des_z_whole_trajectory(i) > max_height) {
             des_z_whole_trajectory(i) = max_height;
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
           }
 
           // the point is not feasible
           if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
 
             // we found the left point
