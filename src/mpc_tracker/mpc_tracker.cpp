@@ -1447,6 +1447,8 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
+
+  ROS_INFO_THROTTLE(1.0, "[MpcTracker]: GETTING %s TRAJECTORY", msg->uav_name.c_str());
 }
 
 //}
