@@ -315,7 +315,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
 
 /* //{ activate() */
 
-bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_odometry) {
     ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
@@ -339,51 +339,27 @@ bool LandoffTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   {
     std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
 
-    if (cmd == mrs_msgs::PositionCommand::Ptr() || (odometry_z < landed_threshold_height_)) {
+    // the last command is usable
+    state_x   = odometry.pose.pose.position.x;
+    state_y   = odometry.pose.pose.position.y;
+    state_z   = odometry.pose.pose.position.z;
+    state_yaw = odometry_yaw;
 
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
+    speed_x         = odometry.twist.twist.linear.x;
+    speed_y         = odometry.twist.twist.linear.y;
+    current_heading = atan2(speed_y, speed_x);
 
-      speed_x                  = 0;
-      speed_y                  = 0;
-      current_heading          = 0;
-      current_horizontal_speed = 0;
+    current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-      current_horizontal_acceleration = 0;
-      current_vertical_acceleration   = 0;
+    current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
+    current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
 
-      current_vertical_speed = 0;
+    current_horizontal_acceleration = 0;
+    current_vertical_acceleration   = 0;
 
-      goal_yaw = odometry_yaw;
+    goal_yaw = odometry_yaw;
 
-      ROS_WARN("[LandoffTracker]: activated, the previous command is not usable for activation, using Odometry instead.");
-
-    } else {
-
-      // the last command is usable
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
-
-      speed_x         = odometry.twist.twist.linear.x;
-      speed_y         = odometry.twist.twist.linear.y;
-      current_heading = atan2(speed_y, speed_x);
-
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
-
-      current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
-      current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
-
-      current_horizontal_acceleration = 0;
-      current_vertical_acceleration   = 0;
-
-      goal_yaw = cmd->yaw;
-
-      ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z, state_yaw);
-    }
+    ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z, state_yaw);
   }
 
   // --------------------------------------------------------------
@@ -1167,7 +1143,9 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
           current_horizontal_speed = 0;
           current_vertical_speed   = 0;
 
-          ROS_WARN_THROTTLE(0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f", error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
+          ROS_WARN_THROTTLE(
+              0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
+              error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
         }
       }
     }
@@ -1325,19 +1303,6 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request &r
     return true;
   }
 
-  if (odometry_z < landed_threshold_height_) {
-
-    sprintf((char *)&message, "Can't land, already on the ground.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
-    res.success = false;
-    res.message = message;
-    changeState(LANDED_STATE);
-    taking_off = false;
-    landing    = false;
-    elanding   = false;
-    return true;
-  }
-
   {
     std::scoped_lock lock(mutex_odometry);
 
@@ -1377,19 +1342,6 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request &
     landing     = false;
     elanding    = false;
     changeState(LANDED_STATE);
-    return true;
-  }
-
-  if (odometry_z < landed_threshold_height_) {
-
-    sprintf((char *)&message, "Can't eland, already on the ground.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
-    res.success = false;
-    res.message = message;
-    changeState(LANDED_STATE);
-    taking_off = false;
-    landing    = false;
-    elanding   = false;
     return true;
   }
 
