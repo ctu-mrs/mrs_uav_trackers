@@ -514,10 +514,12 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   des_z_filtered = MatrixXd::Zero(horizon_len_, 1);
 
   // fill last trajectory with initial data
-  future_trajectory_out.stamp               = ros::Time::now();
-  future_trajectory_out.uav_name            = uav_name_;
-  future_trajectory_out.priority            = my_uav_priority;
-  future_trajectory_out.collision_avoidance = collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) || odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL);
+  future_trajectory_out.stamp    = ros::Time::now();
+  future_trajectory_out.uav_name = uav_name_;
+  future_trajectory_out.priority = my_uav_priority;
+  future_trajectory_out.collision_avoidance =
+      collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+                                       odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL);
 
   mrs_msgs::FuturePoint newPoint;
   newPoint.x = std::numeric_limits<float>::max();
@@ -1134,6 +1136,8 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
+    // TODO: What should we do with the accelerations?
+    // TODO: Those should be updated aswell...
     x(0, 0) = msg->pose.pose.position.x;
     x(1, 0) = msg->twist.twist.linear.x;
 
@@ -2124,7 +2128,8 @@ void MpcTracker::calculateMPC() {
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
 
-  if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) || odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
+  if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+                                       odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
     // determine the lowest point in our trajectory
     for (int i = 0; i < horizon_len_; i++) {
       if (des_z_trajectory(i, 0) < lowest_z) {
