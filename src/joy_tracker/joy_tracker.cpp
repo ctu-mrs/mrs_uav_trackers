@@ -529,10 +529,10 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
 
-  current_vertical_speed = msg.axes[4] * vertical_speed_;
+  current_vertical_speed = msg.axes[3] * vertical_speed_;
   current_yaw_rate       = msg.axes[0] * yaw_rate_;
   desired_pitch          = msg.axes[1] * max_tilt_;
-  desired_roll           = msg.axes[3] * max_tilt_;
+  desired_roll           = msg.axes[2] * max_tilt_;
 
   got_goal = true;
 
