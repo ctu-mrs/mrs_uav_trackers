@@ -7,10 +7,3 @@ max_tilt: 0.50 # [rad]
 
 yaw_tracker:
   yaw_rate: 1.0
-
-buttons_indices:
-  start: 7
-  thrust: 4 
-  yaw: 0
-  pitch: 1
-  roll: 3
