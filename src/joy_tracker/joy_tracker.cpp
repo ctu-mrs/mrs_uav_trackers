@@ -8,6 +8,7 @@
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
+#include <mrs_msgs/ObstacleSectors.h>
 #include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
@@ -112,13 +113,40 @@ private:
 
 private:
   ros::Subscriber subscriber_joystick;
+  ros::Subscriber subscriber_bumper;
   void            callbackJoystic(const sensor_msgs::Joy &msg);
+  void            callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg);
   double          max_tilt_;
   double          vertical_speed_;
+  bool            got_bumper = false;
+
+  mrs_msgs::ObstacleSectors bumper_data;
+  std::mutex                mutex_bumper;
+
+  bool bumper_enabled_           = false;
+  /* bool bumper_hugging_enabled_   = false; */
+  /* bool bumper_repulsion_enabled_ = false; */
+  /* bool repulsing                 = false; */
+  /* uint repulsing_from; */
+
+  /* double bumper_horizontal_distance_; */
+  /* double bumper_vertical_distance_; */
+
+  /* double bumper_repulsion_horizontal_distance_; */
+  /* double bumper_repulsion_horizontal_offset_; */
+  /* double bumper_repulsion_vertical_distance_; */
+  /* double bumper_repulsion_vertical_offset_; */
 
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
+
+  // indices of joystick buttons
+  int start_button_idx_;
+  int thrust_idx_;
+  int yaw_idx_;
+  int pitch_idx_;
+  int roll_idx_;
 };
 
 JoyTracker::JoyTracker(void) : is_initialized(false), is_active(false) {
@@ -151,6 +179,35 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
 
+  param_loader.load_param("buttons_indices/thrust", thrust_idx_);
+  param_loader.load_param("buttons_indices/yaw", yaw_idx_);
+  param_loader.load_param("buttons_indices/pitch", pitch_idx_);
+  param_loader.load_param("buttons_indices/roll", roll_idx_);
+  param_loader.load_param("buttons_indices/start", start_button_idx_);
+
+  /* //{ check loaded indices */
+  if (start_button_idx_ < 0 || start_button_idx_ > 10) {
+    ROS_ERROR("[JoyTracker]: Invalid index of start button. Setting default value.");
+    start_button_idx_ = 7;
+  }
+  if (thrust_idx_ < 0 || thrust_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of thrust button. Setting default value.");
+    thrust_idx_ = 4;
+  }
+  if (yaw_idx_ < 0 || yaw_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of yaw button. Setting default value.");
+    yaw_idx_ = 0;
+  }
+  if (pitch_idx_ < 0 || pitch_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of pitch button. Setting default value.");
+    pitch_idx_ = 1;
+  }
+  if (roll_idx_ < 0 || roll_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of roll button. Setting default value.");
+    roll_idx_ = 3;
+  }
+  /*//}*/
+
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
   ROS_INFO("[JoyTracker]: tracker_dt: %f", tracker_dt_);
@@ -166,6 +223,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // --------------------------------------------------------------
 
   subscriber_joystick = nh_.subscribe("joystick_in", 1, &JoyTracker::callbackJoystic, this, ros::TransportHints().tcpNoDelay());
+  subscriber_bumper   = nh_.subscribe("bumper_in", 1, &JoyTracker::callbackBumper, this, ros::TransportHints().tcpNoDelay());
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -529,10 +587,10 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
 
-  current_vertical_speed = msg.axes[3] * vertical_speed_;
-  current_yaw_rate       = msg.axes[0] * yaw_rate_;
-  desired_pitch          = msg.axes[1] * max_tilt_;
-  desired_roll           = msg.axes[2] * max_tilt_;
+  current_vertical_speed = msg.axes[thrust_idx_] * vertical_speed_;
+  current_yaw_rate       = msg.axes[yaw_idx_] * yaw_rate_;
+  desired_pitch          = msg.axes[pitch_idx_] * max_tilt_;
+  desired_roll           = msg.axes[roll_idx_] * max_tilt_;
 
   got_goal = true;
 
@@ -541,6 +599,24 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
 //}
 
+/* callbackBumper() //{ */
+
+void JoyTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
+  ROS_ERROR("[JoyTracker]: start bumper callback");
+  if (!is_initialized)
+    return;
+
+  ROS_INFO_ONCE("[JoyTracker]: getting bumper data");
+  ROS_INFO_THROTTLE(0.5, "[JoyTracker]: getting bumper data");
+
+  std::scoped_lock lock(mutex_bumper);
+
+  got_bumper = true;
+
+  bumper_data = *msg;
+}
+
+//}
 }  // namespace joy_tracker
 
 }  // namespace mrs_trackers

@@ -1,9 +1,0 @@
-tracker_loop_rate: 100 # [Hz]
-
-vertical_tracker:
-  vertical_speed: 0.6
-
-max_tilt: 0.50 # [rad]
-
-yaw_tracker:
-  yaw_rate: 1.0

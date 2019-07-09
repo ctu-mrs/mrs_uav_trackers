@@ -119,6 +119,13 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
+
+  // indices of joystick buttons
+  int start_button_idx_;
+  int thrust_idx_;
+  int yaw_idx_;
+  int pitch_idx_;
+  int roll_idx_;
 };
 
 JoyBumperTracker::JoyBumperTracker(void) : is_initialized(false), is_active(false) {
@@ -150,6 +157,35 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   param_loader.load_param("max_tilt", max_tilt_);
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
+
+  param_loader.load_param("buttons_indices/thrust", thrust_idx_);
+  param_loader.load_param("buttons_indices/yaw", yaw_idx_);
+  param_loader.load_param("buttons_indices/pitch", pitch_idx_);
+  param_loader.load_param("buttons_indices/roll", roll_idx_);
+  param_loader.load_param("buttons_indices/start", start_button_idx_);
+
+  /* //{ check loaded indices */
+  if (start_button_idx_ < 0 || start_button_idx_ > 10) {
+    ROS_ERROR("[JoyTracker]: Invalid index of start button. Setting default value.");
+    start_button_idx_ = 7;
+  }
+  if (thrust_idx_ < 0 || thrust_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of thrust button. Setting default value.");
+    thrust_idx_ = 4;
+  }
+  if (yaw_idx_ < 0 || yaw_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of yaw button. Setting default value.");
+    yaw_idx_ = 0;
+  }
+  if (pitch_idx_ < 0 || pitch_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of pitch button. Setting default value.");
+    pitch_idx_ = 1;
+  }
+  if (roll_idx_ < 0 || roll_idx_ > 7) {
+    ROS_ERROR("[JoyTracker]: Invalid index of roll button. Setting default value.");
+    roll_idx_ = 3;
+  }
+  /*//}*/
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -477,7 +513,8 @@ const std_srvs::TriggerResponse::ConstPtr JoyBumperTracker::hover([[maybe_unused
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr JoyBumperTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr JoyBumperTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
   return mrs_msgs::TrackerConstraintsResponse::Ptr();
 }
@@ -529,10 +566,10 @@ void JoyBumperTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
 
-  current_vertical_speed = msg.axes[3] * vertical_speed_;
-  current_yaw_rate       = msg.axes[0] * yaw_rate_;
-  desired_pitch          = msg.axes[1] * max_tilt_;
-  desired_roll           = msg.axes[2] * max_tilt_;
+  current_vertical_speed = msg.axes[thrust_idx_] * vertical_speed_;
+  current_yaw_rate       = msg.axes[yaw_idx_] * yaw_rate_;
+  desired_pitch          = msg.axes[pitch_idx_] * max_tilt_;
+  desired_roll           = msg.axes[roll_idx_] * max_tilt_;
 
   got_goal = true;
 
@@ -541,7 +578,7 @@ void JoyBumperTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
 //}
 
-}  // namespace joy_tracker
+}  // namespace joy_bumper_tracker
 
 }  // namespace mrs_trackers
 
