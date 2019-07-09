@@ -111,6 +111,19 @@ target_link_libraries(JoyTracker
   ${catkin_LIBRARIES}
   )
 
+# Joy Tracker
+
+add_library(JoyBumperTracker
+  src/joy_bumper_tracker/joy_bumper_tracker.cpp
+  )
+add_dependencies(JoyBumperTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(JoyBumperTracker
+  ${catkin_LIBRARIES}
+  )
+
 # Matlab tracker
 
 add_library(MatlabTracker
