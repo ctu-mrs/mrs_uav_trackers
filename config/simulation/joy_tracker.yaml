@@ -1,9 +1,13 @@
+bumper_enabled: true
+
 tracker_loop_rate: 100 # [Hz]
+bumper_timer_rate: 20 # [Hz]
 
 vertical_tracker:
   vertical_speed: 0.6
 
 max_tilt: 0.50 # [rad]
+filter_coefficient: 0.95 # coefficient of filter for error derivation
 
 yaw_tracker:
   yaw_rate: 1.0

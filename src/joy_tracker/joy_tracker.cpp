@@ -88,6 +88,10 @@ private:
   ros::Timer main_timer;
 
 private:
+  ros::Timer bumper_timer;
+  void       bumperTimer(const ros::TimerEvent &event);
+
+private:
   // dynamical constraints
   double     yaw_rate_;
   std::mutex mutex_constraints;
@@ -114,31 +118,29 @@ private:
 private:
   ros::Subscriber subscriber_joystick;
   ros::Subscriber subscriber_bumper;
-  void            callbackJoystic(const sensor_msgs::Joy &msg);
-  void            callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg);
-  double          max_tilt_;
-  double          vertical_speed_;
-  bool            got_bumper = false;
 
-  mrs_msgs::ObstacleSectors bumper_data;
-  mrs_msgs::ObstacleSectors bumper_previous_data;
-  std::mutex                mutex_bumper;
+  void callbackJoystic(const sensor_msgs::Joy &msg);
+  void callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg);
 
-  bool bumper_enabled_ = false;
-  /* bool bumper_hugging_enabled_   = false; */
-  /* bool bumper_repulsion_enabled_ = false; */
-  /* bool repulsing                 = false; */
-  /* uint repulsing_from; */
-
+  double max_tilt_;
+  double vertical_speed_;
   double bumper_horizontal_distance_;
   double bumper_vertical_distance_;
-
   double bumper_repulsion_horizontal_distance_;
-  double bumper_critical_horizontal_distance_;
-  double bumper_repulsion_horizontal_offset_;
-  double bumper_critical_vertical_distance_;
   double bumper_repulsion_vertical_distance_;
-  double bumper_repulsion_vertical_offset_;
+  double filter_coeff_;
+  bool   got_bumper_         = false;
+  bool   filter_initialized_ = false;
+  bool   bumper_enabled_;
+  int    bumper_timer_rate_;
+
+  mrs_msgs::ObstacleSectors bumper_data_;
+  mrs_msgs::ObstacleSectors bumper_previous_data_;
+
+  std::vector<double> diff_filter_;
+  std::vector<double> reg_error_;
+  std::vector<double> reg_error_diff_;
+  std::mutex          mutex_bumper;
 
   bool bumperPushFromObstacle();
   int  bumperGetSectorId(const double x, const double y, const double z);
@@ -181,7 +183,10 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
 
   param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
+  param_loader.load_param("bumper_timer_rate", bumper_timer_rate_);
   param_loader.load_param("max_tilt", max_tilt_);
+  param_loader.load_param("filter_coefficient", filter_coeff_);
+  param_loader.load_param("bumper_enabled", bumper_enabled_);
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
 
@@ -235,7 +240,8 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyTracker::mainTimer, this);
+  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyTracker::mainTimer, this);
+  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyTracker::bumperTimer, this);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[JoyTracker]: Could not load all parameters!");
@@ -314,6 +320,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const nav_msgs::Odo
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
+  bumperPushFromObstacle();
   {
     std::scoped_lock lock(mutex_odometry);
 
@@ -346,11 +353,13 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const nav_msgs::Odo
     position_output.position.y = odometry.pose.pose.position.y;
     position_output.position.z = state_z;
     position_output.yaw        = state_yaw;
+    /* position_output.use_position = 1; */
 
-    position_output.velocity.x = odometry.twist.twist.linear.x;
-    position_output.velocity.y = odometry.twist.twist.linear.y;
-    position_output.velocity.z = current_vertical_speed;
-    position_output.yaw_dot    = current_yaw_rate;
+    position_output.velocity.x   = odometry.twist.twist.linear.x;
+    position_output.velocity.y   = odometry.twist.twist.linear.y;
+    position_output.velocity.z   = current_vertical_speed;
+    position_output.use_velocity = 1;
+    position_output.yaw_dot      = current_yaw_rate;
 
     position_output.acceleration.x = 0;
     position_output.acceleration.y = 0;
@@ -608,7 +617,6 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 /* callbackBumper() //{ */
 
 void JoyTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
-  ROS_ERROR("[JoyTracker]: start bumper callback");
   if (!is_initialized)
     return;
 
@@ -617,9 +625,9 @@ void JoyTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
 
   std::scoped_lock lock(mutex_bumper);
 
-  got_bumper = true;
-
-  bumper_data = *msg;
+  got_bumper_           = true;
+  bumper_previous_data_ = bumper_data_;
+  bumper_data_          = *msg;
 }
 
 //}
@@ -639,123 +647,161 @@ int JoyTracker::bumperGetSectorId(const double x, const double y, [[maybe_unused
   }
 
   // heading of the right edge of the first sector
-  double sector_size = 2 * M_PI / double(bumper_data.n_horizontal_sectors);
+  double sector_size = 2 * M_PI / double(bumper_data_.n_horizontal_sectors);
 
   // calculate the idx
   int idx = floor((point_heading_horizontal + (sector_size / 2.0)) / sector_size);
 
-  if (uint(idx) > bumper_data.n_horizontal_sectors - 1) {
-    idx -= bumper_data.n_horizontal_sectors;
+  if (uint(idx) > bumper_data_.n_horizontal_sectors - 1) {
+    idx -= bumper_data_.n_horizontal_sectors;
   }
 
   return idx;
 }
-
 //}
-//
+
 /* bumperPushFromObstacle() //{ */
 
 bool JoyTracker::bumperPushFromObstacle(void) {
-
+  ROS_INFO_THROTTLE(1.0, "[JoyTracker]: Entering bumper push form obstacle.");
   if (!bumper_enabled_) {
     return true;
   }
 
-  if (!got_bumper) {
+  if (!got_bumper_) {
     return true;
+  }
+  got_bumper_ = false;
+
+  if (!filter_initialized_) {
+    for (uint i = 0; i < bumper_data_.n_horizontal_sectors + 2; i++) {
+      diff_filter_.push_back(0.0);
+      reg_error_.push_back(0.0);
+      reg_error_diff_.push_back(0.0);
+    }
+    bumper_previous_data_ = bumper_data_;
+    filter_initialized_   = true;
   }
 
   std::scoped_lock lock(mutex_bumper);
 
-  double sector_size = 2 * M_PI / double(bumper_data.n_horizontal_sectors);
-
+  double sector_size                   = 2 * M_PI / double(bumper_data_.n_horizontal_sectors);
+  double current_reg_error             = 0;
   double min_distance                  = 10e9;
-  double repulsion_distance            = 10e9;
-  double obst_dist_below               = 10e9;
-  double obst_dist_above               = 10e9;
-  double horizontal_collision_detected = false;
-  double ver_speed_correction_below    = 0;
-  double ver_speed_correction_above    = 0;
+  int    min_dist_index                = 0;
+  bool   horizontal_collision_detected = false;
+  double time_step                     = (bumper_data_.header.stamp - bumper_previous_data_.header.stamp).toSec();
 
+  for (uint i = 0; i < bumper_data_.n_horizontal_sectors; i++) {
 
-  double vertical_collision_detected = false;
+    if (bumper_data_.sectors[i] < 0 || bumper_data_.sectors[i] > bumper_repulsion_horizontal_distance_) {
+      current_reg_error = 0;
+    } else {
+      // if the sector is under critical distance
+      if (bumper_data_.sectors[i] <= bumper_repulsion_horizontal_distance_) {
+        // get the desired direction of motion
+        double oposite_direction  = double(i) * sector_size + M_PI;
+        int    oposite_sector_idx = bumperGetSectorId(cos(oposite_direction), sin(oposite_direction), 0);
 
-  for (uint i = 0; i < bumper_data.n_horizontal_sectors; i++) {
+        if (bumper_data_.sectors[oposite_sector_idx] > 0 && bumper_data_.sectors[oposite_sector_idx] <= bumper_repulsion_horizontal_distance_) {
+          current_reg_error = (bumper_data_.sectors[i] + bumper_data_.sectors[oposite_sector_idx]) / 2 - bumper_data_.sectors[i];
+        } else {
+          current_reg_error = bumper_repulsion_horizontal_distance_ - bumper_data_.sectors[i];
+        }
 
-    if (bumper_data.sectors[i] < 0) {
-      continue;
-    }
-
-    // if the sector is under critical distance
-    if (bumper_data.sectors[i] <= bumper_repulsion_horizontal_distance_) {
-
-      // get the desired direction of motion
-      double oposite_direction  = double(i) * sector_size + M_PI;
-      int    oposite_sector_idx = bumperGetSectorId(cos(oposite_direction), sin(oposite_direction), 0);
-
-      horizontal_collision_detected = true;
+        if (bumper_data_.sectors[i] < min_distance) {
+          min_distance   = bumper_data_.sectors[i];
+          min_dist_index = i;
+        }
+        horizontal_collision_detected = true;
+      }
+      reg_error_diff_[i] = (current_reg_error - reg_error_[i]) / time_step;
+      reg_error_[i]      = current_reg_error;
+      diff_filter_[i]    = (1 - filter_coeff_) * reg_error_diff_[i] + filter_coeff_ * diff_filter_[i];
     }
   }
 
-  bool   collision_above             = false;
-  bool   collision_below             = false;
+  bool collision_above = false;
+  bool collision_below = false;
 
   // check for vertical collision down
-  if (bumper_data.sectors[bumper_data.n_horizontal_sectors] > 0 &&
-      bumper_data.sectors[bumper_data.n_horizontal_sectors] <= bumper_repulsion_vertical_distance_) {
-
+  if (bumper_data_.sectors[bumper_data_.n_horizontal_sectors] > 0 &&
+      bumper_data_.sectors[bumper_data_.n_horizontal_sectors] <= bumper_repulsion_vertical_distance_) {
     ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumper: potential collision below");
-    collision_below             = true;
-    vertical_collision_detected = true;
-    obst_dist_below             = bumper_data.sectors[bumper_data.n_horizontal_sectors];
-    if (bumper_data.sectors[bumper_data.n_horizontal_sectors] <= bumper_critical_vertical_distance_) {  // below critical distance
-      if (bumper_data.sectors[bumper_data.n_horizontal_sectors] >
-          bumper_previous_data.sectors[bumper_data.n_horizontal_sectors]) {  // further than in previous step
-        ver_speed_correction_below = 0;
-      } else {                             // closer than previous step
-        ver_speed_correction_below = 0.1;  // TODO add adpation based on the distance
-      }
-    } else {  // inside detection radius
-      ver_speed_correction_below = -1.0 * (bumper_data.sectors[bumper_data.n_horizontal_sectors] - bumper_critical_vertical_distance_) /
-                                   (bumper_repulsion_vertical_distance_ - bumper_critical_vertical_distance_);  // normalized
-    }
+    collision_above   = true;
+    current_reg_error = bumper_data_.sectors[bumper_data_.n_horizontal_sectors] - bumper_repulsion_vertical_distance_;
   }
 
   // check for vertical collision up
-  if (bumper_data.sectors[bumper_data.n_horizontal_sectors + 1] > 0 &&
-      bumper_data.sectors[bumper_data.n_horizontal_sectors + 1] <= bumper_repulsion_vertical_distance_) {
-
+  if (bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1] > 0 &&
+      bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1] <= bumper_repulsion_vertical_distance_) {
     ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumper: potential collision above");
-    collision_above             = true;
-    vertical_collision_detected = true;
-    obst_dist_above             = bumper_data.sectors[bumper_data.n_horizontal_sectors + 1];
-    if (bumper_data.sectors[bumper_data.n_horizontal_sectors + 1] <= bumper_critical_vertical_distance_) {  // below critical distance
-      if (bumper_data.sectors[bumper_data.n_horizontal_sectors + 1] >
-          bumper_previous_data.sectors[bumper_data.n_horizontal_sectors + 1]) {  // further than in previous step
-        ver_speed_correction_above = 0;
-      } else {                              // closer than previous step
-        ver_speed_correction_above = -0.1;  // TODO add adpation based on the distance
-      }
-    } else {  // inside detection radius
-      ver_speed_correction_above = 1.0 * (bumper_data.sectors[bumper_data.n_horizontal_sectors] - bumper_critical_vertical_distance_) /
-                                   (bumper_repulsion_vertical_distance_ - bumper_critical_vertical_distance_);  // normalized
-    }
+    collision_below   = true;
+    current_reg_error = bumper_repulsion_vertical_distance_ - bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1];
   }
 
-  if (obst_dist_above < bumper_critical_vertical_distance_ && obst_dist_below < bumper_critical_vertical_distance_) { // in critical distance below and above concurrently
-    vertical_speed_ = 0.05 * (obst_dist_above - obst_dist_below) / bumper_critical_vertical_distance_;  // replace by coefficient
-  } else {
-    ROS_INFO("[JoyTracker]: vertical_speed = %.2f, limits = [%.2f, %.2f]", vertical_speed_, ver_speed_correction_below, ver_speed_correction_above);
-    vertical_speed_ = fmax(fmin(vertical_speed_, ver_speed_correction_above), ver_speed_correction_below);
-    ROS_INFO("[JoyTracker]: Resulting vertical_speed = %.2f", vertical_speed_);
+  // compute regulation error and its diff for vertical direction
+  if (collision_above && collision_below) {
+    current_reg_error = (bumper_data_.sectors[bumper_data_.n_horizontal_sectors] + bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1]) / 2 -
+                        bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1];
   }
-  
-  bumper_previous_data = bumper_data;  // TODO: check correctness of assignment
+  reg_error_diff_[bumper_data_.n_horizontal_sectors] = (current_reg_error - reg_error_[bumper_data_.n_horizontal_sectors]) / time_step;
+  reg_error_[bumper_data_.n_horizontal_sectors]      = current_reg_error;
+  diff_filter_[bumper_data_.n_horizontal_sectors] =
+      (1 - filter_coeff_) * reg_error_diff_[bumper_data_.n_horizontal_sectors] + filter_coeff_ * diff_filter_[bumper_data_.n_horizontal_sectors];
+
+  if (horizontal_collision_detected) {
+    // TODO generate modified x y acceleration for position command
+  }
+
+  if (collision_above || collision_below) {
+    // TODO generate modified z velocity/position for position command
+  }
+
+  /* ROS_INFO("[JoyTracker]: NoF Horizontal sectors = %lu", bumper_data_.sectors.size()); */
+  /* for (uint i = 0; i < bumper_data_.n_horizontal_sectors + 2; i++) { */
+  /*     ROS_INFO("[JoyTracker]: bumper_data_diff = %.5f, data = [%.2f, %.2f]", bumper_data_.sectors[i] - bumper_previous_data_.sectors[i],
+   * bumper_data_.sectors[i], bumper_previous_data_.sectors[i]); */
+  /* } */
   return false;
 }
 
 //}
 
+/* //{ bumperTimer() */
+
+void JoyTracker::bumperTimer(const ros::TimerEvent &event) {
+
+  if (!is_initialized)
+    return;
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("bumperTimer", bumper_timer_rate_, 0.01, event);
+
+  if (!bumper_enabled_) {
+    return;
+  }
+
+  if ((ros::Time::now() - bumper_data_.header.stamp).toSec() > 1.0) {
+    return;
+  }
+
+  {
+    std::scoped_lock lock(mutex_odometry);
+
+    if (odometry_z < 0.5) {
+      ROS_WARN_THROTTLE(0.5, "[JoyTracker]: not using bumper repulsion, height < 0.5 m");
+      return;
+    }
+  }
+
+  // --------------------------------------------------------------
+  // |                      bumper repulsion                      |
+  // --------------------------------------------------------------
+
+  /* ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumperTimer spinning"); */
+
+  /* bumperPushFromObstacle(); */
+}
 
 }  // namespace joy_tracker
 
