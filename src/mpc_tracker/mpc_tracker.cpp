@@ -1092,29 +1092,36 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
+  double dvx, dvy, dvz, dvyaw;
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
-  // calculate the euler angles
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(odom_roll, odom_pitch, odom_yaw);
-
-  tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
-  tf::Matrix3x3 m2(quaternion_msg);
-  m2.getRPY(msg_roll, msg_pitch, msg_yaw);
-
   {
     std::scoped_lock lock(mutex_odometry);
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odom_roll, odom_pitch, odom_yaw);
+
+    tf::Quaternion quaternion_msg;
+    quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+    tf::Matrix3x3 m2(quaternion_msg);
+    m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
     dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
     dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
     dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
     dyaw = msg_yaw - odom_yaw;
 
+    dvx   = msg->twist.twist.linear.x - odometry.twist.twist.linear.x;
+    dvy   = msg->twist.twist.linear.y - odometry.twist.twist.linear.y;
+    dvz   = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
+    dvyaw = msg->twist.twist.angular.z - odometry.twist.twist.angular.z;
+
     ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
+    ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw);
 
     odometry = *msg;
   }
@@ -1137,17 +1144,17 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     }
 
     // TODO: What should we do with the accelerations?
-    // TODO: Those should be updated aswell...
-    x(0, 0) = msg->pose.pose.position.x;
-    x(1, 0) = msg->twist.twist.linear.x;
+    x(0, 0) += dx;
+    x(1, 0) += dvx;
 
-    x(4, 0) = msg->pose.pose.position.y;
-    x(5, 0) = msg->twist.twist.linear.y;
+    x(4, 0) += dy;
+    x(5, 0) += dvy;
 
-    x(8, 0) = msg->pose.pose.position.z;
-    x(9, 0) = msg->twist.twist.linear.z;
+    x(8, 0) += dz;
+    x(9, 0) += dvz;
 
-    x_yaw(0, 0) = msg_yaw;
+    x_yaw(0, 0) += dyaw;
+    x_yaw(1, 0) += dvyaw;
   }
 
   ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(4, 0), x(1, 0), x(5, 0), des_x_trajectory(0, 0),
