@@ -1142,7 +1142,7 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
-    dvz   = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
+    dvz = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
 
     /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
 
@@ -1161,8 +1161,8 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     // update the velocity
     Eigen::Vector2d temp_vec(x(1, 0), x(5, 0));
     temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
-    x(1, 0) += temp_vec[0];
-    x(5, 0) += temp_vec[1];
+    x(1, 0)  = temp_vec[0];
+    x(5, 0)  = temp_vec[1];
 
     // update the height
     x(9, 0) += dvz;
