@@ -1095,7 +1095,7 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
-  double  dvz, dvyaw;
+  double dvz, dvyaw;
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
@@ -1126,18 +1126,26 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   }
 
   {
-    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory);
+    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_odometry);
 
     for (int i = 0; i < trajectory_size; i++) {
-      des_x_whole_trajectory(i) += dx;
-      des_y_whole_trajectory(i) += dy;
+
+      Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - odometry.pose.pose.position.x, des_y_whole_trajectory(i) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+
+      des_x_whole_trajectory(i) = msg->pose.pose.position.x + temp_vec[0];
+      des_y_whole_trajectory(i) = msg->pose.pose.position.y + temp_vec[1];
       des_z_whole_trajectory(i) += dz;
       des_yaw_whole_trajectory(i) += dyaw;
     }
 
     for (int i = 0; i < horizon_len_; i++) {
-      des_x_trajectory(i, 0) += dx;
-      des_y_trajectory(i, 0) += dy;
+
+      Eigen::Vector2d temp_vec(des_x_trajectory(i) - odometry.pose.pose.position.x, des_x_trajectory(i) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+
+      des_x_trajectory(i, 0) = msg->pose.pose.position.x + temp_vec[0];
+      des_y_trajectory(i, 0) = msg->pose.pose.position.y + temp_vec[1];
       des_z_trajectory(i, 0) += dz;
       des_yaw_trajectory(i, 0) += dyaw;
     }
@@ -1154,15 +1162,21 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     // TODO: What should we do with the accelerations?
 
     // update the positon
-    x(0, 0) += dx;
-    x(4, 0) += dy;
-    x(8, 0) += dz;
+    {
+      Eigen::Vector2d temp_vec(x(0, 0) - odometry.pose.pose.position.x, x(4, 0) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+      x(0, 0) = msg->pose.pose.position.x + temp_vec[0];
+      x(4, 0) = msg->pose.pose.position.y + temp_vec[1];
+      x(8, 0) += dz;
+    }
 
     // update the velocity
-    Eigen::Vector2d temp_vec(x(1, 0), x(5, 0));
-    temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
-    x(1, 0)  = temp_vec[0];
-    x(5, 0)  = temp_vec[1];
+    {
+      Eigen::Vector2d temp_vec(x(1, 0), x(5, 0));
+      temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
+      x(1, 0)  = temp_vec[0];
+      x(5, 0)  = temp_vec[1];
+    }
 
     // update the height
     x(9, 0) += dvz;
