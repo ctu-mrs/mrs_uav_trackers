@@ -1121,8 +1121,6 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     dvyaw = msg->twist.twist.angular.z - odometry.twist.twist.angular.z;
 
     ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
-
-    odometry = *msg;
   }
 
   {
@@ -1141,7 +1139,7 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
     for (int i = 0; i < horizon_len_; i++) {
 
-      Eigen::Vector2d temp_vec(des_x_trajectory(i) - odometry.pose.pose.position.x, des_x_trajectory(i) - odometry.pose.pose.position.y);
+      Eigen::Vector2d temp_vec(des_x_trajectory(i) - odometry.pose.pose.position.x, des_y_trajectory(i) - odometry.pose.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
 
       des_x_trajectory(i, 0) = msg->pose.pose.position.x + temp_vec[0];
@@ -1153,8 +1151,6 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     dvz = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
 
     /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
-
-    /* Eigen::Vector2d temp_vec(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y); */
 
     double velocity_scale = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2)) /
                             sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
