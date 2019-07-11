@@ -187,6 +187,8 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   param_loader.load_param("max_tilt", max_tilt_);
   param_loader.load_param("filter_coefficient", filter_coeff_);
   param_loader.load_param("bumper_enabled", bumper_enabled_);
+  param_loader.load_param("bumper_horizontal_repulsion_distance", bumper_repulsion_horizontal_distance_);
+  param_loader.load_param("bumper_vertical_repulsion_distance", bumper_repulsion_vertical_distance_);
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
 

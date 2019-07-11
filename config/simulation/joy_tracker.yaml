@@ -1,4 +1,6 @@
 bumper_enabled: true
+bumper_horizontal_repulsion_distance: 2.0
+bumper_vertical_repulsion_distance: 2.0
 
 tracker_loop_rate: 100 # [Hz]
 bumper_timer_rate: 20 # [Hz]
