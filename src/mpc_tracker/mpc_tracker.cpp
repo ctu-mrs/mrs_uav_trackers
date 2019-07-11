@@ -1095,7 +1095,7 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
-  double dvx, dvy, dvz, dvyaw;
+  double  dvz, dvyaw;
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
