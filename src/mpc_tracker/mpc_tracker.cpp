@@ -359,6 +359,9 @@ private:
   bool               callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   ros::ServiceServer service_server_headless_mode;
   ros::ServiceServer service_server_time_agnostic_mode;
+
+private:
+  Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -1115,13 +1118,9 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
     dyaw = msg_yaw - odom_yaw;
 
-    dvx   = msg->twist.twist.linear.x - odometry.twist.twist.linear.x;
-    dvy   = msg->twist.twist.linear.y - odometry.twist.twist.linear.y;
-    dvz   = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
     dvyaw = msg->twist.twist.angular.z - odometry.twist.twist.angular.z;
 
     ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
-    ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw);
 
     odometry = *msg;
   }
@@ -1143,16 +1142,32 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
+    dvz   = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
+
+    /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
+
+    /* Eigen::Vector2d temp_vec(odometry.twist.twist.linear.x, odometry.twist.twist.linear.y); */
+
+    double velocity_scale = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2)) /
+                            sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+
     // TODO: What should we do with the accelerations?
+
+    // update the positon
     x(0, 0) += dx;
-    x(1, 0) += dvx;
-
     x(4, 0) += dy;
-    x(5, 0) += dvy;
-
     x(8, 0) += dz;
+
+    // update the velocity
+    Eigen::Vector2d temp_vec(x(1, 0), x(5, 0));
+    temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
+    x(1, 0) += temp_vec[0];
+    x(5, 0) += temp_vec[1];
+
+    // update the height
     x(9, 0) += dvz;
 
+    // update the heading and its derivative
     x_yaw(0, 0) += dyaw;
     x_yaw(1, 0) += dvyaw;
   }
@@ -2879,6 +2894,17 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
   publishDiagnostics();
 
   return true;
+}
+
+//}
+
+/* rotateVector() //{ */
+
+Eigen::Vector2d MpcTracker::rotateVector(const Eigen::Vector2d vector_in, double angle) {
+
+  Eigen::Rotation2D<double> rot2(angle);
+
+  return rot2.toRotationMatrix() * vector_in;
 }
 
 //}
