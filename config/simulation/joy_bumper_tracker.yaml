@@ -1,0 +1,47 @@
+bumper_enabled: true
+bumper_horizontal_repulsion_distance: 2.0
+bumper_vertical_repulsion_distance: 2.0
+
+tracker_loop_rate: 100 # [Hz]
+bumper_timer_rate: 20 # [Hz]
+
+vertical_tracker:
+  vertical_speed: 0.6
+
+max_tilt: 0.50 # [rad]
+filter_coefficient: 0.95 # coefficient of filter for error derivation
+
+yaw_tracker:
+  yaw_rate: 1.0
+
+buttons_indices:
+  start: 7
+  thrust: 4
+  yaw: 0
+  pitch: 1
+  roll: 3
+
+mpc_model:
+
+  number_of_states: 3
+
+  dt1: 0.01
+  dt2: 0.05
+
+cvx_parameters:
+
+  verbose: false
+  max_iterations: 30
+
+mpc_parameters:
+
+  horizon_length: 26
+
+  horizontal:
+
+    Q: [500, 100, 100] # state error penalization
+    S: [1000, 300, 300] # last state error penalization
+
+    max_speed: 1.0
+    max_acceleration: 1.0
+    max_jerk: 5.0
