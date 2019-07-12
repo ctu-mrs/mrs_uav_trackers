@@ -1,8 +1,14 @@
-#ifndef CVX_WRAPPER
-#define CVX_WRAPPER
+#ifndef CVX_WRAPPER_TRACKER
+#define CVX_WRAPPER_TRACKER
 
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
+
+namespace mrs_trackers
+{
+
+namespace cvx_wrapper
+{
 
 /* author: Daniel Hert */
 
@@ -23,8 +29,12 @@ public:
 private:
   static const int    horizon_len = 40;
   std::vector<double> myQ;
-  int    dim;
-  int    vel_q_persistent;
+  int                 dim;
+  int                 vel_q_persistent;
 };
+
+}  // namespace cvx_wrapper
+
+}  // namespace mrs_trackers
 
 #endif

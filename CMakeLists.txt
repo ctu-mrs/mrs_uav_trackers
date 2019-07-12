@@ -23,7 +23,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES
+  LIBRARIES MpcTrackerCvxgen
   CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs mrs_controllers
   DEPENDS Eigen
   )
@@ -36,19 +36,20 @@ include_directories(
   include
   ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
-  src/mpc_tracker/cvxgen
+  )
+
+# CVXgen wrapper for MPC tracker
+
+add_library(MpcTrackerCvxgen src/cvx_wrapper/cvx_wrapper.cpp
+  src/cvx_wrapper/cvxgen/ldl.c
+  src/cvx_wrapper/cvxgen/matrix_support.c
+  src/cvx_wrapper/cvxgen/solver.c
+  src/cvx_wrapper/cvxgen/util.c
   )
 
 # MPC Tracker
 
 add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
-
-add_library(MpcTrackerCvxgen src/mpc_tracker/cvx_wrapper.cpp
-  src/mpc_tracker/cvxgen/ldl.c
-  src/mpc_tracker/cvxgen/matrix_support.c
-  src/mpc_tracker/cvxgen/solver.c
-  src/mpc_tracker/cvxgen/util.c
-  )
 
 add_dependencies(MpcTracker
   ${catkin_EXPORTED_TARGETS}
@@ -57,6 +58,7 @@ add_dependencies(MpcTracker
 
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
+  MpcTrackerCvxgen
   )
 
 # CSV Tracker
@@ -149,6 +151,7 @@ install(TARGETS
   JoyTracker
   MatlabTracker
   JoyBumperTracker
+  MpcTrackerCvxgen
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

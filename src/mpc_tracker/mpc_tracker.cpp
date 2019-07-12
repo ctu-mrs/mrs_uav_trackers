@@ -32,7 +32,7 @@
 #include <mrs_lib/Utils.h>
 #include <mrs_lib/ParamLoader.h>
 
-#include "cvx_wrapper.h"
+#include <mrs_trackers/cvx_wrapper.h>
 
 #include <commons.h>
 
@@ -188,10 +188,10 @@ private:
 
   double diagnostic_tracking_threshold;
 
-  CvxWrapper *cvx_x;
-  CvxWrapper *cvx_y;
-  CvxWrapper *cvx_z;
-  CvxWrapper *cvx_yaw;
+  mrs_trackers::cvx_wrapper::CvxWrapper *cvx_x;
+  mrs_trackers::cvx_wrapper::CvxWrapper *cvx_y;
+  mrs_trackers::cvx_wrapper::CvxWrapper *cvx_z;
+  mrs_trackers::cvx_wrapper::CvxWrapper *cvx_yaw;
 
   double   dt, dt2;  // time difference of the dynamical system
   MatrixXd A;        // system matrix for virtual UAV
@@ -460,20 +460,20 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   param_loader.load_param("cvxWrapper/maxNumOfIterations", max_iters_XY);
   param_loader.load_param("cvxWrapper/Q", tempList);
 
-  cvx_x = new CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 0);
-  cvx_y = new CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 1);
+  cvx_x = new mrs_trackers::cvx_wrapper::CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 0);
+  cvx_y = new mrs_trackers::cvx_wrapper::CvxWrapper(verbose, max_iters_XY, tempList, dt, dt2, 1);
 
   param_loader.load_param("cvxWrapperZ/verbose", verbose);
   param_loader.load_param("cvxWrapperZ/maxNumOfIterations", max_iters_Z);
   param_loader.load_param("cvxWrapperZ/Q", tempList);
 
-  cvx_z = new CvxWrapper(verbose, max_iters_Z, tempList, dt, dt2, 2);
+  cvx_z = new mrs_trackers::cvx_wrapper::CvxWrapper(verbose, max_iters_Z, tempList, dt, dt2, 2);
 
   param_loader.load_param("cvxWrapperYaw/verbose", verbose);
   param_loader.load_param("cvxWrapperYaw/maxNumOfIterations", max_iters_YAW);
   param_loader.load_param("cvxWrapperYaw/Q", tempList);
 
-  cvx_yaw = new CvxWrapper(verbose, max_iters_YAW, tempList, dt, dt2, 0);
+  cvx_yaw = new mrs_trackers::cvx_wrapper::CvxWrapper(verbose, max_iters_YAW, tempList, dt, dt2, 0);
 
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
   ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
