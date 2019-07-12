@@ -359,6 +359,9 @@ private:
   bool               callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
   ros::ServiceServer service_server_headless_mode;
   ros::ServiceServer service_server_time_agnostic_mode;
+
+private:
+  Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -1092,62 +1095,91 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
 
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
+  double dvz, dvyaw;
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
-  // calculate the euler angles
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(odom_roll, odom_pitch, odom_yaw);
-
-  tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
-  tf::Matrix3x3 m2(quaternion_msg);
-  m2.getRPY(msg_roll, msg_pitch, msg_yaw);
-
   {
     std::scoped_lock lock(mutex_odometry);
+
+    // calculate the euler angles
+    tf::Quaternion quaternion_odometry;
+    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    tf::Matrix3x3 m(quaternion_odometry);
+    m.getRPY(odom_roll, odom_pitch, odom_yaw);
+
+    tf::Quaternion quaternion_msg;
+    quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+    tf::Matrix3x3 m2(quaternion_msg);
+    m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
     dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
     dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
     dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
     dyaw = msg_yaw - odom_yaw;
 
-    ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
+    dvyaw = msg->twist.twist.angular.z - odometry.twist.twist.angular.z;
 
-    odometry = *msg;
+    ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
   }
 
   {
-    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory);
+    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_odometry);
 
     for (int i = 0; i < trajectory_size; i++) {
-      des_x_whole_trajectory(i) += dx;
-      des_y_whole_trajectory(i) += dy;
+
+      Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - odometry.pose.pose.position.x, des_y_whole_trajectory(i) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+
+      des_x_whole_trajectory(i) = msg->pose.pose.position.x + temp_vec[0];
+      des_y_whole_trajectory(i) = msg->pose.pose.position.y + temp_vec[1];
       des_z_whole_trajectory(i) += dz;
       des_yaw_whole_trajectory(i) += dyaw;
     }
 
     for (int i = 0; i < horizon_len_; i++) {
-      des_x_trajectory(i, 0) += dx;
-      des_y_trajectory(i, 0) += dy;
+
+      Eigen::Vector2d temp_vec(des_x_trajectory(i) - odometry.pose.pose.position.x, des_y_trajectory(i) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+
+      des_x_trajectory(i, 0) = msg->pose.pose.position.x + temp_vec[0];
+      des_y_trajectory(i, 0) = msg->pose.pose.position.y + temp_vec[1];
       des_z_trajectory(i, 0) += dz;
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
+    dvz = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
+
+    /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
+
+    double velocity_scale = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2)) /
+                            sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+
     // TODO: What should we do with the accelerations?
-    // TODO: Those should be updated aswell...
-    x(0, 0) = msg->pose.pose.position.x;
-    x(1, 0) = msg->twist.twist.linear.x;
 
-    x(4, 0) = msg->pose.pose.position.y;
-    x(5, 0) = msg->twist.twist.linear.y;
+    // update the positon
+    {
+      Eigen::Vector2d temp_vec(x(0, 0) - odometry.pose.pose.position.x, x(4, 0) - odometry.pose.pose.position.y);
+      temp_vec = rotateVector(temp_vec, dyaw);
+      x(0, 0) = msg->pose.pose.position.x + temp_vec[0];
+      x(4, 0) = msg->pose.pose.position.y + temp_vec[1];
+      x(8, 0) += dz;
+    }
 
-    x(8, 0) = msg->pose.pose.position.z;
-    x(9, 0) = msg->twist.twist.linear.z;
+    // update the velocity
+    {
+      Eigen::Vector2d temp_vec(x(1, 0), x(5, 0));
+      temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
+      x(1, 0)  = temp_vec[0];
+      x(5, 0)  = temp_vec[1];
+    }
 
-    x_yaw(0, 0) = msg_yaw;
+    // update the height
+    x(9, 0) += dvz;
+
+    // update the heading and its derivative
+    x_yaw(0, 0) += dyaw;
+    x_yaw(1, 0) += dvyaw;
   }
 
   ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x(0, 0), x(4, 0), x(1, 0), x(5, 0), des_x_trajectory(0, 0),
@@ -1582,12 +1614,12 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
     char tempStr[100];
     if (use_yaw_in_trajectory) {
 
-      ROS_INFO("[MpcTracker]: Flying to trajectory start pooint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
+      ROS_INFO("[MpcTracker]: Flying to trajectory start point x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
                des_z_whole_trajectory[0], des_yaw_whole_trajectory[0]);
       sprintf((char *)&tempStr, "Flying to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
               des_z_whole_trajectory[0], des_yaw_whole_trajectory[0]);
     } else {
-      ROS_INFO("[MpcTracker]: Flying to trajectory start pooint x: %2.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
+      ROS_INFO("[MpcTracker]: Flying to trajectory start point x: %2.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
                des_z_whole_trajectory[0]);
       sprintf((char *)&tempStr, "Flying to x: %3.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0]);
     }
@@ -2872,6 +2904,17 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
   publishDiagnostics();
 
   return true;
+}
+
+//}
+
+/* rotateVector() //{ */
+
+Eigen::Vector2d MpcTracker::rotateVector(const Eigen::Vector2d vector_in, double angle) {
+
+  Eigen::Rotation2D<double> rot2(angle);
+
+  return rot2.toRotationMatrix() * vector_in;
 }
 
 //}

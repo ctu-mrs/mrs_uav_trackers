@@ -622,6 +622,7 @@ void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &ms
 
   // | ------- copy the new odometry as the current state ------- |
 
+  // TODO: this current state should be translated aswell
   current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
   current_vertical_speed   = msg->twist.twist.linear.z;
   current_heading          = atan2(goal_y - state_y, goal_x - state_x);
