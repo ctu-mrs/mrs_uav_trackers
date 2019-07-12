@@ -8,7 +8,6 @@
 
 #include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
-#include <mrs_msgs/ObstacleSectors.h>
 #include <mrs_uav_manager/Tracker.h>
 
 #include <tf/transform_datatypes.h>
@@ -88,10 +87,6 @@ private:
   ros::Timer main_timer;
 
 private:
-  ros::Timer bumper_timer;
-  void       bumperTimer(const ros::TimerEvent &event);
-
-private:
   // dynamical constraints
   double     yaw_rate_;
   std::mutex mutex_constraints;
@@ -117,44 +112,13 @@ private:
 
 private:
   ros::Subscriber subscriber_joystick;
-  ros::Subscriber subscriber_bumper;
-
-  void callbackJoystic(const sensor_msgs::Joy &msg);
-  void callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg);
-
-  double max_tilt_;
-  double vertical_speed_;
-  double bumper_horizontal_distance_;
-  double bumper_vertical_distance_;
-  double bumper_repulsion_horizontal_distance_;
-  double bumper_repulsion_vertical_distance_;
-  double filter_coeff_;
-  bool   got_bumper_         = false;
-  bool   filter_initialized_ = false;
-  bool   bumper_enabled_;
-  int    bumper_timer_rate_;
-
-  mrs_msgs::ObstacleSectors bumper_data_;
-  mrs_msgs::ObstacleSectors bumper_previous_data_;
-
-  std::vector<double> diff_filter_;
-  std::vector<double> reg_error_;
-  std::vector<double> reg_error_diff_;
-  std::mutex          mutex_bumper;
-
-  bool bumperPushFromObstacle();
-  int  bumperGetSectorId(const double x, const double y, const double z);
+  void            callbackJoystic(const sensor_msgs::Joy &msg);
+  double          max_tilt_;
+  double          vertical_speed_;
 
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
-
-  // indices of joystick buttons
-  int start_button_idx_;
-  int thrust_idx_;
-  int yaw_idx_;
-  int pitch_idx_;
-  int roll_idx_;
 };
 
 JoyTracker::JoyTracker(void) : is_initialized(false), is_active(false) {
@@ -183,43 +147,9 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
 
   param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
-  param_loader.load_param("bumper_timer_rate", bumper_timer_rate_);
   param_loader.load_param("max_tilt", max_tilt_);
-  param_loader.load_param("filter_coefficient", filter_coeff_);
-  param_loader.load_param("bumper_enabled", bumper_enabled_);
-  param_loader.load_param("bumper_horizontal_repulsion_distance", bumper_repulsion_horizontal_distance_);
-  param_loader.load_param("bumper_vertical_repulsion_distance", bumper_repulsion_vertical_distance_);
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
-
-  param_loader.load_param("buttons_indices/thrust", thrust_idx_);
-  param_loader.load_param("buttons_indices/yaw", yaw_idx_);
-  param_loader.load_param("buttons_indices/pitch", pitch_idx_);
-  param_loader.load_param("buttons_indices/roll", roll_idx_);
-  param_loader.load_param("buttons_indices/start", start_button_idx_);
-
-  /* //{ check loaded indices */
-  if (start_button_idx_ < 0 || start_button_idx_ > 10) {
-    ROS_ERROR("[JoyTracker]: Invalid index of start button. Setting default value.");
-    start_button_idx_ = 7;
-  }
-  if (thrust_idx_ < 0 || thrust_idx_ > 7) {
-    ROS_ERROR("[JoyTracker]: Invalid index of thrust button. Setting default value.");
-    thrust_idx_ = 4;
-  }
-  if (yaw_idx_ < 0 || yaw_idx_ > 7) {
-    ROS_ERROR("[JoyTracker]: Invalid index of yaw button. Setting default value.");
-    yaw_idx_ = 0;
-  }
-  if (pitch_idx_ < 0 || pitch_idx_ > 7) {
-    ROS_ERROR("[JoyTracker]: Invalid index of pitch button. Setting default value.");
-    pitch_idx_ = 1;
-  }
-  if (roll_idx_ < 0 || roll_idx_ > 7) {
-    ROS_ERROR("[JoyTracker]: Invalid index of roll button. Setting default value.");
-    roll_idx_ = 3;
-  }
-  /*//}*/
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -236,14 +166,12 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // --------------------------------------------------------------
 
   subscriber_joystick = nh_.subscribe("joystick_in", 1, &JoyTracker::callbackJoystic, this, ros::TransportHints().tcpNoDelay());
-  subscriber_bumper   = nh_.subscribe("bumper_in", 1, &JoyTracker::callbackBumper, this, ros::TransportHints().tcpNoDelay());
 
   // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyTracker::mainTimer, this);
-  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyTracker::bumperTimer, this);
+  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyTracker::mainTimer, this);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[JoyTracker]: Could not load all parameters!");
@@ -322,7 +250,6 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const nav_msgs::Odo
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  bumperPushFromObstacle();
   {
     std::scoped_lock lock(mutex_odometry);
 
@@ -355,13 +282,11 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const nav_msgs::Odo
     position_output.position.y = odometry.pose.pose.position.y;
     position_output.position.z = state_z;
     position_output.yaw        = state_yaw;
-    /* position_output.use_position = 1; */
 
-    position_output.velocity.x   = odometry.twist.twist.linear.x;
-    position_output.velocity.y   = odometry.twist.twist.linear.y;
-    position_output.velocity.z   = current_vertical_speed;
-    position_output.use_velocity = 1;
-    position_output.yaw_dot      = current_yaw_rate;
+    position_output.velocity.x = odometry.twist.twist.linear.x;
+    position_output.velocity.y = odometry.twist.twist.linear.y;
+    position_output.velocity.z = current_vertical_speed;
+    position_output.yaw_dot    = current_yaw_rate;
 
     position_output.acceleration.x = 0;
     position_output.acceleration.y = 0;
@@ -604,10 +529,10 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
 
-  current_vertical_speed = msg.axes[thrust_idx_] * vertical_speed_;
-  current_yaw_rate       = msg.axes[yaw_idx_] * yaw_rate_;
-  desired_pitch          = msg.axes[pitch_idx_] * max_tilt_;
-  desired_roll           = msg.axes[roll_idx_] * max_tilt_;
+  current_vertical_speed = msg.axes[3] * vertical_speed_;
+  current_yaw_rate       = msg.axes[0] * yaw_rate_;
+  desired_pitch          = msg.axes[1] * max_tilt_;
+  desired_roll           = msg.axes[2] * max_tilt_;
 
   got_goal = true;
 
@@ -615,199 +540,6 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 }
 
 //}
-
-/* callbackBumper() //{ */
-
-void JoyTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
-  if (!is_initialized)
-    return;
-
-  ROS_INFO_ONCE("[JoyTracker]: getting bumper data");
-  ROS_INFO_THROTTLE(0.5, "[JoyTracker]: getting bumper data");
-
-  std::scoped_lock lock(mutex_bumper);
-
-  got_bumper_           = true;
-  bumper_previous_data_ = bumper_data_;
-  bumper_data_          = *msg;
-}
-
-//}
-
-/* bumperGetSectorId() //{ */
-
-int JoyTracker::bumperGetSectorId(const double x, const double y, [[maybe_unused]] const double z) {
-
-  // heading of the point in drone frame
-  double point_heading_horizontal = atan2(y, x);
-
-  point_heading_horizontal += 2 * M_PI;
-
-  // if point_heading_horizontal is greater then 2*M_PI mod it
-  if (fabs(point_heading_horizontal) >= 2 * M_PI) {
-    point_heading_horizontal = fmod(point_heading_horizontal, 2 * M_PI);
-  }
-
-  // heading of the right edge of the first sector
-  double sector_size = 2 * M_PI / double(bumper_data_.n_horizontal_sectors);
-
-  // calculate the idx
-  int idx = floor((point_heading_horizontal + (sector_size / 2.0)) / sector_size);
-
-  if (uint(idx) > bumper_data_.n_horizontal_sectors - 1) {
-    idx -= bumper_data_.n_horizontal_sectors;
-  }
-
-  return idx;
-}
-//}
-
-/* bumperPushFromObstacle() //{ */
-
-bool JoyTracker::bumperPushFromObstacle(void) {
-  ROS_INFO_THROTTLE(1.0, "[JoyTracker]: Entering bumper push form obstacle.");
-  if (!bumper_enabled_) {
-    return true;
-  }
-
-  if (!got_bumper_) {
-    return true;
-  }
-  got_bumper_ = false;
-
-  if (!filter_initialized_) {
-    for (uint i = 0; i < bumper_data_.n_horizontal_sectors + 2; i++) {
-      diff_filter_.push_back(0.0);
-      reg_error_.push_back(0.0);
-      reg_error_diff_.push_back(0.0);
-    }
-    bumper_previous_data_ = bumper_data_;
-    filter_initialized_   = true;
-  }
-
-  std::scoped_lock lock(mutex_bumper);
-
-  double sector_size                   = 2 * M_PI / double(bumper_data_.n_horizontal_sectors);
-  double current_reg_error             = 0;
-  double min_distance                  = 10e9;
-  int    min_dist_index                = 0;
-  bool   horizontal_collision_detected = false;
-  double time_step                     = (bumper_data_.header.stamp - bumper_previous_data_.header.stamp).toSec();
-
-  for (uint i = 0; i < bumper_data_.n_horizontal_sectors; i++) {
-
-    if (bumper_data_.sectors[i] < 0 || bumper_data_.sectors[i] > bumper_repulsion_horizontal_distance_) {
-      current_reg_error = 0;
-    } else {
-      // if the sector is under critical distance
-      if (bumper_data_.sectors[i] <= bumper_repulsion_horizontal_distance_) {
-        // get the desired direction of motion
-        double oposite_direction  = double(i) * sector_size + M_PI;
-        int    oposite_sector_idx = bumperGetSectorId(cos(oposite_direction), sin(oposite_direction), 0);
-
-        if (bumper_data_.sectors[oposite_sector_idx] > 0 && bumper_data_.sectors[oposite_sector_idx] <= bumper_repulsion_horizontal_distance_) {
-          current_reg_error = (bumper_data_.sectors[i] + bumper_data_.sectors[oposite_sector_idx]) / 2 - bumper_data_.sectors[i];
-        } else {
-          current_reg_error = bumper_repulsion_horizontal_distance_ - bumper_data_.sectors[i];
-        }
-
-        if (bumper_data_.sectors[i] < min_distance) {
-          min_distance   = bumper_data_.sectors[i];
-          min_dist_index = i;
-        }
-        horizontal_collision_detected = true;
-      }
-      reg_error_diff_[i] = (current_reg_error - reg_error_[i]) / time_step;
-      reg_error_[i]      = current_reg_error;
-      diff_filter_[i]    = (1 - filter_coeff_) * reg_error_diff_[i] + filter_coeff_ * diff_filter_[i];
-    }
-  }
-
-  bool collision_above = false;
-  bool collision_below = false;
-
-  // check for vertical collision down
-  if (bumper_data_.sectors[bumper_data_.n_horizontal_sectors] > 0 &&
-      bumper_data_.sectors[bumper_data_.n_horizontal_sectors] <= bumper_repulsion_vertical_distance_) {
-    ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumper: potential collision below");
-    collision_above   = true;
-    current_reg_error = bumper_data_.sectors[bumper_data_.n_horizontal_sectors] - bumper_repulsion_vertical_distance_;
-  }
-
-  // check for vertical collision up
-  if (bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1] > 0 &&
-      bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1] <= bumper_repulsion_vertical_distance_) {
-    ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumper: potential collision above");
-    collision_below   = true;
-    current_reg_error = bumper_repulsion_vertical_distance_ - bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1];
-  }
-
-  // compute regulation error and its diff for vertical direction
-  if (collision_above && collision_below) {
-    current_reg_error = (bumper_data_.sectors[bumper_data_.n_horizontal_sectors] + bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1]) / 2 -
-                        bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1];
-  }
-  reg_error_diff_[bumper_data_.n_horizontal_sectors] = (current_reg_error - reg_error_[bumper_data_.n_horizontal_sectors]) / time_step;
-  reg_error_[bumper_data_.n_horizontal_sectors]      = current_reg_error;
-  diff_filter_[bumper_data_.n_horizontal_sectors] =
-      (1 - filter_coeff_) * reg_error_diff_[bumper_data_.n_horizontal_sectors] + filter_coeff_ * diff_filter_[bumper_data_.n_horizontal_sectors];
-
-  if (horizontal_collision_detected) {
-    // TODO generate modified x y acceleration for position command
-  }
-
-  if (collision_above || collision_below) {
-    if (collision_above) { 
-      current_vertical_speed = fmin(current_vertical_speed, 0);
-      ROS_INFO_COND(abs(current_vertical_speed) < 1e-10, "[JoyTracker]: ################# Limiting the vertical speed.");
-    }
-    // TODO generate modified z velocity/position for position command
-  }
-
-  /* ROS_INFO("[JoyTracker]: NoF Horizontal sectors = %lu", bumper_data_.sectors.size()); */
-  /* for (uint i = 0; i < bumper_data_.n_horizontal_sectors + 2; i++) { */
-  /*     ROS_INFO("[JoyTracker]: bumper_data_diff = %.5f, data = [%.2f, %.2f]", bumper_data_.sectors[i] - bumper_previous_data_.sectors[i],
-   * bumper_data_.sectors[i], bumper_previous_data_.sectors[i]); */
-  /* } */
-  return false;
-}
-
-//}
-
-/* //{ bumperTimer() */
-
-void JoyTracker::bumperTimer(const ros::TimerEvent &event) {
-
-  if (!is_initialized)
-    return;
-
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("bumperTimer", bumper_timer_rate_, 0.01, event);
-
-  if (!bumper_enabled_) {
-    return;
-  }
-
-  if ((ros::Time::now() - bumper_data_.header.stamp).toSec() > 1.0) {
-    return;
-  }
-
-  {
-    std::scoped_lock lock(mutex_odometry);
-
-    if (odometry_z < 0.5) {
-      ROS_WARN_THROTTLE(0.5, "[JoyTracker]: not using bumper repulsion, height < 0.5 m");
-      return;
-    }
-  }
-
-  // --------------------------------------------------------------
-  // |                      bumper repulsion                      |
-  // --------------------------------------------------------------
-
-  /* ROS_INFO_THROTTLE(1.0, "[JoyTracker]: bumperTimer spinning"); */
-
-  /* bumperPushFromObstacle(); */
-}
 
 }  // namespace joy_tracker
 
