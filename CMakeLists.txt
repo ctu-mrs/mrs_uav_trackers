@@ -111,7 +111,7 @@ target_link_libraries(JoyTracker
   ${catkin_LIBRARIES}
   )
 
-# Joy Tracker
+# Joy Bumper Tracker
 
 add_library(JoyBumperTracker
   src/joy_bumper_tracker/joy_bumper_tracker.cpp
@@ -146,6 +146,9 @@ install(TARGETS
   CsvTracker
   LineTracker
   LandoffTracker
+  JoyTracker
+  MatlabTracker
+  JoyBumperTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

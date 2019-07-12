@@ -1,9 +1,22 @@
+bumper_enabled: true
+bumper_horizontal_repulsion_distance: 2.0
+bumper_vertical_repulsion_distance: 2.0
+
 tracker_loop_rate: 100 # [Hz]
+bumper_timer_rate: 20 # [Hz]
 
 vertical_tracker:
   vertical_speed: 0.6
 
 max_tilt: 0.50 # [rad]
+filter_coefficient: 0.95 # coefficient of filter for error derivation
 
 yaw_tracker:
   yaw_rate: 1.0
+
+buttons_indices:
+  start: 7
+  thrust: 4 
+  yaw: 0
+  pitch: 1
+  roll: 3

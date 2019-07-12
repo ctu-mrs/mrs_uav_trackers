@@ -757,6 +757,10 @@ bool JoyTracker::bumperPushFromObstacle(void) {
   }
 
   if (collision_above || collision_below) {
+    if (collision_above) { 
+      current_vertical_speed = fmin(current_vertical_speed, 0);
+      ROS_INFO_COND(abs(current_vertical_speed) < 1e-10, "[JoyTracker]: ################# Limiting the vertical speed.");
+    }
     // TODO generate modified z velocity/position for position command
   }
 
