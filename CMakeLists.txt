@@ -11,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_lib
   mrs_msgs
   mrs_uav_manager
+  mrs_controllers
   )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color")
@@ -23,7 +24,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs
+  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs mrs_controllers
   DEPENDS Eigen
   )
 
@@ -56,7 +57,6 @@ add_dependencies(MpcTracker
 
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
-  MpcTrackerCvxgen
   )
 
 # CSV Tracker

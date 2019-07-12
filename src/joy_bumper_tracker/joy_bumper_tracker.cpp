@@ -19,6 +19,8 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 
+#include <mrs_controllers/cvx_wrapper.h>
+
 //}
 
 #define STOP_THR 1e-3
@@ -155,6 +157,29 @@ private:
   int yaw_idx_;
   int pitch_idx_;
   int roll_idx_;
+
+  // --------------------------------------------------------------
+  // |                       MPC controller                       |
+  // --------------------------------------------------------------
+
+private:
+  int n;  // number of states
+
+  double dt1, dt2;
+
+  double cvx_x_u = 0;
+
+  int horizon_length_;
+
+  double max_speed_horizontal_, max_acceleration_horizontal_, max_jerk_;
+
+  std::vector<double> Q, S;
+  std::vector<double> Q_z, S_z;
+
+  mrs_controllers::cvx_wrapper::CvxWrapper *cvx_x;
+
+  bool cvx_verbose_ = false;
+  int  cvx_max_iterations_;
 };
 
 JoyBumperTracker::JoyBumperTracker(void) : is_initialized(false), is_active(false) {
@@ -198,6 +223,25 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   param_loader.load_param("buttons_indices/roll", roll_idx_);
   param_loader.load_param("buttons_indices/start", start_button_idx_);
 
+  // | --------------------- mpc controller --------------------- |
+
+  // load the dynamicall model parameters
+  param_loader.load_param("mpc_model/number_of_states", n);
+  param_loader.load_param("mpc_model/dt1", dt1);
+  param_loader.load_param("mpc_model/dt2", dt2);
+
+  param_loader.load_param("mpc_parameters/horizon_length", horizon_length_);
+
+  param_loader.load_param("mpc_parameters/horizontal/max_speed", max_speed_horizontal_);
+  param_loader.load_param("mpc_parameters/horizontal/max_acceleration", max_acceleration_horizontal_);
+  param_loader.load_param("mpc_parameters/horizontal/max_jerk", max_jerk_);
+
+  param_loader.load_param("mpc_parameters/horizontal/Q", Q);
+  param_loader.load_param("mpc_parameters/horizontal/S", S);
+
+  param_loader.load_param("cvx_parameters/verbose", cvx_verbose_);
+  param_loader.load_param("cvx_parameters/max_iterations", cvx_max_iterations_);
+
   /* //{ check loaded indices */
   if (start_button_idx_ < 0 || start_button_idx_ > 10) {
     ROS_ERROR("[JoyBumperTracker]: Invalid index of start button. Setting default value.");
@@ -224,6 +268,12 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
   ROS_INFO("[JoyBumperTracker]: tracker_dt: %f", tracker_dt_);
+
+  // --------------------------------------------------------------
+  // |                       prepare cvxgen                       |
+  // --------------------------------------------------------------
+
+  cvx_x = new mrs_controllers::cvx_wrapper::CvxWrapper(cvx_verbose_, cvx_max_iterations_, Q, S, dt1, dt2, 0, 1.0);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -552,7 +602,8 @@ const std_srvs::TriggerResponse::ConstPtr JoyBumperTracker::hover([[maybe_unused
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr JoyBumperTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr JoyBumperTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
   return mrs_msgs::TrackerConstraintsResponse::Ptr();
 }
@@ -665,7 +716,9 @@ int JoyBumperTracker::bumperGetSectorId(const double x, const double y, [[maybe_
 /* bumperPushFromObstacle() //{ */
 
 bool JoyBumperTracker::bumperPushFromObstacle(void) {
+
   ROS_INFO_THROTTLE(1.0, "[JoyBumperTracker]: Entering bumper push form obstacle.");
+
   if (!bumper_enabled_) {
     return true;
   }
@@ -673,6 +726,7 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
   if (!got_bumper_) {
     return true;
   }
+
   got_bumper_ = false;
 
   if (!filter_initialized_) {
@@ -699,8 +753,10 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
     if (bumper_data_.sectors[i] < 0 || bumper_data_.sectors[i] > bumper_repulsion_horizontal_distance_) {
       current_reg_error = 0;
     } else {
+
       // if the sector is under critical distance
       if (bumper_data_.sectors[i] <= bumper_repulsion_horizontal_distance_) {
+
         // get the desired direction of motion
         double oposite_direction  = double(i) * sector_size + M_PI;
         int    oposite_sector_idx = bumperGetSectorId(cos(oposite_direction), sin(oposite_direction), 0);
@@ -717,6 +773,7 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
         }
         horizontal_collision_detected = true;
       }
+
       reg_error_diff_[i] = (current_reg_error - reg_error_[i]) / time_step;
       reg_error_[i]      = current_reg_error;
       diff_filter_[i]    = (1 - filter_coeff_) * reg_error_diff_[i] + filter_coeff_ * diff_filter_[i];
@@ -747,20 +804,63 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
     current_reg_error = (bumper_data_.sectors[bumper_data_.n_horizontal_sectors] + bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1]) / 2 -
                         bumper_data_.sectors[bumper_data_.n_horizontal_sectors + 1];
   }
+
   reg_error_diff_[bumper_data_.n_horizontal_sectors] = (current_reg_error - reg_error_[bumper_data_.n_horizontal_sectors]) / time_step;
   reg_error_[bumper_data_.n_horizontal_sectors]      = current_reg_error;
   diff_filter_[bumper_data_.n_horizontal_sectors] =
       (1 - filter_coeff_) * reg_error_diff_[bumper_data_.n_horizontal_sectors] + filter_coeff_ * diff_filter_[bumper_data_.n_horizontal_sectors];
 
   if (horizontal_collision_detected) {
+
     // TODO generate modified x y acceleration for position command
+    // min_dist_index contains the index of the problem sector
+    // reg_error_[i]
+    // reg_error_diff_[i]
+    // diff_filter_[i]
+
+    // --------------------------------------------------------------
+    // |                     MPC lateral control                    |
+    // --------------------------------------------------------------
+
+    // | ------------------- initial conditions ------------------- |
+
+    Eigen::MatrixXd initial_x = Eigen::MatrixXd::Zero(3, 1);
+    initial_x << reg_error_[min_dist_index], diff_filter_[min_dist_index], 0;
+
+    // | ---------------------- set reference --------------------- |
+
+    Eigen::MatrixXd mpc_reference_x = Eigen::MatrixXd::Zero(horizon_length_ * n, 1);
+
+    // prepare the full reference vector
+    for (int i = 0; i < horizon_length_; i++) {
+
+      mpc_reference_x((i * n) + 0, 0) = 1.5; // TODO this is the reference
+      mpc_reference_x((i * n) + 1, 0) = 0;
+      mpc_reference_x((i * n) + 2, 0) = 0;
+    }
+
+    // | ------------------------ optimize ------------------------ |
+
+    cvx_x->lock();
+    cvx_x->setQ(Q);
+    cvx_x->setS(S);
+    cvx_x->setParams();
+    cvx_x->setLastInput(cvx_x_u);
+    cvx_x->loadReference(mpc_reference_x);
+    cvx_x->setLimits(max_speed_horizontal_, 999, max_acceleration_horizontal_, max_jerk_, dt1, dt2);
+    cvx_x->setInitialState(initial_x);
+    [[maybe_unused]] int iters_x = cvx_x->solveCvx();
+    cvx_x_u                      = cvx_x->getFirstControlInput();
+    cvx_x->unlock();
   }
 
   if (collision_above || collision_below) {
-    if (collision_above) { 
+
+    if (collision_above) {
       current_vertical_speed = fmin(current_vertical_speed, 0);
       ROS_INFO_COND(abs(current_vertical_speed) < 1e-10, "[JoyBumperTracker]: ################# Limiting the vertical speed.");
     }
+
     // TODO generate modified z velocity/position for position command
   }
   return false;
@@ -768,7 +868,7 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
 
 //}
 
-/* //{ bumperTimer() */
+/* bumperTimer() //{ */
 
 void JoyBumperTracker::bumperTimer(const ros::TimerEvent &event) {
 
@@ -802,6 +902,8 @@ void JoyBumperTracker::bumperTimer(const ros::TimerEvent &event) {
 
   /* bumperPushFromObstacle(); */
 }
+
+//}
 
 }  // namespace joy_bumper_tracker
 
