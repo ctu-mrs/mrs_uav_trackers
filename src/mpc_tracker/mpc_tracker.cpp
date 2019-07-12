@@ -1614,12 +1614,12 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
     char tempStr[100];
     if (use_yaw_in_trajectory) {
 
-      ROS_INFO("[MpcTracker]: Flying to trajectory start pooint x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
+      ROS_INFO("[MpcTracker]: Flying to trajectory start point x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
                des_z_whole_trajectory[0], des_yaw_whole_trajectory[0]);
       sprintf((char *)&tempStr, "Flying to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
               des_z_whole_trajectory[0], des_yaw_whole_trajectory[0]);
     } else {
-      ROS_INFO("[MpcTracker]: Flying to trajectory start pooint x: %2.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
+      ROS_INFO("[MpcTracker]: Flying to trajectory start point x: %2.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0],
                des_z_whole_trajectory[0]);
       sprintf((char *)&tempStr, "Flying to x: %3.2f, y: %2.2f, z: %2.2f", des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0]);
     }
