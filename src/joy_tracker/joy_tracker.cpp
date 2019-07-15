@@ -116,6 +116,10 @@ private:
   double          max_tilt_;
   double          vertical_speed_;
 
+  // channel numbers and channel multipliers
+  int _channel_pitch_, _channel_roll_, _channel_yaw_, _channel_thrust_;
+  int _channel_mult_pitch_, _channel_mult_roll_, _channel_mult_yaw_, _channel_mult_thrust_;
+
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
@@ -150,6 +154,18 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   param_loader.load_param("max_tilt", max_tilt_);
 
   param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
+
+  // load channels
+  param_loader.load_param("channels/pitch", _channel_pitch_);
+  param_loader.load_param("channels/roll", _channel_roll_);
+  param_loader.load_param("channels/yaw", _channel_yaw_);
+  param_loader.load_param("channels/thrust", _channel_thrust_);
+
+  // load channel multipliers
+  param_loader.load_param("channel_multipliers/pitch", _channel_mult_pitch_);
+  param_loader.load_param("channel_multipliers/roll", _channel_mult_roll_);
+  param_loader.load_param("channel_multipliers/yaw", _channel_mult_yaw_);
+  param_loader.load_param("channel_multipliers/thrust", _channel_mult_thrust_);
 
   tracker_dt_ = 1.0 / double(tracker_loop_rate_);
 
@@ -529,10 +545,12 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
 
-  current_vertical_speed = msg.axes[3] * vertical_speed_;
-  current_yaw_rate       = msg.axes[0] * yaw_rate_;
-  desired_pitch          = msg.axes[1] * max_tilt_;
-  desired_roll           = msg.axes[2] * max_tilt_;
+  // TODO check the size of the array
+
+  current_vertical_speed = _channel_mult_thrust_ * msg.axes[_channel_thrust_] * vertical_speed_;
+  current_yaw_rate       = _channel_mult_yaw_ * msg.axes[_channel_yaw_] * yaw_rate_;
+  desired_pitch          = _channel_mult_pitch_ * msg.axes[_channel_pitch_] * max_tilt_;
+  desired_roll           = _channel_mult_roll_ * msg.axes[_channel_roll_] * max_tilt_;
 
   got_goal = true;
 

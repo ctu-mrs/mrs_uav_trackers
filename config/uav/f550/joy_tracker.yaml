@@ -8,10 +8,18 @@ max_tilt: 0.50 # [rad]
 yaw_tracker:
   yaw_rate: 1.0
 
-buttons_indices:
-  start: 7
-  thrust: 4 
-  yaw: 0
-  pitch: 1
-  roll: 3
+# channel numbers, indeces in array
+channels:
 
+  pitch: 1 # []
+  roll: 2 # []
+  yaw: 0 # []
+  thrust: 1 # []
+
+# multipliers for scaling and reversing the channels
+channel_multipliers:
+
+  pitch: 1.0 # []
+  roll: 1.0 # []
+  yaw: 1.0 # []
+  thrust: 1.0 # []
