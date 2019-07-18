@@ -101,6 +101,8 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
+  bool               position_mode_    = false;
+  bool               tilt_mode_        = false;
 };
 
 MatlabTracker::MatlabTracker(void) : is_initialized(false), is_active(false) {
@@ -125,6 +127,8 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
   mrs_lib::ParamLoader param_loader(nh_, "MatlabTracker");
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
+  param_loader.load_param("position_mode", profiler_enabled_);
+  param_loader.load_param("tilt_mode", tilt_mode_);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -226,25 +230,46 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::
   {
     std::scoped_lock lock(mutex_odometry, mutex_goal);
 
-    position_output.position.x = matlab_goal.pose.pose.position.x;
-    position_output.position.y = matlab_goal.pose.pose.position.y;
-    position_output.position.z = matlab_goal.pose.pose.position.z;
+    if (position_mode_) {
 
-    position_output.velocity.x = matlab_goal.twist.twist.linear.x;
-    position_output.velocity.y = matlab_goal.twist.twist.linear.y;
-    position_output.velocity.z = matlab_goal.twist.twist.linear.z;
+      position_output.position.x = matlab_goal.pose.pose.position.x;
+      position_output.position.y = matlab_goal.pose.pose.position.y;
+      position_output.position.z = matlab_goal.pose.pose.position.z;
 
-    position_output.acceleration.x = matlab_goal.twist.twist.angular.x;
-    position_output.acceleration.y = matlab_goal.twist.twist.angular.y;
-    position_output.acceleration.z = matlab_goal.twist.twist.angular.z;
+      position_output.velocity.x = matlab_goal.twist.twist.linear.x;
+      position_output.velocity.y = matlab_goal.twist.twist.linear.y;
+      position_output.velocity.z = matlab_goal.twist.twist.linear.z;
 
-    position_output.yaw     = matlab_goal.pose.pose.orientation.x;
-    position_output.yaw_dot = matlab_goal.pose.pose.orientation.y;
+      position_output.acceleration.x = matlab_goal.twist.twist.angular.x;
+      position_output.acceleration.y = matlab_goal.twist.twist.angular.y;
+      position_output.acceleration.z = matlab_goal.twist.twist.angular.z;
 
-    position_output.use_euler_attitude = 1;
-    position_output.use_position       = 1;
-    position_output.use_velocity       = 1;
-    position_output.use_acceleration   = 1;
+      position_output.yaw     = matlab_goal.pose.pose.orientation.x;
+      position_output.yaw_dot = matlab_goal.pose.pose.orientation.y;
+
+      position_output.use_euler_attitude = 1;
+      position_output.use_position       = 1;
+      position_output.use_velocity       = 1;
+      position_output.use_acceleration   = 1;
+    }
+
+    if (tilt_mode_) {
+
+      position_output.position.x = odometry_x;
+      position_output.position.y = odometry_y;
+      position_output.position.z = matlab_goal.pose.pose.position.z;
+
+      position_output.velocity.x = odometry.twist.twist.linear.x;
+      position_output.velocity.y = odometry.twist.twist.linear.y;
+      position_output.velocity.z = odometry.twist.twist.linear.z;
+
+      position_output.acceleration.x = 0;
+      position_output.acceleration.y = 0;
+      position_output.acceleration.z = 0;
+
+      position_output.use_quat_attitude = 1;
+      position_output.use_position      = 1;
+    }
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -422,7 +447,7 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MatlabTracker::setConstrain
 
 // | --------------------- custom methods --------------------- |
 
-/* callbackJoystick() //{ */
+/* callbackMatlab() //{ */
 
 void MatlabTracker::callbackMatlab(const nav_msgs::Odometry &msg) {
 

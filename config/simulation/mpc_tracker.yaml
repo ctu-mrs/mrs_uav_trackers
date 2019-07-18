@@ -75,7 +75,7 @@ cvxgenMpc:
   dt: 0.01
   dt2: 0.2
 
-  no_overshoots: true # disable for more aggresive flight
+  no_overshoots: false # disable for more aggresive flight
 
   # State constrains:
   maxHorizontalSpeed: 5.0
