@@ -284,6 +284,7 @@ private:
   int       collision_start_climbing;
   int       earliest_collision_idx;
   double    collision_trajectory_timeout;
+  bool      avoiding_collision = false;
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -1880,7 +1881,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
   std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory);
 
   first_collision_index = INT_MAX;
-  bool avoiding         = false;
+  avoiding_collision    = false;
 
   // This variable is used for collision avoidance priority swapping,only the first detected collision is considered for priority swap, subsequent collisons
   // are irrelevant
@@ -1909,7 +1910,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
           // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
           if ((u->second.collision_avoidance == false) || (other_uav_priority < my_uav_priority)) {
             // we should be avoiding
-            avoiding                 = true;
+            avoiding_collision       = true;
             double tmp_safe_altitude = u->second.points[v].z + mrs_collision_avoidance_correction;
             if (tmp_safe_altitude > collision_free_altitude && v <= collision_start_climbing) {
               collision_free_altitude = tmp_safe_altitude;
@@ -1948,7 +1949,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
     u++;
   }
 
-  if (!avoiding) {
+  if (!avoiding_collision) {
 
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude -= 0.02;
@@ -2452,6 +2453,8 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.header.frame_id = "local_origin";
 
   diagnostics.tracker_active = is_active;
+
+  diagnostics.avoiding_collision = avoiding_collision;
 
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
