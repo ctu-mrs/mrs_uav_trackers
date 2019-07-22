@@ -746,16 +746,13 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   mpc_start_time  = ros::Time::now();
   mpc_total_delay = 0;
 
-  setRelativeGoal(0, 0, 0, 0, false);
-
   ROS_INFO("[MpcTracker]: activated");
 
-  publishDiagnostics();
-
-  hover_timer.start();
+  is_active = true;
 
   hovering_in_progress = true;
-  is_active            = true;
+  setRelativeGoal(0, 0, 0, 0, false);
+  hover_timer.start();
 
   // can return false
   return is_active;
@@ -2459,7 +2456,7 @@ void MpcTracker::publishDiagnostics(void) {
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
 
-  if (tracking_trajectory) {
+  if (tracking_trajectory || hovering_in_progress) {
     diagnostics.tracking_trajectory = true;
   } else {
     if (sqrt(pow(x(0, 0) - des_x_trajectory(0), 2) + pow(x(4, 0) - des_y_trajectory(0), 2) + pow(x(8, 0) - des_z_trajectory(0), 2)) >
