@@ -1597,11 +1597,8 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
 
-      setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], true);
+      setGoal(des_x_whole_trajectory[0], des_y_whole_trajectory[0], des_z_whole_trajectory[0], des_yaw_whole_trajectory[0], use_yaw_in_trajectory);
     }
-
-    if (use_yaw_in_trajectory)
-      desired_yaw = des_yaw_whole_trajectory[0];
 
     {
       std::scoped_lock lock(mutex_des_trajectory);
