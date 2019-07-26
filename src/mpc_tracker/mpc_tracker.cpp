@@ -778,7 +778,7 @@ void MpcTracker::deactivate(void) {
   tracking_trajectory = false;
   trajectory_idx      = 0;
 
-  ROS_INFO("[MpcTracker]: MPC tracker deactivated");
+  ROS_INFO("[MpcTracker]: deactivated");
 
   publishDiagnostics();
 }
