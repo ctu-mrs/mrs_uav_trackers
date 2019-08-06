@@ -1159,8 +1159,8 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
     {
       Eigen::Vector2d temp_vec(x(0, 0) - odometry.pose.pose.position.x, x(4, 0) - odometry.pose.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
-      x(0, 0) = msg->pose.pose.position.x + temp_vec[0];
-      x(4, 0) = msg->pose.pose.position.y + temp_vec[1];
+      x(0, 0)  = msg->pose.pose.position.x + temp_vec[0];
+      x(4, 0)  = msg->pose.pose.position.y + temp_vec[1];
       x(8, 0) += dz;
     }
 
@@ -1512,6 +1512,13 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
 bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  if (!is_active) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
+
   if (!callbacks_enabled) {
 
     res.success = false;
@@ -1551,6 +1558,13 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
 
 bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  if (!is_active) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
+
   if (tracking_trajectory) {
 
     tracking_trajectory = false;
@@ -1584,6 +1598,13 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
 /* //{ callbackFlyToTrajectoryStart() */
 
 bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_active) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
 
   if (!callbacks_enabled) {
 
@@ -1638,6 +1659,13 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
 /* //{ callbackResumeTrajectoryFollowing() */
 
 bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
+
+  if (!is_active) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
 
   if (!callbacks_enabled) {
 
