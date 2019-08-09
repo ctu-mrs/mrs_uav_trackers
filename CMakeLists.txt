@@ -12,6 +12,11 @@ find_package(catkin REQUIRED COMPONENTS
   mrs_msgs
   mrs_uav_manager
   mrs_controllers
+  dynamic_reconfigure
+  )
+
+generate_dynamic_reconfigure_options(
+  cfg/mpc_tracker.cfg
   )
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17 -fno-diagnostics-color")
@@ -36,6 +41,7 @@ include_directories(
   include
   ${EIGEN_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
+  ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
 # CVXgen wrapper for MPC tracker

@@ -32,7 +32,10 @@
 #include <mrs_lib/Utils.h>
 #include <mrs_lib/ParamLoader.h>
 
+#include <dynamic_reconfigure/server.h>
 #include <mrs_trackers/cvx_wrapper.h>
+
+#include <mrs_trackers/mpc_trackerConfig.h>
 
 #include <commons.h>
 
@@ -291,6 +294,18 @@ private:
   bool                   got_odometry_diagnostics = false;
   std::mutex             mutex_odometry_diagnostics;
 
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+  void dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig &config, uint32_t level);
+
+  boost::recursive_mutex                      config_mutex_;
+  typedef mrs_trackers::mpc_trackerConfig     Config;
+  typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
+  boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
+  void                                        drs_callback(mrs_trackers::mpc_trackerConfig &config, uint32_t level);
+  mrs_trackers::mpc_trackerConfig             drs_params;
+
 private:
   ros::Timer future_trajectory_timer;
   void       futureTrajectoryTimer(const ros::TimerEvent &event);
@@ -363,6 +378,14 @@ private:
 
 private:
   Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
+
+private:
+  bool       wiggle_enabled_ = false;
+  double     wiggle_amplitude_;
+  double     wiggle_frequency_;
+  double     wiggle_phase = 0;
+  std::mutex mutex_wiggle;
+  bool       wiggleCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -478,6 +501,10 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
 
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
   ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
+
+  param_loader.load_param("wiggle/enabled", wiggle_enabled_);
+  param_loader.load_param("wiggle/amplitude", wiggle_amplitude_);
+  param_loader.load_param("wiggle/frequency", wiggle_frequency_);
 
   // initialize other matrices
   x                = MatrixXd::Zero(n, 1);
@@ -650,6 +677,19 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   service_server_time_agnostic_mode = nh_.advertiseService("time_agnostic_in", &MpcTracker::callbackTimeAgnosticMode, this);
   param_loader.load_param("headless_mode", headless_mode, false);
   param_loader.load_param("time_agnostic_mode", time_agnostic_mode, false);
+
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+
+  drs_params.wiggle_enabled   = wiggle_enabled_;
+  drs_params.wiggle_frequency = wiggle_frequency_;
+  drs_params.wiggle_amplitude = wiggle_amplitude_;
+
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
+  reconfigure_server_->updateConfig(drs_params);
+  ReconfigureServer::CallbackType f = boost::bind(&MpcTracker::dynamicReconfigureCallback, this, _1, _2);
+  reconfigure_server_->setCallback(f);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -1844,6 +1884,41 @@ bool MpcTracker::callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_s
 
 //}
 
+/* wiggleCallback() //{ */
+
+bool MpcTracker::wiggleCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  std::scoped_lock lock(mutex_wiggle);
+
+  if (!is_initialized) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
+
+  wiggle_enabled_ = !wiggle_enabled_;
+}
+
+//}
+
+/* //{ dynamicReconfigureCallback() */
+
+void MpcTracker::dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig &config, [[maybe_unused]] uint32_t level) {
+
+  std::scoped_lock lock(mutex_wiggle);
+
+  drs_params = config;
+
+  wiggle_enabled_   = config.wiggle_enabled;
+  wiggle_amplitude_ = config.wiggle_amplitude;
+  wiggle_frequency_ = config.wiggle_frequency;
+
+  ROS_INFO("[So3Controller]: DRS updated gains");
+}
+
+//}
+
 // | -------------------- setpoint handling ------------------- |
 
 /* //{ dist() */
@@ -2068,6 +2143,20 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
     } else {
       des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference_x;
       des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference_y;
+    }
+  }
+
+  // | ----------------------- add wiggle ----------------------- |
+  if (wiggle_enabled_) {
+
+    for (int i = 0; i < horizon_len_; i++) {
+      des_x_filtered(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * 0.2 + wiggle_phase);
+      des_y_filtered(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * 0.2 + wiggle_phase);
+    }
+
+    wiggle_phase += wiggle_frequency_ * 0.01 * 2 * M_PI;
+    if (wiggle_phase > M_PI) {
+      wiggle_phase -= 2*M_PI; 
     }
   }
 }
