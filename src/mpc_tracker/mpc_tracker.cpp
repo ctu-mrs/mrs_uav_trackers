@@ -98,6 +98,7 @@ private:
   ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
   ros::ServiceServer set_yaw_service_cmd_cb;
   ros::ServiceServer set_set_mpc_matrix;  // set matrices in cvxgen
+  ros::ServiceServer service_client_wiggle;
   ros::ServiceServer collision_avoidance_service;
 
   // debugging publishers
@@ -385,7 +386,7 @@ private:
   double     wiggle_frequency_;
   double     wiggle_phase = 0;
   std::mutex mutex_wiggle;
-  bool       wiggleCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  bool       callbackWiggle(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 };
 
 MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
@@ -593,6 +594,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
 
   // service for triggering failsafe
   set_set_mpc_matrix = nh_.advertiseService("set_mpc_matrix_in", &MpcTracker::callbackSetQ, this);
+
+  // service for enabling wiggle
+  service_client_wiggle = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
   // publishers for debugging
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
@@ -1884,9 +1888,9 @@ bool MpcTracker::callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_s
 
 //}
 
-/* wiggleCallback() //{ */
+/* callbackWiggle() //{ */
 
-bool MpcTracker::wiggleCallback(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
 
   std::scoped_lock lock(mutex_wiggle);
 
@@ -1897,7 +1901,11 @@ bool MpcTracker::wiggleCallback(std_srvs::SetBool::Request &req, std_srvs::SetBo
     return true;
   }
 
-  wiggle_enabled_ = !wiggle_enabled_;
+  wiggle_enabled_ = req.data;
+  res.success = true;
+  res.message = "Wiggle set";
+
+  return true;
 }
 
 //}
@@ -2156,7 +2164,7 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
 
     wiggle_phase += wiggle_frequency_ * 0.01 * 2 * M_PI;
     if (wiggle_phase > M_PI) {
-      wiggle_phase -= 2*M_PI; 
+      wiggle_phase -= 2 * M_PI;
     }
   }
 }
