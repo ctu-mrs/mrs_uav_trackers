@@ -1570,7 +1570,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
     tracking_trajectory = false;
 
     {
-      std::scoped_lock lock(mutex_x);
+      std::scoped_lock lock(mutex_x, mutex_des_trajectory);
 
       setTrajectory(x(0, 0), x(4, 0), x(8, 0), x_yaw(0, 0));
     }
