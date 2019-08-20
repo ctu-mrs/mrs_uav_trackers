@@ -292,8 +292,8 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyBumperTracker::mainTimer, this);
-  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyBumperTracker::bumperTimer, this);
+  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyBumperTracker::mainTimer, this, false, false);
+  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyBumperTracker::bumperTimer, this, false, false);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[JoyBumperTracker]: Could not load all parameters!");
@@ -341,10 +341,12 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
     }
   }
 
-
   // --------------------------------------------------------------
   // |              yaw initial condition  prediction             |
   // --------------------------------------------------------------
+
+  main_timer.start();
+  bumper_timer.start();
 
   is_active = true;
 
@@ -358,6 +360,9 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
 /* //{ deactivate() */
 
 void JoyBumperTracker::deactivate(void) {
+
+  main_timer.stop();
+  bumper_timer.stop();
 
   is_active = false;
 
@@ -670,8 +675,13 @@ void JoyBumperTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 /* callbackBumper() //{ */
 
 void JoyBumperTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
+
   if (!is_initialized)
     return;
+
+  if (!is_active) {
+    return;
+  }
 
   ROS_INFO_ONCE("[JoyBumperTracker]: getting bumper data");
   ROS_INFO_THROTTLE(0.5, "[JoyBumperTracker]: getting bumper data");
@@ -834,7 +844,7 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
     // prepare the full reference vector
     for (int i = 0; i < horizon_length_; i++) {
 
-      mpc_reference_x((i * n) + 0, 0) = 1.5; // TODO this is the reference
+      mpc_reference_x((i * n) + 0, 0) = 1.5;  // TODO this is the reference
       mpc_reference_x((i * n) + 1, 0) = 0;
       mpc_reference_x((i * n) + 2, 0) = 0;
     }
