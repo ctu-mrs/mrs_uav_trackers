@@ -1350,7 +1350,7 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request &
     goal_z = odometry_z + landing_reference_;
   }
 
-  ROS_WARN("[LandoffTracker]: emergancy landing");
+  ROS_WARN("[LandoffTracker]: emergency landing");
 
   landing    = true;
   elanding   = true;
