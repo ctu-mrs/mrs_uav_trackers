@@ -377,7 +377,6 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  bumperPushFromObstacle();
   {
     std::scoped_lock lock(mutex_odometry);
 
@@ -399,6 +398,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
   if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
   }
+
+  bumperPushFromObstacle();
 
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
