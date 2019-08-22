@@ -544,11 +544,8 @@ const mrs_msgs::TrackerStatus::Ptr LandoffTracker::getStatus() {
 
     mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
 
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
+    tracker_status->active            = is_active;
+    tracker_status->callbacks_enabled = callbacks_enabled;
 
     return tracker_status;
   } else {
