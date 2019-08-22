@@ -48,8 +48,6 @@ const char *state_names[6] = {
 
 class LineTracker : public mrs_uav_manager::Tracker {
 public:
-  LineTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
@@ -94,9 +92,9 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -151,9 +149,6 @@ private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
 };
-
-LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
-}
 
 //}
 

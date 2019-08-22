@@ -52,8 +52,6 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  MpcTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
@@ -112,7 +110,9 @@ private:
   mrs_msgs::FutureTrajectoryInt8 future_trajectory_esp_out;
   mrs_msgs::PositionCommand      position_cmd_;  // message being returned
 
-  bool      odom_set_, is_active, is_initialized;
+  bool      odom_set_      = false;
+  bool      is_active      = false;
+  bool      is_initialized = false;
   double    kx_[3], kv_[3];
   double    new_kx_[3], new_kv_[3];
   double    cur_yaw_;
@@ -140,7 +140,7 @@ private:
   std::mutex                          mutex_constraints;
   ros::Time                           priority_time;
   mrs_msgs::TrackerConstraintsRequest desired_constraints;
-  bool                                all_constraints_set;
+  bool                                all_constraints_set = false;
   double                              max_horizontal_speed;
   double                              max_horizontal_acceleration;
   double                              max_horizontal_jerk;
@@ -158,7 +158,7 @@ private:
   double                              max_yaw_jerk;
   double                              max_yaw_snap;
 
-  bool publish_debug_trajectory;
+  bool publish_debug_trajectory = false;
 
   int      max_iters_XY, max_iters_Z, max_iters_YAW;
   int      iters_X     = 0;
@@ -220,18 +220,18 @@ private:
   VectorXd   des_yaw_whole_trajectory;  // long trajectory reference
   std::mutex mutex_des_whole_trajectory;
 
-  bool use_yaw_in_trajectory;
+  bool use_yaw_in_trajectory = false;
 
-  bool tracking_trajectory;  // are we currently tracking a trajectory
+  bool tracking_trajectory       = false;  // are we currently tracking a trajectory
   int  trajectory_tracking_timer = 0;
   int  trajectory_idx;  // index in the currently tracked trajectory
   bool wait_for_heading = false;
   int  saved_index      = 0;
-  int  trajectory_size;      // size of the tracked trajectory
-  int  max_trajectory_size;  // maximum length of the trajectory
-  bool trajectory_set_;      // true if trajectory was set
-  int  trajectory_count;     // counting number of trajectories uploaded to the tracker
-  bool loop;                 // whether we are looping the trajectory
+  int  trajectory_size;          // size of the tracked trajectory
+  int  max_trajectory_size;      // maximum length of the trajectory
+  bool trajectory_set_ = false;  // true if trajectory was set
+  int  trajectory_count;         // counting number of trajectories uploaded to the tracker
+  bool loop = false;             // whether we are looping the trajectory
 
   MatrixXd reference;      // XYZ reference for the controller
   MatrixXd reference_yaw;  // yaw reference for the controlle
@@ -260,15 +260,15 @@ private:
   ros::Publisher                                    predicted_trajectory_publisher;
   ros::Publisher                                    predicted_trajectory_esp_publisher;
   ros::Publisher                                    debug_predicted_trajectory_publisher;
-  bool                                              collision_avoidance_enabled_;
-  bool                                              use_priority_swap;
-  bool                                              no_overshoots;
+  bool                                              collision_avoidance_enabled_ = false;
+  bool                                              use_priority_swap            = false;
+  bool                                              no_overshoots                = false;
   double                                            predicted_trajectory_publish_rate;
   double                                            mrs_collision_avoidance_radius;
   double                                            mrs_collision_avoidance_correction;
   std::string                                       predicted_trajectory_topic;
   void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool                                              future_was_predicted;
+  bool                                              future_was_predicted = false;
   double                                            mrs_collision_avoidance_altitude_threshold;
   double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   double    checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
@@ -312,7 +312,7 @@ private:
   void       hoverTimer(const ros::TimerEvent &event);
   bool       hovering_in_progress = false;
 
-  bool mpc_computed_;
+  bool mpc_computed_ = false;
 
   // for integrating the delay caused by long mpc calculations
   ros::Time mpc_start_time;
@@ -364,9 +364,6 @@ private:
 private:
   Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
 };
-
-MpcTracker::MpcTracker(void) : odom_set_(false), is_active(false), is_initialized(false), mpc_computed_(false) {
-}
 
 //}
 
@@ -455,7 +452,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
       max_vertical_descending_speed, max_vertical_descending_acceleration);
 
   // CVXGEN wrappers
-  bool verbose;
+  bool verbose = false;
 
   param_loader.load_param("cvxWrapper/verbose", verbose);
   param_loader.load_param("cvxWrapper/maxNumOfIterations", max_iters_XY);

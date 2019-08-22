@@ -38,8 +38,6 @@ namespace csv_tracker
 
 class CsvTracker : public mrs_uav_manager::Tracker {
 public:
-  CsvTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
@@ -155,9 +153,6 @@ private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
 };
-
-CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
-}
 
 //}
 

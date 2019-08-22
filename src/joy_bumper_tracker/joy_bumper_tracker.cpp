@@ -35,8 +35,6 @@ namespace joy_bumper_tracker
 
 class JoyBumperTracker : public mrs_uav_manager::Tracker {
 public:
-  JoyBumperTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
@@ -81,9 +79,9 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -133,7 +131,7 @@ private:
   double filter_coeff_;
   bool   got_bumper_         = false;
   bool   filter_initialized_ = false;
-  bool   bumper_enabled_;
+  bool   bumper_enabled_     = false;
   int    bumper_timer_rate_;
 
   mrs_msgs::ObstacleSectors bumper_data_;
@@ -181,9 +179,6 @@ private:
   bool cvx_verbose_ = false;
   int  cvx_max_iterations_;
 };
-
-JoyBumperTracker::JoyBumperTracker(void) : is_initialized(false), is_active(false) {
-}
 
 //}
 
