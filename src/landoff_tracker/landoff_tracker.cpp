@@ -4,8 +4,8 @@
 
 #include <geometry_msgs/PoseStamped.h>
 
-#include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/Vec1.h>
+#include <mrs_msgs/LandoffDiagnostics.h>
 
 #include <mrs_uav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
@@ -50,8 +50,6 @@ const char *state_names[7] = {
 
 class LandoffTracker : public mrs_uav_manager::Tracker {
 public:
-  LandoffTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
@@ -108,11 +106,11 @@ private:
   int    tracker_loop_rate_;
   double landing_reference_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
-  bool   takeoff_disable_lateral_gains_;
+  bool   takeoff_disable_lateral_gains_ = false;
   double takeoff_disable_lateral_gains_height_;
   double takeoff_reset_odometry_height_;
   bool   takeoff_odometry_was_reset    = false;
@@ -121,7 +119,11 @@ private:
 private:
   void       mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer;
-  bool       running_main_timer = false;
+
+private:
+  void       diagnosticsTimer(const ros::TimerEvent &event);
+  ros::Timer diagnostics_timer;
+  std::mutex mutex_diagnostics;
 
 private:
   ros::ServiceServer service_takeoff;
@@ -191,10 +193,12 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
-};
 
-LandoffTracker::LandoffTracker(void) : is_initialized(false), is_active(false) {
-}
+private:
+  void           publishDiagnostics(void);
+  ros::Publisher publisher_diagnostics;
+  double         diagnostics_rate_;
+};
 
 //}
 
@@ -239,6 +243,7 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
   param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
 
   param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
+  param_loader.load_param("diagnostics_loop_rate", diagnostics_rate_);
 
   param_loader.load_param("landing_reference", landing_reference_);
 
@@ -293,10 +298,17 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
   service_client_reset_lateral_odometry = nh_.serviceClient<std_srvs::Trigger>("reset_lateral_odometry_out");
 
   // --------------------------------------------------------------
+  // |                         publishers                         |
+  // --------------------------------------------------------------
+
+  publisher_diagnostics = nh_.advertise<mrs_msgs::LandoffDiagnostics>("diagnostics_out", 1);
+
+  // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this);
+  main_timer        = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LandoffTracker::mainTimer, this, false, false);
+  diagnostics_timer = nh_.createTimer(ros::Rate(diagnostics_rate_), &LandoffTracker::diagnosticsTimer, this);
 
   // | ----------------------- finish init ---------------------- |
 
@@ -358,7 +370,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
     std::scoped_lock lock(mutex_state);
 
     horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2.0;
     stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
     stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
   }
@@ -373,7 +385,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
     std::scoped_lock lock(mutex_state);
 
     vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2.0;
   }
 
   // --------------------------------------------------------------
@@ -391,6 +403,8 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   landing    = false;
   taking_off = false;
   is_active  = true;
+
+  main_timer.start();
 
   ROS_INFO("[LandoffTracker]: activated with goal x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", goal_x, goal_y, goal_z, goal_yaw);
 
@@ -415,6 +429,8 @@ void LandoffTracker::deactivate(void) {
   taking_off               = false;
   current_state_vertical   = IDLE_STATE;
   current_state_horizontal = IDLE_STATE;
+
+  main_timer.stop();
 
   ROS_INFO("[LandoffTracker]: deactivated");
 }
@@ -798,8 +814,26 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
   previous_state_horizontal = current_state_horizontal;
   current_state_horizontal  = new_state;
 
-  // just for ROS_INFO
-  ROS_DEBUG("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+  switch (current_state_horizontal) {
+
+    case IDLE_STATE:
+      break;
+    case LANDED_STATE:
+      break;
+    case HOVER_STATE:
+      break;
+    case STOP_MOTION_STATE:
+      break;
+    case ACCELERATING_STATE:
+      current_state_horizontal = STOPPING_STATE;
+      break;
+    case DECELERATING_STATE:
+      break;
+    case STOPPING_STATE:
+      break;
+  }
+
+  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
 }
 
 //}
@@ -818,8 +852,8 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     case LANDED_STATE:
       break;
     case HOVER_STATE:
-      landing    = false;
       taking_off = false;
+      publishDiagnostics();
       break;
     case STOP_MOTION_STATE:
       break;
@@ -831,8 +865,7 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
       break;
   }
 
-  // just for ROS_INFO
-  ROS_DEBUG("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
 }
 
 //}
@@ -1064,7 +1097,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       case ACCELERATING_STATE:
 
         accelerateVertical();
-
         break;
 
       case DECELERATING_STATE:
@@ -1089,7 +1121,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
       }
     }
 
-    if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
+    if (current_state_vertical == STOPPING_STATE && current_state_horizontal == STOPPING_STATE) {
       if (fabs(state_x - goal_x) < 0.1 && fabs(state_y - goal_y) < 0.1 && fabs(state_z - goal_z) < 0.1) {
         state_x = goal_x;
         state_y = goal_y;
@@ -1193,6 +1225,21 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
 //}
 
+/* //{ diagnosticsTimer() */
+
+void LandoffTracker::diagnosticsTimer(const ros::TimerEvent &event) {
+
+  if (!is_initialized) {
+    return;
+  }
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnostics", diagnostics_rate_, 0.002, event);
+
+  publishDiagnostics();
+}
+
+//}
+
 // | ------------------------ callbacks ----------------------- |
 
 /* //{ callbackTakeoff() */
@@ -1273,6 +1320,8 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
 
   changeState(ACCELERATING_STATE);
 
+  publishDiagnostics();
+
   return true;
 }
 
@@ -1320,6 +1369,8 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request &r
 
   changeState(STOP_MOTION_STATE);
 
+  publishDiagnostics();
+
   return true;
 }
 
@@ -1361,6 +1412,8 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request &
   res.message = "elanding";
 
   changeState(STOP_MOTION_STATE);
+
+  publishDiagnostics();
 
   return true;
 }
@@ -1415,6 +1468,35 @@ void LandoffTracker::replicateOdometry(void) {
   ROS_INFO("[LandoffTracker]: replicating odometry and stopping: current: %f %f, goal: %f %f", state_x, state_y, goal_x, goal_y);
 
   changeStateHorizontal(STOP_MOTION_STATE);
+}
+
+//}
+
+/* publishDiagnostics() //{ */
+
+void LandoffTracker::publishDiagnostics(void) {
+
+  if (!is_initialized) {
+    return;
+  }
+
+  std::scoped_lock lock(mutex_diagnostics);
+
+  mrs_msgs::LandoffDiagnostics diagnostics_msg;
+
+  diagnostics_msg.stamp = ros::Time::now();
+
+  diagnostics_msg.active     = is_active;
+  diagnostics_msg.landing    = landing;
+  diagnostics_msg.taking_off = taking_off;
+  diagnostics_msg.elanding   = elanding;
+
+  try {
+    publisher_diagnostics.publish(diagnostics_msg);
+  }
+  catch (...) {
+    ROS_ERROR("Exception caught during publishing topic %s.", publisher_diagnostics.getTopic().c_str());
+  }
 }
 
 //}

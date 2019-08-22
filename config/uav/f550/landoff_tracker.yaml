@@ -1,4 +1,5 @@
 tracker_loop_rate: 100 # [Hz]
+diagnostics_loop_rate: 10 # [Hz]
 
 landing_reference: -1.0 # [m]
 
