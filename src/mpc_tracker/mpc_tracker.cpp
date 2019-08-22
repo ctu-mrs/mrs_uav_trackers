@@ -16,10 +16,9 @@
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/FuturePointInt8.h>
 #include <mrs_msgs/FutureTrajectoryInt8.h>
-#include <mrs_msgs/TrackerDiagnostics.h>
+#include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
-#include <mrs_msgs/TrackerStatus.h>
 #include <mrs_msgs/MpcMatrix.h>
 #include <mrs_msgs/MpcMatrixRequest.h>
 #include <mrs_msgs/MpcMatrixResponse.h>
@@ -58,7 +57,7 @@ public:
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -566,7 +565,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
 
   // publishers for debugging
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
-  pub_diagnostics_      = nh_.advertise<mrs_msgs::TrackerDiagnostics>("diagnostics_out", 1);
+  pub_diagnostics_      = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
 
   // publisher for the current setpoint
   pub_setpoint_odom = nh_.advertise<nav_msgs::Odometry>("setpoint_odom_out", 1);
@@ -1020,20 +1019,14 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus::Ptr MpcTracker::getStatus() {
+const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
-  if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-    tracker_status->active            = is_active;
-    tracker_status->callbacks_enabled = callbacks_enabled;
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
+  return tracker_status;
 }
 
 //}
@@ -2498,7 +2491,7 @@ void MpcTracker::calculateMPC() {
 
 void MpcTracker::publishDiagnostics(void) {
 
-  mrs_msgs::TrackerDiagnostics diagnostics;
+  mrs_msgs::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = ros::Time::now();
   diagnostics.header.frame_id = "local_origin";
@@ -2535,7 +2528,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.orientation.w = orientation.w();
 
   try {
-    pub_diagnostics_.publish(mrs_msgs::TrackerDiagnosticsConstPtr(new mrs_msgs::TrackerDiagnostics(diagnostics)));
+    pub_diagnostics_.publish(diagnostics);
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_diagnostics_.getTopic().c_str());

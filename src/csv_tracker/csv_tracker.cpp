@@ -43,7 +43,7 @@ public:
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -375,20 +375,14 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus::Ptr CsvTracker::getStatus() {
+const mrs_msgs::TrackerStatus CsvTracker::getStatus() {
 
-  if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-    tracker_status->active            = is_active;
-    tracker_status->callbacks_enabled = callbacks_enabled;
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
+  return tracker_status;
 }
 
 //}
