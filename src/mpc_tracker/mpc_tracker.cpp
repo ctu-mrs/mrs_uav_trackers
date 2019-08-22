@@ -1024,7 +1024,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   mrs_msgs::TrackerStatus tracker_status;
 
   tracker_status.active            = is_active;
-  tracker_status.callbacks_enabled = callbacks_enabled;
+  tracker_status.callbacks_enabled = callbacks_enabled && !hovering_in_progress;
 
   return tracker_status;
 }
