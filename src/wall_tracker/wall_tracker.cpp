@@ -10,6 +10,7 @@
 #include <mrs_msgs/TrackerPoint.h>
 #include <mrs_msgs/String.h>
 #include <mrs_uav_manager/Tracker.h>
+#include <sensor_msgs/LaserScan.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -110,6 +111,7 @@ private:
   bool   is_active;
   bool   first_iter;
   double force;
+  double wall_distance;
   double center_dist;
 
 private:
@@ -118,6 +120,7 @@ private:
 
 private:
   ros::Subscriber subscriber_force;
+  ros::Subscriber subscriber_distance;
   ros::ServiceServer service_attach;
   ros::ServiceServer service_detach;
   ros::ServiceServer service_force;
@@ -153,6 +156,7 @@ private:
 
 private:
   void callbackForce(const std_msgs::Float64MultiArray &msg);
+  void callbackDistance(const sensor_msgs::LaserScan &msg);
   bool callbackAttach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackDetach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackDesiredForce(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
@@ -175,17 +179,20 @@ private:
 
 private: 
   mrs_msgs::String gains;
+  std::string uav_name_;
+  std::string lidar_path;
 
 private:
   // desired goal
   double     goal_x, goal_y, goal_z, goal_yaw;
   double     relative_x, relative_y, relative_z, relative_yaw, goal_force;
-  double     offset_goal, numerator, offset_tilt_direction;
+  double     offset_goal, numerator, offset_tilt_direction, speed_offset;
   double     have_goal = false;
   double     read_force = false;
-  int        counter;
+  double     read_distance = false;
   bool       detach = false;
   bool       gains_w = false;
+  int        counter;
 
   std_msgs::Float64MultiArray forces;
   std::mutex mutex_goal;
@@ -235,6 +242,7 @@ private:
     mrs_lib::ParamLoader param_loader(nh_, "WallTracker");
 
     param_loader.load_param("enable_profiler", profiler_enabled_);
+    param_loader.load_param("uav_name", uav_name_);
 
     param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
     param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
@@ -291,6 +299,7 @@ private:
     numerator = 0;
     offset_goal = 0;
     offset_tilt_direction = 0;
+    speed_offset = 0;
 
     goal_fcu.position.x = 0;
     goal_fcu.position.y = 0;
@@ -325,8 +334,10 @@ private:
     // --------------------------------------------------------------
     // |                         subscribers                        |
     // --------------------------------------------------------------
+    lidar_path = "/" + uav_name_ + "/rplidar/scan";
 
     subscriber_force = nh_.subscribe("forces_in", 1, &WallTracker::callbackForce, this);
+    subscriber_distance = nh_.subscribe(lidar_path, 1, &WallTracker::callbackDistance, this);
 
     service_client_gains    = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
 
@@ -785,7 +796,7 @@ private:
 
   // | --------------------- motion routines -------------------- |
   
-  /* //{approachWallHorizontal() */
+  /* //{ approachWallHorizontal() */
 
   void WallTracker::approachWallHorizontal(void) {
     current_heading = atan2(goal_y - state_y, goal_x - state_x);
@@ -799,8 +810,8 @@ private:
 
     current_horizontal_speed += approaching_acceleration_ * tracker_dt_;
 
-    if (current_horizontal_speed >= approaching_speed_) {
-      current_horizontal_speed        = approaching_speed_;
+    if (current_horizontal_speed >= approaching_speed_+ speed_offset ) {
+      current_horizontal_speed        = approaching_speed_+speed_offset;
       current_horizontal_acceleration = 0;
     } else {
       current_horizontal_acceleration = approaching_acceleration_;
@@ -818,7 +829,14 @@ private:
       current_horizontal_acceleration = 0; 
     } 
 
-    relative_y = -0.005;
+    if(read_distance == false || wall_distance < 1.4){
+      relative_y = -0.005;
+      speed_offset = 0;
+    } else {
+      wall_distance = (wall_distance - 0.6); 
+      relative_y = - wall_distance;
+      speed_offset = 2;
+    }
   }
 
   //}
@@ -1118,6 +1136,26 @@ private:
     forces = msg;
     
     read_force = true;
+    ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force");
+    
+  }
+
+  //}
+
+  /* callbackDistance() //{ */
+
+  void WallTracker::callbackDistance(const sensor_msgs::LaserScan &msg) {
+
+    if (!is_initialized) {
+      return;
+    }
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackDistance");
+     
+    wall_distance = msg.ranges[180];
+    read_distance = true; 
+    
+    ROS_INFO_THROTTLE(1.0, "[WallTracker]: 90 read distance %lf", wall_distance);
     
   }
 
@@ -1234,14 +1272,14 @@ private:
 
         case HOVER_STATE:
 
-          ROS_INFO("[WallTracker]: HOVER_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: HOVER_STATE");
           break;
 
         case STOP_MOTION_STATE:
 
           stopHorizontalMotion();
 
-          ROS_INFO("[WallTracker]: STOPPING_MOTION_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: STOPPING_MOTION_STATE");
           break;
 
         case ACCELERATING_STATE:
@@ -1249,14 +1287,14 @@ private:
           accelerateHorizontal();
 
 
-          ROS_INFO("[WallTracker]: ACCELERATING_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: ACCELERATING_STATE");
           break;
 
         case DECELERATING_STATE:
 
           decelerateHorizontal();
 
-          ROS_INFO("[WallTracker]: DECELERATING_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: DECELERATING_STATE");
 
           break;
 
@@ -1264,7 +1302,7 @@ private:
 
           stopHorizontal();
 
-          ROS_INFO("[WallTracker]: STOPPING_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: STOPPING_STATE");
 
           break;
 
@@ -1314,7 +1352,7 @@ private:
           stabilizeUavHorizontal();
 
 
-          ROS_INFO("[WallTracker]: STABILIZING_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: STABILIZING_STATE");
 
           break;
 
@@ -1341,7 +1379,7 @@ private:
           detachWallHorizontal();
 
 
-          ROS_INFO("[WallTracker]: DETACHING_STATE");
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: DETACHING_STATE");
           changeState(ACCELERATING_STATE);
 
           break;     
@@ -1397,7 +1435,7 @@ private:
           break;
       }
 
-      ROS_INFO("[WallTracker]: AC-Goal odom y: %3.2f,state y: %3.2f, goal y: %3.2f\n", odometry_y, state_y, goal_y);
+      ROS_INFO_THROTTLE(2.0, "[WallTracker]: AC-Goal odom y: %3.2f,state y: %3.2f, goal y: %3.2f\n", odometry_y, state_y, goal_y);
 
       if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
 
