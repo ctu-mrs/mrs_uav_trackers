@@ -5,7 +5,7 @@
 #include <tf/transform_datatypes.h>
 #include <tf/LinearMath/Transform.h>
 
-#include <mrs_msgs/TrackerTrajectory.h>
+#include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/String.h>
 
 #include <mrs_uav_manager/Tracker.h>
@@ -84,6 +84,7 @@ private:
   ros::Time          odomLastTime;
 
   ros::Timer main_timer;
+  ros::Timer set_traj_timer;
 
   mrs_msgs::PositionCommand position_cmd;
   mrs_msgs::PositionCommand last_position_cmd;
@@ -106,7 +107,9 @@ private:
   ros::Publisher publisher_desired_zd_;
   ros::Publisher publisher_desired_xd_;
   ros::Publisher publisher_action;
-  ros::Publisher publisher_trajectory_;
+
+  ros::ServiceClient service_client_set_trajectory;
+  ros::ServiceServer service_server_set_trajectory;
 
   ros::Publisher pub_weight;
 
@@ -133,6 +136,7 @@ private:
 
   // methods
   void mainTimer(const ros::TimerEvent &event);
+  void setTrajTimer(const ros::TimerEvent &event);
 
   // params
   std::string filename_;
@@ -163,13 +167,12 @@ CsvTracker::CsvTracker(void) : odom_set(false), is_active(false) {
 
 void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
 
-  ros::NodeHandle priv_nh(parent_nh, "csv_tracker");
+  ros::NodeHandle nh_(parent_nh, "csv_tracker");
 
   mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
 
-  param_loader.load_param("enable_profiler", profiler_enabled_);
-
   param_loader.load_param("filename", filename_);
+  param_loader.load_param("enable_profiler", profiler_enabled_);
 
   // posX posY vx vy ax ay theta thrust release
   trajectory = MatrixXd::Zero(5000, 9);
@@ -211,24 +214,24 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
     ROS_INFO("[CsvTracker]: Trajectory loaded, len = %d", trajectory_len);
   }
 
-  service_goTo           = priv_nh.serviceClient<mrs_msgs::Vec4>("goTo_out");
-  service_switch_tracker = priv_nh.serviceClient<mrs_msgs::String>("SwitchTracker_out");
+  service_goTo           = nh_.serviceClient<mrs_msgs::Vec4>("goto_out");
+  service_switch_tracker = nh_.serviceClient<mrs_msgs::String>("switch_tracker_out");
 
-  publisher_action      = priv_nh.advertise<std_msgs::Int32>("action", 1, false);
-  pub_weight            = priv_nh.advertise<std_msgs::Float32>("set_mass", 1);
-  publisher_trajectory_ = priv_nh.advertise<mrs_msgs::TrackerTrajectory>("desired_trajectory", 1);
+  publisher_action = nh_.advertise<std_msgs::Int32>("action_in", 1, false);
+  pub_weight       = nh_.advertise<std_msgs::Float32>("set_mass_out", 1);
 
-  publisher_odom_pitch_    = priv_nh.advertise<std_msgs::Float64>("odom_pitch", 1, false);
-  publisher_desired_pitch_ = priv_nh.advertise<std_msgs::Float64>("desired_pitch", 1, false);
-  publisher_desired_zd_    = priv_nh.advertise<std_msgs::Float64>("desired_zd", 1, false);
-  publisher_desired_xd_    = priv_nh.advertise<std_msgs::Float64>("desired_xd", 1, false);
+  service_client_set_trajectory = nh_.serviceClient<mrs_msgs::TrackerTrajectorySrv>("set_trajectory_out");
 
-  publisher_desired_thrust_ = priv_nh.advertise<std_msgs::Float64>("desired_thrust", 1, false);
+  publisher_odom_pitch_     = nh_.advertise<std_msgs::Float64>("odom_pitch_out", 1, false);
+  publisher_desired_pitch_  = nh_.advertise<std_msgs::Float64>("desired_pitch_out", 1, false);
+  publisher_desired_zd_     = nh_.advertise<std_msgs::Float64>("desired_zd_out", 1, false);
+  publisher_desired_xd_     = nh_.advertise<std_msgs::Float64>("desired_xd_out", 1, false);
+  publisher_desired_thrust_ = nh_.advertise<std_msgs::Float64>("desired_thrust_out", 1, false);
 
-  ser_x_scale_ = priv_nh.advertiseService("set_x_scale", &CsvTracker::setXScale, this);
-  ser_y_scale_ = priv_nh.advertiseService("set_y_scale", &CsvTracker::setYScale, this);
-  ser_z_scale_ = priv_nh.advertiseService("set_z_scale", &CsvTracker::setZScale, this);
-  ser_scales_  = priv_nh.advertiseService("set_scales", &CsvTracker::setScales, this);
+  ser_x_scale_ = nh_.advertiseService("set_x_scale_in", &CsvTracker::setXScale, this);
+  ser_y_scale_ = nh_.advertiseService("set_y_scale_in", &CsvTracker::setYScale, this);
+  ser_z_scale_ = nh_.advertiseService("set_z_scale_in", &CsvTracker::setZScale, this);
+  ser_scales_  = nh_.advertiseService("set_scales_in", &CsvTracker::setScales, this);
 
   // load params
   param_loader.load_param("offset/x", x_offset_);
@@ -254,8 +257,6 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
     ros::shutdown();
   }
 
-  CsvTracker::setInitPoint();
-
   // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
@@ -266,7 +267,8 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this);
+  main_timer     = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this, false, false);
+  set_traj_timer = nh_.createTimer(ros::Rate(1), &CsvTracker::setTrajTimer, this);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[CsvTracker]: Could not load all parameters!");
@@ -327,12 +329,11 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 void CsvTracker::deactivate(void) {
 
+  ROS_INFO("[CsvTracker]: being deactivated");
+
   is_active = false;
   odom_set  = false;
-
-  main_timer.stop();
-
-  ROS_INFO("[CsvTracker]: CSV tracker deactivated");
+  tracking  = false;
 }
 
 //}
@@ -348,6 +349,8 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
     odom = *msg;
   }
+
+  got_odom = true;
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active) {
@@ -554,6 +557,8 @@ bool CsvTracker::start_callback([[maybe_unused]] std_srvs::Trigger::Request &req
 
 void CsvTracker::setInitPoint(void) {
 
+  mrs_msgs::TrackerTrajectorySrv trajectory_service;
+
   // publish the first point as a trajectory
   mrs_msgs::TrackerTrajectory init_trajectory;
 
@@ -570,7 +575,17 @@ void CsvTracker::setInitPoint(void) {
 
   init_trajectory.points.push_back(point);
 
-  publisher_trajectory_.publish(init_trajectory);
+  trajectory_service.request.trajectory_msg = init_trajectory;
+
+  /* publisher_trajectory_.publish(init_trajectory); */
+
+  service_client_set_trajectory.call(trajectory_service);
+
+  if (!trajectory_service.response.success) {
+
+    ROS_ERROR("[CsvTracker]: PES: service for setting trajectory failed");
+    ROS_ERROR("[CsvTracker]: %.s", trajectory_service.response.message.c_str());
+  }
 
   ROS_INFO("[CsvTracker]: Publishing the first point to the MPC tracker");
 }
@@ -612,7 +627,7 @@ bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     res.success = true;
     res.message = "OK";
 
-    CsvTracker::setInitPoint();
+    setInitPoint();
 
   } else {
 
@@ -636,7 +651,7 @@ bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     res.success = true;
     res.message = "OK";
 
-    CsvTracker::setInitPoint();
+    setInitPoint();
 
   } else {
 
@@ -662,7 +677,7 @@ bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
     res.success = true;
     res.message = "OK";
 
-    CsvTracker::setInitPoint();
+    setInitPoint();
 
   } else {
 
@@ -686,6 +701,11 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
   if (!got_odom) {
 
     ROS_WARN_THROTTLE(1.0, "[CsvTracker]: Waiting for odometry");
+    return;
+  }
+
+  if (!tracking) {
+    ROS_INFO_THROTTLE(1.0, "[CsvTracker]: waiting for activation");
     return;
   }
 
@@ -762,12 +782,33 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
   } else {
 
-    ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, replaying the last poing...");
+    ROS_INFO_THROTTLE(1, "[CsvTracker]: Trajectory has finished, switching to Mpctracker");
 
     mrs_msgs::String SwitchTracker;
     SwitchTracker.request.value = "MpcTracker";
     service_switch_tracker.call(SwitchTracker);
+
+    tracking = false;
+
+    main_timer.stop();
   }
+}
+
+//}
+
+/* //{ setTrajTimer() */
+
+void CsvTracker::setTrajTimer(const ros::TimerEvent &event) {
+
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("setTrajTimer", 100, 0.005, event);
+
+  ros::Duration(5.0).sleep();
+
+  ROS_INFO("[CsvTracker]: Setting trajectory in the Timer");
+
+  setInitPoint();
+
+  set_traj_timer.stop();
 }
 
 //}

@@ -284,6 +284,7 @@ private:
   int       collision_start_climbing;
   int       earliest_collision_idx;
   double    collision_trajectory_timeout;
+  bool      avoiding_collision = false;
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -514,10 +515,12 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   des_z_filtered = MatrixXd::Zero(horizon_len_, 1);
 
   // fill last trajectory with initial data
-  future_trajectory_out.stamp               = ros::Time::now();
-  future_trajectory_out.uav_name            = uav_name_;
-  future_trajectory_out.priority            = my_uav_priority;
-  future_trajectory_out.collision_avoidance = collision_avoidance_enabled_ && (odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL);
+  future_trajectory_out.stamp    = ros::Time::now();
+  future_trajectory_out.uav_name = uav_name_;
+  future_trajectory_out.priority = my_uav_priority;
+  future_trajectory_out.collision_avoidance =
+      collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+                                       odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL);
 
   mrs_msgs::FuturePoint newPoint;
   newPoint.x = std::numeric_limits<float>::max();
@@ -744,16 +747,13 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   mpc_start_time  = ros::Time::now();
   mpc_total_delay = 0;
 
-  setRelativeGoal(0, 0, 0, 0, false);
-
   ROS_INFO("[MpcTracker]: activated");
 
-  publishDiagnostics();
-
-  hover_timer.start();
+  is_active = true;
 
   hovering_in_progress = true;
-  is_active            = true;
+  setRelativeGoal(0, 0, 0, 0, false);
+  hover_timer.start();
 
   // can return false
   return is_active;
@@ -1134,6 +1134,8 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
+    // TODO: What should we do with the accelerations?
+    // TODO: Those should be updated aswell...
     x(0, 0) = msg->pose.pose.position.x;
     x(1, 0) = msg->twist.twist.linear.x;
 
@@ -1447,6 +1449,8 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
+
+  ROS_INFO_THROTTLE(1.0, "[MpcTracker]: GETTING %s TRAJECTORY", msg->uav_name.c_str());
 }
 
 //}
@@ -1520,7 +1524,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
     tracking_trajectory = false;
 
     {
-      std::scoped_lock lock(mutex_x, mutex_des_trajectory);
+      std::scoped_lock lock(mutex_x);
 
       setTrajectory(x(0, 0), x(4, 0), x(8, 0), x_yaw(0, 0));
     }
@@ -1877,7 +1881,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
   std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory);
 
   first_collision_index = INT_MAX;
-  bool avoiding         = false;
+  avoiding_collision    = false;
 
   // This variable is used for collision avoidance priority swapping,only the first detected collision is considered for priority swap, subsequent collisons
   // are irrelevant
@@ -1906,7 +1910,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
           // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
           if ((u->second.collision_avoidance == false) || (other_uav_priority < my_uav_priority)) {
             // we should be avoiding
-            avoiding                 = true;
+            avoiding_collision       = true;
             double tmp_safe_altitude = u->second.points[v].z + mrs_collision_avoidance_correction;
             if (tmp_safe_altitude > collision_free_altitude && v <= collision_start_climbing) {
               collision_free_altitude = tmp_safe_altitude;
@@ -1945,7 +1949,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
     u++;
   }
 
-  if (!avoiding) {
+  if (!avoiding_collision) {
 
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude -= 0.02;
@@ -2122,7 +2126,8 @@ void MpcTracker::calculateMPC() {
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
 
-  if (collision_avoidance_enabled_ && (odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL)) {
+  if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+                                       odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
     // determine the lowest point in our trajectory
     for (int i = 0; i < horizon_len_; i++) {
       if (des_z_trajectory(i, 0) < lowest_z) {
@@ -2449,10 +2454,12 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.tracker_active = is_active;
 
+  diagnostics.avoiding_collision = avoiding_collision;
+
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
 
-  if (tracking_trajectory) {
+  if (tracking_trajectory || hovering_in_progress) {
     diagnostics.tracking_trajectory = true;
   } else {
     if (sqrt(pow(x(0, 0) - des_x_trajectory(0), 2) + pow(x(4, 0) - des_y_trajectory(0), 2) + pow(x(8, 0) - des_z_trajectory(0), 2)) >
@@ -2622,19 +2629,19 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // saturate the trajectory to min and max height
           if (des_z_whole_trajectory(i) < min_height) {
             des_z_whole_trajectory(i) = min_height;
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
           }
           if (des_z_whole_trajectory(i) > max_height) {
             des_z_whole_trajectory(i) = max_height;
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
           }
 
           // the point is not feasible
           if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
 
-            ROS_WARN_THROTTLE(1.0, "The trajectory contains points outside of the safety area!");
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
 
             // we found the left point
