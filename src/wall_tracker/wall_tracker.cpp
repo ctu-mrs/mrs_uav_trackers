@@ -829,12 +829,12 @@ private:
       current_horizontal_acceleration = 0; 
     } 
 
-    if(read_distance == false || wall_distance < 1.4){
+    if(read_distance == false || wall_distance < 2.0){
+      ROS_INFO_THROTTLE(2.0, "[WallTracker] approached near to the wall");
       relative_y = -0.005;
       speed_offset = 0;
     } else {
-      wall_distance = (wall_distance - 0.6); 
-      relative_y = - wall_distance;
+      relative_y = - wall_distance ;
       speed_offset = 2;
     }
   }
@@ -1155,7 +1155,7 @@ private:
     wall_distance = msg.ranges[180];
     read_distance = true; 
     
-    ROS_INFO_THROTTLE(1.0, "[WallTracker]: 90 read distance %lf", wall_distance);
+    ROS_INFO_THROTTLE(5.0, "[WallTracker]: 90 read distance %lf", wall_distance);
     
   }
 
