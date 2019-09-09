@@ -27,7 +27,7 @@
 #define INITIAL_DIST 2 
 #define JOINT_DIST 0.11
 #define Kdx 100
-#define Kdy 800 
+#define Kdy 1800 
 #define Kdz 100
 /*//}*/
 
@@ -830,7 +830,9 @@ private:
     } 
 
     if(read_distance == false || wall_distance < 2.0){
-      ROS_INFO_THROTTLE(2.0, "[WallTracker] approached near to the wall");
+      if(read_distance){
+        ROS_INFO_ONCE("[WallTracker] Distance on --> approached near to the wall");
+      }
       relative_y = -0.005;
       speed_offset = 0;
     } else {
@@ -882,9 +884,9 @@ private:
       current_horizontal_acceleration = stabilize_acceleration_;
     }   
     
-    if (detach == true) {
-        changeState(DETACHING_STATE);
-    } 
+    /* if (detach == true) { */
+    /*     changeState(DETACHING_STATE); */
+    /* } */ 
 
   }
 
@@ -1136,7 +1138,7 @@ private:
     forces = msg;
     
     read_force = true;
-    ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force");
+    /* ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force: %3.2f", msg.data[0] + msg.data[1]); */
     
   }
 
@@ -1152,10 +1154,10 @@ private:
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackDistance");
      
-    wall_distance = msg.ranges[180];
+    wall_distance = msg.ranges[179];
     read_distance = true; 
     
-    ROS_INFO_THROTTLE(5.0, "[WallTracker]: 90 read distance %lf", wall_distance);
+    ROS_INFO_THROTTLE(50, "[WallTracker]: Read distance from the wall: %lf", wall_distance);
     
   }
 
@@ -1181,10 +1183,10 @@ private:
     res.success = true;
     res.message = "Approaching the wall.";
 
-    ROS_INFO("[WallTracker]: Goal changed -- attaching.");
-    detach = false;
+    /* detach = false; */
 
     changeState(APPROACHING_STATE);
+    ROS_INFO("[WallTracker]: ATTACH service called.");
 
     return true;
   }
@@ -1211,8 +1213,11 @@ private:
 
     res.success = true;
     res.message = "Detaching the wall.";
-    detach = true; 
 
+    /* detach = true; */ 
+
+    changeState(DETACHING_STATE);
+    ROS_INFO("[WallTracker]: DETACH service called.");
 
     return true;
   }
@@ -1317,6 +1322,8 @@ private:
 
           approachWallHorizontal();
 
+          ROS_INFO_THROTTLE(2.0, "[WallTracker]: APPROACHING_STATE");
+
           break;
 
         case STABILIZING_STATE:
@@ -1328,7 +1335,7 @@ private:
           numerator = (force-goal_force); 
 
           relative_y = numerator/Kdy; 
-          relative_yaw = (-center_dist)*force*(0.1); 
+          relative_yaw = (-center_dist)*force*(0.2); 
 
           if (force == 0 && goal_force > 0) {
             relative_y = -0.05; 
@@ -1339,8 +1346,8 @@ private:
           if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) > 1 && relative_y < 0  && force > 0){
              relative_y = 0; 
           }
-          if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) < 0.3) {
-             relative_y = -0.15; 
+          if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) < 0.2) {
+             relative_y = -0.10; 
           }
           goal_fcu = go_fcu_state(0, relative_y, 0, relative_yaw);
 
@@ -1363,7 +1370,7 @@ private:
           state_z = odometry_z;
 
           relative_x = 0; 
-          relative_y = 2.0;
+          relative_y = 1.5;
           relative_z = -0.2;
           relative_yaw = 0;
 
@@ -1435,7 +1442,7 @@ private:
           break;
       }
 
-      ROS_INFO_THROTTLE(2.0, "[WallTracker]: AC-Goal odom y: %3.2f,state y: %3.2f, goal y: %3.2f\n", odometry_y, state_y, goal_y);
+      /* ROS_INFO_THROTTLE(2.0, "[WallTracker]: AC-Goal odom y: %3.2f,state y: %3.2f, goal y: %3.2f\n", odometry_y, state_y, goal_y); */
 
       if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
 
