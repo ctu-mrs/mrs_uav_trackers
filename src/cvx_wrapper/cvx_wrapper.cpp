@@ -1,12 +1,19 @@
 /* author: Daniel Hert */
 
+#include <eigen3/Eigen/Eigen>
+#include <mrs_trackers/cvx_wrapper.h>
+
+using namespace Eigen;
+
+namespace mrs_trackers
+{
+
+namespace cvx_wrapper
+{
+
 extern "C" {
 #include "cvxgen/solver.h"
 }
-#include <eigen3/Eigen/Eigen>
-#include "cvx_wrapper.h"
-
-using namespace Eigen;
 
 Vars      vars;
 Params    params;
@@ -201,3 +208,7 @@ double CvxWrapper::getFirstControlInput() {
 }
 
 //}
+
+}  // namespace cvx_wrapper
+
+}  // namespace mrs_trackers

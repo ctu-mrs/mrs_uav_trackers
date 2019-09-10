@@ -5,7 +5,6 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 
-#include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_uav_manager/Tracker.h>
 
@@ -31,14 +30,12 @@ namespace matlab_tracker
 
 class MatlabTracker : public mrs_uav_manager::Tracker {
 public:
-  MatlabTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -77,9 +74,9 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
 private:
   // dynamical constraints
@@ -101,10 +98,9 @@ private:
 private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
+  bool               position_mode_    = false;
+  bool               tilt_mode_        = false;
 };
-
-MatlabTracker::MatlabTracker(void) : is_initialized(false), is_active(false) {
-}
 
 //}
 
@@ -125,6 +121,8 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
   mrs_lib::ParamLoader param_loader(nh_, "MatlabTracker");
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
+  param_loader.load_param("position_mode", profiler_enabled_);
+  param_loader.load_param("tilt_mode", tilt_mode_);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -226,25 +224,46 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::
   {
     std::scoped_lock lock(mutex_odometry, mutex_goal);
 
-    position_output.position.x = matlab_goal.pose.pose.position.x;
-    position_output.position.y = matlab_goal.pose.pose.position.y;
-    position_output.position.z = matlab_goal.pose.pose.position.z;
+    if (position_mode_) {
 
-    position_output.velocity.x = matlab_goal.twist.twist.linear.x;
-    position_output.velocity.y = matlab_goal.twist.twist.linear.y;
-    position_output.velocity.z = matlab_goal.twist.twist.linear.z;
+      position_output.position.x = matlab_goal.pose.pose.position.x;
+      position_output.position.y = matlab_goal.pose.pose.position.y;
+      position_output.position.z = matlab_goal.pose.pose.position.z;
 
-    position_output.acceleration.x = matlab_goal.twist.twist.angular.x;
-    position_output.acceleration.y = matlab_goal.twist.twist.angular.y;
-    position_output.acceleration.z = matlab_goal.twist.twist.angular.z;
+      position_output.velocity.x = matlab_goal.twist.twist.linear.x;
+      position_output.velocity.y = matlab_goal.twist.twist.linear.y;
+      position_output.velocity.z = matlab_goal.twist.twist.linear.z;
 
-    position_output.yaw     = matlab_goal.pose.pose.orientation.x;
-    position_output.yaw_dot = matlab_goal.pose.pose.orientation.y;
+      position_output.acceleration.x = matlab_goal.twist.twist.angular.x;
+      position_output.acceleration.y = matlab_goal.twist.twist.angular.y;
+      position_output.acceleration.z = matlab_goal.twist.twist.angular.z;
 
-    position_output.use_euler_attitude = 1;
-    position_output.use_position       = 1;
-    position_output.use_velocity       = 1;
-    position_output.use_acceleration   = 1;
+      position_output.yaw     = matlab_goal.pose.pose.orientation.x;
+      position_output.yaw_dot = matlab_goal.pose.pose.orientation.y;
+
+      position_output.use_euler_attitude = 1;
+      position_output.use_position       = 1;
+      position_output.use_velocity       = 1;
+      position_output.use_acceleration   = 1;
+    }
+
+    if (tilt_mode_) {
+
+      position_output.position.x = odometry_x;
+      position_output.position.y = odometry_y;
+      position_output.position.z = matlab_goal.pose.pose.position.z;
+
+      position_output.velocity.x = odometry.twist.twist.linear.x;
+      position_output.velocity.y = odometry.twist.twist.linear.y;
+      position_output.velocity.z = odometry.twist.twist.linear.z;
+
+      position_output.acceleration.x = 0;
+      position_output.acceleration.y = 0;
+      position_output.acceleration.z = 0;
+
+      position_output.use_quat_attitude = 1;
+      position_output.use_position      = 1;
+    }
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
@@ -254,23 +273,14 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus::Ptr MatlabTracker::getStatus() {
+const mrs_msgs::TrackerStatus MatlabTracker::getStatus() {
 
-  if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
+  return tracker_status;
 }
 
 //}
@@ -422,7 +432,7 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MatlabTracker::setConstrain
 
 // | --------------------- custom methods --------------------- |
 
-/* callbackJoystick() //{ */
+/* callbackMatlab() //{ */
 
 void MatlabTracker::callbackMatlab(const nav_msgs::Odometry &msg) {
 
