@@ -68,7 +68,7 @@ public:
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus        getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -119,7 +119,8 @@ private:
   ros::Timer main_timer;
 
 private:
-  ros::Subscriber subscriber_force;
+  ros::Subscriber subscriber_force_l;
+  ros::Subscriber subscriber_force_r;
   ros::Subscriber subscriber_distance;
   ros::ServiceServer service_attach;
   ros::ServiceServer service_detach;
@@ -155,7 +156,8 @@ private:
   void stopVertical(void);
 
 private:
-  void callbackForce(const std_msgs::Float64MultiArray &msg);
+  void callbackForceL(const std_msgs::Float64 &msg);
+  void callbackForceR(const std_msgs::Float64 &msg);
   void callbackDistance(const sensor_msgs::LaserScan &msg);
   bool callbackAttach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
   bool callbackDetach(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -190,11 +192,12 @@ private:
   double     have_goal = false;
   double     read_force = false;
   double     read_distance = false;
+  double     force_l; 
+  double     force_r;
   bool       detach = false;
   bool       gains_w = false;
   int        counter;
 
-  std_msgs::Float64MultiArray forces;
   std::mutex mutex_goal;
 
   // my current state
@@ -336,7 +339,8 @@ private:
     // --------------------------------------------------------------
     lidar_path = "/" + uav_name_ + "/rplidar/scan";
 
-    subscriber_force = nh_.subscribe("forces_in", 1, &WallTracker::callbackForce, this);
+    subscriber_force_l = nh_.subscribe("force_left", 1, &WallTracker::callbackForceL, this);
+    subscriber_force_r = nh_.subscribe("force_right", 1, &WallTracker::callbackForceR, this);
     subscriber_distance = nh_.subscribe(lidar_path, 1, &WallTracker::callbackDistance, this);
 
     service_client_gains    = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
@@ -541,28 +545,19 @@ private:
 
   //}
 
-  /* //{ getStatus() */
+/* //{ getStatus() */
 
-  const mrs_msgs::TrackerStatus::Ptr WallTracker::getStatus() {
+const mrs_msgs::TrackerStatus WallTracker::getStatus() {
 
-    if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-      mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-      if (is_active) {
-        tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-      } else {
-        tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-      }
+  return tracker_status;
+}
 
-      return tracker_status;
-    } else {
-
-      return mrs_msgs::TrackerStatus::Ptr();
-    }
-  }
-
-  //}
+//}
 
   /* //{ enableCallbacks() */
 
@@ -1124,18 +1119,38 @@ private:
 
   // | ------------------------ callbacks ----------------------- |
 
-  /* callbackForces() //{ */
+  /* callbackForceLeft() //{ */
 
-  void WallTracker::callbackForce(const std_msgs::Float64MultiArray &msg) {
+  void WallTracker::callbackForceL(const std_msgs::Float64 &msg) {
 
     if (!is_initialized) {
       return;
     }
 
-    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForce");
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForceL");
      
 
-    forces = msg;
+    force_l = msg.data;
+    
+    read_force = true;
+    /* ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force: %3.2f", msg.data[0] + msg.data[1]); */
+    
+  }
+
+  //}
+  
+  /* callbackForceRight() //{ */
+
+  void WallTracker::callbackForceR(const std_msgs::Float64 &msg) {
+
+    if (!is_initialized) {
+      return;
+    }
+
+    mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForceR");
+     
+
+    force_l = msg.data;
     
     read_force = true;
     /* ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force: %3.2f", msg.data[0] + msg.data[1]); */
@@ -1258,9 +1273,9 @@ private:
     
     mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
-    force = (forces.data[0] + forces.data[1]); //*cos(odometry_roll)
+    force = (force_l + force_r); //*cos(odometry_roll)
     if (force > 0){
-      center_dist = (forces.data[1]*JOINT_DIST)/(force) - JOINT_DIST/2;
+      center_dist = (force_r*JOINT_DIST)/(force) - JOINT_DIST/2;
     }
     else{
       center_dist = 0;
