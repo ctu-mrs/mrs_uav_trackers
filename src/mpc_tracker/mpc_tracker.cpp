@@ -1217,6 +1217,8 @@ bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
 const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
+  std::scoped_lock lock(mutex_x);
+
   mrs_msgs::Vec4Response res;
 
   hover_timer.stop();
@@ -1236,6 +1238,8 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
 /* //{ goToRelative() topic */
 
 bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+
+  std::scoped_lock lock(mutex_x);
 
   hover_timer.stop();
 
@@ -1400,6 +1404,8 @@ bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
 const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
+  std::scoped_lock lock(mutex_x);
+
   std_srvs::TriggerResponse res;
 
   setRelativeGoal(0, 0, 0, 0, false);
@@ -1412,15 +1418,6 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
   char tempStr[100];
   sprintf((char *)&tempStr, "Hovering");
   res.message = tempStr;
-
-  geometry_msgs::PoseArray kocka;
-
-  try {
-    debug_predicted_trajectory_publisher.publish(kocka);
-  }
-  catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
-  }
 
   return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
@@ -3179,6 +3176,8 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 /* hoverTimer() //{ */
 
 void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
+
+  std::scoped_lock lock(mutex_x);
 
   hovering_in_progress = true;
 
