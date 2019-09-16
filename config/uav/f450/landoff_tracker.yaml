@@ -1,22 +1,4 @@
-tracker_loop_rate: 100 # [Hz]
-diagnostics_loop_rate: 10 # [Hz]
-
-landing_reference: -1.0 # [m]
-
-takeoff_disable_lateral_gains: false
-takeoff_disable_lateral_gains_height: 0.3 # [m]
-takeoff_reset_odometry_height: 0.2 # [m]
-takeoff_from_moving_platform: false
-
-max_position_difference: 0.5
-
-horizontal_tracker:
-  horizontal_speed: 3.0
-  horizontal_acceleration: 1.0
-
 vertical_tracker:
-  vertical_speed: 1.0
-  vertical_acceleration: 1.0
 
   takeoff_speed: 1.0
   takeoff_acceleration: 0.3
@@ -27,7 +9,3 @@ vertical_tracker:
   # beware, this is for emergency landing only
   elanding_speed: 0.5
   elanding_acceleration: 1.0
-
-yaw_tracker:
-  yaw_gain: 0.2
-  yaw_rate: 0.5
