@@ -1101,7 +1101,6 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
         break;
     }
 
-
     if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
       if (fabs(current_vertical_speed) <= 0.1 && fabs(current_horizontal_speed) <= 0.1) {
         if (have_goal) {

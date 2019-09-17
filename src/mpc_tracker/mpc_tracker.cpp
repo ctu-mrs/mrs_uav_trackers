@@ -1924,7 +1924,7 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
   first_collision_index = INT_MAX;
   avoiding_collision    = false;
 
-  // This variable is used for collision avoidance priority swapping,only the first detected collision is considered for priority swap, subsequent collisons
+  // This variable is used for collision avoidance priority swapping, only the first detected collision is considered for priority swap, subsequent collisons
   // are irrelevant
   bool first_collision = true;
 
