@@ -1041,66 +1041,99 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
   {
     std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
 
-    switch (current_state_horizontal) {
+    bool takeoff_saturated = false;
 
-      case IDLE_STATE:
-        break;
+    if (taking_off) {
 
-      case LANDED_STATE:
-        break;
+      // calculate the vector
+      double err_x      = odometry_x - state_x;
+      double err_y      = odometry_y - state_y;
+      double err_z      = odometry_z - state_z;
+      double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
 
-      case HOVER_STATE:
-        break;
+      if (error_size > max_position_difference_) {
 
-      case STOP_MOTION_STATE:
+        // calculate the potential next step
+        double future_state_x = state_x + cos(current_heading) * current_horizontal_speed * tracker_dt_;
+        double future_state_y = state_y + sin(current_heading) * current_horizontal_speed * tracker_dt_;
+        double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
 
-        stopHorizontalMotion();
-        break;
+        // if the step would lead to a greater control error than the threshold
+        if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
 
-      case ACCELERATING_STATE:
-        break;
+          // set this to true... later, we will not update the model if this is true, thus the tracker's motion will stop
+          // => the tracker will wait for the controller
+          takeoff_saturated = true;
 
-      case DECELERATING_STATE:
-        break;
-
-      case STOPPING_STATE:
-
-        stopHorizontal();
-        break;
+          ROS_WARN_THROTTLE(
+              0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
+              error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
+        }
+      }
     }
 
-    switch (current_state_vertical) {
+    if (!takeoff_saturated) {
 
-      case IDLE_STATE:
-        break;
+      switch (current_state_horizontal) {
 
-      case LANDED_STATE:
-        break;
+        case IDLE_STATE:
+          break;
 
-      case HOVER_STATE:
-        break;
+        case LANDED_STATE:
+          break;
 
-      case STOP_MOTION_STATE:
+        case HOVER_STATE:
+          break;
 
-        stopVerticalMotion();
-        break;
+        case STOP_MOTION_STATE:
 
-      case ACCELERATING_STATE:
+          stopHorizontalMotion();
+          break;
 
-        accelerateVertical();
-        break;
+        case ACCELERATING_STATE:
+          break;
 
-      case DECELERATING_STATE:
+        case DECELERATING_STATE:
+          break;
 
-        decelerateVertical();
-        break;
+        case STOPPING_STATE:
 
-      case STOPPING_STATE:
+          stopHorizontal();
+          break;
+      }
 
-        stopVertical();
-        break;
+      switch (current_state_vertical) {
+
+        case IDLE_STATE:
+          break;
+
+        case LANDED_STATE:
+          break;
+
+        case HOVER_STATE:
+          break;
+
+        case STOP_MOTION_STATE:
+
+          stopVerticalMotion();
+          break;
+
+        case ACCELERATING_STATE:
+
+          accelerateVertical();
+          break;
+
+        case DECELERATING_STATE:
+
+          decelerateVertical();
+          break;
+
+        case STOPPING_STATE:
+
+          stopVertical();
+          break;
+      }
     }
-
 
     if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
       if (fabs(current_vertical_speed) <= 0.1 && fabs(current_horizontal_speed) <= 0.1) {
@@ -1138,37 +1171,12 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
     // |              motion saturation during takeoff              |
     // --------------------------------------------------------------
 
-    if (taking_off) {
-
-      // calculate the vector
-      double err_x      = odometry_x - state_x;
-      double err_y      = odometry_y - state_y;
-      double err_z      = odometry_z - state_z;
-      double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
-
-      if (error_size > max_position_difference_) {
-
-        // calculate the potential next step
-        double future_state_x = state_x + cos(current_heading) * current_horizontal_speed * tracker_dt_;
-        double future_state_y = state_y + sin(current_heading) * current_horizontal_speed * tracker_dt_;
-        double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
-
-        if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
-
-          current_horizontal_speed = 0;
-          current_vertical_speed   = 0;
-
-          ROS_WARN_THROTTLE(
-              0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
-              error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
-        }
-      }
-    }
-
     // update the inner states
-    state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
+    if (!takeoff_saturated) {
+      state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
+      state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
+      state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
+    }
 
     // --------------------------------------------------------------
     // |                        yaw tracking                        |
