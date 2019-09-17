@@ -122,6 +122,7 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   params.x_min_4[0] = min_jerk;
   params.u_max[0]   = max_snap;
   params.u_min[0]   = min_snap;
+
   if (no_overshoots) {
     myQ[1] = vel_q_persistent;
   } else {
