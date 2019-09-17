@@ -690,7 +690,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
-    // set the initial condition from the odometry
+    // set the initial condition from the last tracker's cmd
 
     x(0, 0) = cmd->position.x;
     x(1, 0) = cmd->velocity.x;
@@ -713,6 +713,8 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     x_yaw(3, 0) = 0;
 
     yaw = cur_yaw_;
+
+    ROS_INFO("[MpcTracker]: activated with last tracker's command");
 
   } else {
 
@@ -739,6 +741,8 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
     x_yaw(3, 0) = 0;
 
     yaw = cur_yaw_;
+
+    ROS_INFO("[MpcTracker]: activated with odometry");
   }
 
   tracking_trajectory = false;
@@ -3180,6 +3184,8 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
+  std::scoped_lock lock(mutex_x);
+
   hovering_in_progress = true;
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("hoverTimer", 10, 0.01, event);
@@ -3189,7 +3195,9 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
   if (fabs(x(1, 0)) < 0.1 && fabs(x(5, 0)) < 0.1 && fabs(x(9, 0)) < 0.1) {
 
     hovering_in_progress = false;
+
     hover_timer.stop();
+    ROS_INFO("[MpcTracker]: hover timer stopped");
   }
 }
 
