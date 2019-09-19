@@ -5,12 +5,12 @@ horizontal_tracker:
   horizontal_acceleration: 0.5
   
 approaching_tracker:
-  approaching_speed: 0.2
+  approaching_speed: 0.1
   approaching_acceleration: 0.05
 
 stabilize_tracker:
-  stabilize_speed: 0.4
-  stabilize_acceleration: 0.2
+  stabilize_speed: 0.2
+  stabilize_acceleration: 0.1
 
 vertical_tracker:
   vertical_speed: 1.0

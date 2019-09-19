@@ -27,7 +27,7 @@
 #define INITIAL_DIST 2 
 #define JOINT_DIST 0.11
 #define Kdx 100
-#define Kdy 1800 
+#define Kdy 8000 
 #define Kdz 100
 /*//}*/
 
@@ -199,6 +199,9 @@ private:
   int        counter;
 
   std::mutex mutex_goal;
+  std::mutex mutex_forcel;
+  std::mutex mutex_forcer;
+  std::mutex mutex_distance;
 
   // my current state
   double     state_x, state_y, state_z, state_yaw;
@@ -812,7 +815,7 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
       current_horizontal_acceleration = approaching_acceleration_;
     }
 
-    if (force > 3){
+    if (force > 5){
       gains.request.value = "wall"; 
       gains_w = true;
       changeState(STABILIZING_STATE);
@@ -824,15 +827,15 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
       current_horizontal_acceleration = 0; 
     } 
 
-    if(read_distance == false || wall_distance < 2.0){
+    if(read_distance == false || wall_distance < 1.5){
       if(read_distance){
         ROS_INFO_ONCE("[WallTracker] Distance on --> approached near to the wall");
       }
-      relative_y = -0.005;
+      relative_y = -0.001;
       speed_offset = 0;
     } else {
       relative_y = - wall_distance ;
-      speed_offset = 2;
+      speed_offset = 1;
     }
   }
 
@@ -1129,8 +1132,11 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForceL");
      
+    {
+      std::scoped_lock lock (mutex_forcel);
 
-    force_l = msg.data;
+      force_l = msg.data;
+    }
     
     read_force = true;
     /* ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force: %3.2f", msg.data[0] + msg.data[1]); */
@@ -1149,8 +1155,10 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackForceR");
      
-
-    force_l = msg.data;
+    {
+      std::scoped_lock lock(mutex_forcer);
+      force_r = msg.data;
+    }
     
     read_force = true;
     /* ROS_INFO_THROTTLE(5.0, "[WallTracker]: Read force: %3.2f", msg.data[0] + msg.data[1]); */
@@ -1168,10 +1176,15 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
     }
 
     mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackDistance");
-     
-    wall_distance = msg.ranges[179];
-    read_distance = true; 
     
+    {
+      std::scoped_lock lock(mutex_distance);
+      if (!std::isinf(msg.ranges[179])){
+        wall_distance = msg.ranges[179];
+        read_distance = true; 
+      }
+    }
+
     ROS_INFO_THROTTLE(50, "[WallTracker]: Read distance from the wall: %lf", wall_distance);
     
   }
@@ -1273,16 +1286,19 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
     
     mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
-    force = (force_l + force_r); //*cos(odometry_roll)
-    if (force > 0){
-      center_dist = (force_r*JOINT_DIST)/(force) - JOINT_DIST/2;
-    }
-    else{
-      center_dist = 0;
-    }
 
     {
-      std::scoped_lock lock(mutex_constraints, mutex_odometry, mutex_goal, mutex_state);
+      std::scoped_lock lock(mutex_constraints, mutex_odometry, mutex_goal, mutex_state, mutex_forcel, mutex_forcer, mutex_distance);
+  
+      force = (force_l + force_r); //*cos(odometry_roll);
+      if (force_l != 0 && force_r != 0 && force != 0){
+        center_dist = (force_r*JOINT_DIST)/(force) - JOINT_DIST/2;
+      }
+      else{
+        center_dist = 0;
+      }
+
+      ROS_INFO_THROTTLE(0.5, "[WallTracker]: center_dist %f, force_l: %f, force_r: %f, force: %f", center_dist, force_l, force_r, force);
 
       switch (current_state_horizontal) {
 
@@ -1350,19 +1366,19 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
           numerator = (force-goal_force); 
 
           relative_y = numerator/Kdy; 
-          relative_yaw = (-center_dist)*force*(0.2); 
+          relative_yaw = (-center_dist)*force*(1.0); 
 
           if (force == 0 && goal_force > 0) {
-            relative_y = -0.05; 
+            relative_y += -0.05; 
           }
           if(odometry_roll > 0.25){ 
-            relative_y = 0.01;  
+            relative_y += 0.01;  
           }
           if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) > 1 && relative_y < 0  && force > 0){
              relative_y = 0; 
           }
           if(mrs_trackers_commons::dist2(odometry_x, state_x, odometry_y, state_y) < 0.2) {
-             relative_y = -0.10; 
+             relative_y += -0.10; 
           }
           goal_fcu = go_fcu_state(0, relative_y, 0, relative_yaw);
 
@@ -1436,17 +1452,17 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
           break;
         case APPROACHING_STATE:
 
-          decelerateVertical();
+          approachWallVertical();
 
           break;       
         case STABILIZING_STATE:
 
-          decelerateVertical();
+          stabilizeUavVertical();
 
           break;        
         case DETACHING_STATE:
 
-          decelerateVertical();
+          detachWallVertical();
 
           break;
 
