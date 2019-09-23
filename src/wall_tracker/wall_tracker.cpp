@@ -127,6 +127,7 @@ private:
   ros::ServiceServer service_force;
 
   ros::ServiceClient service_client_gains;
+  ros::ServiceClient service_client_integral;
 
 private:
   States_t current_state_vertical    = IDLE_STATE;
@@ -181,6 +182,7 @@ private:
 
 private: 
   mrs_msgs::String gains;
+  std_srvs::SetBool integral;
   std::string uav_name_;
   std::string lidar_path;
 
@@ -196,6 +198,7 @@ private:
   double     force_r;
   bool       detach = false;
   bool       gains_w = false;
+  bool       integral_w = false;
   int        counter;
 
   std::mutex mutex_goal;
@@ -347,6 +350,7 @@ private:
     subscriber_distance = nh_.subscribe(lidar_path, 1, &WallTracker::callbackDistance, this);
 
     service_client_gains    = nh_.serviceClient<mrs_msgs::String>("set_gains_out");
+    service_client_gains    = nh_.serviceClient<std_srvs::SetBool>("set_integral_out");
 
     if (!param_loader.loaded_successfully()) {
       ROS_ERROR("[WallTracker]: Could not load all parameters!");
@@ -815,13 +819,21 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
       current_horizontal_acceleration = approaching_acceleration_;
     }
 
-    if (force > 5){
-      gains.request.value = "wall"; 
-      gains_w = true;
-      changeState(STABILIZING_STATE);
-      ROS_INFO("[WallTracker] Changing state to STABILIZING_STATE");
+    if (wall_distance < 0.5){
+      if (integral_w == true){
+        integral.request.data = false;
+        integral_w = false;
+        service_client_integral.call(integral);
+        ROS_INFO("[WallTracker] Turned off integral");
+      }
 
-      service_client_gains.call(gains);
+      /* if (force > 5 ){ */
+        /* gains.request.value = "wall"; */ 
+        /* gains_w = true; */
+        changeState(STABILIZING_STATE);
+        ROS_INFO("[WallTracker] Changing state to STABILIZING_STATE");
+        /* service_client_gains.call(gains); */
+      /* } */
     }
     if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (approaching_speed_ * tracker_dt_)) ) {
       current_horizontal_acceleration = 0; 
@@ -932,8 +944,13 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
       current_horizontal_acceleration = horizontal_acceleration_;
     }
 
-    gains.request.value = "soft"; 
-    service_client_gains.call(gains);
+    /* gains.request.value = "soft"; */ 
+    /* service_client_gains.call(gains); */
+    integral.request.data = true; 
+    service_client_integral.call(integral);
+    integral_w = true;
+    ROS_INFO("[WallTracker] Turned on integral values");
+
     }
 
   //}
@@ -1366,7 +1383,7 @@ const mrs_msgs::TrackerStatus WallTracker::getStatus() {
           numerator = (force-goal_force); 
 
           relative_y = numerator/Kdy; 
-          relative_yaw = (-center_dist)*force*(1.0); 
+          relative_yaw = (-center_dist)*force*(0.1); 
 
           if (force == 0 && goal_force > 0) {
             relative_y += -0.05; 

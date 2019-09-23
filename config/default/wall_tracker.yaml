@@ -13,8 +13,8 @@ stabilize_tracker:
   stabilize_acceleration: 0.1
 
 vertical_tracker:
-  vertical_speed: 1.0
-  vertical_acceleration: 0.5
+  vertical_speed: 0.5
+  vertical_acceleration: 0.2
 
 yaw_tracker:
   yaw_gain: 0.3
