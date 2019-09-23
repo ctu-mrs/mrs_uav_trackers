@@ -309,7 +309,9 @@ private:
 private:
   ros::Timer hover_timer;
   void       hoverTimer(const ros::TimerEvent &event);
+  bool       running_hover_timer  = false;
   bool       hovering_in_progress = false;
+  void       toggleHover(bool in);
 
   bool mpc_computed_ = false;
 
@@ -754,9 +756,12 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   is_active = true;
 
-  hovering_in_progress = true;
-  setRelativeGoal(0, 0, 0, 0, false);
-  hover_timer.start();
+  // this is here to initialize the desired_trajectory vector
+  // if deleted (and I tried) the UAV will briefly fly to the 
+  // origin after activation
+  setRelativeGoal(0, 0, 0, 0, false); // do not delete
+
+  toggleHover(true);
 
   // can return false
   return is_active;
@@ -767,6 +772,8 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 /* //{ deactivate() */
 
 void MpcTracker::deactivate(void) {
+
+  toggleHover(false);
 
   std::scoped_lock lock(mutex_des_trajectory);
 
@@ -1190,7 +1197,7 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Requ
 
   mrs_msgs::Vec4Response res;
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
 
@@ -1208,7 +1215,7 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Requ
 
 bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 
@@ -1225,7 +1232,7 @@ const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::
 
   mrs_msgs::Vec4Response res;
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
 
@@ -1245,7 +1252,7 @@ bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) 
 
   std::scoped_lock lock(mutex_x);
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
 
@@ -1260,7 +1267,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::
 
   mrs_msgs::Vec1Response res;
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setGoal(x(0, 0), x(4, 0), cmd->goal, x_yaw(0, 0), false);
 
@@ -1278,7 +1285,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::
 
 bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
 
-  hover_timer.stop();
+  toggleHover(false);
 
   setGoal(x(0, 0), x(4, 0), msg->data, x_yaw(0, 0), false);
 
@@ -1293,7 +1300,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
 
   mrs_msgs::Vec1Response res;
 
-  hover_timer.stop();
+  toggleHover(false);
 
   if (tracking_trajectory) {
 
@@ -1320,7 +1327,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Re
 
 bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
 
-  hover_timer.stop();
+  toggleHover(false);
 
   if (tracking_trajectory) {
 
@@ -1349,7 +1356,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
   mrs_msgs::Vec1Response res;
 
-  hover_timer.stop();
+  toggleHover(false);
 
   if (tracking_trajectory) {
 
@@ -1381,7 +1388,7 @@ const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs
 
 bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
 
-  hover_timer.stop();
+  toggleHover(false);
 
   if (tracking_trajectory) {
 
@@ -1412,11 +1419,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
 
   std_srvs::TriggerResponse res;
 
-  setRelativeGoal(0, 0, 0, 0, false);
-
-  hover_timer.start();
-
-  ROS_INFO("[MpcTracker]: hovering");
+  toggleHover(true);
 
   res.success = true;
   char tempStr[100];
@@ -1519,6 +1522,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
     {
       std::scoped_lock lock(mutex_des_trajectory);
 
+      toggleHover(false);
       tracking_trajectory = true;
       trajectory_idx      = 0;
     }
@@ -1603,6 +1607,8 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
 
   if (trajectory_set_) {
 
+    toggleHover(false);
+
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
 
@@ -1663,6 +1669,8 @@ bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Tr
   }
 
   if (trajectory_set_) {
+
+    toggleHover(false);
 
     if (trajectory_idx < (trajectory_size - 1)) {
 
@@ -2773,7 +2781,6 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         des_z_whole_trajectory(i + trajectory_size) = des_z_whole_trajectory(i + trajectory_size - 1);
       }
 
-
       if (msg.use_yaw) {
 
         use_yaw_in_trajectory = true;
@@ -2798,6 +2805,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         if (msg.fly_now) {
 
+          toggleHover(false);
           tracking_trajectory = true;
         } else {
 
@@ -3181,6 +3189,8 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
+  mrs_lib::ScopeUnset unset_running(running_mpc_timer);
+
   std::scoped_lock lock(mutex_x);
 
   hovering_in_progress = true;
@@ -3191,10 +3201,43 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
   if (fabs(x(1, 0)) < 0.1 && fabs(x(5, 0)) < 0.1 && fabs(x(9, 0)) < 0.1) {
 
+    toggleHover(false);
+
+    ROS_INFO("[MpcTracker]: hoverTimer: speed is low, stopping hover timer");
+  }
+}
+
+//}
+
+// --------------------------------------------------------------
+// |                       Other routines                       |
+// --------------------------------------------------------------
+
+/* toggleHover() //{ */
+
+void MpcTracker::toggleHover(bool in) {
+
+  if (in == false) {
+
+    ROS_INFO("[MpcTracker]: Stoppping hover timer");
+
+    setRelativeGoal(0, 0, 0, 0, false);
+    hover_timer.stop();
+
+    while (running_hover_timer) {
+
+      ROS_WARN("[MpcTracker]: the hover is in the middle of an iteration, waiting for it to finish");
+      ros::Duration wait(0.01);
+      wait.sleep();
+    }
+
     hovering_in_progress = false;
 
-    hover_timer.stop();
-    ROS_INFO("[MpcTracker]: hover timer stopped");
+  } else {
+
+    ROS_INFO("[MpcTracker]: Starting hover timer");
+
+    hover_timer.start();
   }
 }
 
