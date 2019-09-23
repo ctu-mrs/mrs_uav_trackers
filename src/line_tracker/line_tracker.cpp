@@ -5,7 +5,6 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 
-#include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_uav_manager/Tracker.h>
 
@@ -48,14 +47,12 @@ const char *state_names[6] = {
 
 class LineTracker : public mrs_uav_manager::Tracker {
 public:
-  LineTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -94,9 +91,9 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -151,9 +148,6 @@ private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
 };
-
-LineTracker::LineTracker(void) : is_initialized(false), is_active(false) {
-}
 
 //}
 
@@ -422,23 +416,14 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Od
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus::Ptr LineTracker::getStatus() {
+const mrs_msgs::TrackerStatus LineTracker::getStatus() {
 
-  if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
+  return tracker_status;
 }
 
 //}

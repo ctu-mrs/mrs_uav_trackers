@@ -6,7 +6,6 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
 
-#include <mrs_msgs/TrackerDiagnostics.h>
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_msgs/ObstacleSectors.h>
 #include <mrs_uav_manager/Tracker.h>
@@ -35,14 +34,12 @@ namespace joy_bumper_tracker
 
 class JoyBumperTracker : public mrs_uav_manager::Tracker {
 public:
-  JoyBumperTracker(void);
-
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
-  virtual const mrs_msgs::TrackerStatus::Ptr        getStatus();
+  virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
 
@@ -81,9 +78,9 @@ private:
   // tracker's inner states
   int    tracker_loop_rate_;
   double tracker_dt_;
-  bool   is_initialized;
-  bool   is_active;
-  bool   first_iter;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
@@ -133,7 +130,7 @@ private:
   double filter_coeff_;
   bool   got_bumper_         = false;
   bool   filter_initialized_ = false;
-  bool   bumper_enabled_;
+  bool   bumper_enabled_     = false;
   int    bumper_timer_rate_;
 
   mrs_msgs::ObstacleSectors bumper_data_;
@@ -181,9 +178,6 @@ private:
   bool cvx_verbose_ = false;
   int  cvx_max_iterations_;
 };
-
-JoyBumperTracker::JoyBumperTracker(void) : is_initialized(false), is_active(false) {
-}
 
 //}
 
@@ -292,8 +286,8 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyBumperTracker::mainTimer, this);
-  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyBumperTracker::bumperTimer, this);
+  main_timer   = nh_.createTimer(ros::Rate(tracker_loop_rate_), &JoyBumperTracker::mainTimer, this, false, false);
+  bumper_timer = nh_.createTimer(ros::Rate(bumper_timer_rate_), &JoyBumperTracker::bumperTimer, this, false, false);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[JoyBumperTracker]: Could not load all parameters!");
@@ -341,10 +335,12 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
     }
   }
 
-
   // --------------------------------------------------------------
   // |              yaw initial condition  prediction             |
   // --------------------------------------------------------------
+
+  main_timer.start();
+  bumper_timer.start();
 
   is_active = true;
 
@@ -359,6 +355,9 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
 
 void JoyBumperTracker::deactivate(void) {
 
+  main_timer.stop();
+  bumper_timer.stop();
+
   is_active = false;
 
   ROS_INFO("[JoyBumperTracker]: deactivated");
@@ -372,7 +371,6 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
-  bumperPushFromObstacle();
   {
     std::scoped_lock lock(mutex_odometry);
 
@@ -394,6 +392,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
   if (!is_active) {
     return mrs_msgs::PositionCommand::Ptr();
   }
+
+  bumperPushFromObstacle();
 
   position_output.header.stamp    = ros::Time::now();
   position_output.header.frame_id = "local_origin";
@@ -443,23 +443,14 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus::Ptr JoyBumperTracker::getStatus() {
+const mrs_msgs::TrackerStatus JoyBumperTracker::getStatus() {
 
-  if (is_initialized) {
+  mrs_msgs::TrackerStatus tracker_status;
 
-    mrs_msgs::TrackerStatus::Ptr tracker_status(new mrs_msgs::TrackerStatus);
+  tracker_status.active            = is_active;
+  tracker_status.callbacks_enabled = callbacks_enabled;
 
-    if (is_active) {
-      tracker_status->active = mrs_msgs::TrackerStatus::ACTIVE;
-    } else {
-      tracker_status->active = mrs_msgs::TrackerStatus::NONACTIVE;
-    }
-
-    return tracker_status;
-  } else {
-
-    return mrs_msgs::TrackerStatus::Ptr();
-  }
+  return tracker_status;
 }
 
 //}
@@ -670,8 +661,13 @@ void JoyBumperTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
 /* callbackBumper() //{ */
 
 void JoyBumperTracker::callbackBumper(const mrs_msgs::ObstacleSectorsConstPtr &msg) {
+
   if (!is_initialized)
     return;
+
+  if (!is_active) {
+    return;
+  }
 
   ROS_INFO_ONCE("[JoyBumperTracker]: getting bumper data");
   ROS_INFO_THROTTLE(0.5, "[JoyBumperTracker]: getting bumper data");
@@ -834,7 +830,7 @@ bool JoyBumperTracker::bumperPushFromObstacle(void) {
     // prepare the full reference vector
     for (int i = 0; i < horizon_length_; i++) {
 
-      mpc_reference_x((i * n) + 0, 0) = 1.5; // TODO this is the reference
+      mpc_reference_x((i * n) + 0, 0) = 1.5;  // TODO this is the reference
       mpc_reference_x((i * n) + 1, 0) = 0;
       mpc_reference_x((i * n) + 2, 0) = 0;
     }
