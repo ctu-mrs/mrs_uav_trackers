@@ -3221,7 +3221,6 @@ void MpcTracker::toggleHover(bool in) {
 
     ROS_INFO("[MpcTracker]: Stoppping hover timer");
 
-    setRelativeGoal(0, 0, 0, 0, false);
     hover_timer.stop();
 
     while (running_hover_timer) {
