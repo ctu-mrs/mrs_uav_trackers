@@ -757,9 +757,9 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   is_active = true;
 
   // this is here to initialize the desired_trajectory vector
-  // if deleted (and I tried) the UAV will briefly fly to the 
+  // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false); // do not delete
+  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
 
   toggleHover(true);
 
@@ -3217,11 +3217,9 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::toggleHover(bool in) {
 
-  if (in == false) {
+  if (in == false && hovering_in_progress) {
 
     ROS_INFO("[MpcTracker]: Stoppping hover timer");
-
-    hover_timer.stop();
 
     while (running_hover_timer) {
 
@@ -3230,9 +3228,11 @@ void MpcTracker::toggleHover(bool in) {
       wait.sleep();
     }
 
+    hover_timer.stop();
+
     hovering_in_progress = false;
 
-  } else {
+  } else if (in == true && !hovering_in_progress) {
 
     ROS_INFO("[MpcTracker]: Starting hover timer");
 
