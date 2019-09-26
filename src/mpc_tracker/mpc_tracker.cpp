@@ -77,7 +77,7 @@ public:
   virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
 private:
-  bool callbacks_enabled = true;
+  bool callbacks_enabled = false;
 
 private:
   ros::NodeHandle nh_;
@@ -754,14 +754,14 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   ROS_INFO("[MpcTracker]: activated");
 
-  is_active = true;
-
   // this is here to initialize the desired_trajectory vector
   // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
+  setRelativeGoal(0, 0, 0, 0, false); // do not delete
 
   toggleHover(true);
+
+  is_active = true;
 
   // can return false
   return is_active;
@@ -1035,7 +1035,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   mrs_msgs::TrackerStatus tracker_status;
 
   tracker_status.active            = is_active;
-  tracker_status.callbacks_enabled = callbacks_enabled && !hovering_in_progress;
+  tracker_status.callbacks_enabled = is_active && callbacks_enabled && !hovering_in_progress;
 
   return tracker_status;
 }
