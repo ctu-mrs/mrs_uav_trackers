@@ -3193,8 +3193,6 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
   std::scoped_lock lock(mutex_x);
 
-  hovering_in_progress = true;
-
   mrs_lib::Routine profiler_routine = profiler->createRoutine("hoverTimer", 10, 0.01, event);
 
   setRelativeGoal(0, 0, 0, 0, false);
@@ -3235,6 +3233,8 @@ void MpcTracker::toggleHover(bool in) {
   } else if (in == true && !hovering_in_progress) {
 
     ROS_INFO("[MpcTracker]: Starting hover timer");
+
+    hovering_in_progress = true;
 
     hover_timer.start();
   }
