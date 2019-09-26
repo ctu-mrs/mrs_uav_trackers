@@ -77,7 +77,7 @@ public:
   virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
 private:
-  bool callbacks_enabled = false;
+  bool callbacks_enabled = true;
 
 private:
   ros::NodeHandle nh_;
