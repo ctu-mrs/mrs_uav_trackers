@@ -1517,6 +1517,13 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
     return true;
   }
 
+  if (!hovering_in_progress) {
+
+    res.success = false;
+    res.message = "Hovering in progress";
+    return true;
+  }
+
   if (trajectory_set_) {
 
     {
