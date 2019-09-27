@@ -1503,24 +1503,32 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
 bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
     return true;
   }
 
-  if (!hovering_in_progress) {
+  if (hovering_in_progress) {
 
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Hovering in progress";
+    res.message = message;
     return true;
   }
 
@@ -1557,10 +1565,32 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
 
 bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
+    return true;
+  }
+
+  if (!callbacks_enabled) {
+
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1598,17 +1628,32 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
 
 bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1661,17 +1706,32 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
 
 bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1759,10 +1819,23 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
 // service for setting desired trajectory
 bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res) {
 
+  char message[200];
+
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1800,7 +1873,13 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 
   if (!callbacks_enabled) {
 
-    ROS_WARN("[MpcTracker]: Can't set trajectory, callbacks are disabled!");
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, callbacks are disabled!");
+    return;
+  }
+
+  if (hovering_in_progress) {
+
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, callbacks are disabled!");
     return;
   }
 
