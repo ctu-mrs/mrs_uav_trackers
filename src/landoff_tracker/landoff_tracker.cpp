@@ -816,11 +816,11 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
     case STOP_MOTION_STATE:
       break;
     case ACCELERATING_STATE:
-      current_state_horizontal = STOPPING_STATE;
       break;
     case DECELERATING_STATE:
       break;
     case STOPPING_STATE:
+      current_horizontal_speed = 0;
       break;
   }
 
@@ -1137,8 +1137,14 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
     if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
       if (fabs(current_vertical_speed) <= 0.1 && fabs(current_horizontal_speed) <= 0.1) {
+
+        // if the current motion was stopped (the conditions above) but we still have a goal (landing or taking off)
+        // -> we should start accelerating towards the goal in the vertical direction
+        // This is important, do not modify without testing, otherwise your landing routine may crash into the ground
+        // while having large lateral speed
         if (have_goal) {
-          changeState(ACCELERATING_STATE);
+          changeStateVertical(ACCELERATING_STATE);
+          changeStateHorizontal(STOPPING_STATE);
         } else {
           changeState(STOPPING_STATE);
         }
@@ -1317,7 +1323,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
   res.success = true;
   res.message = "taking off";
 
-  changeState(ACCELERATING_STATE);
+  changeState(STOP_MOTION_STATE);
 
   publishDiagnostics();
 
