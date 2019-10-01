@@ -13,11 +13,11 @@ max_position_difference: 0.5
 
 horizontal_tracker:
   horizontal_speed: 3.0
-  horizontal_acceleration: 1.0
+  horizontal_acceleration: 2.0
 
 vertical_tracker:
   vertical_speed: 1.0
-  vertical_acceleration: 1.0
+  vertical_acceleration: 2.0
 
   takeoff_speed: 1.0
   takeoff_acceleration: 0.3
