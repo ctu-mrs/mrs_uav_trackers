@@ -256,34 +256,36 @@ private:
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
   std::vector<ros::Subscriber>                      other_drones_subscribers;
-  ros::Publisher                                    predicted_trajectory_publisher;
-  ros::Publisher                                    predicted_trajectory_esp_publisher;
-  ros::Publisher                                    debug_predicted_trajectory_publisher;
-  bool                                              collision_avoidance_enabled_ = false;
-  bool                                              use_priority_swap            = false;
-  bool                                              no_overshoots                = false;
-  double                                            predicted_trajectory_publish_rate;
-  double                                            mrs_collision_avoidance_radius;
-  double                                            mrs_collision_avoidance_correction;
-  std::string                                       predicted_trajectory_topic;
-  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool                                              future_was_predicted = false;
-  double                                            mrs_collision_avoidance_altitude_threshold;
-  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  double    checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  int       my_uav_number;
-  int       my_uav_priority;
-  double    collision_free_altitude;
-  ros::Time avoiding_collision_time;
-  ros::Time being_avoided_time;
-  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double    collision_horizontal_speed_coef;
-  int       collision_slow_down_fully;
-  int       collision_slow_down_start;
-  int       collision_start_climbing;
-  int       earliest_collision_idx;
-  double    collision_trajectory_timeout;
-  bool      avoiding_collision = false;
+  std::mutex                                        mutex_other_drone_trajecotries;
+
+  ros::Publisher predicted_trajectory_publisher;
+  ros::Publisher predicted_trajectory_esp_publisher;
+  ros::Publisher debug_predicted_trajectory_publisher;
+  bool           collision_avoidance_enabled_ = false;
+  bool           use_priority_swap            = false;
+  bool           no_overshoots                = false;
+  double         predicted_trajectory_publish_rate;
+  double         mrs_collision_avoidance_radius;
+  double         mrs_collision_avoidance_correction;
+  std::string    predicted_trajectory_topic;
+  void           callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool           future_was_predicted = false;
+  double         mrs_collision_avoidance_altitude_threshold;
+  double         checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  double         checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  int            my_uav_number;
+  int            my_uav_priority;
+  double         collision_free_altitude;
+  ros::Time      avoiding_collision_time;
+  ros::Time      being_avoided_time;
+  bool           callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double         collision_horizontal_speed_coef;
+  int            collision_slow_down_fully;
+  int            collision_slow_down_start;
+  int            collision_start_climbing;
+  int            earliest_collision_idx;
+  double         collision_trajectory_timeout;
+  bool           avoiding_collision = false;
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -757,7 +759,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   // this is here to initialize the desired_trajectory vector
   // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false); // do not delete
+  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
 
   toggleHover(true);
 
@@ -1468,12 +1470,14 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
 
 void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOtherMavTrajectory");
+
+  std::scoped_lock lock(mutex_other_drone_trajecotries);
+
   mrs_msgs::FutureTrajectory temp_trajectory = *msg;
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
-
-  ROS_INFO_THROTTLE(1.0, "[MpcTracker]: GETTING %s TRAJECTORY", msg->uav_name.c_str());
 }
 
 //}
@@ -2017,7 +2021,7 @@ double MpcTracker::checkCollisionInflated(const double ax, const double ay, cons
 // Check for potential collisions and return the needed altitude offset to avoid other drones
 double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_collision_index) {
 
-  std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory);
+  std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory, mutex_other_drone_trajecotries);
 
   first_collision_index = INT_MAX;
   avoiding_collision    = false;
@@ -2621,6 +2625,35 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.orientation.y = orientation.y();
   diagnostics.setpoint.orientation.z = orientation.z();
   diagnostics.setpoint.orientation.w = orientation.w();
+
+  char buffer[300];
+  buffer[0] = 0;
+
+  {
+    std::scoped_lock lock(mutex_other_drone_trajecotries);
+
+    // fill in if other UAVs are sending their trajectories
+    std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
+
+    while (u != other_drones_trajectories.end()) {
+
+      // is the other's trajectory fresh enought?
+      if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
+        diagnostics.avoidance_active_uavs.push_back(u->first);
+        sprintf(buffer + strlen(buffer), "%s ", u->first.c_str());
+      }
+
+      u++;
+    }
+  }
+
+  if (strlen(buffer) > 0) {
+    ROS_INFO_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: %s", buffer);
+  } else if (got_odometry_diagnostics && collision_avoidance_enabled_ &&
+             ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+              odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
+    ROS_WARN_THROTTLE(5.0, "[MpcTracker]: missing avoidance trajectories!");
+  }
 
   try {
     pub_diagnostics_.publish(diagnostics);
