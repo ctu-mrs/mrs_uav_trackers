@@ -580,7 +580,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   ROS_INFO("[MpcTracker]: Numerical ID of this UAV is %d", my_uav_number);
   my_uav_priority = my_uav_number;
 
-  param_loader.load_param("mrs_collision_avoidance/drone_names", other_drone_names_);
+  param_loader.load_param("network/robot_names", other_drone_names_);
 
   // exclude this drone from the list
   std::vector<std::string>::iterator it = other_drone_names_.begin();
