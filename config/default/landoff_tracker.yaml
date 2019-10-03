@@ -1,14 +1,14 @@
-tracker_loop_rate: 100 # [Hz]
+main_timer_rate_: 100 # [Hz]
 diagnostics_loop_rate: 10 # [Hz]
 
-landing_reference: -1.0 # [m]
-landing_threshold_height: 0.4
+landing_reference: -1.0 # [m], relative "z" reference to the UAV frame during landing
 
 takeoff_disable_lateral_gains: false
 takeoff_disable_lateral_gains_height: 0.3 # [m]
-takeoff_reset_odometry_height: 0.2 # [m]
-takeoff_from_moving_platform: false
 
+# During takeoff, the control error should not exceed this number.
+# if control error reaches this number, the trackers stops moving the
+# reference and waits for the controllers to move the drone in closer.
 max_position_difference: 0.5
 
 horizontal_tracker:
