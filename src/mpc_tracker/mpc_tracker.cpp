@@ -260,34 +260,36 @@ private:
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
   std::vector<ros::Subscriber>                      other_drones_subscribers;
-  ros::Publisher                                    predicted_trajectory_publisher;
-  ros::Publisher                                    predicted_trajectory_esp_publisher;
-  ros::Publisher                                    debug_predicted_trajectory_publisher;
-  bool                                              collision_avoidance_enabled_ = false;
-  bool                                              use_priority_swap            = false;
-  bool                                              no_overshoots                = false;
-  double                                            predicted_trajectory_publish_rate;
-  double                                            mrs_collision_avoidance_radius;
-  double                                            mrs_collision_avoidance_correction;
-  std::string                                       predicted_trajectory_topic;
-  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
-  bool                                              future_was_predicted = false;
-  double                                            mrs_collision_avoidance_altitude_threshold;
-  double    checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  double    checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  int       my_uav_number;
-  int       my_uav_priority;
-  double    collision_free_altitude;
-  ros::Time avoiding_collision_time;
-  ros::Time being_avoided_time;
-  bool      callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
-  double    collision_horizontal_speed_coef;
-  int       collision_slow_down_fully;
-  int       collision_slow_down_start;
-  int       collision_start_climbing;
-  int       earliest_collision_idx;
-  double    collision_trajectory_timeout;
-  bool      avoiding_collision = false;
+  std::mutex                                        mutex_other_drone_trajecotries;
+
+  ros::Publisher predicted_trajectory_publisher;
+  ros::Publisher predicted_trajectory_esp_publisher;
+  ros::Publisher debug_predicted_trajectory_publisher;
+  bool           collision_avoidance_enabled_ = false;
+  bool           use_priority_swap            = false;
+  bool           no_overshoots                = false;
+  double         predicted_trajectory_publish_rate;
+  double         mrs_collision_avoidance_radius;
+  double         mrs_collision_avoidance_correction;
+  std::string    predicted_trajectory_topic;
+  void           callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  bool           future_was_predicted = false;
+  double         mrs_collision_avoidance_altitude_threshold;
+  double         checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  double         checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  int            my_uav_number;
+  int            my_uav_priority;
+  double         collision_free_altitude;
+  ros::Time      avoiding_collision_time;
+  ros::Time      being_avoided_time;
+  bool           callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
+  double         collision_horizontal_speed_coef;
+  int            collision_slow_down_fully;
+  int            collision_slow_down_start;
+  int            collision_start_climbing;
+  int            earliest_collision_idx;
+  double         collision_trajectory_timeout;
+  bool           avoiding_collision = false;
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -611,7 +613,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   ROS_INFO("[MpcTracker]: Numerical ID of this UAV is %d", my_uav_number);
   my_uav_priority = my_uav_number;
 
-  param_loader.load_param("mrs_collision_avoidance/drone_names", other_drone_names_);
+  param_loader.load_param("network/robot_names", other_drone_names_);
 
   // exclude this drone from the list
   std::vector<std::string>::iterator it = other_drone_names_.begin();
@@ -798,14 +800,14 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   ROS_INFO("[MpcTracker]: activated");
 
-  is_active = true;
-
   // this is here to initialize the desired_trajectory vector
-  // if deleted (and I tried) the UAV will briefly fly to the 
+  // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false); // do not delete
+  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
 
   toggleHover(true);
+
+  is_active = true;
 
   // can return false
   return is_active;
@@ -1079,7 +1081,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   mrs_msgs::TrackerStatus tracker_status;
 
   tracker_status.active            = is_active;
-  tracker_status.callbacks_enabled = callbacks_enabled && !hovering_in_progress;
+  tracker_status.callbacks_enabled = is_active && callbacks_enabled && !hovering_in_progress;
 
   return tracker_status;
 }
@@ -1512,12 +1514,14 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
 
 void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOtherMavTrajectory");
+
+  std::scoped_lock lock(mutex_other_drone_trajecotries);
+
   mrs_msgs::FutureTrajectory temp_trajectory = *msg;
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
-
-  ROS_INFO_THROTTLE(1.0, "[MpcTracker]: GETTING %s TRAJECTORY", msg->uav_name.c_str());
 }
 
 //}
@@ -1547,17 +1551,32 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
 bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1594,10 +1613,32 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
 
 bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
+    return true;
+  }
+
+  if (!callbacks_enabled) {
+
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1635,17 +1676,32 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
 
 bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1698,17 +1754,32 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
 
 bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
 
+  char message[200];
+
   if (!is_active) {
 
+    sprintf((char *)&message, "Tracker not active");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Tracker not active";
+    res.message = message;
     return true;
   }
 
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1796,10 +1867,23 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
 // service for setting desired trajectory
 bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res) {
 
+  char message[200];
+
   if (!callbacks_enabled) {
 
+    sprintf((char *)&message, "Callbacks are disabled");
+    ROS_ERROR("[ControlManager]: %s", message);
     res.success = false;
-    res.message = "Callbacks are disabled!";
+    res.message = message;
+    return true;
+  }
+
+  if (hovering_in_progress) {
+
+    sprintf((char *)&message, "Hovering in progress");
+    ROS_ERROR("[ControlManager]: %s", message);
+    res.success = false;
+    res.message = message;
     return true;
   }
 
@@ -1837,7 +1921,13 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 
   if (!callbacks_enabled) {
 
-    ROS_WARN("[MpcTracker]: Can't set trajectory, callbacks are disabled!");
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, callbacks are disabled!");
+    return;
+  }
+
+  if (hovering_in_progress) {
+
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, callbacks are disabled!");
     return;
   }
 
@@ -2014,7 +2104,7 @@ double MpcTracker::checkCollisionInflated(const double ax, const double ay, cons
 // Check for potential collisions and return the needed altitude offset to avoid other drones
 double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_collision_index) {
 
-  std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory);
+  std::scoped_lock lock(mutex_predicted_trajectory, mutex_des_trajectory, mutex_other_drone_trajecotries);
 
   first_collision_index = INT_MAX;
   avoiding_collision    = false;
@@ -2632,6 +2722,35 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.orientation.y = orientation.y();
   diagnostics.setpoint.orientation.z = orientation.z();
   diagnostics.setpoint.orientation.w = orientation.w();
+
+  char buffer[300];
+  buffer[0] = 0;
+
+  {
+    std::scoped_lock lock(mutex_other_drone_trajecotries);
+
+    // fill in if other UAVs are sending their trajectories
+    std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
+
+    while (u != other_drones_trajectories.end()) {
+
+      // is the other's trajectory fresh enought?
+      if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
+        diagnostics.avoidance_active_uavs.push_back(u->first);
+        sprintf(buffer + strlen(buffer), "%s ", u->first.c_str());
+      }
+
+      u++;
+    }
+  }
+
+  if (strlen(buffer) > 0) {
+    ROS_INFO_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: %s", buffer);
+  } else if (got_odometry_diagnostics && collision_avoidance_enabled_ &&
+             ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
+              odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
+    ROS_WARN_THROTTLE(5.0, "[MpcTracker]: missing avoidance trajectories!");
+  }
 
   try {
     pub_diagnostics_.publish(diagnostics);
@@ -3290,8 +3409,6 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
   std::scoped_lock lock(mutex_x);
 
-  hovering_in_progress = true;
-
   mrs_lib::Routine profiler_routine = profiler->createRoutine("hoverTimer", 10, 0.01, event);
 
   setRelativeGoal(0, 0, 0, 0, false);
@@ -3314,12 +3431,9 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
 void MpcTracker::toggleHover(bool in) {
 
-  if (in == false) {
+  if (in == false && hovering_in_progress) {
 
     ROS_INFO("[MpcTracker]: Stoppping hover timer");
-
-    setRelativeGoal(0, 0, 0, 0, false);
-    hover_timer.stop();
 
     while (running_hover_timer) {
 
@@ -3328,11 +3442,15 @@ void MpcTracker::toggleHover(bool in) {
       wait.sleep();
     }
 
+    hover_timer.stop();
+
     hovering_in_progress = false;
 
-  } else {
+  } else if (in == true && !hovering_in_progress) {
 
     ROS_INFO("[MpcTracker]: Starting hover timer");
+
+    hovering_in_progress = true;
 
     hover_timer.start();
   }
