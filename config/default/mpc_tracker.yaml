@@ -6,7 +6,7 @@ headless_mode: false                # Headless mode will ensure that the UAV is 
 
 wiggle:
   enabled: false
-  amplitude: 0.3 # [m]
+  amplitude: 0.5 # [m]
   frequency: 0.2 # [Hz]
 
 # mrs collision avoidance
