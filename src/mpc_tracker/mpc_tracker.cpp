@@ -2694,6 +2694,7 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.tracker_active = is_active;
 
+  diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
   diagnostics.avoiding_collision = avoiding_collision;
 
   // true if tracking_trajectory of if flying to a setpoint
