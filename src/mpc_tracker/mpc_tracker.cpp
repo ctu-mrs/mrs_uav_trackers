@@ -1988,8 +1988,8 @@ bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request &req, std_srvs::SetBo
   }
 
   wiggle_enabled_ = req.data;
-  res.success = true;
-  res.message = "Wiggle set";
+  res.success     = true;
+  res.message     = "Wiggle set";
 
   return true;
 }
@@ -2218,6 +2218,16 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
       max_sample_y = max_speed_y * dt2;
       difference_x = des_x_trajectory(i, 0) - des_x_filtered(i - 1, 0);
       difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
+    }
+
+    double direction_angle  = atan2(difference_y, difference_x);
+    double max_dir_sample_x = abs(max_sample_x * cos(direction_angle));
+    double max_dir_sample_y = abs(max_sample_y * sin(direction_angle));
+    if (max_sample_x > max_dir_sample_x) {
+      max_sample_x = max_dir_sample_x;
+    }
+    if (max_sample_y > max_dir_sample_y) {
+      max_sample_y = max_dir_sample_y;
     }
 
     // saturate the difference
@@ -2508,48 +2518,48 @@ void MpcTracker::calculateMPC() {
     max_speed_x = max_speed_x * (1.0 - ascend);
   }
 
-  if (!tracking_trajectory && (dist(x(0, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
-    // yaw angle at which my drone "sees" the goto reference point
-    double goto_yaw = atan2(des_y_trajectory(0, 0) - x(4, 0), des_x_trajectory(0, 0) - x(0, 0));
+  /* if (!tracking_trajectory && (dist(x(0, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) { */
+  /*   // yaw angle at which my drone "sees" the goto reference point */
+  /*   double goto_yaw = atan2(des_y_trajectory(0, 0) - x(4, 0), des_x_trajectory(0, 0) - x(0, 0)); */
 
-    // Circle saturation of maximum velocity
-    max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-    max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  }
+  /*   // Circle saturation of maximum velocity */
+  /*   max_speed_x = fabs(max_speed_x * cos(goto_yaw)); */
+  /*   max_speed_y = fabs(max_speed_y * sin(goto_yaw)); */
+  /* } */
 
   filterReferenceXY(max_speed_x, max_speed_y);
 
-  if (headless_mode) {
-    double tmp_yaw;
-    for (int i = 0; i < horizon_len_ - 1; i++) {
-      if (i == 0) {
-        tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0));
-      } else {
-        tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0));
-      }
-      if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
-        if (i > 0) {
-          des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0);
-        }
-      }
-      des_yaw_trajectory(i, 0) = tmp_yaw;
-    }
-    des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0);
+  /* if (headless_mode) { */
+  /*   double tmp_yaw; */
+  /*   for (int i = 0; i < horizon_len_ - 1; i++) { */
+  /*     if (i == 0) { */
+  /*       tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0)); */
+  /*     } else { */
+  /*       tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0)); */
+  /*     } */
+  /*     if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) { */
+  /*       if (i > 0) { */
+  /*         des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0); */
+  /*       } */
+  /*     } */
+  /*     des_yaw_trajectory(i, 0) = tmp_yaw; */
+  /*   } */
+  /*   des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0); */
 
-    double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0));
-    if (tmp_yaw_error > PI) {
-      tmp_yaw_error -= 2 * PI;
-    }
-    if (fabs(tmp_yaw_error) > 0.785) {
-      {
-        std::scoped_lock lock(mutex_constraints);
-        max_speed_y = 0;
-        max_speed_x = 0;
-      }
-      filterReferenceXY(max_speed_x, max_speed_y);
-      ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode");
-    }
-  }
+  /*   double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0)); */
+  /*   if (tmp_yaw_error > PI) { */
+  /*     tmp_yaw_error -= 2 * PI; */
+  /*   } */
+  /*   if (fabs(tmp_yaw_error) > 0.785) { */
+  /*     { */
+  /*       std::scoped_lock lock(mutex_constraints); */
+  /*       max_speed_y = 0; */
+  /*       max_speed_x = 0; */
+  /*     } */
+  /*     filterReferenceXY(max_speed_x, max_speed_y); */
+  /*     ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode"); */
+  /*   } */
+  /* } */
   filterYawReference();
 
   // | ---------------------- cvxgen X axis --------------------- |
@@ -2695,7 +2705,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.tracker_active = is_active;
 
   diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
-  diagnostics.avoiding_collision = avoiding_collision;
+  diagnostics.avoiding_collision         = avoiding_collision;
 
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
