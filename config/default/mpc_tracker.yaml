@@ -4,6 +4,11 @@ publish_debug_trajectory: true      # publish the mpc predicted trajectory at [H
 
 headless_mode: false                # Headless mode will ensure that the UAV is always "looking" in the direction of flight
 
+wiggle:
+  enabled: false
+  amplitude: 0.5 # [m]
+  frequency: 0.2 # [Hz]
+
 # mrs collision avoidance
 mrs_collision_avoidance:
   enable: true

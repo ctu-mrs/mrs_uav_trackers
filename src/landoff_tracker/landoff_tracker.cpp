@@ -477,8 +477,10 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
     position_output.use_acceleration   = 1;
   }
 
-  if (takeoff_disable_lateral_gains_ && taking_off) {
+  if (takeoff_disable_lateral_gains_ && taking_off && odometry.pose.pose.position.z < takeoff_disable_lateral_gains_height_) {
     position_output.disable_position_gains = true;
+  } else {
+    position_output.disable_position_gains = false;
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));

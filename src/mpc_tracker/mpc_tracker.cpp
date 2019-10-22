@@ -31,7 +31,10 @@
 #include <mrs_lib/Utils.h>
 #include <mrs_lib/ParamLoader.h>
 
+#include <dynamic_reconfigure/server.h>
 #include <mrs_trackers/cvx_wrapper.h>
+
+#include <mrs_trackers/mpc_trackerConfig.h>
 
 #include <commons.h>
 
@@ -92,6 +95,7 @@ private:
   ros::ServiceServer ser_set_trajectory_;               // service for setting desired trajectory
   ros::ServiceServer set_yaw_service_cmd_cb;
   ros::ServiceServer set_set_mpc_matrix;  // set matrices in cvxgen
+  ros::ServiceServer service_client_wiggle;
   ros::ServiceServer collision_avoidance_service;
 
   // debugging publishers
@@ -292,6 +296,18 @@ private:
   bool                   got_odometry_diagnostics = false;
   std::mutex             mutex_odometry_diagnostics;
 
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+  void dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig &config, uint32_t level);
+
+  boost::recursive_mutex                      config_mutex_;
+  typedef mrs_trackers::mpc_trackerConfig     Config;
+  typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
+  boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
+  void                                        drs_callback(mrs_trackers::mpc_trackerConfig &config, uint32_t level);
+  mrs_trackers::mpc_trackerConfig             drs_params;
+
 private:
   ros::Timer future_trajectory_timer;
   void       futureTrajectoryTimer(const ros::TimerEvent &event);
@@ -366,6 +382,14 @@ private:
 
 private:
   Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
+
+private:
+  bool       wiggle_enabled_ = false;
+  double     wiggle_amplitude_;
+  double     wiggle_frequency_;
+  double     wiggle_phase = 0;
+  std::mutex mutex_wiggle;
+  bool       callbackWiggle(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 };
 
 //}
@@ -479,6 +503,10 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
   ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
 
+  param_loader.load_param("wiggle/enabled", wiggle_enabled_);
+  param_loader.load_param("wiggle/amplitude", wiggle_amplitude_);
+  param_loader.load_param("wiggle/frequency", wiggle_frequency_);
+
   // initialize other matrices
   x                = MatrixXd::Zero(n, 1);
   x_yaw            = MatrixXd::Zero(4, 1);
@@ -567,6 +595,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   // service for triggering failsafe
   set_set_mpc_matrix = nh_.advertiseService("set_mpc_matrix_in", &MpcTracker::callbackSetQ, this);
 
+  // service for enabling wiggle
+  service_client_wiggle = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
+
   // publishers for debugging
   pub_cmd_acceleration_ = nh_.advertise<geometry_msgs::Vector3>("cmd_acceleration_out", 1);
   pub_diagnostics_      = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
@@ -650,6 +681,19 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
   service_server_time_agnostic_mode = nh_.advertiseService("time_agnostic_in", &MpcTracker::callbackTimeAgnosticMode, this);
   param_loader.load_param("headless_mode", headless_mode, false);
   param_loader.load_param("time_agnostic_mode", time_agnostic_mode, false);
+
+  // --------------------------------------------------------------
+  // |                     dynamic reconfigure                    |
+  // --------------------------------------------------------------
+
+  drs_params.wiggle_enabled   = wiggle_enabled_;
+  drs_params.wiggle_frequency = wiggle_frequency_;
+  drs_params.wiggle_amplitude = wiggle_amplitude_;
+
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
+  reconfigure_server_->updateConfig(drs_params);
+  ReconfigureServer::CallbackType f = boost::bind(&MpcTracker::dynamicReconfigureCallback, this, _1, _2);
+  reconfigure_server_->setCallback(f);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -1930,6 +1974,45 @@ bool MpcTracker::callbackTimeAgnosticMode(std_srvs::SetBool::Request &req, std_s
 
 //}
 
+/* callbackWiggle() //{ */
+
+bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  std::scoped_lock lock(mutex_wiggle);
+
+  if (!is_initialized) {
+
+    res.success = false;
+    res.message = "Tracker not active";
+    return true;
+  }
+
+  wiggle_enabled_ = req.data;
+  res.success     = true;
+  res.message     = "Wiggle set";
+
+  return true;
+}
+
+//}
+
+/* //{ dynamicReconfigureCallback() */
+
+void MpcTracker::dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig &config, [[maybe_unused]] uint32_t level) {
+
+  std::scoped_lock lock(mutex_wiggle);
+
+  drs_params = config;
+
+  wiggle_enabled_   = config.wiggle_enabled;
+  wiggle_amplitude_ = config.wiggle_amplitude;
+  wiggle_frequency_ = config.wiggle_frequency;
+
+  ROS_INFO("[So3Controller]: DRS updated gains");
+}
+
+//}
+
 // | -------------------- setpoint handling ------------------- |
 
 /* //{ dist() */
@@ -2137,6 +2220,16 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
       difference_y = des_y_trajectory(i, 0) - des_y_filtered(i - 1, 0);
     }
 
+    double direction_angle  = atan2(difference_y, difference_x);
+    double max_dir_sample_x = abs(max_sample_x * cos(direction_angle));
+    double max_dir_sample_y = abs(max_sample_y * sin(direction_angle));
+    if (max_sample_x > max_dir_sample_x) {
+      max_sample_x = max_dir_sample_x;
+    }
+    if (max_sample_y > max_dir_sample_y) {
+      max_sample_y = max_dir_sample_y;
+    }
+
     // saturate the difference
     if (difference_x > max_sample_x)
       difference_x = max_sample_x;
@@ -2154,6 +2247,20 @@ void MpcTracker::filterReferenceXY(double max_speed_x, double max_speed_y) {
     } else {
       des_x_filtered(i, 0) = des_x_filtered(i - 1, 0) + difference_x;
       des_y_filtered(i, 0) = des_y_filtered(i - 1, 0) + difference_y;
+    }
+  }
+
+  // | ----------------------- add wiggle ----------------------- |
+  if (wiggle_enabled_) {
+
+    for (int i = 0; i < horizon_len_; i++) {
+      des_x_filtered(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * 0.2 + wiggle_phase);
+      des_y_filtered(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * 0.2 + wiggle_phase);
+    }
+
+    wiggle_phase += wiggle_frequency_ * 0.01 * 2 * M_PI;
+    if (wiggle_phase > M_PI) {
+      wiggle_phase -= 2 * M_PI;
     }
   }
 }
@@ -2411,48 +2518,48 @@ void MpcTracker::calculateMPC() {
     max_speed_x = max_speed_x * (1.0 - ascend);
   }
 
-  if (!tracking_trajectory && (dist(x(0, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) {
-    // yaw angle at which my drone "sees" the goto reference point
-    double goto_yaw = atan2(des_y_trajectory(0, 0) - x(4, 0), des_x_trajectory(0, 0) - x(0, 0));
+  /* if (!tracking_trajectory && (dist(x(0, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0, 0)) > 1.0)) { */
+  /*   // yaw angle at which my drone "sees" the goto reference point */
+  /*   double goto_yaw = atan2(des_y_trajectory(0, 0) - x(4, 0), des_x_trajectory(0, 0) - x(0, 0)); */
 
-    // Circle saturation of maximum velocity
-    max_speed_x = fabs(max_speed_x * cos(goto_yaw));
-    max_speed_y = fabs(max_speed_y * sin(goto_yaw));
-  }
+  /*   // Circle saturation of maximum velocity */
+  /*   max_speed_x = fabs(max_speed_x * cos(goto_yaw)); */
+  /*   max_speed_y = fabs(max_speed_y * sin(goto_yaw)); */
+  /* } */
 
   filterReferenceXY(max_speed_x, max_speed_y);
 
-  if (headless_mode) {
-    double tmp_yaw;
-    for (int i = 0; i < horizon_len_ - 1; i++) {
-      if (i == 0) {
-        tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0));
-      } else {
-        tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0));
-      }
-      if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) {
-        if (i > 0) {
-          des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0);
-        }
-      }
-      des_yaw_trajectory(i, 0) = tmp_yaw;
-    }
-    des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0);
+  /* if (headless_mode) { */
+  /*   double tmp_yaw; */
+  /*   for (int i = 0; i < horizon_len_ - 1; i++) { */
+  /*     if (i == 0) { */
+  /*       tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0)); */
+  /*     } else { */
+  /*       tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0)); */
+  /*     } */
+  /*     if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) { */
+  /*       if (i > 0) { */
+  /*         des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0); */
+  /*       } */
+  /*     } */
+  /*     des_yaw_trajectory(i, 0) = tmp_yaw; */
+  /*   } */
+  /*   des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0); */
 
-    double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0));
-    if (tmp_yaw_error > PI) {
-      tmp_yaw_error -= 2 * PI;
-    }
-    if (fabs(tmp_yaw_error) > 0.785) {
-      {
-        std::scoped_lock lock(mutex_constraints);
-        max_speed_y = 0;
-        max_speed_x = 0;
-      }
-      filterReferenceXY(max_speed_x, max_speed_y);
-      ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode");
-    }
-  }
+  /*   double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0)); */
+  /*   if (tmp_yaw_error > PI) { */
+  /*     tmp_yaw_error -= 2 * PI; */
+  /*   } */
+  /*   if (fabs(tmp_yaw_error) > 0.785) { */
+  /*     { */
+  /*       std::scoped_lock lock(mutex_constraints); */
+  /*       max_speed_y = 0; */
+  /*       max_speed_x = 0; */
+  /*     } */
+  /*     filterReferenceXY(max_speed_x, max_speed_y); */
+  /*     ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode"); */
+  /*   } */
+  /* } */
   filterYawReference();
 
   // | ---------------------- cvxgen X axis --------------------- |
@@ -2597,7 +2704,8 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.tracker_active = is_active;
 
-  diagnostics.avoiding_collision = avoiding_collision;
+  diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
+  diagnostics.avoiding_collision         = avoiding_collision;
 
   // true if tracking_trajectory of if flying to a setpoint
   diagnostics.tracking_trajectory = false;
