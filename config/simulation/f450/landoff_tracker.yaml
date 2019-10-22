@@ -1,0 +1,4 @@
+vertical_tracker:
+  # beware, this is for emergency landing only
+  elanding_speed: 0.7
+  elanding_acceleration: 1.0
