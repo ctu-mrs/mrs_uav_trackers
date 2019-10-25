@@ -2,8 +2,8 @@
 Changelog for package mrs_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.3 (2019-10-25)
+------------------
 * fixed disabling lateral gains in landoff
 * updated mpc tracker circle saturation for trajectories
 * updated collision avoidance diagnostics
