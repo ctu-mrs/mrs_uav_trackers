@@ -80,6 +80,9 @@ public:
 private:
   bool callbacks_enabled = true;
 
+  std::string uav_name_;
+  std::string local_origin_frame_id_;
+
 private:
   mrs_uav_manager::SafetyArea_t const *safety_area;
 
@@ -211,6 +214,9 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
+
+  param_loader.load_param("uav_name", uav_name_);
+  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -452,7 +458,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
   }
 
   position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
+  position_output.header.frame_id = local_origin_frame_id_;
 
   {
     std::scoped_lock lock(mutex_state);

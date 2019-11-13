@@ -82,6 +82,7 @@ public:
 private:
   bool callbacks_enabled = true;
 
+
 private:
   ros::NodeHandle nh_;
 
@@ -257,6 +258,7 @@ private:
   std::mutex mutex_predicted_trajectory;
 
   std::string                                       uav_name_;
+  std::string                                       local_origin_frame_id_;
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
   std::vector<ros::Subscriber>                      other_drones_subscribers;
@@ -607,6 +609,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::S
 
   // collision avoidance
   param_loader.load_param("uav_name", uav_name_);
+  local_origin_frame_id_ = uav_name_ + "/local_origin";
+
 
   // extract the numerical name
   sscanf(uav_name_.c_str(), "uav%d", &my_uav_number);
@@ -1041,7 +1045,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
   nav_msgs::Odometry setpoint_odom_out;
 
   setpoint_odom_out.header.stamp    = ros::Time::now();
-  setpoint_odom_out.header.frame_id = "local_origin";
+  setpoint_odom_out.header.frame_id = local_origin_frame_id_;
 
   tf::Quaternion orientation;
   orientation.setEuler(0, 0, yaw);
@@ -2700,7 +2704,7 @@ void MpcTracker::publishDiagnostics(void) {
   mrs_msgs::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = ros::Time::now();
-  diagnostics.header.frame_id = "local_origin";
+  diagnostics.header.frame_id = local_origin_frame_id_;
 
   diagnostics.tracker_active = is_active;
 
@@ -3068,7 +3072,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         geometry_msgs::PoseArray debug_trajectory_out;
         debug_trajectory_out.header.stamp    = ros::Time::now();
-        debug_trajectory_out.header.frame_id = "local_origin";
+        debug_trajectory_out.header.frame_id = local_origin_frame_id_;
 
         for (int i = 0; i < trajectory_size; i++) {
 
@@ -3290,7 +3294,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = "local_origin";
+    debug_trajectory_out.header.frame_id = local_origin_frame_id_;
 
     {
       std::scoped_lock lock(mutex_predicted_trajectory);

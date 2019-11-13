@@ -59,6 +59,9 @@ public:
 private:
   bool callbacks_enabled = true;
 
+  std::string uav_name_;
+  std::string local_origin_frame_id_;
+
 private:
   nav_msgs::Odometry odometry;
   bool               got_odometry = false;
@@ -139,6 +142,9 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
+
+  param_loader.load_param("uav_name", uav_name_);
+  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -283,7 +289,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const nav_msgs::Odo
   }
 
   position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
+  position_output.header.frame_id = local_origin_frame_id_;
 
   {
     std::scoped_lock lock(mutex_state, mutex_odometry);

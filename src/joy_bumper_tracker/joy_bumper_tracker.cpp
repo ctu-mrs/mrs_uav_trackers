@@ -148,6 +148,9 @@ private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
 
+  std::string local_origin_frame_id_;
+  std::string uav_name_;
+
   // indices of joystick buttons
   int start_button_idx_;
   int thrust_idx_;
@@ -196,6 +199,9 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyBumperTracker");
+
+  param_loader.load_param("uav_name", uav_name_);
+  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -396,7 +402,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
   bumperPushFromObstacle();
 
   position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = "local_origin";
+  position_output.header.frame_id = local_origin_frame_id_;
 
   {
     std::scoped_lock lock(mutex_state, mutex_odometry);
