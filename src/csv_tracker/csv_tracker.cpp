@@ -574,7 +574,7 @@ void CsvTracker::setInitPoint(void) {
 
   if (!trajectory_service.response.success) {
 
-    ROS_ERROR("[CsvTracker]: PES: service for setting trajectory failed");
+    ROS_ERROR("[CsvTracker]: service for setting trajectory failed");
     ROS_ERROR("[CsvTracker]: %.s", trajectory_service.response.message.c_str());
   }
 
