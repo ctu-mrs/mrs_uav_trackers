@@ -746,17 +746,17 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     x(0, 0) = cmd->position.x;
     x(1, 0) = cmd->velocity.x;
-    x(2, 0) = 0;
+    x(2, 0) = cmd->acceleration.x;
     x(3, 0) = 0;
 
     x(4, 0) = cmd->position.y;
     x(5, 0) = cmd->velocity.y;
-    x(6, 0) = 0;
+    x(6, 0) = cmd->acceleration.y;
     x(7, 0) = 0;
 
     x(8, 0)  = cmd->position.z;
     x(9, 0)  = cmd->velocity.z;
-    x(10, 0) = 0;
+    x(10, 0) = cmd->acceleration.z;
     x(11, 0) = 0;
 
     x_yaw(0, 0) = cmd->yaw;
@@ -774,21 +774,21 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     x(0, 0) = uav_state.pose.position.x;
     x(1, 0) = uav_state.velocity.linear.x;
-    x(2, 0) = 0;
+    x(2, 0) = uav_state.acceleration.linear.x;
     x(3, 0) = 0;
 
     x(4, 0) = uav_state.pose.position.y;
     x(5, 0) = uav_state.velocity.linear.y;
-    x(6, 0) = 0;
+    x(6, 0) = uav_state.acceleration.linear.y;
     x(7, 0) = 0;
 
     x(8, 0)  = uav_state.pose.position.z;
     x(9, 0)  = uav_state.velocity.linear.z;
-    x(10, 0) = 0;
+    x(10, 0) = uav_state.acceleration.linear.z;
     x(11, 0) = 0;
 
     x_yaw(0, 0) = cur_yaw_;
-    x_yaw(1, 0) = 0;
+    x_yaw(1, 0) = uav_state.velocity.angular.z;
     x_yaw(2, 0) = 0;
     x_yaw(3, 0) = 0;
 
