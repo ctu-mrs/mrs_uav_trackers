@@ -7,6 +7,7 @@
 
 #include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/String.h>
+#include <mrs_msgs/UavState.h>
 
 #include <mrs_uav_manager/Tracker.h>
 
@@ -38,14 +39,14 @@ namespace csv_tracker
 
 class CsvTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -78,7 +79,7 @@ private:
 private:
   ros::NodeHandle nh_;
 
-  nav_msgs::Odometry odom;
+  mrs_msgs::UavState uav_state;
   ros::Time          odomLastTime;
 
   ros::Timer main_timer;
@@ -87,7 +88,7 @@ private:
   mrs_msgs::PositionCommand position_cmd;
   mrs_msgs::PositionCommand last_position_cmd;
 
-  std::mutex mutex_position_cmd, mutex_odom;
+  std::mutex mutex_position_cmd, mutex_uav_state;
 
   // subscriber
   ros::Subscriber subscriber_odom;
@@ -162,7 +163,7 @@ private:
 
 /* //{ initialize() */
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "csv_tracker");
 
@@ -299,8 +300,8 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   position_cmd = *cmd;
 
   // if we are too far from the initial point
-  double distance = sqrt(pow(odom.pose.pose.position.x - (x_scale_ * trajectory(0, 0) + x_offset_), 2) + pow(odom.pose.pose.position.y - y_offset_, 2) +
-                         pow(odom.pose.pose.position.z - (z_scale_ * trajectory(0, 1) + z_offset_), 2));
+  double distance = sqrt(pow(uav_state.pose.position.x - (x_scale_ * trajectory(0, 0) + x_offset_), 2) + pow(uav_state.pose.position.y - y_offset_, 2) +
+                         pow(uav_state.pose.position.z - (z_scale_ * trajectory(0, 1) + z_offset_), 2));
 
   ROS_INFO("[CsvTracker]: Distance: %2.2f", distance);
   ROS_INFO("[CsvTracker]: Z_start: %2.2f", z_scale_ * trajectory(0, 1) + z_offset_);
@@ -340,14 +341,14 @@ void CsvTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   {
-    std::scoped_lock lock(mutex_odom);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odom = *msg;
+    uav_state = *msg;
   }
 
   got_odom = true;
@@ -359,7 +360,7 @@ const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const nav_msgs::Odo
 
   // calculate the current angle
   double                    odom_roll, odom_pitch, odom_yaw;
-  geometry_msgs::Quaternion odom_quat = msg->pose.pose.orientation;
+  geometry_msgs::Quaternion odom_quat = msg->pose.orientation;
   tf::Quaternion            qt(odom_quat.x, odom_quat.y, odom_quat.z, odom_quat.w);
   tf::Matrix3x3(qt).getRPY(odom_roll, odom_pitch, odom_yaw);
 
@@ -422,7 +423,7 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-void CsvTracker::switchOdometrySource([[maybe_unused]] const nav_msgs::Odometry::ConstPtr &msg) {
+void CsvTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &msg) {
   // TODO
 }
 

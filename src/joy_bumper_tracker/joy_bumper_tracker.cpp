@@ -9,6 +9,7 @@
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_msgs/ObstacleSectors.h>
 #include <mrs_uav_manager/Tracker.h>
+#include <mrs_msgs/UavState.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -34,14 +35,14 @@ namespace joy_bumper_tracker
 
 class JoyBumperTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -63,16 +64,16 @@ private:
   bool callbacks_enabled = true;
 
 private:
-  nav_msgs::Odometry odometry;
-  bool               got_odometry = false;
-  std::mutex         mutex_odometry;
+  mrs_msgs::UavState uav_state;
+  bool               got_uav_state = false;
+  std::mutex         mutex_uav_state;
 
-  double odometry_x;
-  double odometry_y;
-  double odometry_z;
-  double odometry_yaw;
-  double odometry_roll;
-  double odometry_pitch;
+  double uav_x;
+  double uav_y;
+  double uav_z;
+  double uav_yaw;
+  double uav_roll;
+  double uav_pitch;
 
 private:
   // tracker's inner states
@@ -188,7 +189,7 @@ private:
 
 /* //{ initialize() */
 
-void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
+void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "joy_bumper_tracker");
 
@@ -311,7 +312,7 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
 
 bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (!got_odometry) {
+  if (!got_uav_state) {
 
     ROS_ERROR("[JoyBumperTracker]: can't activate(), odometry not set");
     return false;
@@ -324,7 +325,7 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
   }
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state);
 
     if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
@@ -334,8 +335,8 @@ bool JoyBumperTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) 
 
     } else {
 
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
+      state_z   = uav_state.pose.position.z;
+      state_yaw = uav_yaw;
 
       ROS_WARN("[JoyBumperTracker]: the previous command is not usable for activation, using Odometry instead.");
     }
@@ -373,25 +374,25 @@ void JoyBumperTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
+    uav_state = *msg;
+    uav_x     = uav_state.pose.position.x;
+    uav_y     = uav_state.pose.position.y;
+    uav_z     = uav_state.pose.position.z;
 
     // calculate the euler angles
     tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
     tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    m.getRPY(uav_roll, uav_pitch, uav_yaw);
 
-    got_odometry = true;
+    got_uav_state = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -405,16 +406,16 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
   position_output.header.frame_id = local_origin_frame_id_;
 
   {
-    std::scoped_lock lock(mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_state, mutex_uav_state);
 
-    position_output.position.x = odometry.pose.pose.position.x;
-    position_output.position.y = odometry.pose.pose.position.y;
+    position_output.position.x = uav_state.pose.position.x;
+    position_output.position.y = uav_state.pose.position.y;
     position_output.position.z = state_z;
     position_output.yaw        = state_yaw;
     /* position_output.use_position = 1; */
 
-    position_output.velocity.x   = odometry.twist.twist.linear.x;
-    position_output.velocity.y   = odometry.twist.twist.linear.y;
+    position_output.velocity.x   = uav_state.velocity.linear.x;
+    position_output.velocity.y   = uav_state.velocity.linear.y;
     position_output.velocity.z   = current_vertical_speed;
     position_output.use_velocity = 1;
     position_output.yaw_dot      = current_yaw_rate;
@@ -428,7 +429,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const nav_msg
     tf::Quaternion desired_orientation;
 
     double affine_coef = 0.99;
-    if (fabs(odometry.twist.twist.linear.x) > 5 || fabs(odometry.twist.twist.linear.y) > 5) {
+    if (fabs(uav_state.velocity.linear.x) > 5 || fabs(uav_state.velocity.linear.y) > 5) {
       attitude_coeff = affine_coef * attitude_coeff;
     } else {
       attitude_coeff = affine_coef * attitude_coeff + (1 - affine_coef);
@@ -491,7 +492,7 @@ const std_srvs::SetBoolResponse::ConstPtr JoyBumperTracker::enableCallbacks(cons
 
 /* switchOdometrySource() //{ */
 
-void JoyBumperTracker::switchOdometrySource([[maybe_unused]] const nav_msgs::Odometry::ConstPtr &msg) {
+void JoyBumperTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &msg) {
 }
 
 //}
@@ -888,9 +889,9 @@ void JoyBumperTracker::bumperTimer(const ros::TimerEvent &event) {
   }
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    if (odometry_z < 0.5) {
+    if (uav_z < 0.5) {
       ROS_WARN_THROTTLE(0.5, "[JoyBumperTracker]: not using bumper repulsion, height < 0.5 m");
       return;
     }

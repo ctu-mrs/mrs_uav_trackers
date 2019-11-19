@@ -23,6 +23,7 @@
 #include <mrs_msgs/MpcMatrixRequest.h>
 #include <mrs_msgs/MpcMatrixResponse.h>
 #include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/UavState.h>
 
 #include <mrs_uav_manager/Tracker.h>
 
@@ -54,14 +55,14 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -106,9 +107,8 @@ private:
   ros::Publisher pub_diagnostics_;
   ros::Publisher pub_debug_trajectory;
 
-  nav_msgs::Odometry odometry;
-  double             odometry_yaw, odometry_pitch, odometry_roll;
-  std::mutex         mutex_odometry;
+  mrs_msgs::UavState uav_state;
+  std::mutex         mutex_uav_state;
 
   mrs_msgs::FutureTrajectory     future_trajectory_out;
   mrs_msgs::FutureTrajectoryInt8 future_trajectory_esp_out;
@@ -400,7 +400,7 @@ private:
 
 /* //{ initialize() */
 
-void MpcTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area) {
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   this->safety_area = safety_area;
 
@@ -772,18 +772,18 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     // set the initial condition from the odometry
 
-    x(0, 0) = odometry.pose.pose.position.x;
-    x(1, 0) = odometry.twist.twist.linear.x;
+    x(0, 0) = uav_state.pose.position.x;
+    x(1, 0) = uav_state.velocity.linear.x;
     x(2, 0) = 0;
     x(3, 0) = 0;
 
-    x(4, 0) = odometry.pose.pose.position.y;
-    x(5, 0) = odometry.twist.twist.linear.y;
+    x(4, 0) = uav_state.pose.position.y;
+    x(5, 0) = uav_state.velocity.linear.y;
     x(6, 0) = 0;
     x(7, 0) = 0;
 
-    x(8, 0)  = odometry.pose.pose.position.z;
-    x(9, 0)  = odometry.twist.twist.linear.z;
+    x(8, 0)  = uav_state.pose.position.z;
+    x(9, 0)  = uav_state.velocity.linear.z;
     x(10, 0) = 0;
     x(11, 0) = 0;
 
@@ -794,7 +794,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     yaw = cur_yaw_;
 
-    ROS_INFO("[MpcTracker]: activated with odometry");
+    ROS_INFO("[MpcTracker]: activated with uav state");
   }
 
   tracking_trajectory = false;
@@ -844,24 +844,18 @@ void MpcTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   // copy the odometry from the message
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odometry = *msg;
-
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    uav_state = *msg;
   }
 
-  cur_yaw_ = tf::getYaw(msg->pose.pose.orientation);
+  cur_yaw_ = tf::getYaw(msg->pose.orientation);
 
   odom_set_ = true;
 
@@ -879,14 +873,14 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
     position_cmd_.header.frame_id = msg->header.frame_id;
 
     // set positions from odom
-    position_cmd_.position.x = msg->pose.pose.position.x;
-    position_cmd_.position.y = msg->pose.pose.position.y;
-    position_cmd_.position.z = msg->pose.pose.position.z;
+    position_cmd_.position.x = msg->pose.position.x;
+    position_cmd_.position.y = msg->pose.position.y;
+    position_cmd_.position.z = msg->pose.position.z;
 
     // set velocities from odom
-    position_cmd_.velocity.x = msg->twist.twist.linear.x;
-    position_cmd_.velocity.y = msg->twist.twist.linear.y;
-    position_cmd_.velocity.z = msg->twist.twist.linear.z;
+    position_cmd_.velocity.x = msg->velocity.linear.x;
+    position_cmd_.velocity.y = msg->velocity.linear.y;
+    position_cmd_.velocity.z = msg->velocity.linear.z;
 
     // set zero accelerations
     position_cmd_.acceleration.x = 0;
@@ -901,7 +895,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const nav_msgs::Odo
 
     // set yaw based on current odom
     position_cmd_.yaw       = cur_yaw_;
-    position_cmd_.yaw_dot   = msg->twist.twist.angular.z;
+    position_cmd_.yaw_dot   = msg->velocity.angular.z;
     position_cmd_.yaw_ddot  = 0;
     position_cmd_.yaw_dddot = 0;
 
@@ -1122,12 +1116,12 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
+void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
   resetting_odometry = true;
   mpc_result_invalid = true;
 
-  ROS_INFO("[MpcTracker]: start of odmetry reset x %f y %f", msg->pose.pose.position.x, msg->pose.pose.position.y);
+  ROS_INFO("[MpcTracker]: start of odmetry reset x %f y %f", msg->pose.position.x, msg->pose.position.y);
 
   mpc_timer.stop();
   ROS_INFO("[MpcTracker]: stopped mpc timer");
@@ -1142,73 +1136,76 @@ void MpcTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
   double dvz, dvyaw;
-  double odom_roll, odom_pitch, odom_yaw;
-  double msg_roll, msg_pitch, msg_yaw;
+  double old_roll, old_pitch, old_yaw;
+  double new_roll, new_pitch, new_yaw;
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odom_roll, odom_pitch, odom_yaw);
+    // calculate the euler angles from the old uav state
+    tf::Quaternion uav_state_attitude;
+    quaternionMsgToTF(uav_state.pose.orientation, uav_state_attitude);
+    tf::Matrix3x3 m(uav_state_attitude);
+    m.getRPY(old_roll, old_pitch, old_yaw);
 
-    tf::Quaternion quaternion_msg;
-    quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
-    tf::Matrix3x3 m2(quaternion_msg);
-    m2.getRPY(msg_roll, msg_pitch, msg_yaw);
+    // calculate the euler angles from the new uav state
+    tf::Quaternion new_attitude;
+    quaternionMsgToTF(msg->pose.orientation, new_attitude);
+    tf::Matrix3x3 m2(new_attitude);
+    m2.getRPY(new_roll, new_pitch, new_yaw);
 
-    dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-    dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-    dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
-    dyaw = msg_yaw - odom_yaw;
+    // calculate the difference of position
+    dx   = msg->pose.position.x - uav_state.pose.position.x;
+    dy   = msg->pose.position.y - uav_state.pose.position.y;
+    dz   = msg->pose.position.z - uav_state.pose.position.z;
+    dyaw = new_yaw - old_yaw;
 
-    dvyaw = msg->twist.twist.angular.z - odometry.twist.twist.angular.z;
+    // calculate the difference in yaw
+    dvyaw = msg->velocity.angular.z - uav_state.velocity.angular.z;
 
     ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
   }
 
   {
-    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_odometry);
+    std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_uav_state);
 
     for (int i = 0; i < trajectory_size; i++) {
 
-      Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - odometry.pose.pose.position.x, des_y_whole_trajectory(i) - odometry.pose.pose.position.y);
+      Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - uav_state.pose.position.x, des_y_whole_trajectory(i) - uav_state.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
 
-      des_x_whole_trajectory(i) = msg->pose.pose.position.x + temp_vec[0];
-      des_y_whole_trajectory(i) = msg->pose.pose.position.y + temp_vec[1];
+      des_x_whole_trajectory(i) = msg->pose.position.x + temp_vec[0];
+      des_y_whole_trajectory(i) = msg->pose.position.y + temp_vec[1];
       des_z_whole_trajectory(i) += dz;
       des_yaw_whole_trajectory(i) += dyaw;
     }
 
     for (int i = 0; i < horizon_len_; i++) {
 
-      Eigen::Vector2d temp_vec(des_x_trajectory(i) - odometry.pose.pose.position.x, des_y_trajectory(i) - odometry.pose.pose.position.y);
+      Eigen::Vector2d temp_vec(des_x_trajectory(i) - uav_state.pose.position.x, des_y_trajectory(i) - uav_state.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
 
-      des_x_trajectory(i, 0) = msg->pose.pose.position.x + temp_vec[0];
-      des_y_trajectory(i, 0) = msg->pose.pose.position.y + temp_vec[1];
+      des_x_trajectory(i, 0) = msg->pose.position.x + temp_vec[0];
+      des_y_trajectory(i, 0) = msg->pose.position.y + temp_vec[1];
       des_z_trajectory(i, 0) += dz;
       des_yaw_trajectory(i, 0) += dyaw;
     }
 
-    dvz = msg->twist.twist.linear.z - odometry.twist.twist.linear.z;
+    dvz = msg->velocity.linear.z - uav_state.velocity.linear.z;
 
     /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
 
-    double velocity_scale = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2)) /
-                            sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
+    double velocity_scale =
+        sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2)) / sqrt(pow(uav_state.velocity.linear.x, 2) + pow(uav_state.velocity.linear.y, 2));
 
     // TODO: What should we do with the accelerations?
 
     // update the positon
     {
-      Eigen::Vector2d temp_vec(x(0, 0) - odometry.pose.pose.position.x, x(4, 0) - odometry.pose.pose.position.y);
+      Eigen::Vector2d temp_vec(x(0, 0) - uav_state.pose.position.x, x(4, 0) - uav_state.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
-      x(0, 0)  = msg->pose.pose.position.x + temp_vec[0];
-      x(4, 0)  = msg->pose.pose.position.y + temp_vec[1];
+      x(0, 0)  = msg->pose.position.x + temp_vec[0];
+      x(4, 0)  = msg->pose.position.y + temp_vec[1];
       x(8, 0) += dz;
     }
 
@@ -3248,7 +3245,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
         }
 
         {
-          std::scoped_lock lock(mutex_des_whole_trajectory, mutex_odometry);
+          std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
 
           des_x_trajectory(i, 0)   = des_x_whole_trajectory(tempIdx);
           des_y_trajectory(i, 0)   = des_y_whole_trajectory(tempIdx);

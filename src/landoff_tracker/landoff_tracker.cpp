@@ -9,6 +9,7 @@
 
 #include <mrs_uav_manager/Tracker.h>
 #include <nav_msgs/Odometry.h>
+#include <mrs_msgs/UavState.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -50,14 +51,14 @@ const char *state_names[7] = {
 
 class LandoffTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -87,16 +88,16 @@ private:
   mrs_uav_manager::SafetyArea_t const *safety_area;
 
 private:
-  nav_msgs::Odometry odometry;
-  bool               got_odometry = false;
-  std::mutex         mutex_odometry;
+  mrs_msgs::UavState uav_state;
+  bool               got_uav_state = false;
+  std::mutex         mutex_uav_state;
 
-  double odometry_x;
-  double odometry_y;
-  double odometry_z;
-  double odometry_yaw;
-  double odometry_roll;
-  double odometry_pitch;
+  double uav_x;
+  double uav_y;
+  double uav_z;
+  double uav_yaw;
+  double uav_roll;
+  double uav_pitch;
 
 private:
   // tracker's inner states
@@ -201,7 +202,7 @@ private:
 
 /* //{ initialize() */
 
-void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area) {
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   this->safety_area = safety_area;
 
@@ -320,34 +321,34 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, mrs_uav_manage
 
 bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (!got_odometry) {
+  if (!got_uav_state) {
 
     ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
     return false;
   }
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state);
 
     // the last command is usable
-    state_x   = odometry.pose.pose.position.x;
-    state_y   = odometry.pose.pose.position.y;
-    state_z   = odometry.pose.pose.position.z;
-    state_yaw = odometry_yaw;
+    state_x   = uav_state.pose.position.x;
+    state_y   = uav_state.pose.position.y;
+    state_z   = uav_state.pose.position.z;
+    state_yaw = uav_yaw;
 
-    speed_x         = odometry.twist.twist.linear.x;
-    speed_y         = odometry.twist.twist.linear.y;
+    speed_x         = uav_state.velocity.linear.x;
+    speed_y         = uav_state.velocity.linear.y;
     current_heading = atan2(speed_y, speed_x);
 
     current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-    current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
-    current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
+    current_vertical_speed     = fabs(uav_state.velocity.linear.z);
+    current_vertical_direction = uav_state.velocity.linear.z > 0 ? +1 : -1;
 
     current_horizontal_acceleration = 0;
     current_vertical_acceleration   = 0;
 
-    goal_yaw = odometry_yaw;
+    goal_yaw = uav_yaw;
 
     ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x, state_y, state_z, state_yaw);
   }
@@ -431,25 +432,25 @@ void LandoffTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
+    uav_state = *msg;
+    uav_x     = uav_state.pose.position.x;
+    uav_y     = uav_state.pose.position.y;
+    uav_z     = uav_state.pose.position.z;
 
     // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    tf::Quaternion uav_attitude;
+    quaternionMsgToTF(uav_state.pose.orientation, uav_attitude);
+    tf::Matrix3x3 m(uav_attitude);
+    m.getRPY(uav_roll, uav_pitch, uav_yaw);
 
-    got_odometry = true;
+    got_uav_state = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -483,7 +484,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const nav_msgs:
     position_output.use_acceleration   = 1;
   }
 
-  if (takeoff_disable_lateral_gains_ && taking_off && odometry.pose.pose.position.z < takeoff_disable_lateral_gains_height_) {
+  if (takeoff_disable_lateral_gains_ && taking_off && uav_state.pose.position.z < takeoff_disable_lateral_gains_height_) {
     position_output.disable_position_gains = true;
   } else {
     position_output.disable_position_gains = false;
@@ -538,29 +539,29 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 /* switchOdometrySource() //{ */
 
-void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
+void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
-  std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+  std::scoped_lock lock(mutex_uav_state, mutex_goal, mutex_state);
 
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
   // calculate the euler angles
   tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+  quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
   tf::Matrix3x3 m(quaternion_odometry);
   m.getRPY(odom_roll, odom_pitch, odom_yaw);
 
   tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+  quaternionMsgToTF(msg->pose.orientation, quaternion_msg);
   tf::Matrix3x3 m2(quaternion_msg);
   m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
   // | --------- recalculate the goal to new coordinates -------- |
 
-  double dx   = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-  double dy   = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-  double dz   = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+  double dx   = msg->pose.position.x - uav_state.pose.position.x;
+  double dy   = msg->pose.position.y - uav_state.pose.position.y;
+  double dz   = msg->pose.position.z - uav_state.pose.position.z;
   double dyaw = msg_yaw - odom_yaw;
 
   goal_x += dx;
@@ -571,16 +572,16 @@ void LandoffTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &ms
 
   // | -------------------- update the state -------------------- |
 
-  state_x   = msg->pose.pose.position.x;
-  state_y   = msg->pose.pose.position.y;
-  state_z   = msg->pose.pose.position.z;
+  state_x   = msg->pose.position.x;
+  state_y   = msg->pose.position.y;
+  state_z   = msg->pose.position.z;
   state_yaw = msg_yaw;
 
   // | ------- copy the new odometry as the current state ------- |
 
   // TODO: this current state should be translated aswell
-  current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
-  current_vertical_speed   = msg->twist.twist.linear.z;
+  current_horizontal_speed = sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2));
+  current_vertical_speed   = msg->velocity.linear.z;
   current_heading          = atan2(goal_y - state_y, goal_x - state_x);
 
   // | ---------- switch to stop motion, which should  ---------- |
@@ -692,11 +693,11 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
   {
-    std::scoped_lock lock(mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_state, mutex_uav_state);
 
-    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-    current_vertical_speed   = odometry.twist.twist.linear.z;
-    current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
+    current_horizontal_speed = sqrt(pow(uav_state.velocity.linear.x, 2) + pow(uav_state.velocity.linear.y, 2));
+    current_vertical_speed   = uav_state.velocity.linear.z;
+    current_heading          = atan2(uav_state.velocity.linear.y, uav_state.velocity.linear.x);
   }
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
@@ -997,16 +998,16 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("main", main_timer_rate_, 0.002, event);
 
   {
-    std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_uav_state, mutex_goal, mutex_state);
 
     bool takeoff_saturated = false;
 
     if (taking_off) {
 
       // calculate the vector
-      double err_x      = odometry_x - state_x;
-      double err_y      = odometry_y - state_y;
-      double err_z      = odometry_z - state_z;
+      double err_x      = uav_x - state_x;
+      double err_y      = uav_y - state_y;
+      double err_z      = uav_z - state_z;
       double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
 
       if (error_size > max_position_difference_) {
@@ -1017,7 +1018,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
         double future_state_z = state_z + current_vertical_direction * current_vertical_speed * tracker_dt_;
 
         // if the step would lead to a greater control error than the threshold
-        if (mrs_trackers_commons::dist3(future_state_x, odometry_x, future_state_y, odometry_y, future_state_z, odometry_z) > error_size) {
+        if (mrs_trackers_commons::dist3(future_state_x, uav_x, future_state_y, uav_y, future_state_z, uav_z) > error_size) {
 
           // set this to true... later, we will not update the model if this is true, thus the tracker's motion will stop
           // => the tracker will wait for the controller
@@ -1025,7 +1026,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
           ROS_WARN_THROTTLE(
               0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
-              error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, odometry_x, odometry_y, odometry_z);
+              error_size, max_position_difference_, future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z);
         }
       }
     }
@@ -1119,9 +1120,9 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
     }
 
     if (current_state_horizontal == LANDED_STATE && current_state_vertical == LANDED_STATE) {
-      state_x = goal_x = odometry_x;
-      state_y = goal_y = odometry_y;
-      state_z = goal_z = odometry_z;
+      state_x = goal_x = uav_x;
+      state_y = goal_y = uav_y;
+      state_z = goal_z = uav_z;
     }
 
     // --------------------------------------------------------------
@@ -1172,9 +1173,9 @@ void LandoffTracker::mainTimer(const ros::TimerEvent &event) {
 
   if (landing) {
     {
-      std::scoped_lock lock(mutex_odometry);
+      std::scoped_lock lock(mutex_uav_state);
 
-      goal_z = odometry_z + landing_reference_;
+      goal_z = uav_z + landing_reference_;
     }
   }
 }
@@ -1241,19 +1242,19 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
   }
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state);
 
-    state_x = odometry_x;
-    goal_x  = odometry_x;
+    state_x = uav_x;
+    goal_x  = uav_x;
 
-    state_y = odometry_y;
-    goal_y  = odometry_y;
+    state_y = uav_y;
+    goal_y  = uav_y;
 
-    state_z = odometry_z;
-    goal_z  = odometry_z + req.goal;
+    state_z = uav_z;
+    goal_z  = uav_z + req.goal;
 
-    state_yaw = odometry_yaw;
-    goal_yaw  = odometry_yaw;
+    state_yaw = uav_yaw;
+    goal_yaw  = uav_yaw;
 
     speed_x                = 0;
     speed_y                = 0;
@@ -1264,9 +1265,9 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec
 
   ROS_INFO("[LandoffTracker]: taking off");
 
-  taking_off                 = true;
-  landing                    = false;
-  elanding                   = false;
+  taking_off = true;
+  landing    = false;
+  elanding   = false;
 
   in_the_air = true;
 
@@ -1307,9 +1308,9 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request &r
   }
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    goal_z = odometry_z + landing_reference_;
+    goal_z = uav_z + landing_reference_;
   }
 
   ROS_INFO("[LandoffTracker]: landing");
@@ -1351,9 +1352,9 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request &
   }
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    goal_z = odometry_z + landing_reference_;
+    goal_z = uav_z + landing_reference_;
   }
 
   ROS_WARN("[LandoffTracker]: emergency landing");

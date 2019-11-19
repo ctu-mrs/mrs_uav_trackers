@@ -7,6 +7,7 @@
 
 #include <mrs_msgs/TrackerPointStamped.h>
 #include <mrs_uav_manager/Tracker.h>
+#include <mrs_msgs/UavState.h>
 
 #include <tf/transform_datatypes.h>
 #include <mutex>
@@ -47,14 +48,14 @@ const char *state_names[6] = {
 
 class LineTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -79,16 +80,16 @@ private:
   std::string uav_name_;
 
 private:
-  nav_msgs::Odometry odometry;
-  bool               got_odometry = false;
-  std::mutex         mutex_odometry;
+  mrs_msgs::UavState uav_state;
+  bool               got_uav_state = false;
+  std::mutex         mutex_uav_state;
 
-  double odometry_x;
-  double odometry_y;
-  double odometry_z;
-  double odometry_yaw;
-  double odometry_roll;
-  double odometry_pitch;
+  double uav_x;
+  double uav_y;
+  double uav_z;
+  double uav_yaw;
+  double uav_roll;
+  double uav_pitch;
 
 private:
   // tracker's inner states
@@ -158,7 +159,7 @@ private:
 
 /* //{ initialize() */
 
-void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
+void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
 
@@ -242,13 +243,13 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (!got_odometry) {
+  if (!got_uav_state) {
     ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
     return false;
   }
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state);
 
     if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
@@ -276,23 +277,23 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     } else {
 
-      state_x   = odometry.pose.pose.position.x;
-      state_y   = odometry.pose.pose.position.y;
-      state_z   = odometry.pose.pose.position.z;
-      state_yaw = odometry_yaw;
+      state_x   = uav_state.pose.position.x;
+      state_y   = uav_state.pose.position.y;
+      state_z   = uav_state.pose.position.z;
+      state_yaw = uav_yaw;
 
-      speed_x                  = odometry.twist.twist.linear.x;
-      speed_y                  = odometry.twist.twist.linear.y;
+      speed_x                  = uav_state.velocity.linear.x;
+      speed_y                  = uav_state.velocity.linear.y;
       current_heading          = atan2(speed_y, speed_x);
       current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
 
-      current_vertical_speed     = fabs(odometry.twist.twist.linear.z);
-      current_vertical_direction = odometry.twist.twist.linear.z > 0 ? +1 : -1;
+      current_vertical_speed     = fabs(uav_state.velocity.linear.z);
+      current_vertical_direction = uav_state.velocity.linear.z > 0 ? +1 : -1;
 
       current_horizontal_acceleration = 0;
       current_vertical_acceleration   = 0;
 
-      goal_yaw = odometry_yaw;
+      goal_yaw = uav_yaw;
 
       ROS_WARN("[LineTracker]: the previous command is not usable for activation, using Odometry instead.");
     }
@@ -363,25 +364,25 @@ void LineTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
+    uav_state   = *msg;
+    uav_x = uav_state.pose.position.x;
+    uav_y = uav_state.pose.position.y;
+    uav_z = uav_state.pose.position.z;
 
     // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    tf::Quaternion uav_attitude;
+    quaternionMsgToTF(uav_state.pose.orientation, uav_attitude);
+    tf::Matrix3x3 m(uav_attitude);
+    m.getRPY(uav_roll, uav_pitch, uav_yaw);
 
-    got_odometry = true;
+    got_uav_state = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -464,30 +465,30 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
 
 /* switchOdometrySource() //{ */
 
-void LineTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) {
+void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
-  std::scoped_lock lock(mutex_odometry, mutex_goal, mutex_state);
+  std::scoped_lock lock(mutex_uav_state, mutex_goal, mutex_state);
 
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
 
   // calculate the euler angles
   tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+  quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
   tf::Matrix3x3 m(quaternion_odometry);
   m.getRPY(odom_roll, odom_pitch, odom_yaw);
 
   tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(msg->pose.pose.orientation, quaternion_msg);
+  quaternionMsgToTF(msg->pose.orientation, quaternion_msg);
   tf::Matrix3x3 m2(quaternion_msg);
   m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz;
 
-  dx          = msg->pose.pose.position.x - odometry.pose.pose.position.x;
-  dy          = msg->pose.pose.position.y - odometry.pose.pose.position.y;
-  dz          = msg->pose.pose.position.z - odometry.pose.pose.position.z;
+  dx          = msg->pose.position.x - uav_state.pose.position.x;
+  dy          = msg->pose.position.y - uav_state.pose.position.y;
+  dz          = msg->pose.position.z - uav_state.pose.position.z;
   double dyaw = msg_yaw - odom_yaw;
 
   goal_x += dx;
@@ -498,15 +499,15 @@ void LineTracker::switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg) 
 
   // | -------------------- update the state -------------------- |
 
-  state_x   = msg->pose.pose.position.x;
-  state_y   = msg->pose.pose.position.y;
-  state_z   = msg->pose.pose.position.z;
+  state_x   = msg->pose.position.x;
+  state_y   = msg->pose.position.y;
+  state_z   = msg->pose.position.z;
   state_yaw = msg_yaw;
 
   // | ------- copy the new odometry as the current state ------- |
 
-  current_horizontal_speed = sqrt(pow(msg->twist.twist.linear.x, 2) + pow(msg->twist.twist.linear.y, 2));
-  current_vertical_speed   = msg->twist.twist.linear.z;
+  current_horizontal_speed = sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2));
+  current_vertical_speed   = msg->velocity.linear.z;
   current_heading          = atan2(goal_y - state_y, goal_x - state_x);
 
   // | ---------- switch to stop motion, which should  ---------- |
@@ -765,11 +766,11 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
   {
-    std::scoped_lock lock(mutex_state, mutex_odometry);
+    std::scoped_lock lock(mutex_state, mutex_uav_state);
 
-    current_horizontal_speed = sqrt(pow(odometry.twist.twist.linear.x, 2) + pow(odometry.twist.twist.linear.y, 2));
-    current_vertical_speed   = odometry.twist.twist.linear.z;
-    current_heading          = atan2(odometry.twist.twist.linear.y, odometry.twist.twist.linear.x);
+    current_horizontal_speed = sqrt(pow(uav_state.velocity.linear.x, 2) + pow(uav_state.velocity.linear.y, 2));
+    current_vertical_speed   = uav_state.velocity.linear.z;
+    current_heading          = atan2(uav_state.velocity.linear.y, uav_state.velocity.linear.x);
   }
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
@@ -1053,7 +1054,7 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
   mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
 
   {
-    std::scoped_lock lock(mutex_constraints, mutex_odometry, mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_constraints, mutex_uav_state, mutex_goal, mutex_state);
 
     switch (current_state_horizontal) {
 

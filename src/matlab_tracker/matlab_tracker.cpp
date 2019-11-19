@@ -30,14 +30,14 @@ namespace matlab_tracker
 
 class MatlabTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  virtual void                                      switchOdometrySource(const nav_msgs::Odometry::ConstPtr &msg);
+  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
   virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
   virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
@@ -62,16 +62,16 @@ private:
   std::string local_origin_frame_id_;
 
 private:
-  nav_msgs::Odometry odometry;
-  bool               got_odometry = false;
-  std::mutex         mutex_odometry;
+  mrs_msgs::UavState uav_state;
+  bool               got_uav_state = false;
+  std::mutex         mutex_uav_state;
 
-  double odometry_x;
-  double odometry_y;
-  double odometry_z;
-  double odometry_yaw;
-  double odometry_roll;
-  double odometry_pitch;
+  double uav_x;
+  double uav_y;
+  double uav_z;
+  double uav_yaw;
+  double uav_roll;
+  double uav_pitch;
 
 private:
   // tracker's inner states
@@ -111,7 +111,7 @@ private:
 
 /* //{ initialize() */
 
-void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area) {
+void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "matlab_tracker");
 
@@ -158,7 +158,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
 bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (!got_odometry) {
+  if (!got_uav_state) {
     ROS_ERROR("[MatlabTracker]: can't activate(), odometry not set");
     return false;
   }
@@ -198,25 +198,25 @@ void MatlabTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::Odometry::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
   {
-    std::scoped_lock lock(mutex_odometry);
+    std::scoped_lock lock(mutex_uav_state);
 
-    odometry   = *msg;
-    odometry_x = odometry.pose.pose.position.x;
-    odometry_y = odometry.pose.pose.position.y;
-    odometry_z = odometry.pose.pose.position.z;
+    uav_state  = *msg;
+    uav_x = uav_state.pose.position.x;
+    uav_y = uav_state.pose.position.y;
+    uav_z = uav_state.pose.position.z;
 
     // calculate the euler angles
     tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(odometry.pose.pose.orientation, quaternion_odometry);
+    quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
     tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(odometry_roll, odometry_pitch, odometry_yaw);
+    m.getRPY(uav_roll, uav_pitch, uav_yaw);
 
-    got_odometry = true;
+    got_uav_state = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -228,7 +228,7 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::
   position_output.header.frame_id = local_origin_frame_id_;
 
   {
-    std::scoped_lock lock(mutex_odometry, mutex_goal);
+    std::scoped_lock lock(mutex_uav_state, mutex_goal);
 
     if (position_mode_) {
 
@@ -255,13 +255,13 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const nav_msgs::
 
     if (tilt_mode_) {
 
-      position_output.position.x = odometry_x;
-      position_output.position.y = odometry_y;
+      position_output.position.x = uav_x;
+      position_output.position.y = uav_y;
       position_output.position.z = matlab_goal.pose.pose.position.z;
 
-      position_output.velocity.x = odometry.twist.twist.linear.x;
-      position_output.velocity.y = odometry.twist.twist.linear.y;
-      position_output.velocity.z = odometry.twist.twist.linear.z;
+      position_output.velocity.x = uav_state.velocity.linear.x;
+      position_output.velocity.y = uav_state.velocity.linear.y;
+      position_output.velocity.z = uav_state.velocity.linear.z;
 
       position_output.acceleration.x = 0;
       position_output.acceleration.y = 0;
@@ -321,7 +321,7 @@ const std_srvs::SetBoolResponse::ConstPtr MatlabTracker::enableCallbacks(const s
 
 /* switchOdometrySource() //{ */
 
-void MatlabTracker::switchOdometrySource([[maybe_unused]] const nav_msgs::Odometry::ConstPtr &msg) {
+void MatlabTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &msg) {
 }
 
 //}
