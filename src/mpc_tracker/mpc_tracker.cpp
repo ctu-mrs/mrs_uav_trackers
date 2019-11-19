@@ -1198,8 +1198,6 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
     double velocity_scale =
         sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2)) / sqrt(pow(uav_state.velocity.linear.x, 2) + pow(uav_state.velocity.linear.y, 2));
 
-    // TODO: What should we do with the accelerations?
-
     // update the positon
     {
       Eigen::Vector2d temp_vec(x(0, 0) - uav_state.pose.position.x, x(4, 0) - uav_state.pose.position.y);
@@ -1215,6 +1213,13 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
       temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
       x(1, 0)  = temp_vec[0];
       x(5, 0)  = temp_vec[1];
+    }
+
+    // update the acceleration
+    {
+      x(2, 0)  = msg->acceleration.linear.x;
+      x(6, 0)  = msg->acceleration.linear.y;
+      x(10, 0)  = msg->acceleration.linear.z;
     }
 
     // update the height
