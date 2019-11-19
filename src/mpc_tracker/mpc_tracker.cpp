@@ -3045,11 +3045,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           tracking_trajectory = false;
         }
 
-        // set the starting index accoarding to the message
-        if (msg.start_index >= 0 && msg.start_index < trajectory_size)
-          trajectory_idx = msg.start_index;
-        else
-          trajectory_idx = 0;
+        trajectory_idx = 0;
 
         trajectory_set_ = true;
         trajectory_count++;
