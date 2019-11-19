@@ -55,7 +55,8 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+                          mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -400,7 +401,8 @@ private:
 
 /* //{ initialize() */
 
-void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                            [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   this->safety_area = safety_area;
 
@@ -933,11 +935,14 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
       position_cmd_.acceleration.z = x(10, 0);
       position_cmd_.jerk.z         = x(11, 0);
 
-      position_cmd_.use_position       = 1;
-      position_cmd_.use_velocity       = 1;
-      position_cmd_.use_acceleration   = 1;
-      position_cmd_.use_jerk           = 1;
-      position_cmd_.use_euler_attitude = 1;
+      position_cmd_.use_position_vertical   = 1;
+      position_cmd_.use_position_horizontal = 1;
+      position_cmd_.use_velocity_vertical   = 1;
+      position_cmd_.use_velocity_horizontal = 1;
+      position_cmd_.use_acceleration        = 1;
+      position_cmd_.use_jerk                = 1;
+      position_cmd_.use_yaw                 = 1;
+      position_cmd_.use_yaw_dot             = 1;
     }
 
   } else {
@@ -1219,7 +1224,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
     {
       x(2, 0)  = msg->acceleration.linear.x;
       x(6, 0)  = msg->acceleration.linear.y;
-      x(10, 0)  = msg->acceleration.linear.z;
+      x(10, 0) = msg->acceleration.linear.z;
     }
 
     // update the height

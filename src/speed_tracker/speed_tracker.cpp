@@ -16,6 +16,8 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 
+#include <mrs_msgs/SpeedTrackerCommand.h>
+
 //}
 
 #define STOP_THR 1e-3
@@ -23,12 +25,12 @@
 namespace mrs_trackers
 {
 
-namespace matlab_tracker
+namespace speed_tracker
 {
 
-/* //{ class MatlabTracker */
+/* //{ class SpeedTracker */
 
-class MatlabTracker : public mrs_uav_manager::Tracker {
+class SpeedTracker : public mrs_uav_manager::Tracker {
 public:
   virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
                           mrs_uav_manager::Transformer_t const *transformer);
@@ -62,6 +64,8 @@ private:
   std::string uav_name_;
   std::string local_origin_frame_id_;
 
+  double external_command_timeout_;
+
 private:
   mrs_msgs::UavState uav_state;
   bool               got_uav_state = false;
@@ -89,15 +93,16 @@ private:
 
 private:
   // desired goal
-  double             have_goal = false;
-  std::mutex         mutex_goal;
-  nav_msgs::Odometry matlab_goal;
+  double                        got_command = false;
+  std::mutex                    mutex_command;
+  mrs_msgs::SpeedTrackerCommand external_command;
+  ros::Time                     external_command_time;
 
-  mrs_msgs::PositionCommand position_output;
+  mrs_msgs::PositionCommand output;
 
 private:
-  ros::Subscriber subscriber_matlab;
-  void            callbackMatlab(const nav_msgs::Odometry &msg);
+  ros::Subscriber subscriber_command;
+  void            callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg);
 
 private:
   mrs_lib::Profiler *profiler;
@@ -112,10 +117,10 @@ private:
 
 /* //{ initialize() */
 
-void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
-                               [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                              [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
-  ros::NodeHandle nh_(parent_nh, "matlab_tracker");
+  ros::NodeHandle nh_(parent_nh, "speed_tracker");
 
   ros::Time::waitForValid();
 
@@ -123,53 +128,59 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
   // |                       load parameters                      |
   // --------------------------------------------------------------
 
-  mrs_lib::ParamLoader param_loader(nh_, "MatlabTracker");
+  mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
   param_loader.load_param("uav_name", uav_name_);
   local_origin_frame_id_ = uav_name_ + "/local_origin";
 
+  param_loader.load_param("command_timeout", external_command_timeout_);
+
   param_loader.load_param("enable_profiler", profiler_enabled_);
-  param_loader.load_param("position_mode", profiler_enabled_);
-  param_loader.load_param("tilt_mode", tilt_mode_);
 
   // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "matlabtracker", profiler_enabled_);
+  profiler = new mrs_lib::Profiler(nh_, "SpeedTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
-  subscriber_matlab = nh_.subscribe("goal_in", 1, &MatlabTracker::callbackMatlab, this, ros::TransportHints().tcpNoDelay());
+  subscriber_command = nh_.subscribe("command_in", 1, &SpeedTracker::callbackCommand, this, ros::TransportHints().tcpNoDelay());
 
   if (!param_loader.loaded_successfully()) {
-    ROS_ERROR("[MatlabTracker]: Could not load all parameters!");
+    ROS_ERROR("[SpeedTracker]: Could not load all parameters!");
     ros::shutdown();
   }
 
   is_initialized = true;
 
-  ROS_INFO("[MatlabTracker]: initialized");
+  ROS_INFO("[SpeedTracker]: initialized");
 }
 
 //}
 
 /* //{ activate() */
 
-bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &cmd) {
+bool SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
   if (!got_uav_state) {
-    ROS_ERROR("[MatlabTracker]: can't activate(), odometry not set");
+    ROS_ERROR("[SpeedTracker]: can't activate(), odometry not set");
     return false;
   }
 
-  std::scoped_lock lock(mutex_goal);
+  std::scoped_lock lock(mutex_command);
 
-  if (!have_goal) {
+  if (!got_command) {
 
-    ROS_ERROR("[MatlabTracker]: cannot activate, missing Matlab command");
+    ROS_ERROR("[SpeedTracker]: cannot activate, missing command");
+    return false;
+  }
+
+  // timeout the external command
+  if ((ros::Time::now() - external_command_time).toSec() > external_command_timeout_) {
+    ROS_ERROR("[SpeedTracker]: cannot activate, the command is too old");
     return false;
   }
 
@@ -179,7 +190,7 @@ bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::C
 
   is_active = true;
 
-  ROS_INFO("[MatlabTracker]: activated");
+  ROS_INFO("[SpeedTracker]: activated");
 
   return true;
 }
@@ -188,19 +199,18 @@ bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::C
 
 /* //{ deactivate() */
 
-void MatlabTracker::deactivate(void) {
+void SpeedTracker::deactivate(void) {
 
-  is_active = false;
-  have_goal = false;
+  is_active   = false;
 
-  ROS_INFO("[MatlabTracker]: deactivated");
+  ROS_INFO("[SpeedTracker]: deactivated");
 }
 
 //}
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
@@ -226,66 +236,84 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = local_origin_frame_id_;
+  // timeout the external command
+  if (got_command && (ros::Time::now() - external_command_time).toSec() > external_command_timeout_) {
+    ROS_ERROR("[SpeedTracker]: command timeouted, returning nil");
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  output.header.stamp    = ros::Time::now();
+  output.header.frame_id = local_origin_frame_id_;
 
   {
-    std::scoped_lock lock(mutex_uav_state, mutex_goal);
+    std::scoped_lock lock(mutex_uav_state, mutex_command);
 
-    if (position_mode_) {
+    output.position.x = uav_state.pose.position.x;
+    output.position.y = uav_state.pose.position.y;
 
-      position_output.position.x = matlab_goal.pose.pose.position.x;
-      position_output.position.y = matlab_goal.pose.pose.position.y;
-      position_output.position.z = matlab_goal.pose.pose.position.z;
-
-      position_output.velocity.x = matlab_goal.twist.twist.linear.x;
-      position_output.velocity.y = matlab_goal.twist.twist.linear.y;
-      position_output.velocity.z = matlab_goal.twist.twist.linear.z;
-
-      position_output.acceleration.x = matlab_goal.twist.twist.angular.x;
-      position_output.acceleration.y = matlab_goal.twist.twist.angular.y;
-      position_output.acceleration.z = matlab_goal.twist.twist.angular.z;
-
-      position_output.yaw     = matlab_goal.pose.pose.orientation.x;
-      position_output.yaw_dot = matlab_goal.pose.pose.orientation.y;
-
-      position_output.use_yaw                 = 1;
-      position_output.use_yaw_dot             = 1;
-      position_output.use_position_vertical   = 1;
-      position_output.use_position_horizontal = 1;
-      position_output.use_velocity_vertical   = 1;
-      position_output.use_velocity_horizontal = 1;
-      position_output.use_acceleration        = 1;
+    if (external_command.use_horizontal_velocity) {
+      output.velocity.x              = external_command.velocity.x;
+      output.velocity.y              = external_command.velocity.y;
+      output.use_velocity_horizontal = true;
+    } else {
+      output.velocity.x              = uav_state.velocity.linear.x;
+      output.velocity.y              = uav_state.velocity.linear.y;
+      output.use_velocity_horizontal = false;
     }
 
-    if (tilt_mode_) {
+    if (external_command.use_vertical_velocity) {
+      output.velocity.z            = external_command.velocity.z;
+      output.use_velocity_vertical = true;
+    } else {
+      output.velocity.z            = uav_state.velocity.linear.z;
+      output.use_velocity_vertical = false;
+    }
 
-      position_output.position.x = uav_x;
-      position_output.position.y = uav_y;
-      position_output.position.z = matlab_goal.pose.pose.position.z;
+    if (external_command.use_height) {
+      output.position.z            = external_command.height;
+      output.use_position_vertical = true;
+    } else {
+      output.position.z            = uav_state.pose.position.z;
+      output.use_position_vertical = false;
+    }
 
-      position_output.velocity.x = uav_state.velocity.linear.x;
-      position_output.velocity.y = uav_state.velocity.linear.y;
-      position_output.velocity.z = uav_state.velocity.linear.z;
+    if (external_command.use_acceleration) {
+      output.acceleration.x   = external_command.acceleration.x;
+      output.acceleration.y   = external_command.acceleration.y;
+      output.acceleration.z   = external_command.acceleration.z;
+      output.use_acceleration = true;
+    } else {
+      output.acceleration.x   = uav_state.acceleration.linear.x;
+      output.acceleration.y   = uav_state.acceleration.linear.y;
+      output.acceleration.z   = uav_state.acceleration.linear.z;
+      output.use_acceleration = false;
+    }
 
-      position_output.acceleration.x = 0;
-      position_output.acceleration.y = 0;
-      position_output.acceleration.z = 0;
+    if (external_command.use_yaw) {
+      output.yaw     = external_command.yaw;
+      output.use_yaw = true;
+    } else {
+      output.yaw     = uav_yaw;
+      output.use_yaw = false;
+    }
 
-      position_output.use_quat_attitude       = 1;
-      position_output.use_position_vertical   = 1;
-      position_output.use_position_horizontal = 1;
+    if (external_command.use_yaw_dot) {
+      output.yaw_dot     = external_command.yaw_dot;
+      output.use_yaw_dot = true;
+    } else {
+      output.yaw_dot     = uav_state.velocity.angular.z;
+      output.use_yaw_dot = false;
     }
   }
 
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(output));
 }
 
 //}
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus MatlabTracker::getStatus() {
+const mrs_msgs::TrackerStatus SpeedTracker::getStatus() {
 
   mrs_msgs::TrackerStatus tracker_status;
 
@@ -299,7 +327,7 @@ const mrs_msgs::TrackerStatus MatlabTracker::getStatus() {
 
 /* //{ enableCallbacks() */
 
-const std_srvs::SetBoolResponse::ConstPtr MatlabTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
   char                      message[100];
   std_srvs::SetBoolResponse res;
@@ -310,7 +338,7 @@ const std_srvs::SetBoolResponse::ConstPtr MatlabTracker::enableCallbacks(const s
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
 
-    ROS_INFO("[MatlabTracker]: %s", message);
+    ROS_INFO("[SpeedTracker]: %s", message);
 
   } else {
 
@@ -327,7 +355,7 @@ const std_srvs::SetBoolResponse::ConstPtr MatlabTracker::enableCallbacks(const s
 
 /* switchOdometrySource() //{ */
 
-void MatlabTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &msg) {
+void SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &msg) {
 }
 
 //}
@@ -336,7 +364,7 @@ void MatlabTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavSta
 
 /* //{ goTo() service */
 
-const mrs_msgs::Vec4Response::ConstPtr MatlabTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr SpeedTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec4Response::Ptr();
 }
@@ -345,7 +373,7 @@ const mrs_msgs::Vec4Response::ConstPtr MatlabTracker::goTo([[maybe_unused]] cons
 
 /* //{ goTo() topic */
 
-bool MatlabTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+bool SpeedTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
   return false;
 }
@@ -354,7 +382,7 @@ bool MatlabTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedCon
 
 /* //{ goToRelative() service */
 
-const mrs_msgs::Vec4Response::ConstPtr MatlabTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
+const mrs_msgs::Vec4Response::ConstPtr SpeedTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec4Response::Ptr();
 }
@@ -363,7 +391,7 @@ const mrs_msgs::Vec4Response::ConstPtr MatlabTracker::goToRelative([[maybe_unuse
 
 /* //{ goToRelative() topic */
 
-bool MatlabTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
+bool SpeedTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
 
   return false;
 }
@@ -372,7 +400,7 @@ bool MatlabTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointSt
 
 /* //{ goToAltitude() service */
 
-const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr SpeedTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -381,7 +409,7 @@ const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::goToAltitude([[maybe_unuse
 
 /* //{ goToAltitude() topic */
 
-bool MatlabTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
+bool SpeedTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -390,7 +418,7 @@ bool MatlabTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPt
 
 /* //{ setYaw() service */
 
-const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr SpeedTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -399,7 +427,7 @@ const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::setYaw([[maybe_unused]] co
 
 /* //{ setYaw() topic */
 
-bool MatlabTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
+bool SpeedTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -408,7 +436,7 @@ bool MatlabTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg
 
 /* //{ setYawRelative() service */
 
-const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
+const mrs_msgs::Vec1Response::ConstPtr SpeedTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
 
   return mrs_msgs::Vec1Response::Ptr();
 }
@@ -417,7 +445,7 @@ const mrs_msgs::Vec1Response::ConstPtr MatlabTracker::setYawRelative([[maybe_unu
 
 /* //{ setYawRelative() topic */
 
-bool MatlabTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
+bool SpeedTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
 
   return false;
 }
@@ -426,7 +454,7 @@ bool MatlabTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64Const
 
 /* //{ hover() service */
 
-const std_srvs::TriggerResponse::ConstPtr MatlabTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
   return std_srvs::TriggerResponse::Ptr();
 }
@@ -435,7 +463,7 @@ const std_srvs::TriggerResponse::ConstPtr MatlabTracker::hover([[maybe_unused]] 
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr MatlabTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsResponse::ConstPtr SpeedTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
   return mrs_msgs::TrackerConstraintsResponse::Ptr();
 }
@@ -444,27 +472,35 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MatlabTracker::setConstrain
 
 // | --------------------- custom methods --------------------- |
 
-/* callbackMatlab() //{ */
+/* callbackCommand() //{ */
 
-void MatlabTracker::callbackMatlab(const nav_msgs::Odometry &msg) {
+void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
   if (!is_initialized)
     return;
 
-  std::scoped_lock lock(mutex_goal);
+  std::scoped_lock lock(mutex_command);
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackMatlab");
+  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackCommand");
 
-  matlab_goal = msg;
+  external_command = msg;
 
-  have_goal = true;
+  got_command = true;
+
+  external_command_time = ros::Time::now();
+
+  if (!is_active) {
+    ROS_INFO_ONCE("[SpeedTracker]: getting command");
+  } else {
+    ROS_INFO_THROTTLE(5.0, "[SpeedTracker]: getting command");
+  }
 }
 
 //}
 
-}  // namespace matlab_tracker
+}  // namespace speed_tracker
 
 }  // namespace mrs_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::matlab_tracker::MatlabTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_trackers::speed_tracker::SpeedTracker, mrs_uav_manager::Tracker)

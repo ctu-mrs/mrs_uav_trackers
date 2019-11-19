@@ -35,7 +35,8 @@ namespace joy_bumper_tracker
 
 class JoyBumperTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+                          mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -189,7 +190,8 @@ private:
 
 /* //{ initialize() */
 
-void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                                  [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "joy_bumper_tracker");
 
@@ -414,11 +416,12 @@ const mrs_msgs::PositionCommand::ConstPtr JoyBumperTracker::update(const mrs_msg
     position_output.yaw        = state_yaw;
     /* position_output.use_position = 1; */
 
-    position_output.velocity.x   = uav_state.velocity.linear.x;
-    position_output.velocity.y   = uav_state.velocity.linear.y;
-    position_output.velocity.z   = current_vertical_speed;
-    position_output.use_velocity = 1;
-    position_output.yaw_dot      = current_yaw_rate;
+    position_output.velocity.x              = uav_state.velocity.linear.x;
+    position_output.velocity.y              = uav_state.velocity.linear.y;
+    position_output.velocity.z              = current_vertical_speed;
+    position_output.use_velocity_horizontal = 1;
+    position_output.use_velocity_vertical   = 1;
+    position_output.yaw_dot                 = current_yaw_rate;
 
     position_output.acceleration.x = 0;
     position_output.acceleration.y = 0;

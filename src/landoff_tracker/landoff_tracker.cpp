@@ -51,7 +51,8 @@ const char *state_names[7] = {
 
 class LandoffTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+                          mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -202,7 +203,8 @@ private:
 
 /* //{ initialize() */
 
-void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                                [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   this->safety_area = safety_area;
 
@@ -478,10 +480,13 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
     position_output.acceleration.y = 0;
     position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
 
-    position_output.use_position       = 1;
-    position_output.use_euler_attitude = 1;
-    position_output.use_velocity       = 1;
-    position_output.use_acceleration   = 1;
+    position_output.use_position_vertical   = 1;
+    position_output.use_position_horizontal = 1;
+    position_output.use_yaw                 = 1;
+    position_output.use_yaw_dot             = 1;
+    position_output.use_velocity_vertical   = 1;
+    position_output.use_velocity_horizontal = 1;
+    position_output.use_acceleration        = 1;
   }
 
   if (takeoff_disable_lateral_gains_ && taking_off && uav_state.pose.position.z < takeoff_disable_lateral_gains_height_) {

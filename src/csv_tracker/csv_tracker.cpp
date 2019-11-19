@@ -39,7 +39,8 @@ namespace csv_tracker
 
 class CsvTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+                          mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -163,7 +164,8 @@ private:
 
 /* //{ initialize() */
 
-void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                            [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "csv_tracker");
 
@@ -724,10 +726,12 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
     position_cmd.yaw     = yaw_;
     position_cmd.yaw_dot = 0;
 
-    position_cmd.use_position       = 1;
-    position_cmd.use_euler_attitude = 1;
-    position_cmd.use_velocity       = 1;
-    position_cmd.use_acceleration   = 1;
+    position_cmd.use_position_vertical   = 1;
+    position_cmd.use_position_horizontal = 1;
+    position_cmd.use_yaw                 = 1;
+    position_cmd.use_velocity_vertical   = 1;
+    position_cmd.use_velocity_horizontal = 1;
+    position_cmd.use_acceleration        = 1;
   }
 
   // debugging current pitch

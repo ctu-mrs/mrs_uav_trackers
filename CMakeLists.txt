@@ -145,6 +145,19 @@ target_link_libraries(MatlabTracker
   ${catkin_LIBRARIES}
   )
 
+# Speed tracker
+
+add_library(SpeedTracker
+  src/speed_tracker/speed_tracker.cpp
+  )
+add_dependencies(SpeedTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(SpeedTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############
@@ -158,6 +171,7 @@ install(TARGETS
   MatlabTracker
   JoyBumperTracker
   MpcTrackerCvxgen
+  SpeedTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

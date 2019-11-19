@@ -32,7 +32,8 @@ namespace joy_tracker
 
 class JoyTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area, mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+                          mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -132,7 +133,8 @@ private:
 
 /* //{ initialize() */
 
-void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area, [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+                            [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   ros::NodeHandle nh_(parent_nh, "joy_tracker");
 
@@ -310,6 +312,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
     position_output.acceleration.z = 0;
 
     position_output.use_quat_attitude = 1;
+    position_output.use_yaw           = 1;
+    position_output.use_yaw_dot       = 1;
 
     tf::Quaternion desired_orientation;
 
