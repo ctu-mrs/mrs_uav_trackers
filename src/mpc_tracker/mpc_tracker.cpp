@@ -786,7 +786,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     x(8, 0)  = uav_state.pose.position.z;
     x(9, 0)  = uav_state.velocity.linear.z;
-    x(10, 0) = uav_state.acceleration.linear.z;
+    x(10, 0) = 0;
     x(11, 0) = 0;
 
     x_yaw(0, 0) = cur_yaw_;
