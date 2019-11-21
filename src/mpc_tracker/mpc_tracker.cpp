@@ -84,7 +84,6 @@ public:
 private:
   bool callbacks_enabled = true;
 
-
 private:
   ros::NodeHandle nh_;
 
@@ -128,7 +127,8 @@ private:
   double yaw_gain;
 
   // safety area
-  mrs_uav_manager::SafetyArea_t const *safety_area;
+  mrs_uav_manager::SafetyArea_t const * safety_area;
+  mrs_uav_manager::Transformer_t const *transformer;
 
   // variables regarding the MPC controller
   int       n;             // number of states
@@ -405,6 +405,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
                             [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
   this->safety_area = safety_area;
+  this->transformer = transformer;
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
 
@@ -2833,7 +2834,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     ROS_WARN("[MpcTracker]: Cannot load trajectory, its too large (%d).", (int)msg.points.size());
 
-    char buffer[60];
+    char buffer[200];
     sprintf(buffer, "Cannot load trajectory, its too large (%d).", (int)msg.points.size());
     message = buffer;
     return false;
@@ -2879,7 +2880,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         if (no_nans == false) {
 
-          message = "Trajecotry contains NaNs/infs.";
+          message = "Trajectory contains NaNs/infs.";
           ROS_WARN("[MpcTracker]: %s", message.c_str());
           return false;
         }
@@ -2887,6 +2888,49 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         des_x_whole_trajectory(i) = msg.points[i].x;
         des_y_whole_trajectory(i) = msg.points[i].y;
         des_z_whole_trajectory(i) = msg.points[i].z;
+      }
+
+      if (msg.use_yaw) {
+
+        use_yaw_in_trajectory = true;
+
+        for (int i = 0; i < trajectory_size; i++) {
+
+          des_yaw_whole_trajectory(i) = msg.points[i].yaw;
+        }
+
+      } else {
+
+        des_yaw_whole_trajectory.fill(desired_yaw);
+        use_yaw_in_trajectory = false;
+      }
+
+      // copy the trajectory to a local array
+      if (msg.header.frame_id.compare("") != STRING_EQUAL) {
+
+        for (int i = 0; i < trajectory_size; i++) {
+
+          mrs_msgs::TrackerPointStamped trajectory_point;
+          trajectory_point.header = msg.header;
+
+          trajectory_point.position.x   = des_x_whole_trajectory(i);
+          trajectory_point.position.y   = des_y_whole_trajectory(i);
+          trajectory_point.position.z   = des_z_whole_trajectory(i);
+          trajectory_point.position.yaw = des_yaw_whole_trajectory(i);
+
+          if (!transformer->transformReference(msg.header.frame_id, uav_state.header.frame_id, trajectory_point)) {
+
+            message = "Trajectory cannnot be transformed.";
+            ROS_WARN("[ControlManager]: the reference could not be transformed.");
+            return false;
+          }
+
+          // transform the points in the trajectory to the current frame
+          des_x_whole_trajectory(i)   = trajectory_point.position.x;
+          des_y_whole_trajectory(i)   = trajectory_point.position.y;
+          des_z_whole_trajectory(i)   = trajectory_point.position.z;
+          des_yaw_whole_trajectory(i) = trajectory_point.position.yaw;
+        }
       }
 
       // set looping
@@ -2903,7 +2947,17 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           loop = false;
         }
       } else {
+
         loop = false;
+
+        // extend it so it has smooth ending
+        for (int i = 0; i < horizon_len_; i++) {
+
+          des_x_whole_trajectory(i + trajectory_size)   = des_x_whole_trajectory(i + trajectory_size - 1);
+          des_y_whole_trajectory(i + trajectory_size)   = des_y_whole_trajectory(i + trajectory_size - 1);
+          des_z_whole_trajectory(i + trajectory_size)   = des_z_whole_trajectory(i + trajectory_size - 1);
+          des_yaw_whole_trajectory(i + trajectory_size) = des_yaw_whole_trajectory(i + trajectory_size - 1);
+        }
       }
 
       bool   trajectory_is_ok = true;
@@ -3009,34 +3063,6 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
             }
           }
         }
-      }
-
-      // extend it so it has smooth ending
-      for (int i = 0; i < horizon_len_; i++) {
-
-        des_x_whole_trajectory(i + trajectory_size) = des_x_whole_trajectory(i + trajectory_size - 1);
-        des_y_whole_trajectory(i + trajectory_size) = des_y_whole_trajectory(i + trajectory_size - 1);
-        des_z_whole_trajectory(i + trajectory_size) = des_z_whole_trajectory(i + trajectory_size - 1);
-      }
-
-      if (msg.use_yaw) {
-
-        use_yaw_in_trajectory = true;
-
-        for (int i = 0; i < trajectory_size; i++) {
-
-          des_yaw_whole_trajectory(i) = msg.points[i].yaw;
-        }
-
-        for (int i = 0; i < horizon_len_; i++) {
-
-          des_yaw_whole_trajectory(i + trajectory_size) = des_yaw_whole_trajectory(i + trajectory_size - 1);
-        }
-
-      } else {
-
-        des_yaw_whole_trajectory.fill(desired_yaw);
-        use_yaw_in_trajectory = false;
       }
 
       if (trajectory_size > 1 || trajectory_is_ok) {
@@ -3263,11 +3289,12 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       if (use_yaw_in_trajectory)
         desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
 
-
       if (loop) {  // if we are looping, the loop it
+
         if (++trajectory_idx == trajectory_size) {
           trajectory_idx = 0;
         }
+
       } else {
         // if we are at the end, select the last point as a constant setpoint
         if (++trajectory_idx == (trajectory_size)) {
