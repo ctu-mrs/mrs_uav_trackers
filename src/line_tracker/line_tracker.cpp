@@ -77,7 +77,6 @@ public:
 private:
   bool callbacks_enabled = true;
 
-  std::string local_origin_frame_id_;
   std::string uav_name_;
 
 private:
@@ -177,7 +176,6 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
   param_loader.load_param("uav_name", uav_name_);
-  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
   param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
@@ -393,7 +391,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
   }
 
   position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = local_origin_frame_id_;
+  position_output.header.frame_id = uav_state.header.frame_id;
 
   {
     std::scoped_lock lock(mutex_state);

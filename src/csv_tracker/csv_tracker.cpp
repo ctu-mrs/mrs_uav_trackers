@@ -141,7 +141,6 @@ private:
   // params
   std::string filename_;
   std::string uav_name_;
-  std::string local_origin_frame_id_;
 
   double x_offset_ = 0;
   double y_offset_ = 0;
@@ -172,7 +171,6 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
 
   param_loader.load_param("uav_name", uav_name_);
-  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("filename", filename_);
   param_loader.load_param("enable_profiler", profiler_enabled_);
@@ -557,7 +555,7 @@ void CsvTracker::setInitPoint(void) {
   mrs_msgs::TrackerTrajectory init_trajectory;
 
   init_trajectory.header.stamp    = ros::Time::now();
-  init_trajectory.header.frame_id = local_origin_frame_id_;
+  init_trajectory.header.frame_id = uav_state.header.frame_id;
   init_trajectory.fly_now         = false;
   init_trajectory.use_yaw         = true;  // TODO
 
@@ -708,7 +706,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
     // set the message according to the file
     position_cmd.header.stamp    = ros::Time::now();
-    position_cmd.header.frame_id = local_origin_frame_id_;
+    position_cmd.header.frame_id = uav_state.header.frame_id;
 
     position_cmd.position.x = x_scale_ * trajectory(tracking_idx, 0) + x_offset_;
     position_cmd.position.z = z_scale_ * trajectory(tracking_idx, 1) + z_offset_;

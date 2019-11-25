@@ -259,7 +259,6 @@ private:
   std::mutex mutex_predicted_trajectory;
 
   std::string                                       uav_name_;
-  std::string                                       local_origin_frame_id_;
   std::vector<std::string>                          other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
   std::vector<ros::Subscriber>                      other_drones_subscribers;
@@ -612,8 +611,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
 
   // collision avoidance
   param_loader.load_param("uav_name", uav_name_);
-  local_origin_frame_id_ = uav_name_ + "/local_origin";
-
 
   // extract the numerical name
   sscanf(uav_name_.c_str(), "uav%d", &my_uav_number);
@@ -1045,7 +1042,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
   nav_msgs::Odometry setpoint_odom_out;
 
   setpoint_odom_out.header.stamp    = ros::Time::now();
-  setpoint_odom_out.header.frame_id = local_origin_frame_id_;
+  setpoint_odom_out.header.frame_id = uav_state.header.frame_id;
 
   tf::Quaternion orientation;
   orientation.setEuler(0, 0, yaw);
@@ -1223,9 +1220,9 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
     // update the acceleration
     {
-      x(2, 0)  = msg->acceleration.linear.x;
-      x(6, 0)  = msg->acceleration.linear.y;
-      x(10, 0) = msg->acceleration.linear.z;
+      x(2, 0)  = 0;
+      x(6, 0)  = 0;
+      x(10, 0) = 0;
     }
 
     // update the height
@@ -1568,7 +1565,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
   if (!is_active) {
 
     sprintf((char *)&message, "Tracker not active");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1577,7 +1574,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1586,7 +1583,7 @@ bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Tri
   if (hovering_in_progress) {
 
     sprintf((char *)&message, "Hovering in progress");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1630,7 +1627,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
   if (!is_active) {
 
     sprintf((char *)&message, "Tracker not active");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1639,7 +1636,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1648,7 +1645,7 @@ bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trig
   if (hovering_in_progress) {
 
     sprintf((char *)&message, "Hovering in progress");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1693,7 +1690,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
   if (!is_active) {
 
     sprintf((char *)&message, "Tracker not active");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1702,7 +1699,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1711,7 +1708,7 @@ bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger
   if (hovering_in_progress) {
 
     sprintf((char *)&message, "Hovering in progress");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1771,7 +1768,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Tr
   if (!is_active) {
 
     sprintf((char *)&message, "Tracker not active");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1780,7 +1777,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Tr
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1789,7 +1786,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Tr
   if (hovering_in_progress) {
 
     sprintf((char *)&message, "Hovering in progress");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1884,7 +1881,7 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -1893,7 +1890,7 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
   if (hovering_in_progress) {
 
     sprintf((char *)&message, "Hovering in progress");
-    ROS_ERROR("[ControlManager]: %s", message);
+    ROS_ERROR("[MpcTracker]: %s", message);
     res.success = false;
     res.message = message;
     return true;
@@ -2712,7 +2709,7 @@ void MpcTracker::publishDiagnostics(void) {
   mrs_msgs::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = ros::Time::now();
-  diagnostics.header.frame_id = local_origin_frame_id_;
+  diagnostics.header.frame_id = uav_state.header.frame_id;
 
   diagnostics.tracker_active = is_active;
 
@@ -2908,6 +2905,16 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       // copy the trajectory to a local array
       if (msg.header.frame_id.compare("") != STRING_EQUAL) {
 
+        geometry_msgs::TransformStamped tf;
+
+        // TODO: what time stamp should we use here?
+        if (!transformer->getTransform(msg.header.frame_id, uav_state.header.frame_id, uav_state.header.stamp, 0.0, tf)) {
+
+          message = "Coult not create TF transformer for the trajectory.";
+          ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
+          return false;
+        }
+
         for (int i = 0; i < trajectory_size; i++) {
 
           mrs_msgs::TrackerPointStamped trajectory_point;
@@ -2918,10 +2925,10 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           trajectory_point.position.z   = des_z_whole_trajectory(i);
           trajectory_point.position.yaw = des_yaw_whole_trajectory(i);
 
-          if (!transformer->transformReference(msg.header.frame_id, uav_state.header.frame_id, trajectory_point)) {
+          if (!transformer->transformReference(tf, trajectory_point)) {
 
             message = "Trajectory cannnot be transformed.";
-            ROS_WARN("[ControlManager]: the reference could not be transformed.");
+            ROS_WARN("[MpcTracker]: the reference could not be transformed.");
             return false;
           }
 
@@ -3101,7 +3108,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         geometry_msgs::PoseArray debug_trajectory_out;
         debug_trajectory_out.header.stamp    = ros::Time::now();
-        debug_trajectory_out.header.frame_id = local_origin_frame_id_;
+        debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
 
         for (int i = 0; i < trajectory_size; i++) {
 
@@ -3324,7 +3331,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = local_origin_frame_id_;
+    debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
 
     {
       std::scoped_lock lock(mutex_predicted_trajectory);

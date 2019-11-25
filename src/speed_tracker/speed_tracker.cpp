@@ -62,7 +62,6 @@ private:
   bool callbacks_enabled = true;
 
   std::string uav_name_;
-  std::string local_origin_frame_id_;
 
   double external_command_timeout_;
 
@@ -131,7 +130,6 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
   param_loader.load_param("uav_name", uav_name_);
-  local_origin_frame_id_ = uav_name_ + "/local_origin";
 
   param_loader.load_param("command_timeout", external_command_timeout_);
 
@@ -243,7 +241,7 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
   }
 
   output.header.stamp    = ros::Time::now();
-  output.header.frame_id = local_origin_frame_id_;
+  output.header.frame_id = uav_state.header.frame_id;
 
   {
     std::scoped_lock lock(mutex_uav_state, mutex_command);
