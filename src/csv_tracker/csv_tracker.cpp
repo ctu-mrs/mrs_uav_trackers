@@ -15,6 +15,8 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/Int32.h>
 
+#include <mrs_msgs/Float64Stamped.h>
+
 #include <math.h>
 #include <cmath>
 #include <eigen3/Eigen/Eigen>
@@ -49,28 +51,24 @@ public:
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
-  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
   virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
-  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
+  virtual bool goTo(const mrs_msgs::ReferenceConstPtr &msg);
 
   bool start_callback(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
 
-  bool setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-  bool setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-  bool setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
-  bool setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool setXScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res);
+  bool setYScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res);
+  bool setZScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res);
+  bool setScales(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res);
 
   void setInitPoint(void);
 
@@ -99,7 +97,6 @@ private:
 
   // service clients
   ros::ServiceClient service_switch_tracker;
-  ros::ServiceClient service_goTo;
 
   // publishers
   ros::Publisher publisher_odom_pitch_;
@@ -215,7 +212,6 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
     ROS_INFO("[CsvTracker]: Trajectory loaded, len = %d", trajectory_len);
   }
 
-  service_goTo           = nh_.serviceClient<mrs_msgs::Vec4>("goto_out");
   service_switch_tracker = nh_.serviceClient<mrs_msgs::String>("switch_tracker_out");
 
   publisher_action = nh_.advertise<std_msgs::Int32>("action_in", 1, false);
@@ -223,11 +219,11 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
 
   service_client_set_trajectory = nh_.serviceClient<mrs_msgs::TrackerTrajectorySrv>("set_trajectory_out");
 
-  publisher_odom_pitch_     = nh_.advertise<std_msgs::Float64>("odom_pitch_out", 1, false);
-  publisher_desired_pitch_  = nh_.advertise<std_msgs::Float64>("desired_pitch_out", 1, false);
-  publisher_desired_zd_     = nh_.advertise<std_msgs::Float64>("desired_zd_out", 1, false);
-  publisher_desired_xd_     = nh_.advertise<std_msgs::Float64>("desired_xd_out", 1, false);
-  publisher_desired_thrust_ = nh_.advertise<std_msgs::Float64>("desired_thrust_out", 1, false);
+  publisher_odom_pitch_     = nh_.advertise<mrs_msgs::Float64>("odom_pitch_out", 1, false);
+  publisher_desired_pitch_  = nh_.advertise<mrs_msgs::Float64>("desired_pitch_out", 1, false);
+  publisher_desired_zd_     = nh_.advertise<mrs_msgs::Float64>("desired_zd_out", 1, false);
+  publisher_desired_xd_     = nh_.advertise<mrs_msgs::Float64>("desired_xd_out", 1, false);
+  publisher_desired_thrust_ = nh_.advertise<mrs_msgs::Float64>("desired_thrust_out", 1, false);
 
   ser_x_scale_ = nh_.advertiseService("set_x_scale_in", &CsvTracker::setXScale, this);
   ser_y_scale_ = nh_.advertiseService("set_y_scale_in", &CsvTracker::setYScale, this);
@@ -429,91 +425,6 @@ void CsvTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState:
 
 //}
 
-// | -------------- setpoint topics and services -------------- |
-
-/* //{ goTo() service */
-
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goTo([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-//}
-
-/* //{ goTo() topic */
-
-bool CsvTracker::goTo([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-  return false;
-}
-
-//}
-
-/* //{ goToRelative() service */
-
-const mrs_msgs::Vec4Response::ConstPtr CsvTracker::goToRelative([[maybe_unused]] const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  return mrs_msgs::Vec4Response::Ptr();
-}
-
-//}
-
-/* //{ goToRelative() topic */
-
-bool CsvTracker::goToRelative([[maybe_unused]] const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-  return false;
-}
-
-//}
-
-/* //{ goToAltitude() service */
-
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  return mrs_msgs::Vec1Response::Ptr();
-}
-
-//}
-
-/* //{ goToAltitude() topic */
-
-bool CsvTracker::goToAltitude([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
-  return false;
-}
-
-//}
-
-/* //{ setYaw() service */
-
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYaw([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
-}
-
-//}
-
-/* //{ setYaw() topic */
-
-bool CsvTracker::setYaw([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
-  return false;
-}
-
-//}
-
-/* //{ setYawRelative() service */
-
-const mrs_msgs::Vec1Response::ConstPtr CsvTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-  return mrs_msgs::Vec1Response::Ptr();
-}
-
-//}
-
-/* //{ setYawRelative() topic */
-
-bool CsvTracker::setYawRelative([[maybe_unused]] const std_msgs::Float64ConstPtr &msg) {
-  return false;
-}
-
-//}
-
 /* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
@@ -527,6 +438,59 @@ const std_srvs::TriggerResponse::ConstPtr CsvTracker::hover([[maybe_unused]] con
 const mrs_msgs::TrackerConstraintsResponse::ConstPtr CsvTracker::setConstraints([[maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
 
   return mrs_msgs::TrackerConstraintsResponse::Ptr();
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+/* //{ goTo() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr CsvTracker::goTo([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  return mrs_msgs::ReferenceSrvResponse::Ptr();
+}
+
+//}
+
+/* //{ goTo() topic */
+
+bool CsvTracker::goTo([[maybe_unused]] const mrs_msgs::ReferenceConstPtr &msg) {
+  return false;
+}
+
+//}
+
+/* //{ goToRelative() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr CsvTracker::goToRelative([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  return mrs_msgs::ReferenceSrvResponse::Ptr();
+}
+
+//}
+
+/* //{ goToAltitude() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr CsvTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  return mrs_msgs::Float64SrvResponse::Ptr();
+}
+
+//}
+
+/* //{ setYaw() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr CsvTracker::setYaw([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+  return mrs_msgs::Float64SrvResponse::Ptr();
+}
+
+//}
+
+/* //{ setYawRelative() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr CsvTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+  return mrs_msgs::Float64SrvResponse::Ptr();
 }
 
 //}
@@ -586,11 +550,11 @@ void CsvTracker::setInitPoint(void) {
 
 /* //{ setXYScale() */
 
-bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+bool CsvTracker::setXScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res) {
 
-  if (req.goal >= 0 && req.goal <= 1.0) {
+  if (req.value >= 0 && req.value <= 1.0) {
 
-    x_scale_ = req.goal;
+    x_scale_ = req.value;
 
     res.success = true;
     res.message = "OK";
@@ -610,11 +574,11 @@ bool CsvTracker::setXScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 /* //{ setYScale() */
 
-bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+bool CsvTracker::setYScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res) {
 
-  if (req.goal >= 0 && req.goal <= 1.0) {
+  if (req.value >= 0 && req.value <= 1.0) {
 
-    y_scale_ = req.goal;
+    y_scale_ = req.value;
 
     res.success = true;
     res.message = "OK";
@@ -634,11 +598,11 @@ bool CsvTracker::setYScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 /* //{ setZScale() */
 
-bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+bool CsvTracker::setZScale(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res) {
 
-  if (req.goal >= 0 && req.goal <= 1.0) {
+  if (req.value >= 0 && req.value <= 1.0) {
 
-    z_scale_ = req.goal;
+    z_scale_ = req.value;
 
     res.success = true;
     res.message = "OK";
@@ -658,13 +622,13 @@ bool CsvTracker::setZScale(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Respons
 
 /* //{ setScales() */
 
-bool CsvTracker::setScales(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res) {
+bool CsvTracker::setScales(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res) {
 
-  if (req.goal >= 0 && req.goal <= 1.0) {
+  if (req.value >= 0 && req.value <= 1.0) {
 
-    x_scale_ = req.goal;
-    y_scale_ = req.goal;
-    z_scale_ = req.goal;
+    x_scale_ = req.value;
+    y_scale_ = req.value;
+    z_scale_ = req.value;
 
     res.success = true;
     res.message = "OK";
@@ -733,20 +697,20 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
   }
 
   // debugging current pitch
-  std_msgs::Float64 odom_pitch_msg;
-  odom_pitch_msg.data = last_odom_pitch;
+  mrs_msgs::Float64 odom_pitch_msg;
+  odom_pitch_msg.value = last_odom_pitch;
 
   // debugging desired pitch
-  std_msgs::Float64 desired_pitch_msg;
-  desired_pitch_msg.data = -trajectory(tracking_idx, 6);
+  mrs_msgs::Float64 desired_pitch_msg;
+  desired_pitch_msg.value = -trajectory(tracking_idx, 6);
 
   // debugging desired zd
-  std_msgs::Float64 desired_zd_msg;
-  desired_zd_msg.data = trajectory(tracking_idx, 3);
+  mrs_msgs::Float64 desired_zd_msg;
+  desired_zd_msg.value = trajectory(tracking_idx, 3);
 
   // debugging desired xd
-  std_msgs::Float64 desired_xd_msg;
-  desired_xd_msg.data = trajectory(tracking_idx, 2);
+  mrs_msgs::Float64 desired_xd_msg;
+  desired_xd_msg.value = trajectory(tracking_idx, 2);
 
   publisher_odom_pitch_.publish(odom_pitch_msg);
   publisher_desired_pitch_.publish(desired_pitch_msg);
@@ -765,8 +729,8 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
   }
 
   // debugging desired thrust
-  std_msgs::Float64 desired_thrust_msg;
-  desired_thrust_msg.data = trajectory(tracking_idx, 7) / 34.3233;
+  mrs_msgs::Float64 desired_thrust_msg;
+  desired_thrust_msg.value = trajectory(tracking_idx, 7) / 34.3233;
 
   publisher_desired_thrust_.publish(desired_thrust_msg);
 

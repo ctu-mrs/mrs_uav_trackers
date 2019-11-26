@@ -65,17 +65,13 @@ public:
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
-  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
 
-  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
+  virtual bool goTo(const mrs_msgs::ReferenceConstPtr &msg);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -341,8 +337,8 @@ private:
 
   // methods
   void     mpcTimer(const ros::TimerEvent &event);
-  void     pos_cmd_cb(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
-  void     callbackDesiredPositionRelative(const mrs_msgs::TrackerPointStamped::ConstPtr &msg);
+  void     pos_cmd_cb(const mrs_msgs::Reference::ConstPtr &msg);
+  void     callbackDesiredPositionRelative(const mrs_msgs::Reference::ConstPtr &msg);
   void     callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg);
   bool     callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &req, mrs_msgs::TrackerTrajectorySrv::Response &res);
   bool     callbackStartTrajectoryFollowing(std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res);
@@ -361,13 +357,12 @@ private:
   VectorXd integrate(VectorXd &in, double dt, double integrational_const);
   bool     setRelativeGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
   bool     setGoal(double set_x, double set_y, double set_z, double set_yaw, bool set_use_yaw);
-  bool     goTo_service_cmd_cb(mrs_msgs::Vec4::Request &req, mrs_msgs::Vec4::Response &res);
   bool     callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatrixResponse &res);
   void     publishDiagnostics();
   double   triangleArea(Eigen::VectorXd a, Eigen::VectorXd b, Eigen::VectorXd c);
   bool     pointInBoundary(Eigen::MatrixXd boundary, double px, double py);
 
-  bool callbackSetYaw(mrs_msgs::Vec1::Request &req, mrs_msgs::Vec1::Response &res);
+  bool callbackSetYaw(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64Srv::Response &res);
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
 
 private:
@@ -1244,228 +1239,6 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
 //}
 
-// | -------------- setpoint topics and services -------------- |
-
-/* //{ goTo() service */
-
-const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  toggleHover(false);
-
-  setGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
-
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-  res.message = tempStr;
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-/* //{ goTo() topic */
-
-bool MpcTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-
-  toggleHover(false);
-
-  setGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
-
-  return true;
-}
-
-//}
-
-/* //{ goToRelative() service */
-
-const mrs_msgs::Vec4Response::ConstPtr MpcTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  std::scoped_lock lock(mutex_x);
-
-  mrs_msgs::Vec4Response res;
-
-  toggleHover(false);
-
-  setRelativeGoal(cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3], true);
-
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->goal[0], cmd->goal[1], cmd->goal[2], cmd->goal[3]);
-  res.message = tempStr;
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-/* //{ goToRelative() topic */
-
-bool MpcTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-
-  std::scoped_lock lock(mutex_x);
-
-  toggleHover(false);
-
-  setRelativeGoal(msg->position.x, msg->position.y, msg->position.z, msg->position.yaw, msg->use_yaw);
-
-  return true;
-}
-
-//}
-
-/* //{ goToAltitude() service */
-
-const mrs_msgs::Vec1Response::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  toggleHover(false);
-
-  setGoal(x(0, 0), x(4, 0), cmd->goal, x_yaw(0, 0), false);
-
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->goal);
-  res.message = tempStr;
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ goToAltitude() topic */
-
-bool MpcTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
-
-  toggleHover(false);
-
-  setGoal(x(0, 0), x(4, 0), msg->data, x_yaw(0, 0), false);
-
-  return true;
-}
-
-//}
-
-/* //{ setYaw() service */
-
-const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  toggleHover(false);
-
-  if (tracking_trajectory) {
-
-    // TODO implement
-    ROS_ERROR("[MpcTracker]: TODO, implement");
-
-  } else {
-
-    // TODO: should set goal when flying to a setpoint
-    setGoal(x(0, 0), x(4, 0), x(8, 0), mrs_trackers_commons::validateYawSetpoint(cmd->goal), true);
-  }
-
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Setting yaw to %2.2f", cmd->goal);
-  res.message = tempStr;
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ setYaw() topic */
-
-bool MpcTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
-
-  toggleHover(false);
-
-  if (tracking_trajectory) {
-
-    {
-      std::scoped_lock lock(mutex_des_trajectory);
-
-      for (int i = 0; i < horizon_len_; i++) {
-        des_yaw_trajectory(i, 0) = mrs_trackers_commons::validateYawSetpoint(msg->data);
-      }
-    }
-
-  } else {
-
-    // TODO: should set goal when flying to a setpoint
-    setGoal(x(0, 0), x(4, 0), x(8, 0), mrs_trackers_commons::validateYawSetpoint(msg->data), true);
-  }
-
-  return true;
-}
-
-//}
-
-/* //{ setYawRelative() service */
-
-const mrs_msgs::Vec1Response::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  toggleHover(false);
-
-  if (tracking_trajectory) {
-
-    {
-      std::scoped_lock lock(mutex_des_trajectory);
-
-      for (int i = 0; i < horizon_len_; i++) {
-        des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-      }
-    }
-
-  } else {
-
-    setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
-            mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->goal), true);
-  }
-
-  res.success = true;
-  char tempStr[100];
-  sprintf((char *)&tempStr, "Setting yaw to %2.2f", cmd->goal);
-  res.message = tempStr;
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ setYawRelative() topic */
-
-bool MpcTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
-
-  toggleHover(false);
-
-  if (tracking_trajectory) {
-
-    {
-      std::scoped_lock lock(mutex_des_trajectory);
-
-      for (int i = 0; i < horizon_len_; i++) {
-        des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(msg->data);
-      }
-    }
-
-  } else {
-
-    setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
-            mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + msg->data), true);
-  }
-
-  return true;
-}
-
-//}
-
 /* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
@@ -1509,6 +1282,148 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
   res.message = "constraints updated";
 
   return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+/* //{ goTo() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::ReferenceSrvResponse res;
+
+  toggleHover(false);
+
+  setGoal(cmd->reference.position.x, cmd->reference.position.y, cmd->reference.position.z, cmd->reference.yaw, true);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->reference.position.x, cmd->reference.position.y,
+          cmd->reference.position.z, cmd->reference.yaw);
+  res.message = tempStr;
+
+  return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ goTo() topic */
+
+bool MpcTracker::goTo(const mrs_msgs::ReferenceConstPtr &msg) {
+
+  toggleHover(false);
+
+  setGoal(msg->position.x, msg->position.y, msg->position.z, msg->yaw, true);
+
+  return true;
+}
+
+//}
+
+/* //{ goToRelative() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  std::scoped_lock lock(mutex_x);
+
+  mrs_msgs::ReferenceSrvResponse res;
+
+  toggleHover(false);
+
+  setRelativeGoal(cmd->reference.position.x, cmd->reference.position.y, cmd->reference.position.z, cmd->reference.yaw, true);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to relative x: %3.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", cmd->reference.position.x, cmd->reference.position.y,
+          cmd->reference.position.z, cmd->reference.yaw);
+  res.message = tempStr;
+
+  return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ goToAltitude() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  toggleHover(false);
+
+  setGoal(x(0, 0), x(4, 0), cmd->value, x_yaw(0, 0), false);
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Going to altitude %3.2f", cmd->value);
+  res.message = tempStr;
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
+}
+
+//}
+
+/* //{ setYaw() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  toggleHover(false);
+
+  if (tracking_trajectory) {
+
+    // TODO implement
+    ROS_ERROR("[MpcTracker]: TODO, implement");
+
+  } else {
+
+    // TODO: should set goal when flying to a setpoint
+    setGoal(x(0, 0), x(4, 0), x(8, 0), mrs_trackers_commons::validateYawSetpoint(cmd->value), true);
+  }
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Setting yaw to %2.2f", cmd->value);
+  res.message = tempStr;
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
+}
+
+//}
+
+/* //{ setYawRelative() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  toggleHover(false);
+
+  if (tracking_trajectory) {
+
+    {
+      std::scoped_lock lock(mutex_des_trajectory);
+
+      for (int i = 0; i < horizon_len_; i++) {
+        des_yaw_trajectory(i, 0) += mrs_trackers_commons::validateYawSetpoint(cmd->value);
+      }
+    }
+
+  } else {
+
+    setGoal(des_x_trajectory(0, 0), des_y_trajectory(0, 0), des_z_trajectory(0, 0),
+            mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory(0, 0) + cmd->value), true);
+  }
+
+  res.success = true;
+  char tempStr[100];
+  sprintf((char *)&tempStr, "Setting yaw to %2.2f", cmd->value);
+  res.message = tempStr;
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
 }
 
 //}
@@ -2917,13 +2832,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         for (int i = 0; i < trajectory_size; i++) {
 
-          mrs_msgs::TrackerPointStamped trajectory_point;
+          mrs_msgs::ReferenceStamped trajectory_point;
           trajectory_point.header = msg.header;
 
-          trajectory_point.position.x   = des_x_whole_trajectory(i);
-          trajectory_point.position.y   = des_y_whole_trajectory(i);
-          trajectory_point.position.z   = des_z_whole_trajectory(i);
-          trajectory_point.position.yaw = des_yaw_whole_trajectory(i);
+          trajectory_point.reference.position.x = des_x_whole_trajectory(i);
+          trajectory_point.reference.position.y = des_y_whole_trajectory(i);
+          trajectory_point.reference.position.z = des_z_whole_trajectory(i);
+          trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
 
           if (!transformer->transformReference(tf, trajectory_point)) {
 
@@ -2933,10 +2848,10 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           }
 
           // transform the points in the trajectory to the current frame
-          des_x_whole_trajectory(i)   = trajectory_point.position.x;
-          des_y_whole_trajectory(i)   = trajectory_point.position.y;
-          des_z_whole_trajectory(i)   = trajectory_point.position.z;
-          des_yaw_whole_trajectory(i) = trajectory_point.position.yaw;
+          des_x_whole_trajectory(i)   = trajectory_point.reference.position.x;
+          des_y_whole_trajectory(i)   = trajectory_point.reference.position.y;
+          des_z_whole_trajectory(i)   = trajectory_point.reference.position.z;
+          des_yaw_whole_trajectory(i) = trajectory_point.reference.yaw;
         }
       }
 

@@ -5,7 +5,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 
-#include <mrs_msgs/TrackerPointStamped.h>
+#include <mrs_msgs/Reference.h>
 #include <mrs_uav_manager/Tracker.h>
 #include <mrs_msgs/UavState.h>
 
@@ -58,17 +58,13 @@ public:
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
 
-  virtual const mrs_msgs::Vec4Response::ConstPtr goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec4Response::ConstPtr goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd);
-  virtual const mrs_msgs::Vec1Response::ConstPtr setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
 
-  virtual bool goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg);
-  virtual bool goToAltitude(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYaw(const std_msgs::Float64ConstPtr &msg);
-  virtual bool setYawRelative(const std_msgs::Float64ConstPtr &msg);
+  virtual bool goTo(const mrs_msgs::ReferenceConstPtr &msg);
 
   virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
 
@@ -520,245 +516,6 @@ void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) 
 
 //}
 
-// | -------------- setpoint topics and services -------------- |
-
-/* //{ goTo() service */
-
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goTo(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  {
-    std::scoped_lock lock(mutex_goal);
-
-    goal_x   = cmd->goal[0];
-    goal_y   = cmd->goal[1];
-    goal_z   = cmd->goal[2];
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal[3]);
-  }
-
-  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-/* //{ goTo() topic */
-
-bool LineTracker::goTo(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-
-  {
-    std::scoped_lock lock(mutex_goal);
-
-    goal_x   = msg->position.x;
-    goal_y   = msg->position.y;
-    goal_z   = msg->position.z;
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->position.yaw);
-  }
-
-  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-//}
-
-/* //{ goToRelative() service */
-
-const mrs_msgs::Vec4Response::ConstPtr LineTracker::goToRelative(const mrs_msgs::Vec4Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec4Response res;
-
-  {
-    std::scoped_lock lock(mutex_goal, mutex_state);
-
-    goal_x   = state_x + cmd->goal[0];
-    goal_y   = state_y + cmd->goal[1];
-    goal_z   = state_z + cmd->goal[2];
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal[3]);
-  }
-
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec4Response::ConstPtr(new mrs_msgs::Vec4Response(res));
-}
-
-//}
-
-/* //{ goToRelative() topic */
-
-bool LineTracker::goToRelative(const mrs_msgs::TrackerPointStampedConstPtr &msg) {
-
-  {
-    std::scoped_lock lock(mutex_goal, mutex_state);
-
-    goal_x   = state_x + msg->position.x;
-    goal_y   = state_y + msg->position.y;
-    goal_z   = state_z + msg->position.z;
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->position.yaw);
-  }
-
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-//}
-
-/* //{ goToAltitude() service */
-
-const mrs_msgs::Vec1Response::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  {
-    std::scoped_lock lock(mutex_goal, mutex_state);
-
-    goal_x   = state_x;
-    goal_y   = state_y;
-    goal_z   = cmd->goal;
-    goal_yaw = state_yaw;
-
-    have_goal = true;
-  }
-
-  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
-
-  res.success = true;
-  res.message = "setpoint set";
-
-  changeState(STOP_MOTION_STATE);
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ goToAltitude() topic */
-
-bool LineTracker::goToAltitude(const std_msgs::Float64ConstPtr &msg) {
-
-  {
-    std::scoped_lock lock(mutex_goal, mutex_state);
-
-    goal_x   = state_x;
-    goal_y   = state_y;
-    goal_z   = msg->data;
-    goal_yaw = state_yaw;
-
-    have_goal = true;
-  }
-
-  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
-
-  changeState(STOP_MOTION_STATE);
-
-  return true;
-}
-
-//}
-
-/* //{ setYaw() service */
-
-const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYaw(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  {
-    std::scoped_lock lock(mutex_goal);
-
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->goal);
-  }
-
-  ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
-
-  res.success = true;
-  res.message = "yaw set";
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ setYaw() topic */
-
-bool LineTracker::setYaw(const std_msgs::Float64ConstPtr &msg) {
-
-  {
-    std::scoped_lock lock(mutex_goal);
-
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->data);
-  }
-
-  ROS_INFO("[LineTracker]: setting absolute yaw to %3.2f", goal_yaw);
-
-  return true;
-}
-
-//}
-
-/* //{ setYawRelative() service */
-
-const mrs_msgs::Vec1Response::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Vec1Request::ConstPtr &cmd) {
-
-  mrs_msgs::Vec1Response res;
-
-  {
-    std::scoped_lock lock(mutex_state, mutex_goal);
-
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->goal);
-  }
-
-  ROS_INFO("[LineTracker]: setting relative yaw by %3.2f", goal_yaw);
-
-  res.success = true;
-  res.message = "yaw set";
-
-  return mrs_msgs::Vec1Response::ConstPtr(new mrs_msgs::Vec1Response(res));
-}
-
-//}
-
-/* //{ setYawRelative() topic */
-
-bool LineTracker::setYawRelative(const std_msgs::Float64ConstPtr &msg) {
-
-  {
-    std::scoped_lock lock(mutex_state, mutex_goal);
-
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + msg->data);
-  }
-
-  ROS_INFO("[LineTracker]: received relative yaw by %3.2f", goal_yaw);
-
-  return true;
-}
-
-//}
-
 /* //{ hover() service */
 
 const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
@@ -845,6 +602,163 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints
   res.message = "constraints updated";
 
   return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+}
+
+//}
+
+// | -------------- setpoint topics and services -------------- |
+
+/* //{ goTo() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::ReferenceSrvResponse res;
+
+  {
+    std::scoped_lock lock(mutex_goal);
+
+    goal_x   = cmd->reference.position.x;
+    goal_y   = cmd->reference.position.y;
+    goal_z   = cmd->reference.position.z;
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->reference.yaw);
+  }
+
+  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ goTo() topic */
+
+bool LineTracker::goTo(const mrs_msgs::ReferenceConstPtr &msg) {
+
+  {
+    std::scoped_lock lock(mutex_goal);
+
+    goal_x   = msg->position.x;
+    goal_y   = msg->position.y;
+    goal_z   = msg->position.z;
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->yaw);
+  }
+
+  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  changeState(STOP_MOTION_STATE);
+
+  return true;
+}
+
+//}
+
+/* //{ goToRelative() service */
+
+const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::ReferenceSrvResponse res;
+
+  {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
+    goal_x   = state_x + cmd->reference.position.x;
+    goal_y   = state_y + cmd->reference.position.y;
+    goal_z   = state_z + cmd->reference.position.z;
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->reference.yaw);
+  }
+
+  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
+
+  have_goal = true;
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ goToAltitude() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  {
+    std::scoped_lock lock(mutex_goal, mutex_state);
+
+    goal_x   = state_x;
+    goal_y   = state_y;
+    goal_z   = cmd->value;
+    goal_yaw = state_yaw;
+
+    have_goal = true;
+  }
+
+  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
+
+  res.success = true;
+  res.message = "setpoint set";
+
+  changeState(STOP_MOTION_STATE);
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
+}
+
+//}
+
+/* //{ setYaw() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  {
+    std::scoped_lock lock(mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->value);
+  }
+
+  ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
+
+  res.success = true;
+  res.message = "yaw set";
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
+}
+
+//}
+
+/* //{ setYawRelative() service */
+
+const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
+
+  mrs_msgs::Float64SrvResponse res;
+
+  {
+    std::scoped_lock lock(mutex_state, mutex_goal);
+
+    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->value);
+  }
+
+  ROS_INFO("[LineTracker]: setting relative yaw by %3.2f", goal_yaw);
+
+  res.success = true;
+  res.message = "yaw set";
+
+  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
 }
 
 //}
