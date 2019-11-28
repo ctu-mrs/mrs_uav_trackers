@@ -18,6 +18,9 @@
 
 #include <mrs_msgs/SpeedTrackerCommand.h>
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 //}
 
 #define STOP_THR 1e-3
@@ -32,12 +35,12 @@ namespace speed_tracker
 
 class SpeedTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
                           mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
@@ -58,6 +61,8 @@ private:
   bool callbacks_enabled = true;
 
   std::string uav_name_;
+
+  mrs_uav_manager::Transformer_t const *transformer;
 
   double external_command_timeout_;
 
@@ -100,6 +105,9 @@ private:
   void            callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg);
 
 private:
+  ros::Publisher publisher_rviz_marker;
+
+private:
   mrs_lib::Profiler *profiler;
   bool               profiler_enabled_ = false;
   bool               position_mode_    = false;
@@ -112,8 +120,12 @@ private:
 
 /* //{ initialize() */
 
-void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
+                              [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
                               [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+
+  uav_name_         = uav_name;
+  this->transformer = transformer;
 
   ros::NodeHandle nh_(parent_nh, "speed_tracker");
 
@@ -125,11 +137,14 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
-  param_loader.load_param("uav_name", uav_name_);
-
   param_loader.load_param("command_timeout", external_command_timeout_);
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
+
+  if (!param_loader.loaded_successfully()) {
+    ROS_ERROR("[SpeedTracker]: Could not load all parameters!");
+    ros::shutdown();
+  }
 
   // --------------------------------------------------------------
   // |                          profiler                          |
@@ -143,10 +158,11 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   subscriber_command = nh_.subscribe("command_in", 1, &SpeedTracker::callbackCommand, this, ros::TransportHints().tcpNoDelay());
 
-  if (!param_loader.loaded_successfully()) {
-    ROS_ERROR("[SpeedTracker]: Could not load all parameters!");
-    ros::shutdown();
-  }
+  // --------------------------------------------------------------
+  // |                         publishers                         |
+  // --------------------------------------------------------------
+
+  publisher_rviz_marker = nh_.advertise<visualization_msgs::MarkerArray>("rviz_marker_out", 1);
 
   is_initialized = true;
 
@@ -204,7 +220,8 @@ void SpeedTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
+                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
@@ -245,22 +262,18 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     output.position.x = uav_state.pose.position.x;
     output.position.y = uav_state.pose.position.y;
 
-    if (external_command.use_horizontal_velocity) {
+    if (external_command.use_velocity) {
       output.velocity.x              = external_command.velocity.x;
       output.velocity.y              = external_command.velocity.y;
+      output.velocity.z              = external_command.velocity.z;
       output.use_velocity_horizontal = true;
+      output.use_velocity_vertical   = true;
     } else {
       output.velocity.x              = uav_state.velocity.linear.x;
       output.velocity.y              = uav_state.velocity.linear.y;
+      output.velocity.z              = uav_state.velocity.linear.z;
       output.use_velocity_horizontal = false;
-    }
-
-    if (external_command.use_vertical_velocity) {
-      output.velocity.z            = external_command.velocity.z;
-      output.use_velocity_vertical = true;
-    } else {
-      output.velocity.z            = uav_state.velocity.linear.z;
-      output.use_velocity_vertical = false;
+      output.use_velocity_vertical   = false;
     }
 
     if (external_command.use_height) {
@@ -275,6 +288,11 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
       output.acceleration.x   = external_command.acceleration.x;
       output.acceleration.y   = external_command.acceleration.y;
       output.acceleration.z   = external_command.acceleration.z;
+      output.use_acceleration = true;
+    } else if (external_command.use_force) {
+      output.acceleration.x   = external_command.force.x / cmd->total_mass;
+      output.acceleration.y   = external_command.force.y / cmd->total_mass;
+      output.acceleration.z   = external_command.force.z / cmd->total_mass;
       output.use_acceleration = true;
     } else {
       output.acceleration.x   = uav_state.acceleration.linear.x;
@@ -441,7 +459,80 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackCommand");
 
-  external_command = msg;
+  mrs_msgs::SpeedTrackerCommand temp_command = msg;
+
+  // transform the command
+
+  // transform velocity
+
+  if (msg.use_velocity) {
+
+    geometry_msgs::Vector3Stamped vector3;
+    vector3.header = msg.header;
+
+    vector3.vector.x = temp_command.velocity.x;
+    vector3.vector.y = temp_command.velocity.y;
+    vector3.vector.z = temp_command.velocity.z;
+
+    transformer->transformVector3Single("", vector3);
+
+    temp_command.velocity.x = vector3.vector.x;
+    temp_command.velocity.y = vector3.vector.y;
+    temp_command.velocity.z = vector3.vector.z;
+  }
+
+  // transform yaw
+
+  if (msg.use_yaw) {
+
+    mrs_msgs::ReferenceStamped temp_ref;
+    temp_ref.header = msg.header;
+
+    temp_ref.reference.yaw = temp_command.yaw;
+
+    transformer->transformReferenceSingle("", temp_ref);
+
+    temp_command.yaw = temp_ref.reference.yaw;
+  }
+
+  // transform acceleration
+
+  if (msg.use_acceleration) {
+
+    geometry_msgs::Vector3Stamped vector3;
+    vector3.header = msg.header;
+
+    vector3.vector.x = temp_command.acceleration.x;
+    vector3.vector.y = temp_command.acceleration.y;
+    vector3.vector.z = temp_command.acceleration.z;
+
+    transformer->transformVector3Single("", vector3);
+
+    temp_command.acceleration.x = vector3.vector.x;
+    temp_command.acceleration.y = vector3.vector.y;
+    temp_command.acceleration.z = vector3.vector.z;
+  }
+
+
+  // transform force
+
+  if (msg.use_force) {
+
+    geometry_msgs::Vector3Stamped vector3;
+    vector3.header = msg.header;
+
+    vector3.vector.x = temp_command.force.x;
+    vector3.vector.y = temp_command.force.y;
+    vector3.vector.z = temp_command.force.z;
+
+    transformer->transformVector3Single("", vector3);
+
+    temp_command.force.x = vector3.vector.x;
+    temp_command.force.y = vector3.vector.y;
+    temp_command.force.z = vector3.vector.z;
+  }
+
+  external_command = temp_command;
 
   got_command = true;
 
@@ -451,6 +542,221 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     ROS_INFO_ONCE("[SpeedTracker]: getting command");
   } else {
     ROS_INFO_THROTTLE(5.0, "[SpeedTracker]: getting command");
+  }
+
+  // --------------------------------------------------------------
+  // |                    publishe rviz markers                   |
+  // --------------------------------------------------------------
+
+  visualization_msgs::MarkerArray msg_out;
+
+  double id = 0;
+
+  geometry_msgs::Point point;
+
+  /* desired speed //{ */
+  if (external_command.use_velocity) {
+
+    std::scoped_lock lock(mutex_uav_state);
+
+    visualization_msgs::Marker marker;
+
+    marker.header.frame_id = uav_state.header.frame_id;
+    marker.header.stamp    = ros::Time::now();
+    marker.ns              = "speed_tracker";
+    marker.id              = id++;
+    marker.type            = visualization_msgs::Marker::ARROW;
+    marker.action          = visualization_msgs::Marker::ADD;
+
+    /* position //{ */
+
+    marker.pose.position.x = 0.0;
+    marker.pose.position.y = 0.0;
+    marker.pose.position.z = 0.0;
+
+    //}
+
+    /* orientation //{ */
+
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    //}
+
+    /* origin //{ */
+    point.x = uav_state.pose.position.x;
+    point.y = uav_state.pose.position.y;
+    point.z = uav_state.pose.position.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    /* tip //{ */
+
+    point.x = uav_state.pose.position.x + external_command.velocity.x;
+    point.y = uav_state.pose.position.y + external_command.velocity.y;
+    point.z = uav_state.pose.position.z + external_command.velocity.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
+
+    marker.color.a = 0.5;
+    marker.color.r = 0.0;
+    marker.color.g = 1.0;
+    marker.color.b = 0.0;
+
+    marker.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae";
+
+    msg_out.markers.push_back(marker);
+  }
+
+  //}
+
+  /* desired acceleration //{ */
+  if (external_command.use_acceleration) {
+
+    std::scoped_lock lock(mutex_uav_state);
+
+    visualization_msgs::Marker marker;
+
+    marker.header.frame_id = uav_state.header.frame_id;
+    marker.header.stamp    = ros::Time::now();
+    marker.ns              = "speed_tracker";
+    marker.id              = id++;
+    marker.type            = visualization_msgs::Marker::ARROW;
+    marker.action          = visualization_msgs::Marker::ADD;
+
+    /* position //{ */
+
+    marker.pose.position.x = 0.0;
+    marker.pose.position.y = 0.0;
+    marker.pose.position.z = 0.0;
+
+    //}
+
+    /* orientation //{ */
+
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    //}
+
+    /* origin //{ */
+    point.x = uav_state.pose.position.x;
+    point.y = uav_state.pose.position.y;
+    point.z = uav_state.pose.position.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    /* tip //{ */
+
+    point.x = uav_state.pose.position.x + external_command.acceleration.x;
+    point.y = uav_state.pose.position.y + external_command.acceleration.y;
+    point.z = uav_state.pose.position.z + external_command.acceleration.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
+
+    marker.color.a = 0.5;
+    marker.color.r = 1.0;
+    marker.color.g = 0.0;
+    marker.color.b = 0.0;
+
+    marker.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae";
+
+    msg_out.markers.push_back(marker);
+  }
+
+  //}
+
+  /* desired force //{ */
+  if (external_command.use_force) {
+
+    std::scoped_lock lock(mutex_uav_state);
+
+    visualization_msgs::Marker marker;
+
+    marker.header.frame_id = uav_state.header.frame_id;
+    marker.header.stamp    = ros::Time::now();
+    marker.ns              = "speed_tracker";
+    marker.id              = id++;
+    marker.type            = visualization_msgs::Marker::ARROW;
+    marker.action          = visualization_msgs::Marker::ADD;
+
+    /* position //{ */
+
+    marker.pose.position.x = 0.0;
+    marker.pose.position.y = 0.0;
+    marker.pose.position.z = 0.0;
+
+    //}
+
+    /* orientation //{ */
+
+    marker.pose.orientation.x = 0.0;
+    marker.pose.orientation.y = 0.0;
+    marker.pose.orientation.z = 0.0;
+    marker.pose.orientation.w = 1.0;
+
+    //}
+
+    /* origin //{ */
+    point.x = uav_state.pose.position.x;
+    point.y = uav_state.pose.position.y;
+    point.z = uav_state.pose.position.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    /* tip //{ */
+
+    point.x = uav_state.pose.position.x + external_command.force.x;
+    point.y = uav_state.pose.position.y + external_command.force.y;
+    point.z = uav_state.pose.position.z + external_command.force.z;
+
+    marker.points.push_back(point);
+
+    //}
+
+    marker.scale.x = 0.05;
+    marker.scale.y = 0.05;
+    marker.scale.z = 0.05;
+
+    marker.color.a = 0.5;
+    marker.color.r = 0.0;
+    marker.color.g = 0.0;
+    marker.color.b = 1.0;
+
+    marker.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae";
+
+    msg_out.markers.push_back(marker);
+  }
+
+  //}
+
+  try {
+    publisher_rviz_marker.publish(msg_out);
+  }
+  catch (...) {
+    ROS_ERROR("Exception caught during publishing topic %s.", publisher_rviz_marker.getTopic().c_str());
   }
 }
 

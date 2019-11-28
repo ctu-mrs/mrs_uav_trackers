@@ -51,12 +51,12 @@ const char *state_names[7] = {
 
 class LandoffTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
                           mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
@@ -198,9 +198,11 @@ private:
 
 /* //{ initialize() */
 
-void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
+                                [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
                                 [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
+  uav_name_ = uav_name;
   this->safety_area = safety_area;
 
   ros::NodeHandle nh_(parent_nh, "landoff_tracker");
@@ -212,8 +214,6 @@ void LandoffTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
-
-  param_loader.load_param("uav_name", uav_name_);
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -428,7 +428,8 @@ void LandoffTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
+                                                                 [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 

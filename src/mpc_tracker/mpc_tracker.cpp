@@ -55,12 +55,12 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
                           mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
@@ -97,7 +97,6 @@ private:
   ros::ServiceServer collision_avoidance_service;
 
   // debugging publishers
-  ros::Publisher pub_cmd_odom;
   ros::Publisher pub_cmd_acceleration_;
   ros::Publisher pub_setpoint_odom;
   ros::Publisher pub_diagnostics_;
@@ -395,9 +394,11 @@ private:
 
 /* //{ initialize() */
 
-void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
+                            [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
                             [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
+  uav_name_ = uav_name;
   this->safety_area = safety_area;
   this->transformer = transformer;
 
@@ -603,9 +604,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
 
   // publisher for the current setpoint
   pub_setpoint_odom = nh_.advertise<nav_msgs::Odometry>("setpoint_odom_out", 1);
-
-  // collision avoidance
-  param_loader.load_param("uav_name", uav_name_);
 
   // extract the numerical name
   sscanf(uav_name_.c_str(), "uav%d", &my_uav_number);
@@ -839,7 +837,8 @@ void MpcTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
@@ -1027,7 +1026,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
   outAcceleration.z = position_cmd_.acceleration.z;
 
   try {
-    pub_cmd_acceleration_.publish(geometry_msgs::Vector3ConstPtr(new geometry_msgs::Vector3(outAcceleration)));
+    pub_cmd_acceleration_.publish(outAcceleration);
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_cmd_acceleration_.getTopic().c_str());
@@ -1057,7 +1056,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
   }
 
   try {
-    pub_setpoint_odom.publish(nav_msgs::OdometryConstPtr(new nav_msgs::Odometry(setpoint_odom_out)));
+    pub_setpoint_odom.publish(setpoint_odom_out);
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_setpoint_odom.getTopic().c_str());
@@ -2817,42 +2816,37 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         use_yaw_in_trajectory = false;
       }
 
-      // copy the trajectory to a local array
-      if (msg.header.frame_id.compare("") != STRING_EQUAL) {
+      geometry_msgs::TransformStamped tf;
 
-        geometry_msgs::TransformStamped tf;
+      if (!transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
 
-        // TODO: what time stamp should we use here?
-        if (!transformer->getTransform(msg.header.frame_id, uav_state.header.frame_id, uav_state.header.stamp, 0.0, tf)) {
+        message = "Coult not create TF transformer for the trajectory.";
+        ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
+        return false;
+      }
 
-          message = "Coult not create TF transformer for the trajectory.";
-          ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
+      for (int i = 0; i < trajectory_size; i++) {
+
+        mrs_msgs::ReferenceStamped trajectory_point;
+        trajectory_point.header = msg.header;
+
+        trajectory_point.reference.position.x = des_x_whole_trajectory(i);
+        trajectory_point.reference.position.y = des_y_whole_trajectory(i);
+        trajectory_point.reference.position.z = des_z_whole_trajectory(i);
+        trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
+
+        if (!transformer->transformReference(tf, trajectory_point)) {
+
+          message = "Trajectory cannnot be transformed.";
+          ROS_WARN("[MpcTracker]: the reference could not be transformed.");
           return false;
         }
 
-        for (int i = 0; i < trajectory_size; i++) {
-
-          mrs_msgs::ReferenceStamped trajectory_point;
-          trajectory_point.header = msg.header;
-
-          trajectory_point.reference.position.x = des_x_whole_trajectory(i);
-          trajectory_point.reference.position.y = des_y_whole_trajectory(i);
-          trajectory_point.reference.position.z = des_z_whole_trajectory(i);
-          trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
-
-          if (!transformer->transformReference(tf, trajectory_point)) {
-
-            message = "Trajectory cannnot be transformed.";
-            ROS_WARN("[MpcTracker]: the reference could not be transformed.");
-            return false;
-          }
-
-          // transform the points in the trajectory to the current frame
-          des_x_whole_trajectory(i)   = trajectory_point.reference.position.x;
-          des_y_whole_trajectory(i)   = trajectory_point.reference.position.y;
-          des_z_whole_trajectory(i)   = trajectory_point.reference.position.z;
-          des_yaw_whole_trajectory(i) = trajectory_point.reference.yaw;
-        }
+        // transform the points in the trajectory to the current frame
+        des_x_whole_trajectory(i)   = trajectory_point.reference.position.x;
+        des_y_whole_trajectory(i)   = trajectory_point.reference.position.y;
+        des_z_whole_trajectory(i)   = trajectory_point.reference.position.z;
+        des_yaw_whole_trajectory(i) = trajectory_point.reference.yaw;
       }
 
       // set looping
@@ -2906,7 +2900,11 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           }
 
           // the point is not feasible
-          if (!safety_area->isPointInSafetyArea2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i))) {
+          mrs_msgs::ReferenceStamped des_reference;
+          des_reference.reference.position.x = des_x_whole_trajectory(i);
+          des_reference.reference.position.y = des_y_whole_trajectory(i);
+
+          if (!safety_area->isPointInSafetyArea2d(des_reference)) {
 
             ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
@@ -3271,7 +3269,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     }
 
     try {
-      debug_predicted_trajectory_publisher.publish(geometry_msgs::PoseArrayConstPtr(new geometry_msgs::PoseArray(debug_trajectory_out)));
+      debug_predicted_trajectory_publisher.publish(debug_trajectory_out);
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
@@ -3329,7 +3327,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
     }
 
     try {
-      predicted_trajectory_publisher.publish(mrs_msgs::FutureTrajectoryConstPtr(new mrs_msgs::FutureTrajectory(future_trajectory_out)));
+      predicted_trajectory_publisher.publish(future_trajectory_out);
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_publisher.getTopic().c_str());
@@ -3358,7 +3356,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
     }
 
     try {
-      predicted_trajectory_esp_publisher.publish(mrs_msgs::FutureTrajectoryInt8ConstPtr(new mrs_msgs::FutureTrajectoryInt8(future_trajectory_esp_out)));
+      predicted_trajectory_esp_publisher.publish(future_trajectory_esp_out);
     }
     catch (...) {
       ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", predicted_trajectory_esp_publisher.getTopic().c_str());

@@ -32,12 +32,12 @@ namespace joy_tracker
 
 class JoyTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, mrs_uav_manager::SafetyArea_t const *safety_area,
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
                           mrs_uav_manager::Transformer_t const *transformer);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg);
+  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg);
@@ -128,8 +128,11 @@ private:
 
 /* //{ initialize() */
 
-void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] mrs_uav_manager::SafetyArea_t const *safety_area,
+void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
+                            [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
                             [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+
+  uav_name_ = uav_name;
 
   ros::NodeHandle nh_(parent_nh, "joy_tracker");
 
@@ -140,8 +143,6 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] m
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
-
-  param_loader.load_param("uav_name", uav_name_);
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -259,7 +260,8 @@ void JoyTracker::deactivate(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &msg) {
+const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
   mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
 
