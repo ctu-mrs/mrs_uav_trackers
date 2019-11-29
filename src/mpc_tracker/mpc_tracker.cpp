@@ -398,7 +398,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
                             [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
                             [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
 
-  uav_name_ = uav_name;
+  uav_name_         = uav_name;
   this->safety_area = safety_area;
   this->transformer = transformer;
 
@@ -501,7 +501,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   cvx_yaw = new mrs_trackers::cvx_wrapper::CvxWrapper(verbose, max_iters_YAW, tempList, dt, dt2, 0);
 
   ROS_INFO("[MpcTracker]: MPC Tracker initiated with system parameters: n: %d, m: %d, dt: %0.3f, dt2: %0.3f", n, m, dt, dt2);
-  ROS_INFO_STREAM("\nA:\n" << A << "\nB:\n" << B);
+  ROS_INFO_STREAM("[MpcTracker]: \nA:\n" << A << "\nB:\n" << B);
 
   param_loader.load_param("wiggle/enabled", wiggle_enabled_);
   param_loader.load_param("wiggle/amplitude", wiggle_amplitude_);
@@ -1195,6 +1195,9 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
     double velocity_scale =
         sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2)) / sqrt(pow(uav_state.velocity.linear.x, 2) + pow(uav_state.velocity.linear.y, 2));
 
+    double acceleration_scale = sqrt(pow(msg->acceleration.linear.x, 2) + pow(msg->acceleration.linear.y, 2)) /
+                                sqrt(pow(uav_state.acceleration.linear.x, 2) + pow(uav_state.acceleration.linear.y, 2));
+
     // update the positon
     {
       Eigen::Vector2d temp_vec(x(0, 0) - uav_state.pose.position.x, x(4, 0) - uav_state.pose.position.y);
@@ -1214,9 +1217,10 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
     // update the acceleration
     {
-      x(2, 0)  = 0;
-      x(6, 0)  = 0;
-      x(10, 0) = 0;
+      Eigen::Vector2d temp_vec(x(2, 0), x(6, 0));
+      temp_vec = rotateVector(temp_vec, dyaw) * acceleration_scale;
+      x(2, 0)  = temp_vec[0];
+      x(6, 0)  = temp_vec[1];
     }
 
     // update the height
@@ -2770,22 +2774,22 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         bool no_nans = true;
 
         if (!std::isfinite(msg.points[i].x)) {
-          ROS_ERROR("NaN detected in variable \"msg.points[%d].x\"!!!", i);
+          ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].x\"!!!", i);
           no_nans = false;
         }
 
         if (!std::isfinite(msg.points[i].y)) {
-          ROS_ERROR("NaN detected in variable \"msg.points[%d].y\"!!!", i);
+          ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].y\"!!!", i);
           no_nans = false;
         }
 
         if (!std::isfinite(msg.points[i].z)) {
-          ROS_ERROR("NaN detected in variable \"msg.points[%d].z\"!!!", i);
+          ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].z\"!!!", i);
           no_nans = false;
         }
 
         if (!std::isfinite(msg.points[i].yaw)) {
-          ROS_ERROR("NaN detected in variable \"msg.points[%d].yaw\"!!!", i);
+          ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].yaw\"!!!", i);
           no_nans = false;
         }
 
@@ -3045,7 +3049,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           pub_debug_trajectory.publish(debug_trajectory_out);
         }
         catch (...) {
-          ROS_ERROR("Exception caught during publishing topic %s.", pub_debug_trajectory.getTopic().c_str());
+          ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_debug_trajectory.getTopic().c_str());
         }
 
         publishDiagnostics();

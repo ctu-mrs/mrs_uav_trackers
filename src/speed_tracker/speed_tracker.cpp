@@ -756,7 +756,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     publisher_rviz_marker.publish(msg_out);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", publisher_rviz_marker.getTopic().c_str());
+    ROS_ERROR("[SpeedTracker]: Exception caught during publishing topic %s.", publisher_rviz_marker.getTopic().c_str());
   }
 }
 

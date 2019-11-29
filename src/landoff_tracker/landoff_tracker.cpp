@@ -1365,7 +1365,7 @@ void LandoffTracker::publishDiagnostics(void) {
     publisher_diagnostics.publish(diagnostics_msg);
   }
   catch (...) {
-    ROS_ERROR("Exception caught during publishing topic %s.", publisher_diagnostics.getTopic().c_str());
+    ROS_ERROR("[LandoffTracker]: Exception caught during publishing topic %s.", publisher_diagnostics.getTopic().c_str());
   }
 }
 
