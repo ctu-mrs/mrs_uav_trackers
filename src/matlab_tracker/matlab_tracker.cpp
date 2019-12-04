@@ -30,8 +30,7 @@ namespace matlab_tracker
 
 class MatlabTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
-                          mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::CommonHandlers_t const *common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -53,6 +52,8 @@ public:
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  mrs_uav_manager::CommonHandlers_t const *common_handlers;
+
   bool callbacks_enabled = true;
 
   std::string uav_name_;
@@ -108,10 +109,10 @@ private:
 /* //{ initialize() */
 
 void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                               [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
-                               [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+                               [[maybe_unused]] mrs_uav_manager::CommonHandlers_t const *common_handlers) {
 
-  uav_name_ = uav_name;
+  uav_name_             = uav_name;
+  this->common_handlers = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "matlab_tracker");
 

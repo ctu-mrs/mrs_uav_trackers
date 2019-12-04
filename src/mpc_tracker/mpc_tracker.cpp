@@ -55,8 +55,7 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::SafetyArea_t const *safety_area,
-                          mrs_uav_manager::Transformer_t const *transformer);
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::CommonHandlers_t const *common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -81,7 +80,8 @@ private:
   bool callbacks_enabled = true;
 
 private:
-  ros::NodeHandle nh_;
+  ros::NodeHandle                          nh_;
+  mrs_uav_manager::CommonHandlers_t const *common_handlers;
 
   // nodelet variables
   ros::Subscriber    sub_trajectory_;                   // desired trajectory
@@ -120,10 +120,6 @@ private:
   // variables for yaw tracker
   double max_yaw_rate_old;
   double yaw_gain;
-
-  // safety area
-  mrs_uav_manager::SafetyArea_t const * safety_area;
-  mrs_uav_manager::Transformer_t const *transformer;
 
   // variables regarding the MPC controller
   int       n;             // number of states
@@ -395,12 +391,10 @@ private:
 /* //{ initialize() */
 
 void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] mrs_uav_manager::SafetyArea_t const * safety_area,
-                            [[maybe_unused]] mrs_uav_manager::Transformer_t const *transformer) {
+                            [[maybe_unused]] mrs_uav_manager::CommonHandlers_t const *common_handlers) {
 
-  uav_name_         = uav_name;
-  this->safety_area = safety_area;
-  this->transformer = transformer;
+  uav_name_             = uav_name;
+  this->common_handlers = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
 
@@ -2820,9 +2814,37 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         use_yaw_in_trajectory = false;
       }
 
+      // check thetrajectory using the bumper
+      if (common_handlers->bumper.enabled) {
+
+        for (int i = 0; i < trajectory_size; i++) {
+
+          mrs_msgs::ReferenceStamped des_reference;
+          des_reference.header               = msg.header;
+          des_reference.reference.position.x = des_x_whole_trajectory(i);
+          des_reference.reference.position.y = des_y_whole_trajectory(i);
+          des_reference.reference.position.z = des_z_whole_trajectory(i);
+          des_reference.reference.yaw        = des_yaw_whole_trajectory(i);
+
+          if (!common_handlers->bumper.bumperValidatePoint(des_reference)) {
+
+            ROS_WARN_THROTTLE(1.0, "[MpcTracker]: trajectory violates bumper and can't be fixed, shortening it!");
+            trajectory_size = i;
+            break;
+
+          } else {
+
+            des_x_whole_trajectory(i)   = des_reference.reference.position.x;
+            des_y_whole_trajectory(i)   = des_reference.reference.position.y;
+            des_z_whole_trajectory(i)   = des_reference.reference.position.z;
+            des_yaw_whole_trajectory(i) = des_reference.reference.yaw;
+          }
+        }
+      }
+
       geometry_msgs::TransformStamped tf;
 
-      if (!transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
+      if (!common_handlers->transformer.getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
 
         message = "Coult not create TF transformer for the trajectory.";
         ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
@@ -2839,7 +2861,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         trajectory_point.reference.position.z = des_z_whole_trajectory(i);
         trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
 
-        if (!transformer->transformReference(tf, trajectory_point)) {
+        if (!common_handlers->transformer.transformReference(tf, trajectory_point)) {
 
           message = "Trajectory cannnot be transformed.";
           ROS_WARN("[MpcTracker]: the reference could not be transformed.");
@@ -2881,11 +2903,11 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       }
 
       bool   trajectory_is_ok = true;
-      double min_height       = safety_area->getMinHeight();
-      double max_height       = safety_area->getMaxHeight();
+      double min_height       = common_handlers->safety_area.getMinHeight();
+      double max_height       = common_handlers->safety_area.getMaxHeight();
 
       // check the safety area
-      if (safety_area->use_safety_area) {
+      if (common_handlers->safety_area.use_safety_area) {
 
         int last_valid_idx    = 0;
         int first_invalid_idx = -1;
@@ -2908,7 +2930,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           des_reference.reference.position.x = des_x_whole_trajectory(i);
           des_reference.reference.position.y = des_y_whole_trajectory(i);
 
-          if (!safety_area->isPointInSafetyArea2d(des_reference)) {
+          if (!common_handlers->safety_area.isPointInSafetyArea2d(des_reference)) {
 
             ROS_WARN_THROTTLE(1.0, "[MpcTracker]: The trajectory contains points outside of the safety area!");
             trajectory_is_ok = false;
