@@ -1,4 +1,4 @@
-main_timer_rate_: 100 # [Hz]
+main_timer_rate: 100 # [Hz]
 diagnostics_loop_rate: 10 # [Hz]
 
 landing_reference: -1.0 # [m], relative "z" reference to the UAV frame during landing
