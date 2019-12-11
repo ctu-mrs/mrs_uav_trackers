@@ -12,13 +12,12 @@
 #include <mrs_msgs/UavState.h>
 
 #include <tf/transform_datatypes.h>
-#include <mutex>
 
 #include <commons.h>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
-#include <mrs_lib/Mutex.h>
+#include <mrs_lib/mutex.h>
 
 //}
 
@@ -311,7 +310,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   }
 
   // copy member variables
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(uav_state_, uav_yaw_, mutex_uav_state_);
+  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
 
   {
     std::scoped_lock lock(mutex_goal_, mutex_state_);
@@ -528,7 +527,7 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
   // copy member variables
-  auto uav_state = mrs_lib::get_mutexed(uav_state_, mutex_uav_state_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   double odom_roll, odom_pitch, odom_yaw;
   double msg_roll, msg_pitch, msg_yaw;
@@ -595,10 +594,10 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ms
 const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
 
   // copy member variables
-  auto uav_state = mrs_lib::get_mutexed(uav_state_, mutex_uav_state_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   auto [current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] =
-      mrs_lib::get_mutexed(current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_, mutex_state_);
+      mrs_lib::get_mutexed(mutex_state_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
 
   std_srvs::TriggerResponse res;
 
@@ -840,8 +839,8 @@ void LandoffTracker::stopVerticalMotion(void) {
 void LandoffTracker::accelerateVertical(void) {
 
   // copy member variables
-  auto [current_vertical_speed, state_z] = mrs_lib::get_mutexed(current_vertical_speed_, state_z_, mutex_state_);
-  auto goal_z                            = mrs_lib::get_mutexed(goal_z_, mutex_goal_);
+  auto [current_vertical_speed, state_z] = mrs_lib::get_mutexed(mutex_state_, current_vertical_speed_, state_z_);
+  auto goal_z                            = mrs_lib::get_mutexed(mutex_goal_, goal_z_);
 
   double used_acceleration;
   double used_speed;
@@ -879,7 +878,7 @@ void LandoffTracker::accelerateVertical(void) {
     current_vertical_direction_ = mrs_trackers_commons::sign(tar_z);
   }
 
-  auto current_vertical_direction = mrs_lib::get_mutexed(current_vertical_direction_, mutex_state_);
+  auto current_vertical_direction = mrs_lib::get_mutexed(mutex_state_, current_vertical_direction_);
 
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / used_acceleration;
@@ -945,7 +944,7 @@ void LandoffTracker::decelerateVertical(void) {
     }
   }
 
-  auto current_vertical_speed = mrs_lib::get_mutexed(current_vertical_speed_, mutex_state_);
+  auto current_vertical_speed = mrs_lib::get_mutexed(mutex_state_, current_vertical_speed_);
 
   if (current_vertical_speed == 0) {
 
@@ -1001,12 +1000,12 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
   }
 
   // copy member variables
-  auto uav_state = mrs_lib::get_mutexed(uav_state_, mutex_uav_state_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   auto [state_x, state_y, state_z, current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(
-      state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_, mutex_state_);
+      mutex_state_, state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
 
-  auto [goal_x, goal_y, goal_z] = mrs_lib::get_mutexed(goal_x_, goal_y_, goal_z_, mutex_goal_);
+  auto [goal_x, goal_y, goal_z] = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1237,7 +1236,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   char message[200];
 
   // copy member variables
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(uav_state_, uav_yaw_, mutex_uav_state_);
+  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1329,7 +1328,7 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& r
   char message[200];
 
   // copy member variables
-  auto uav_state = mrs_lib::get_mutexed(uav_state_, mutex_uav_state_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   if (!is_active_) {
 
@@ -1381,7 +1380,7 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request& 
   char message[200];
 
   // copy member variables
-  auto uav_state = mrs_lib::get_mutexed(uav_state_, mutex_uav_state_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   if (!is_active_) {
 
