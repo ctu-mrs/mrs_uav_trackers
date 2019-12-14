@@ -118,8 +118,8 @@ private:
   int _channel_mult_pitch_, _channel_mult_roll_, _channel_mult_yaw_, _channel_mult_thrust_;
 
 private:
-  mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
+  mrs_lib::Profiler profiler;
+  bool              profiler_enabled_ = false;
 };
 
 //}
@@ -173,7 +173,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "joytracker", profiler_enabled_);
+  profiler = mrs_lib::Profiler(nh_, "joytracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         subscribers                        |
@@ -263,7 +263,7 @@ void JoyTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state);
@@ -466,7 +466,7 @@ void JoyTracker::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("main", tracker_loop_rate_, 0.002, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("main", tracker_loop_rate_, 0.002, event);
 
   // --------------------------------------------------------------
   // |                       height tracking                      |
@@ -499,7 +499,7 @@ void JoyTracker::callbackJoystic(const sensor_msgs::Joy &msg) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackJoy");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackJoy");
 
   // TODO check the size of the array
 

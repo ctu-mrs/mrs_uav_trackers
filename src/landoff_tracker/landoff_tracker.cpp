@@ -170,8 +170,8 @@ private:
   mrs_msgs::PositionCommand position_output_;
 
 private:
-  mrs_lib::Profiler* profiler_;
-  bool               _profiler_enabled_ = false;
+  mrs_lib::Profiler profiler_;
+  bool              _profiler_enabled_ = false;
 
 private:
   void           publishDiagnostics(void);
@@ -267,7 +267,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   // |                          profiler_                          |
   // --------------------------------------------------------------
 
-  profiler_ = new mrs_lib::Profiler(nh_, "LandoffTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(nh_, "LandoffTracker", _profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                          services                          |
@@ -424,7 +424,7 @@ void LandoffTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&                         msg,
                                                                  [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler_->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -1012,7 +1012,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
   uav_y = uav_state.pose.position.y;
   uav_z = uav_state.pose.position.z;
 
-  mrs_lib::Routine profiler_routine = profiler_->createRoutine("main", _main_timer_rate_, 0.002, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("main", _main_timer_rate_, 0.002, event);
 
   bool takeoff_saturated = false;
 
@@ -1220,7 +1220,7 @@ void LandoffTracker::diagnosticsTimer(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_->createRoutine("diagnostics", _diagnostics_rate_, 0.002, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagnostics", _diagnostics_rate_, 0.002, event);
 
   publishDiagnostics();
 }

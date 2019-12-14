@@ -150,8 +150,8 @@ private:
   double yaw_ = 0;
 
 private:
-  mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
+  mrs_lib::Profiler profiler;
+  bool              profiler_enabled_ = false;
 };
 
 //}
@@ -261,7 +261,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "CsvTracker", profiler_enabled_);
+  profiler = mrs_lib::Profiler(nh_, "CsvTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -343,7 +343,7 @@ void CsvTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state);
@@ -656,7 +656,7 @@ bool CsvTracker::setScales(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64
 
 void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mainTimer", 100, 0.005, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("mainTimer", 100, 0.005, event);
 
   if (!got_odom) {
 
@@ -762,7 +762,7 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
 void CsvTracker::setTrajTimer(const ros::TimerEvent &event) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("setTrajTimer", 100, 0.005, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("setTrajTimer", 100, 0.005, event);
 
   ros::Duration(5.0).sleep();
 

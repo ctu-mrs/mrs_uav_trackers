@@ -107,10 +107,10 @@ private:
   ros::Publisher publisher_rviz_marker;
 
 private:
-  mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
-  bool               position_mode_    = false;
-  bool               tilt_mode_        = false;
+  mrs_lib::Profiler profiler;
+  bool              profiler_enabled_ = false;
+  bool              position_mode_    = false;
+  bool              tilt_mode_        = false;
 };
 
 //}
@@ -148,7 +148,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "SpeedTracker", profiler_enabled_);
+  profiler = mrs_lib::Profiler(nh_, "SpeedTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         subscribers                        |
@@ -221,7 +221,7 @@ void SpeedTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                                [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state);
@@ -455,7 +455,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
   std::scoped_lock lock(mutex_command);
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackCommand");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackCommand");
 
   mrs_msgs::SpeedTrackerCommand temp_command = msg;
 

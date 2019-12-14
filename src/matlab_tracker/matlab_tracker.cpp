@@ -96,10 +96,10 @@ private:
   void            callbackMatlab(const nav_msgs::Odometry &msg);
 
 private:
-  mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
-  bool               position_mode_    = false;
-  bool               tilt_mode_        = false;
+  mrs_lib::Profiler profiler;
+  bool              profiler_enabled_ = false;
+  bool              position_mode_    = false;
+  bool              tilt_mode_        = false;
 };
 
 //}
@@ -132,7 +132,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "matlabtracker", profiler_enabled_);
+  profiler = mrs_lib::Profiler(nh_, "matlabtracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                         subscribers                        |
@@ -199,7 +199,7 @@ void MatlabTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                                 [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state);
@@ -414,7 +414,7 @@ void MatlabTracker::callbackMatlab(const nav_msgs::Odometry &msg) {
 
   std::scoped_lock lock(mutex_goal);
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackMatlab");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackMatlab");
 
   matlab_goal = msg;
 

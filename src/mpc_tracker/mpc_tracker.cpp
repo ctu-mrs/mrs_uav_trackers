@@ -361,8 +361,8 @@ private:
   void desired_yaw_cmd_cb(const mrs_msgs::TrackerPoint::ConstPtr &msg);
 
 private:
-  mrs_lib::Profiler *profiler;
-  bool               profiler_enabled_ = false;
+  mrs_lib::Profiler profiler;
+  bool              profiler_enabled_ = false;
 
 private:
   bool               headless_mode      = false;
@@ -690,7 +690,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler = new mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
+  profiler = mrs_lib::Profiler(nh_, "MpcTracker", profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -834,7 +834,7 @@ void MpcTracker::deactivate(void) {
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
   // copy the odometry from the message
   {
@@ -1435,7 +1435,7 @@ const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYawRelative(const mr
 
 void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg) {
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("callbackOtherMavTrajectory");
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackOtherMavTrajectory");
 
   std::scoped_lock lock(mutex_other_drone_trajecotries);
 
@@ -3158,7 +3158,7 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("diagnosticsTimer", diagnostics_rate, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("diagnosticsTimer", diagnostics_rate, 0.01, event);
 
   publishDiagnostics();
 }
@@ -3186,7 +3186,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("mpcIteration", int(1.0 / dt), 0.004, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("mpcIteration", int(1.0 / dt), 0.004, event);
 
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
@@ -3326,7 +3326,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("futureTrajectoryTimer", predicted_trajectory_publish_rate, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("futureTrajectoryTimer", predicted_trajectory_publish_rate, 0.01, event);
 
   if (future_was_predicted) {
 
@@ -3400,7 +3400,7 @@ void MpcTracker::hoverTimer(const ros::TimerEvent &event) {
 
   std::scoped_lock lock(mutex_x);
 
-  mrs_lib::Routine profiler_routine = profiler->createRoutine("hoverTimer", 10, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("hoverTimer", 10, 0.01, event);
 
   setRelativeGoal(0, 0, 0, 0, false);
 
