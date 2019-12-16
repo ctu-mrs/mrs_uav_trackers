@@ -472,7 +472,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.velocity.y;
     vector3.vector.z = temp_command.velocity.z;
 
-    common_handlers->transformer.transformVector3Single("", vector3);
+    common_handlers->transformer->transformVector3Single("", vector3);
 
     temp_command.velocity.x = vector3.vector.x;
     temp_command.velocity.y = vector3.vector.y;
@@ -488,7 +488,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     temp_ref.reference.yaw = temp_command.yaw;
 
-    common_handlers->transformer.transformReferenceSingle("", temp_ref);
+    common_handlers->transformer->transformReferenceSingle("", temp_ref);
 
     temp_command.yaw = temp_ref.reference.yaw;
   }
@@ -504,7 +504,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.acceleration.y;
     vector3.vector.z = temp_command.acceleration.z;
 
-    common_handlers->transformer.transformVector3Single("", vector3);
+    common_handlers->transformer->transformVector3Single("", vector3);
 
     temp_command.acceleration.x = vector3.vector.x;
     temp_command.acceleration.y = vector3.vector.y;
@@ -523,7 +523,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.force.y;
     vector3.vector.z = temp_command.force.z;
 
-    common_handlers->transformer.transformVector3Single("", vector3);
+    common_handlers->transformer->transformVector3Single("", vector3);
 
     temp_command.force.x = vector3.vector.x;
     temp_command.force.y = vector3.vector.y;

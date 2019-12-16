@@ -2844,7 +2844,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
       geometry_msgs::TransformStamped tf;
 
-      if (!common_handlers->transformer.getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
+      if (!common_handlers->transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
 
         message = "Coult not create TF transformer for the trajectory.";
         ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
@@ -2861,7 +2861,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         trajectory_point.reference.position.z = des_z_whole_trajectory(i);
         trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
 
-        if (!common_handlers->transformer.transformReference(tf, trajectory_point)) {
+        if (!common_handlers->transformer->transformReference(tf, trajectory_point)) {
 
           message = "Trajectory cannnot be transformed.";
           ROS_WARN("[MpcTracker]: the reference could not be transformed.");
