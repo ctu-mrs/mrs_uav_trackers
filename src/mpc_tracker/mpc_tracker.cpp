@@ -55,7 +55,7 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::CommonHandlers_t const *common_handlers);
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -80,8 +80,8 @@ private:
   bool callbacks_enabled = true;
 
 private:
-  ros::NodeHandle                          nh_;
-  mrs_uav_manager::CommonHandlers_t const *common_handlers;
+  ros::NodeHandle                                    nh_;
+  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers;
 
   // nodelet variables
   ros::Subscriber    sub_trajectory_;                   // desired trajectory
@@ -391,7 +391,7 @@ private:
 /* //{ initialize() */
 
 void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] mrs_uav_manager::CommonHandlers_t const *common_handlers) {
+                            [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
 
   uav_name_             = uav_name;
   this->common_handlers = common_handlers;
@@ -2842,7 +2842,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         }
       }
 
-      geometry_msgs::TransformStamped tf;
+      mrs_lib::TransformStamped tf;
 
       if (!common_handlers->transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
 

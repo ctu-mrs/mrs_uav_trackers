@@ -48,7 +48,7 @@ const char *state_names[6] = {
 
 class LineTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, mrs_uav_manager::CommonHandlers_t const *common_handlers);
+  virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
 
@@ -70,7 +70,7 @@ public:
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
-  mrs_uav_manager::CommonHandlers_t const *common_handlers;
+  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers;
 
   bool callbacks_enabled = true;
 
@@ -157,7 +157,7 @@ private:
 /* //{ initialize() */
 
 void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                             [[maybe_unused]] mrs_uav_manager::CommonHandlers_t const *common_handlers) {
+                             [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
 
   uav_name_             = uav_name;
   this->common_handlers = common_handlers;
