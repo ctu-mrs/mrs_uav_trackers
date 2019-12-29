@@ -3043,7 +3043,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           }
         }
 
-        ROS_INFO_THROTTLE(1, "[MpcTracker]: Setting trajectory with length %d", trajectory_size);
+        ROS_INFO_THROTTLE(1, "[MpcTracker]: received trajectory with length %d", trajectory_size);
 
         geometry_msgs::PoseArray debug_trajectory_out;
         debug_trajectory_out.header.stamp    = ros::Time::now();
