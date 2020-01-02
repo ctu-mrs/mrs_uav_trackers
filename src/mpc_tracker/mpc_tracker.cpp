@@ -761,12 +761,12 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
     x(0, 0) = uav_state.pose.position.x;
     x(1, 0) = uav_state.velocity.linear.x;
-    x(2, 0) = uav_state.acceleration.linear.x;
+    x(2, 0) = 0;
     x(3, 0) = 0;
 
     x(4, 0) = uav_state.pose.position.y;
     x(5, 0) = uav_state.velocity.linear.y;
-    x(6, 0) = uav_state.acceleration.linear.y;
+    x(6, 0) = 0;
     x(7, 0) = 0;
 
     x(8, 0)  = uav_state.pose.position.z;
@@ -1160,7 +1160,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_uav_state);
 
-    for (int i = 0; i < trajectory_size; i++) {
+    for (int i = 0; i < trajectory_size+horizon_len_; i++) {
 
       Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - uav_state.pose.position.x, des_y_whole_trajectory(i) - uav_state.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
