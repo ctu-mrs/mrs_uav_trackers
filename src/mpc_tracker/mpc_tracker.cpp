@@ -39,6 +39,9 @@
 
 #include <commons.h>
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+
 //}
 
 #define STRING_EQUAL 0
@@ -101,6 +104,8 @@ private:
   ros::Publisher pub_setpoint_odom;
   ros::Publisher pub_diagnostics_;
   ros::Publisher pub_debug_trajectory;
+
+  ros::Publisher pub_trajectory_marker_;
 
   mrs_msgs::UavState uav_state;
   std::mutex         mutex_uav_state;
@@ -631,6 +636,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   predicted_trajectory_esp_publisher   = nh_.advertise<mrs_msgs::FutureTrajectoryInt8>("predicted_trajectory_esp", 1);
   debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
   pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1);
+  pub_trajectory_marker_               = nh_.advertise<visualization_msgs::MarkerArray>("debug_trajectory_marker_out", 1);
 
   // preallocate future trajectory
   predicted_future_trajectory     = MatrixXd::Zero(horizon_len_ * n, 1);
@@ -1160,7 +1166,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
   {
     std::scoped_lock lock(mutex_x, mutex_des_trajectory, mutex_des_whole_trajectory, mutex_uav_state);
 
-    for (int i = 0; i < trajectory_size+horizon_len_; i++) {
+    for (int i = 0; i < trajectory_size + horizon_len_; i++) {
 
       Eigen::Vector2d temp_vec(des_x_whole_trajectory(i) - uav_state.pose.position.x, des_y_whole_trajectory(i) - uav_state.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
@@ -2814,7 +2820,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         use_yaw_in_trajectory = false;
       }
 
-      // check thetrajectory using the bumper
+      // check the trajectory using the bumper
       if (common_handlers->bumper.enabled) {
 
         for (int i = 0; i < trajectory_size; i++) {
@@ -2911,7 +2917,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
         int last_valid_idx    = 0;
         int first_invalid_idx = -1;
-        for (int i = 0; i < trajectory_size; i++) {
+        for (int i = 0; i < trajectory_size + horizon_len_; i++) {
 
           // saturate the trajectory to min and max height
           if (des_z_whole_trajectory(i) < min_height) {
@@ -2992,17 +2998,14 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // super special case, the whole trajectory is invalid
           if (first_invalid_idx == 0) {
 
-            // stay where we are
-            for (int i = 0; i < trajectory_size; i++) {
-
-              des_x_whole_trajectory(i) = x(0, 0);
-              des_y_whole_trajectory(i) = x(4, 0);
-            }
+            message = "The trajectory is outside of the safety area!";
+            ROS_WARN("[MpcTracker]: %s", message.c_str());
+            return false;
 
           } else {
 
             // delete the end of the trajectory beginning with the last invalid point
-            for (int i = last_valid_idx + 1; i < trajectory_size; i++) {
+            for (int i = last_valid_idx + 1; i < trajectory_size + horizon_len_; i++) {
 
               des_x_whole_trajectory(i) = des_x_whole_trajectory(last_valid_idx);
               des_y_whole_trajectory(i) = des_y_whole_trajectory(last_valid_idx);
@@ -3072,6 +3075,49 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         }
         catch (...) {
           ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", pub_debug_trajectory.getTopic().c_str());
+        }
+
+        {
+          visualization_msgs::MarkerArray msg_out;
+
+          visualization_msgs::Marker marker;
+
+          marker.header.stamp    = ros::Time::now();
+          marker.header.frame_id = uav_state.header.frame_id;
+          marker.type            = visualization_msgs::Marker::LINE_LIST;
+          marker.color.a         = 1;
+          marker.scale.x         = 0.05;
+          marker.color.r         = 1;
+          marker.color.g         = 0;
+          marker.color.b         = 0;
+
+          for (int i = 0; i < trajectory_size - 1; i++) {
+
+            geometry_msgs::Point point1;
+
+            point1.x = des_x_whole_trajectory(i);
+            point1.y = des_y_whole_trajectory(i);
+            point1.z = des_z_whole_trajectory(i);
+
+            marker.points.push_back(point1);
+
+            geometry_msgs::Point point2;
+
+            point2.x = des_x_whole_trajectory(i + 1);
+            point2.y = des_y_whole_trajectory(i + 1);
+            point2.z = des_z_whole_trajectory(i + 1);
+
+            marker.points.push_back(point2);
+          }
+
+          msg_out.markers.push_back(marker);
+
+          try {
+            pub_trajectory_marker_.publish(msg_out);
+          }
+          catch (...) {
+            ROS_ERROR("Exception caught during publishing topic %s.", pub_trajectory_marker_.getTopic().c_str());
+          }
         }
 
         publishDiagnostics();
