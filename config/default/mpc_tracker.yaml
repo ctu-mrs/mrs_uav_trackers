@@ -1,8 +1,9 @@
-diagnostics_rate: 1                 # publish diagnostics at n Hz
-diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
-publish_debug_trajectory: true      # publish the mpc predicted trajectory at [Hz]
+diagnostics_rate: 1                             # publish diagnostics at n Hz
+diagnostic_position_tracking_threshold: 1       # [m] distance considered as "in place"
+diagnostic_orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
+publish_debug_trajectory: true                  # publish the mpc predicted trajectory at [Hz]
 
-headless_mode: false                # Headless mode will ensure that the UAV is always "looking" in the direction of flight
+headless_mode: false                            # Headless mode will ensure that the UAV is always "looking" in the direction of flight
 
 wiggle:
   enabled: false

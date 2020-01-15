@@ -187,7 +187,8 @@ private:
   MatrixXd initial_z   = MatrixXd::Zero(4, 1);  // initial z state to be used by cvxgen
   MatrixXd initial_yaw = MatrixXd::Zero(4, 1);  // initial yaw state to be used by cvxgen
 
-  double diagnostic_tracking_threshold;
+  double diagnostic_position_tracking_threshold;
+  double diagnostic_orientation_tracking_threshold;
 
   mrs_trackers::cvx_wrapper::CvxWrapper *cvx_x;
   mrs_trackers::cvx_wrapper::CvxWrapper *cvx_y;
@@ -469,7 +470,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   nh_.param("publish_debug_trajectory", publish_debug_trajectory, false);
 
   nh_.param("diagnostics_rate", diagnostics_rate, 1.0);
-  nh_.param("diagnostic_tracking_threshold", diagnostic_tracking_threshold, 1.0);
+  nh_.param("diagnostic_position_tracking_threshold", diagnostic_position_tracking_threshold, 1.0);
+  nh_.param("diagnostic_orientation_tracking_threshold", diagnostic_orientation_tracking_threshold, 0.5);
 
   ROS_INFO(
       "MPC parameters: horizon_len_: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
@@ -2641,7 +2643,7 @@ void MpcTracker::publishDiagnostics(void) {
     diagnostics.tracking_trajectory = true;
   } else {
     if (sqrt(pow(x(0, 0) - des_x_trajectory(0), 2) + pow(x(4, 0) - des_y_trajectory(0), 2) + pow(x(8, 0) - des_z_trajectory(0), 2)) >
-        diagnostic_tracking_threshold) {
+        diagnostic_position_tracking_threshold || fabs(des_yaw_trajectory(0) - x_yaw(0)) > diagnostic_orientation_tracking_threshold) {
       diagnostics.tracking_trajectory = true;
     }
   }
