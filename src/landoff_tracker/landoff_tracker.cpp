@@ -899,9 +899,11 @@ void LandoffTracker::accelerateVertical(void) {
   }
 
   // stopping condition to change to decelerate state
-  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * _tracker_dt_))) {
-    current_vertical_acceleration_ = 0;
-    changeStateVertical(DECELERATING_STATE);
+  if (!elanding_ && !landing_) {
+    if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * _tracker_dt_))) {
+      current_vertical_acceleration_ = 0;
+      changeStateVertical(DECELERATING_STATE);
+    }
   }
 }
 
