@@ -75,9 +75,9 @@ public:
 private:
   bool callbacks_enabled_ = true;
 
-  ros::NodeHandle                          nh_;
-  std::string                              _uav_name_;
-  mrs_uav_manager::CommonHandlers_t const* common_handlers_;
+  ros::NodeHandle                                    nh_;
+  std::string                                        _uav_name_;
+  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
@@ -189,7 +189,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
                                 [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers_;
+  this->common_handlers_ = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "landoff_tracker");
 
