@@ -2658,7 +2658,8 @@ void MpcTracker::publishDiagnostics(void) {
     diagnostics.tracking_trajectory = true;
   } else {
     if (sqrt(pow(x(0, 0) - des_x_trajectory(0), 2) + pow(x(4, 0) - des_y_trajectory(0), 2) + pow(x(8, 0) - des_z_trajectory(0), 2)) >
-        diagnostic_position_tracking_threshold || fabs(des_yaw_trajectory(0) - x_yaw(0)) > diagnostic_orientation_tracking_threshold) {
+            diagnostic_position_tracking_threshold ||
+        fabs(des_yaw_trajectory(0) - x_yaw(0)) > diagnostic_orientation_tracking_threshold) {
       diagnostics.tracking_trajectory = true;
     }
   }
@@ -3259,59 +3260,73 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     std::scoped_lock lock(mutex_des_trajectory);
 
     // if we are tracking trajectory, copy the setpoint
-    if (tracking_trajectory && trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
+    if (tracking_trajectory) {
 
-      trajectory_tracking_timer = 0;
-      /* if (time_agnostic_mode) { */
-      /*   if (fabs(des_x_trajectory(0, 0) - x(0, 0)) > 0.3 || fabs(des_y_trajectory(0, 0) - x(4, 0)) > 0.3) { */
-      /*     ROS_ERROR_STREAM_THROTTLE(0.5, "xdes " << des_x_trajectory(0, 0) << " x sta " << x(0, 0)); */
-      /*     ROS_ERROR_STREAM_THROTTLE(0.5, "ydes " << des_y_trajectory(0, 0) << " y sta " << x(4, 0)); */
-      /*     trajectory_idx--; */
-      /*     if (trajectory_idx < 0) { */
-      /*       trajectory_idx = 0; */
-      /*     } */
-      /*   } */
-      /* } */
+      if (trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
-      // fill the prediction horizon with the desired trajectory
-      for (int i = 0; i < horizon_len_; i++) {
+        trajectory_tracking_timer = 0;
+        /* if (time_agnostic_mode) { */
+        /*   if (fabs(des_x_trajectory(0, 0) - x(0, 0)) > 0.3 || fabs(des_y_trajectory(0, 0) - x(4, 0)) > 0.3) { */
+        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "xdes " << des_x_trajectory(0, 0) << " x sta " << x(0, 0)); */
+        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "ydes " << des_y_trajectory(0, 0) << " y sta " << x(4, 0)); */
+        /*     trajectory_idx--; */
+        /*     if (trajectory_idx < 0) { */
+        /*       trajectory_idx = 0; */
+        /*     } */
+        /*   } */
+        /* } */
 
-        int tempIdx = i + trajectory_idx;
-        if (loop) {
+        // fill the prediction horizon with the desired trajectory
+        for (int i = 0; i < horizon_len_; i++) {
 
-          if (tempIdx >= trajectory_size) {
+          int tempIdx = i + trajectory_idx;
+          if (loop) {
 
-            tempIdx = tempIdx % trajectory_size;
+            if (tempIdx >= trajectory_size) {
+
+              tempIdx = tempIdx % trajectory_size;
+            }
+          }
+
+          {
+            std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
+
+            des_x_trajectory(i, 0)   = des_x_whole_trajectory(tempIdx);
+            des_y_trajectory(i, 0)   = des_y_whole_trajectory(tempIdx);
+            des_z_trajectory(i, 0)   = des_z_whole_trajectory(tempIdx);
+            des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx);
           }
         }
 
-        {
-          std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
+        if (use_yaw_in_trajectory)
+          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
 
-          des_x_trajectory(i, 0)   = des_x_whole_trajectory(tempIdx);
-          des_y_trajectory(i, 0)   = des_y_whole_trajectory(tempIdx);
-          des_z_trajectory(i, 0)   = des_z_whole_trajectory(tempIdx);
-          des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx);
+        if (loop) {  // if we are looping, the loop it
+
+          if (++trajectory_idx == trajectory_size) {
+            trajectory_idx = 0;
+          }
+
+        } else {
+          // if we are at the end, select the last point as a constant setpoint
+          if (++trajectory_idx == (trajectory_size)) {
+
+            tracking_trajectory = false;
+            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+            publishDiagnostics();
+          }
         }
-      }
+      } else if (trajectory_idx < trajectory_size && trajectory_idx > 0) {
 
-      if (use_yaw_in_trajectory)
-        desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+        double interpolation_coeff = trajectory_tracking_timer / 20.0;
 
-      if (loop) {  // if we are looping, the loop it
-
-        if (++trajectory_idx == trajectory_size) {
-          trajectory_idx = 0;
-        }
-
-      } else {
-        // if we are at the end, select the last point as a constant setpoint
-        if (++trajectory_idx == (trajectory_size)) {
-
-          tracking_trajectory = false;
-          ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-          publishDiagnostics();
-        }
+        // interpolate between the first two points
+        des_x_trajectory(0, 0) =
+            (1 - interpolation_coeff) * des_x_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_x_whole_trajectory(trajectory_idx);
+        des_y_trajectory(0, 0) =
+            (1 - interpolation_coeff) * des_y_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_y_whole_trajectory(trajectory_idx);
+        des_z_trajectory(0, 0) =
+            (1 - interpolation_coeff) * des_z_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_z_whole_trajectory(trajectory_idx);
       }
     }
   }
