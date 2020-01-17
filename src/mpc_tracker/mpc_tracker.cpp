@@ -645,7 +645,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   predicted_future_yaw_trajectory = MatrixXd::Zero(horizon_len_ * n, 1);
 
   collision_free_altitude = std::numeric_limits<double>::min();
-  ;
   avoiding_collision_time = ros::Time::now();
   being_avoided_time      = ros::Time::now();
   future_was_predicted    = false;
@@ -1465,8 +1464,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
   if (!collision_avoidance_enabled_) {
 
     collision_free_altitude = std::numeric_limits<double>::min();
-    ;
-    ;
   }
 
   ROS_INFO("[MpcTracker]: Collision avoidance was switched %s", collision_avoidance_enabled_ ? "TRUE" : "FALSE");
