@@ -644,7 +644,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   predicted_future_trajectory     = MatrixXd::Zero(horizon_len_ * n, 1);
   predicted_future_yaw_trajectory = MatrixXd::Zero(horizon_len_ * n, 1);
 
-  collision_free_altitude = 0;
+  collision_free_altitude = std::numeric_limits<double>::min();
+  ;
   avoiding_collision_time = ros::Time::now();
   being_avoided_time      = ros::Time::now();
   future_was_predicted    = false;
@@ -1463,7 +1464,9 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
   if (!collision_avoidance_enabled_) {
 
-    collision_free_altitude = 0;
+    collision_free_altitude = std::numeric_limits<double>::min();
+    ;
+    ;
   }
 
   ROS_INFO("[MpcTracker]: Collision avoidance was switched %s", collision_avoidance_enabled_ ? "TRUE" : "FALSE");
@@ -2124,9 +2127,11 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude -= 0.02;
 
-    if (collision_free_altitude < 0) {
-      collision_free_altitude = 0;
-    }
+    // we should be able to fly bellow 0 now
+    /* if (collision_free_altitude < 0) { */
+
+    /*   collision_free_altitude = 0; */
+    /* } */
   }
 
   if (collision_free_altitude < lowest_z && my_uav_priority != my_uav_number && (ros::Time::now() - priority_time).toSec() > 5.0) {
@@ -2392,6 +2397,7 @@ void MpcTracker::calculateMPC() {
   }
 
   if (collision_free_altitude > lowest_z) {
+
     // we are avoiding someone, increase Z dynamics limit for faster evasion
     max_speed_z = 2.0;
     max_acc_z   = 2.0;
