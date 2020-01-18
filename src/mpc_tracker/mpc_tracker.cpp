@@ -3292,20 +3292,25 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       int first_idx  = trajectory_idx;
       int second_idx = trajectory_idx + 1;
 
-      if (first_idx >= trajectory_size) {
-        first_idx -= trajectory_size;
+      if (loop) {
+        if (first_idx >= trajectory_size) {
+          first_idx -= trajectory_size;
+        }
+
+        if (second_idx >= trajectory_size) {
+          second_idx -= trajectory_size;
+        }
       }
 
-      if (second_idx >= trajectory_size) {
-        second_idx -= trajectory_size;
-      }
+      if (second_idx < trajectory_size) {
 
-      des_x_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-      des_y_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-      des_z_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+        des_x_trajectory(0, 0) =
+            (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+        des_y_trajectory(0, 0) =
+            (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+        des_z_trajectory(0, 0) =
+            (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+      }
 
       for (int i = 1; i < horizon_len_; i++) {
 
