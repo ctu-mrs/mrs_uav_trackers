@@ -46,6 +46,8 @@
 
 #define STRING_EQUAL 0
 
+using quat_t = Eigen::Quaterniond;
+
 using namespace Eigen;
 
 namespace mrs_trackers
@@ -384,6 +386,7 @@ private:
 
 private:
   Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
+  double          interpolateAngles(const double a1, const double a2, const double coeff);
 
 private:
   bool       wiggle_enabled_ = false;
@@ -3293,6 +3296,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
       int second_idx = trajectory_idx + 1;
 
       if (loop) {
+
         if (first_idx >= trajectory_size) {
           first_idx -= trajectory_size;
         }
@@ -3302,15 +3306,14 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
         }
       }
 
-      if (second_idx < trajectory_size) {
+      des_x_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+      des_y_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+      des_z_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
 
-        des_x_trajectory(0, 0) =
-            (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-        des_y_trajectory(0, 0) =
-            (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-        des_z_trajectory(0, 0) =
-            (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
-      }
+      des_yaw_trajectory(0, 0) = interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
 
       for (int i = 1; i < horizon_len_; i++) {
 
@@ -3334,24 +3337,20 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
           des_z_trajectory(i, 0) =
               (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
 
+          des_yaw_trajectory(i, 0) =
+              interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
+
         } else {
 
-          if (second_idx < trajectory_size) {
+          des_x_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+          des_y_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+          des_z_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
 
-            if (second_idx < trajectory_size) {
-              des_x_trajectory(i, 0) =
-                  (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-              des_y_trajectory(i, 0) =
-                  (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-              des_z_trajectory(i, 0) =
-                  (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
-            }
-
-          } else {
-            des_x_trajectory(i, 0) = des_x_trajectory(i - 1, 0);
-            des_y_trajectory(i, 0) = des_y_trajectory(i - 1, 0);
-            des_z_trajectory(i, 0) = des_z_trajectory(i - 1, 0);
-          }
+          des_yaw_trajectory(i, 0) =
+              interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
         }
       }
     }
@@ -3372,11 +3371,11 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
           }
         }
 
-        {
-          std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
+        /* { */
+        /*   std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state); */
 
-          des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx);
-        }
+        /*   des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx); */
+        /* } */
       }
 
       if (use_yaw_in_trajectory) {
@@ -3641,6 +3640,25 @@ void MpcTracker::toggleHover(bool in) {
 
     hover_timer.start();
   }
+}
+
+//}
+
+/* interpolateAngles() //{ */
+
+double MpcTracker::interpolateAngles(const double a1, const double a2, const double coeff) {
+
+  // interpolate the yaw
+  Eigen::Vector3d axis = Eigen::Vector3d(0, 0, 1);
+
+  Eigen::Quaterniond quat1 = Eigen::Quaterniond(Eigen::AngleAxis<double>(a1, axis));
+  Eigen::Quaterniond quat2 = Eigen::Quaterniond(Eigen::AngleAxis<double>(a2, axis));
+
+  quat_t new_quat = quat1.slerp(coeff, quat2);
+
+  Eigen::Vector3d vecx = new_quat * Eigen::Vector3d(1, 0, 0);
+
+  return atan2(vecx[1], vecx[0]);
 }
 
 //}
