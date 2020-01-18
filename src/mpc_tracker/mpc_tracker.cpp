@@ -3337,12 +3337,20 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
         } else {
 
           if (second_idx < trajectory_size) {
-            des_x_trajectory(i, 0) =
-                (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-            des_y_trajectory(i, 0) =
-                (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-            des_z_trajectory(i, 0) =
-                (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+
+            if (second_idx < trajectory_size) {
+              des_x_trajectory(i, 0) =
+                  (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+              des_y_trajectory(i, 0) =
+                  (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+              des_z_trajectory(i, 0) =
+                  (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+            }
+
+          } else {
+            des_x_trajectory(i, 0) = des_x_trajectory(i - 1, 0);
+            des_y_trajectory(i, 0) = des_y_trajectory(i - 1, 0);
+            des_z_trajectory(i, 0) = des_z_trajectory(i - 1, 0);
           }
         }
       }
@@ -3362,6 +3370,12 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
             tempIdx = tempIdx % trajectory_size;
           }
+        }
+
+        {
+          std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
+
+          des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx);
         }
       }
 
