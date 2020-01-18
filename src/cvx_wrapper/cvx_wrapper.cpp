@@ -40,11 +40,11 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
     dim = 0;
   }
 
-  if ((verbose != 1 && verbose != 0) || !std::isfinite(verbose)) {
-    ROS_ERROR("CvxWrapper - verbose has to be 0 or 1!!! Safe value of 0 set instead");
-    verbose = 0;
+  if (verbose) {
+    settings.verbose = 1;
+  } else {
+    settings.verbose = 0;
   }
-  settings.verbose = verbose;
 
   if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
     ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 20 set instead");
@@ -126,7 +126,7 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   if (no_overshoots) {
     myQ[1] = vel_q_persistent;
   } else {
-    myQ[1] = 1;
+    myQ[1] = 0;
   }
 }
 

@@ -98,6 +98,7 @@ private:
   ros::ServiceServer set_set_mpc_matrix;  // set matrices in cvxgen
   ros::ServiceServer service_client_wiggle;
   ros::ServiceServer collision_avoidance_service;
+  ros::ServiceServer service_client_no_overshoots;
 
   // debugging publishers
   ros::Publisher pub_cmd_acceleration_;
@@ -264,6 +265,7 @@ private:
   ros::Publisher predicted_trajectory_publisher;
   ros::Publisher predicted_trajectory_esp_publisher;
   ros::Publisher debug_predicted_trajectory_publisher;
+  ros::Publisher debug_mpc_reference_publisher;
   bool           collision_avoidance_enabled_ = false;
   bool           use_priority_swap            = false;
   bool           no_overshoots                = false;
@@ -289,6 +291,8 @@ private:
   int            earliest_collision_idx;
   double         collision_trajectory_timeout;
   bool           avoiding_collision = false;
+
+  bool callbackNoOvershoots(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -637,6 +641,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   predicted_trajectory_publisher       = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   predicted_trajectory_esp_publisher   = nh_.advertise<mrs_msgs::FutureTrajectoryInt8>("predicted_trajectory_esp", 1);
   debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
+  debug_mpc_reference_publisher        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1);
   pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1);
   pub_trajectory_marker_               = nh_.advertise<visualization_msgs::MarkerArray>("debug_trajectory_marker_out", 1);
 
@@ -664,7 +669,8 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout);
 
   // collision avoidance toggle service
-  collision_avoidance_service = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
+  collision_avoidance_service  = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
+  service_client_no_overshoots = nh_.advertiseService("no_overshoots", &MpcTracker::callbackNoOvershoots, this);
 
   // create subscribers on other drones diagnostics
   for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
@@ -1469,6 +1475,22 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
   ROS_INFO("[MpcTracker]: Collision avoidance was switched %s", collision_avoidance_enabled_ ? "TRUE" : "FALSE");
 
   res.message = "Collision avoidance set.";
+  res.success = true;
+
+  return true;
+}
+
+//}
+
+/* //{ callbackNoOvershoots() */
+
+bool MpcTracker::callbackNoOvershoots(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
+
+  no_overshoots = req.data;
+
+  ROS_INFO("[MpcTracker]: no overshoots switched %s", collision_avoidance_enabled_ ? "ON" : "OFF");
+
+  res.message = "No overshoots updated";
   res.success = true;
 
   return true;
@@ -2441,7 +2463,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_z->setInitialState(initial_z);
   cvx_z->loadReference(des_z_filtered_offset);
-  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z, no_overshoots);
+  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z, no_overshoots && !tracking_trajectory);
   iters_Z += cvx_z->solveCvx();
 
   {
@@ -2527,7 +2549,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_x->setInitialState(initial_x);
   cvx_x->loadReference(des_x_filtered);
-  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x, no_overshoots);
+  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x, no_overshoots && !tracking_trajectory);
   iters_X += cvx_x->solveCvx();
 
   {
@@ -2556,7 +2578,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_y->setInitialState(initial_y);
   cvx_y->loadReference(des_y_filtered);
-  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y, no_overshoots);
+  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y, no_overshoots && !tracking_trajectory);
   iters_Y += cvx_y->solveCvx();
   {
     std::scoped_lock lock(mutex_predicted_trajectory);
@@ -2573,7 +2595,7 @@ void MpcTracker::calculateMPC() {
     std::scoped_lock lock(mutex_constraints);
 
     cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap,
-                       no_overshoots);
+                       no_overshoots && !tracking_trajectory);
   }
   iters_YAW += cvx_yaw->solveCvx();
   {
@@ -3259,77 +3281,106 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   ros::Time     end;
   ros::Duration interval;
 
-  {
-    std::scoped_lock lock(mutex_des_trajectory);
+  // if we are tracking trajectory, copy the setpoint
+  if (tracking_trajectory) {
 
-    // if we are tracking trajectory, copy the setpoint
-    if (tracking_trajectory) {
+    {
+      std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
 
-      if (trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
+      double interpolation_coeff_plus_ten = (trajectory_tracking_timer / 20.0) + (1 / 20);
 
-        trajectory_tracking_timer = 0;
-        /* if (time_agnostic_mode) { */
-        /*   if (fabs(des_x_trajectory(0, 0) - x(0, 0)) > 0.3 || fabs(des_y_trajectory(0, 0) - x(4, 0)) > 0.3) { */
-        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "xdes " << des_x_trajectory(0, 0) << " x sta " << x(0, 0)); */
-        /*     ROS_ERROR_STREAM_THROTTLE(0.5, "ydes " << des_y_trajectory(0, 0) << " y sta " << x(4, 0)); */
-        /*     trajectory_idx--; */
-        /*     if (trajectory_idx < 0) { */
-        /*       trajectory_idx = 0; */
-        /*     } */
-        /*   } */
-        /* } */
+      int first_idx  = trajectory_idx;
+      int second_idx = trajectory_idx + 1;
 
-        // fill the prediction horizon with the desired trajectory
-        for (int i = 0; i < horizon_len_; i++) {
+      if (first_idx >= trajectory_size) {
+        first_idx -= trajectory_size;
+      }
 
-          int tempIdx = i + trajectory_idx;
-          if (loop) {
+      if (second_idx >= trajectory_size) {
+        second_idx -= trajectory_size;
+      }
 
-            if (tempIdx >= trajectory_size) {
+      des_x_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+      des_y_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+      des_z_trajectory(0, 0) =
+          (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
 
-              tempIdx = tempIdx % trajectory_size;
-            }
+      for (int i = 1; i < horizon_len_; i++) {
+
+        int first_idx  = trajectory_idx + i;
+        int second_idx = trajectory_idx + 1 + i;
+
+        if (loop) {
+
+          if (second_idx >= trajectory_size) {
+            second_idx -= trajectory_size;
           }
 
-          {
-            std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state);
-
-            des_x_trajectory(i, 0)   = des_x_whole_trajectory(tempIdx);
-            des_y_trajectory(i, 0)   = des_y_whole_trajectory(tempIdx);
-            des_z_trajectory(i, 0)   = des_z_whole_trajectory(tempIdx);
-            des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx);
+          if (first_idx >= trajectory_size) {
+            first_idx -= trajectory_size;
           }
-        }
 
-        if (use_yaw_in_trajectory)
-          desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
-
-        if (loop) {  // if we are looping, the loop it
-
-          if (++trajectory_idx == trajectory_size) {
-            trajectory_idx = 0;
-          }
+          des_x_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+          des_y_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+          des_z_trajectory(i, 0) =
+              (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
 
         } else {
-          // if we are at the end, select the last point as a constant setpoint
-          if (++trajectory_idx == (trajectory_size)) {
 
-            tracking_trajectory = false;
-            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-            publishDiagnostics();
+          if (second_idx < trajectory_size) {
+            des_x_trajectory(i, 0) =
+                (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
+            des_y_trajectory(i, 0) =
+                (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
+            des_z_trajectory(i, 0) =
+                (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
           }
         }
-      } else if (trajectory_idx < trajectory_size && trajectory_idx > 0) {
+      }
+    }
 
-        double interpolation_coeff = trajectory_tracking_timer / 20.0;
+    if (trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
-        // interpolate between the first two points
-        des_x_trajectory(0, 0) =
-            (1 - interpolation_coeff) * des_x_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_x_whole_trajectory(trajectory_idx);
-        des_y_trajectory(0, 0) =
-            (1 - interpolation_coeff) * des_y_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_y_whole_trajectory(trajectory_idx);
-        des_z_trajectory(0, 0) =
-            (1 - interpolation_coeff) * des_z_whole_trajectory(trajectory_idx - 1) + interpolation_coeff * des_z_whole_trajectory(trajectory_idx);
+      trajectory_tracking_timer = 0;
+
+      // fill the prediction horizon with the desired trajectory
+      for (int i = 0; i < horizon_len_; i++) {
+
+        int tempIdx = i + trajectory_idx;
+        if (loop) {
+
+          if (tempIdx >= trajectory_size) {
+
+            tempIdx = tempIdx % trajectory_size;
+          }
+        }
+      }
+
+      if (use_yaw_in_trajectory) {
+
+        std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
+
+        desired_yaw = des_yaw_whole_trajectory(trajectory_idx);
+      }
+
+      if (loop) {  // if we are looping, the loop it
+
+        if (++trajectory_idx == trajectory_size) {
+          trajectory_idx = 0;
+        }
+
+      } else {
+        // if we are at the end, select the last point as a constant setpoint
+        if (++trajectory_idx == (trajectory_size)) {
+
+          tracking_trajectory = false;
+          ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+          publishDiagnostics();
+        }
       }
     }
   }
@@ -3349,38 +3400,83 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   mpc_computed_ = true;
   if (publish_debug_trajectory) {
 
-    geometry_msgs::PoseArray debug_trajectory_out;
-    debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
+    /* publish mpc reference //{ */
 
     {
-      std::scoped_lock lock(mutex_predicted_trajectory);
+      geometry_msgs::PoseArray debug_trajectory_out;
+      debug_trajectory_out.header.stamp    = ros::Time::now();
+      debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
 
-      for (int i = 0; i < horizon_len_; i++) {
+      {
+        std::scoped_lock lock(mutex_predicted_trajectory);
 
-        geometry_msgs::Pose newPose;
+        for (int i = 0; i < horizon_len_; i++) {
 
-        newPose.position.x = predicted_future_trajectory(i * n);
-        newPose.position.y = predicted_future_trajectory(i * n + 4);
-        newPose.position.z = predicted_future_trajectory(i * n + 8);
+          geometry_msgs::Pose newPose;
 
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, predicted_future_yaw_trajectory(i * n));
-        newPose.orientation.x = orientation.x();
-        newPose.orientation.y = orientation.y();
-        newPose.orientation.z = orientation.z();
-        newPose.orientation.w = orientation.w();
+          newPose.position.x = des_x_filtered(i, 0);
+          newPose.position.y = des_y_filtered(i, 0);
+          newPose.position.z = des_z_filtered(i, 0);
 
-        debug_trajectory_out.poses.push_back(newPose);
+          tf::Quaternion orientation;
+          orientation.setEuler(0, 0, des_yaw_trajectory(i));
+          newPose.orientation.x = orientation.x();
+          newPose.orientation.y = orientation.y();
+          newPose.orientation.z = orientation.z();
+          newPose.orientation.w = orientation.w();
+
+          debug_trajectory_out.poses.push_back(newPose);
+        }
+      }
+
+      try {
+        debug_mpc_reference_publisher.publish(debug_trajectory_out);
+      }
+      catch (...) {
+        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_mpc_reference_publisher.getTopic().c_str());
       }
     }
 
-    try {
-      debug_predicted_trajectory_publisher.publish(debug_trajectory_out);
+    //}
+
+    /* publish predicted future //{ */
+
+    {
+      geometry_msgs::PoseArray debug_trajectory_out;
+      debug_trajectory_out.header.stamp    = ros::Time::now();
+      debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
+
+      {
+        std::scoped_lock lock(mutex_predicted_trajectory);
+
+        for (int i = 0; i < horizon_len_; i++) {
+
+          geometry_msgs::Pose newPose;
+
+          newPose.position.x = predicted_future_trajectory(i * n);
+          newPose.position.y = predicted_future_trajectory(i * n + 4);
+          newPose.position.z = predicted_future_trajectory(i * n + 8);
+
+          tf::Quaternion orientation;
+          orientation.setEuler(0, 0, predicted_future_yaw_trajectory(i * n));
+          newPose.orientation.x = orientation.x();
+          newPose.orientation.y = orientation.y();
+          newPose.orientation.z = orientation.z();
+          newPose.orientation.w = orientation.w();
+
+          debug_trajectory_out.poses.push_back(newPose);
+        }
+      }
+
+      try {
+        debug_predicted_trajectory_publisher.publish(debug_trajectory_out);
+      }
+      catch (...) {
+        ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
+      }
     }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: Exception caught during publishing topic %s.", debug_predicted_trajectory_publisher.getTopic().c_str());
-    }
+
+    //}
   }
 
   if (started_with_invalid) {
