@@ -643,9 +643,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   predicted_trajectory_publisher       = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   predicted_trajectory_esp_publisher   = nh_.advertise<mrs_msgs::FutureTrajectoryInt8>("predicted_trajectory_esp", 1);
   debug_predicted_trajectory_publisher = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
-  debug_mpc_reference_publisher        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1);
-  pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1);
-  pub_trajectory_marker_               = nh_.advertise<visualization_msgs::MarkerArray>("debug_trajectory_marker_out", 1);
+  debug_mpc_reference_publisher        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
+  pub_debug_trajectory                 = nh_.advertise<geometry_msgs::PoseArray>("debug_set_trajectory_out", 1, true);
+  pub_trajectory_marker_               = nh_.advertise<visualization_msgs::MarkerArray>("debug_trajectory_marker_out", 1, true);
 
   // preallocate future trajectory
   predicted_future_trajectory     = MatrixXd::Zero(horizon_len_ * n, 1);
