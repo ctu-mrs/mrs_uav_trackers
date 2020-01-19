@@ -44,9 +44,13 @@
 
 //}
 
+/* defines //{ */
+
 #define STRING_EQUAL 0
 
 using quat_t = Eigen::Quaterniond;
+
+//}
 
 using namespace Eigen;
 
@@ -270,7 +274,7 @@ private:
   ros::Publisher debug_mpc_reference_publisher;
   bool           collision_avoidance_enabled_ = false;
   bool           use_priority_swap            = false;
-  bool           no_overshoots                = false;
+  bool           no_overshoots                = true;
   double         predicted_trajectory_publish_rate;
   double         mrs_collision_avoidance_radius;
   double         mrs_collision_avoidance_correction;
@@ -293,8 +297,6 @@ private:
   int            earliest_collision_idx;
   double         collision_trajectory_timeout;
   bool           avoiding_collision = false;
-
-  bool callbackNoOvershoots(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res);
 
   void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr &msg);
   mrs_msgs::OdometryDiag odometry_diagnostics;
@@ -446,9 +448,6 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_matrix_static("yawModel/B", B_yaw, n_yaw, m_yaw);
 
   // load the MPC parameters
-
-  param_loader.load_param("cvxgenMpc/no_overshoots", no_overshoots, true);
-
   param_loader.load_param("cvxgenMpc/horizon_len", horizon_len_);
   param_loader.load_param("cvxgenMpc/maxTrajectorySize", max_trajectory_size);
 
@@ -672,8 +671,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout);
 
   // collision avoidance toggle service
-  collision_avoidance_service  = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
-  service_client_no_overshoots = nh_.advertiseService("no_overshoots", &MpcTracker::callbackNoOvershoots, this);
+  collision_avoidance_service = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
 
   // create subscribers on other drones diagnostics
   for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
@@ -1485,22 +1483,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request &re
 
 //}
 
-/* //{ callbackNoOvershoots() */
-
-bool MpcTracker::callbackNoOvershoots(std_srvs::SetBool::Request &req, std_srvs::SetBool::Response &res) {
-
-  no_overshoots = req.data;
-
-  ROS_INFO("[MpcTracker]: no overshoots switched %s", collision_avoidance_enabled_ ? "ON" : "OFF");
-
-  res.message = "No overshoots updated";
-  res.success = true;
-
-  return true;
-}
-
-//}
-
 /* //{ callbackStartTrajectoryFollowing() */
 
 bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request &req, std_srvs::Trigger::Response &res) {
@@ -1778,6 +1760,7 @@ bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest &req, mrs_msgs::MpcMatr
 
   std::vector<double> Qvec(4);
   bool                response = true;
+
   for (int i = 0; i < 4; i++) {
     if (req.Q[i] >= 0.0) {
       Qvec[i] = req.Q[i];
@@ -2149,7 +2132,8 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude -= 0.02;
 
-    // we should be able to fly bellow 0 now
+    // TODO without this, we should be able to fly bellow 0 now
+    // TODO this might break the collision avoidance
     /* if (collision_free_altitude < 0) { */
 
     /*   collision_free_altitude = 0; */
@@ -2384,14 +2368,17 @@ void MpcTracker::calculateMPC() {
   }
 
   if (first_collision_index < horizon_len_) {
+
     // the tmp variable is used to scale the speed of our drone in collision avoidance, depending on how far away the collision is
     double tmp = 0;
+
     if (first_collision_index <= collision_slow_down_fully) {
       tmp = 1;
     } else if (first_collision_index <= collision_slow_down_start) {
       tmp = 1.0 - ((double)(first_collision_index - collision_slow_down_fully)) / (double)(collision_slow_down_start - collision_slow_down_fully);
       tmp = tmp * tmp;
     }
+
     if (!std::isfinite(tmp)) {
       tmp = 1.0;
       ROS_ERROR("[MpcTracker]: NaN detected in variable \"tmp\", setting it to 1.0 and returning!!!");
@@ -2401,6 +2388,7 @@ void MpcTracker::calculateMPC() {
     } else if (tmp < 0.0) {
       tmp = 0.0;
     }
+
     if (tmp > coef_scaler) {
       coef_scaler = tmp;
       coef_time   = ros::Time::now();
@@ -2791,7 +2779,7 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
 // method for setting desired trajectory
 bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::string &message, bool &modified) {
 
-  if (int(msg.points.size()) > (max_trajectory_size - horizon_len_ - 1)) {
+  if (int(msg.points.size()) > (max_trajectory_size - horizon_len_ - 5)) {
 
     ROS_WARN("[MpcTracker]: Cannot load trajectory, its too large (%d).", (int)msg.points.size());
 
@@ -2945,7 +2933,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         loop = false;
 
         // extend it so it has smooth ending
-        for (int i = 0; i < horizon_len_; i++) {
+        for (int i = 0; i < horizon_len_ + 5; i++) {  // I am adding 5 just to cover my ass later when I read from the vector
 
           des_x_whole_trajectory(i + trajectory_size)   = des_x_whole_trajectory(i + trajectory_size - 1);
           des_y_whole_trajectory(i + trajectory_size)   = des_y_whole_trajectory(i + trajectory_size - 1);
@@ -3287,10 +3275,12 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   // if we are tracking trajectory, copy the setpoint
   if (tracking_trajectory) {
 
+    /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
+
     {
       std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
 
-      double interpolation_coeff_plus_ten = (trajectory_tracking_timer / 20.0) + (1 / 20);
+      double interp_coeff = (trajectory_tracking_timer / 20.0) + (1 / 20);
 
       int first_idx  = trajectory_idx;
       int second_idx = trajectory_idx + 1;
@@ -3306,14 +3296,11 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
         }
       }
 
-      des_x_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-      des_y_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-      des_z_trajectory(0, 0) =
-          (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+      des_x_trajectory(0, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+      des_y_trajectory(0, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+      des_z_trajectory(0, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-      des_yaw_trajectory(0, 0) = interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
+      des_yaw_trajectory(0, 0) = interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interp_coeff);
 
       for (int i = 1; i < horizon_len_; i++) {
 
@@ -3330,30 +3317,24 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
             first_idx -= trajectory_size;
           }
 
-          des_x_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-          des_y_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-          des_z_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+          des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+          des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+          des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-          des_yaw_trajectory(i, 0) =
-              interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
+          des_yaw_trajectory(i, 0) = interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interp_coeff);
 
         } else {
 
-          des_x_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_x_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_x_whole_trajectory(second_idx);
-          des_y_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_y_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_y_whole_trajectory(second_idx);
-          des_z_trajectory(i, 0) =
-              (1 - interpolation_coeff_plus_ten) * des_z_whole_trajectory(first_idx) + interpolation_coeff_plus_ten * des_z_whole_trajectory(second_idx);
+          des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+          des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+          des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-          des_yaw_trajectory(i, 0) =
-              interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interpolation_coeff_plus_ten);
+          des_yaw_trajectory(i, 0) = interpolateAngles(des_yaw_whole_trajectory(first_idx), des_yaw_whole_trajectory(second_idx), 1 - interp_coeff);
         }
       }
     }
+
+    //}
 
     if (trajectory_tracking_timer++ == 20 && trajectory_idx < (trajectory_size)) {
 
@@ -3370,12 +3351,6 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
             tempIdx = tempIdx % trajectory_size;
           }
         }
-
-        /* { */
-        /*   std::scoped_lock lock(mutex_des_whole_trajectory, mutex_uav_state); */
-
-        /*   des_yaw_trajectory(i, 0) = des_yaw_whole_trajectory(tempIdx); */
-        /* } */
       }
 
       if (use_yaw_in_trajectory) {
@@ -3404,7 +3379,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   }
 
   manageConstraints();
-  // run the mpc
+
   calculateMPC();
 
   end      = ros::Time::now();
@@ -3501,10 +3476,6 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     mpc_result_invalid = false;
     ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(4, 0), des_x_trajectory(0, 0),
              des_y_trajectory(0, 0));
-  } else {
-    /* ROS_INFO("[MpcTracker]: calculated a general result, x %f, y %f, hor1x %f, hor1y %f", x(0, 0), x(4, 0), des_x_trajectory(0, 0), des_y_trajectory(0,
-     * 0));
-     */
   }
 }
 
