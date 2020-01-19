@@ -1796,6 +1796,15 @@ bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request &
 
   char message[200];
 
+  if (!is_initialized) {
+
+    sprintf((char *)&message, "Tracker not initialized");
+    ROS_ERROR("[MpcTracker]: %s", message);
+    res.success = false;
+    res.message = message;
+    return true;
+  }
+
   if (!callbacks_enabled) {
 
     sprintf((char *)&message, "Callbacks are disabled");
@@ -1845,6 +1854,11 @@ void MpcTracker::callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPt
 
 // callback for loading desired trajectory
 void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr &msg) {
+
+  if (!is_initialized) {
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, the tracker is not initialized");
+    return; 
+  }
 
   if (!callbacks_enabled) {
 
