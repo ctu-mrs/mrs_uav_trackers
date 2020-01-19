@@ -1,8 +1,9 @@
-diagnostics_rate: 1                 # publish diagnostics at n Hz
-diagnostic_tracking_threshold: 1    # [m] distance considered as "in place"
-publish_debug_trajectory: true      # publish the mpc predicted trajectory at [Hz]
+diagnostics_rate: 1                             # publish diagnostics at n Hz
+diagnostic_position_tracking_threshold: 1       # [m] distance considered as "in place"
+diagnostic_orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
+publish_debug_trajectory: true                  # publish the mpc predicted trajectory at [Hz]
 
-headless_mode: false                # Headless mode will ensure that the UAV is always "looking" in the direction of flight
+headless_mode: false                            # Headless mode will ensure that the UAV is always "looking" in the direction of flight
 
 wiggle:
   enabled: false
@@ -79,8 +80,6 @@ cvxgenMpc:
   dt: 0.01
   dt2: 0.2
 
-  no_overshoots: true # disable for more aggresive flight
-
   # State constrains:
   maxHorizontalSpeed: 5.0
   maxHorizontalAcceleration: 2.0
@@ -111,18 +110,15 @@ cvxgenMpc:
 
 cvxWrapper:
   verbose: false # cvxgen's debug output
-  maxNumOfIterations: 25 # 25
-  Q: [5000, 2500, 0, 0] # For standard flight
-  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
+  maxNumOfIterations: 25 # default: 25
+  Q: [5000, 0, 0, 0]
 
 cvxWrapperZ:
   verbose: false # cvxgen's debug output
-  maxNumOfIterations: 25 # 25
-  Q: [5000, 2500, 0, 0] # For standard flight
-  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
+  maxNumOfIterations: 25 # default: 25
+  Q: [5000, 0, 0, 0]
 
 cvxWrapperYaw:
   verbose: false # cvxgen's debug output
-  maxNumOfIterations: 25 # 25
-  Q: [5000, 2500, 0, 0] # For standard flight
-  # Q: [5000, 0, 0, 0] # For aggresive flight with overshoots
+  maxNumOfIterations: 25 # default: 25
+  Q: [5000, 0, 0, 0]

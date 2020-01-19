@@ -40,11 +40,11 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
     dim = 0;
   }
 
-  if ((verbose != 1 && verbose != 0) || !std::isfinite(verbose)) {
-    ROS_ERROR("CvxWrapper - verbose has to be 0 or 1!!! Safe value of 0 set instead");
-    verbose = 0;
+  if (verbose) {
+    settings.verbose = 1;
+  } else {
+    settings.verbose = 0;
   }
-  settings.verbose = verbose;
 
   if ((max_iters < 1 || max_iters > 100) || !std::isfinite(max_iters)) {
     ROS_ERROR("CvxWrapper - max_iters wrong value!!! Safe value of 20 set instead");
@@ -79,8 +79,6 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
     dt2 = 0.2;
   }
 
-  vel_q_persistent = myQ[1];
-
   params.A[0] = 1;
   params.A[1] = 1;
   params.A[2] = 1;
@@ -113,7 +111,7 @@ CvxWrapper::CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, d
 /* setLimits() //{ */
 
 void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap,
-                           double min_snap, bool no_overshoots) {
+                           double min_snap) {
   params.x_max_2[0] = max_speed;
   params.x_min_2[0] = min_speed;
   params.x_max_3[0] = max_acc;
@@ -122,12 +120,6 @@ void CvxWrapper::setLimits(double max_speed, double min_speed, double max_acc, d
   params.x_min_4[0] = min_jerk;
   params.u_max[0]   = max_snap;
   params.u_min[0]   = min_snap;
-
-  if (no_overshoots) {
-    myQ[1] = vel_q_persistent;
-  } else {
-    myQ[1] = 1;
-  }
 }
 
 //}
@@ -139,6 +131,20 @@ void CvxWrapper::setInitialState(MatrixXd& x) {
   params.x_0[1] = x(1, 0);
   params.x_0[2] = x(2, 0);
   params.x_0[3] = x(3, 0);
+}
+
+//}
+
+/* setVelQ() //{ */
+
+bool CvxWrapper::setVelQ(double Q_vel) {
+  if (Q_vel < 0.0) {
+    ROS_ERROR_STREAM("[MpcTracker]: CvxWrapper - Q vel has to be positive!! Q_vel" << Q_vel << " !!!");
+    return false;
+  } else {
+    myQ[1] = Q_vel;
+    return true;
+  }
 }
 
 //}
