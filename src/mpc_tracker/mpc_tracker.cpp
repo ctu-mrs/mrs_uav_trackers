@@ -104,7 +104,6 @@ private:
   ros::ServiceServer set_set_mpc_matrix;  // set matrices in cvxgen
   ros::ServiceServer service_client_wiggle;
   ros::ServiceServer collision_avoidance_service;
-  ros::ServiceServer service_client_no_overshoots;
 
   // debugging publishers
   ros::Publisher pub_cmd_acceleration_;
@@ -274,7 +273,6 @@ private:
   ros::Publisher debug_mpc_reference_publisher;
   bool           collision_avoidance_enabled_ = false;
   bool           use_priority_swap            = false;
-  bool           no_overshoots                = true;
   double         predicted_trajectory_publish_rate;
   double         mrs_collision_avoidance_radius;
   double         mrs_collision_avoidance_correction;
@@ -2330,6 +2328,7 @@ void MpcTracker::calculateMPC() {
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
+  bool   brake;
 
   if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
                                        odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
@@ -2447,6 +2446,17 @@ void MpcTracker::calculateMPC() {
   }
 
   // | ---------------------- cvxgen Z axis --------------------- |
+
+  brake = true;
+  if (des_z_filtered(10) != des_z_filtered(horizon_len_ - 1) || des_z_filtered(30) != des_z_filtered(horizon_len_ - 1)) {
+    brake = false;
+  }
+  if (brake) {
+    cvx_z->setVelQ(3000);
+  } else {
+    cvx_z->setVelQ(0);
+  }
+
   initial_z(0, 0) = x(8, 0);
   initial_z(1, 0) = x(9, 0);
   initial_z(2, 0) = x(10, 0);
@@ -2454,7 +2464,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_z->setInitialState(initial_z);
   cvx_z->loadReference(des_z_filtered_offset);
-  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z, no_overshoots && !tracking_trajectory);
+  cvx_z->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
   iters_Z += cvx_z->solveCvx();
 
   {
@@ -2482,65 +2492,30 @@ void MpcTracker::calculateMPC() {
   /*   // yaw angle at which my drone "sees" the goto reference point */
   /*   double goto_yaw = atan2(des_y_trajectory(0, 0) - x(4, 0), des_x_trajectory(0, 0) - x(0, 0)); */
 
-  /*   // Circle saturation of maximum velocity */
-  /*   max_speed_x = fabs(max_speed_x * cos(goto_yaw)); */
-  /*   max_speed_y = fabs(max_speed_y * sin(goto_yaw)); */
-  /* } */
-
   filterReferenceXY(max_speed_x, max_speed_y);
 
-  /* if (headless_mode) { */
-  /*   double tmp_yaw; */
-  /*   for (int i = 0; i < horizon_len_ - 1; i++) { */
-  /*     if (i == 0) { */
-  /*       tmp_yaw = atan2(des_y_filtered(0, 0) - x(4, 0), des_x_filtered(0, 0) - x(0, 0)); */
-  /*     } else { */
-  /*       tmp_yaw = atan2(des_y_filtered(i, 0) - des_y_filtered(i - 1, 0), des_x_filtered(i, 0) - des_x_filtered(i - 1, 0)); */
-  /*     } */
-  /*     if (des_y_filtered(i + 1, 0) == des_y_filtered(i, 0) && des_x_filtered(i + 1, 0) == des_x_filtered(i, 0)) { */
-  /*       if (i > 0) { */
-  /*         des_yaw_trajectory(i, 0) = des_yaw_trajectory(i - 1, 0); */
-  /*       } */
-  /*     } */
-  /*     des_yaw_trajectory(i, 0) = tmp_yaw; */
-  /*   } */
-  /*   des_yaw_trajectory(horizon_len_ - 1, 0) = des_yaw_trajectory(horizon_len_ - 2, 0); */
-
-  /*   double tmp_yaw_error = fabs(des_yaw_trajectory(1, 0) - x_yaw(0, 0)); */
-  /*   if (tmp_yaw_error > PI) { */
-  /*     tmp_yaw_error -= 2 * PI; */
-  /*   } */
-  /*   if (fabs(tmp_yaw_error) > 0.785) { */
-  /*     { */
-  /*       std::scoped_lock lock(mutex_constraints); */
-  /*       max_speed_y = 0; */
-  /*       max_speed_x = 0; */
-  /*     } */
-  /*     filterReferenceXY(max_speed_x, max_speed_y); */
-  /*     ROS_WARN_STREAM_THROTTLE(0.5, "[MpcTracker]: limiting horizontal velocity - Headless mode"); */
-  /*   } */
-  /* } */
   filterYawReference();
 
   // | ---------------------- cvxgen X axis --------------------- |
+
+  brake = true;
+  if (des_x_filtered(10) != des_x_filtered(horizon_len_ - 1) || des_x_filtered(30) != des_x_filtered(horizon_len_ - 1)) {
+    brake = false;
+  }
+  if (brake) {
+    cvx_x->setVelQ(3000);
+  } else {
+    cvx_x->setVelQ(0);
+  }
+
   initial_x(0, 0) = x(0, 0);
   initial_x(1, 0) = x(1, 0);
   initial_x(2, 0) = x(2, 0);
   initial_x(3, 0) = x(3, 0);
 
-  {
-    std::scoped_lock lock(mutex_predicted_trajectory);
-
-    /* if (tracking_trajectory) { */
-    /*   vel_qx = 8000; */
-    /* } else if (fabs(predicted_future_trajectory((horizon_len_ - 1) * 12, 0) - des_x_trajectory(0, 0)) < 2.0) { */
-    /*   vel_qx = 8000; */
-    /* } */
-  }
-
   cvx_x->setInitialState(initial_x);
   cvx_x->loadReference(des_x_filtered);
-  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x, no_overshoots && !tracking_trajectory);
+  cvx_x->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
   iters_X += cvx_x->solveCvx();
 
   {
@@ -2552,6 +2527,17 @@ void MpcTracker::calculateMPC() {
   cvx_u(0) = cvx_x->getFirstControlInput();
 
   // | ---------------------- cvxgen Y axis --------------------- |
+
+  brake = true;
+  if (des_y_filtered(10) != des_y_filtered(horizon_len_ - 1) || des_y_filtered(30) != des_y_filtered(horizon_len_ - 1)) {
+    brake = false;
+  }
+  if (brake) {
+    cvx_y->setVelQ(3000);
+  } else {
+    cvx_y->setVelQ(0);
+  }
+
   initial_y(0, 0) = x(4, 0);
   initial_y(1, 0) = x(5, 0);
   initial_y(2, 0) = x(6, 0);
@@ -2569,7 +2555,7 @@ void MpcTracker::calculateMPC() {
 
   cvx_y->setInitialState(initial_y);
   cvx_y->loadReference(des_y_filtered);
-  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y, no_overshoots && !tracking_trajectory);
+  cvx_y->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
   iters_Y += cvx_y->solveCvx();
   {
     std::scoped_lock lock(mutex_predicted_trajectory);
@@ -2580,13 +2566,23 @@ void MpcTracker::calculateMPC() {
 
 
   // | ---------------------- cvxgen YAW axis --------------------- |
+
+  brake = true;
+  if (fabs(x_yaw(0) - des_yaw_trajectory(10)) > 1.0  || fabs(x_yaw(0) - des_yaw_trajectory(30)) > 1.0  ) {
+    brake = false;
+  }
+  if (brake) {
+    cvx_yaw->setVelQ(3000);
+  } else {
+    cvx_yaw->setVelQ(0);
+  }
+
   cvx_yaw->setInitialState(x_yaw);
   cvx_yaw->loadReference(des_yaw_trajectory);
   {
     std::scoped_lock lock(mutex_constraints);
 
-    cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap,
-                       no_overshoots && !tracking_trajectory);
+    cvx_yaw->setLimits(max_yaw_rate, max_yaw_rate, max_yaw_acceleration, max_yaw_acceleration, max_yaw_jerk, max_yaw_jerk, max_yaw_snap, max_yaw_snap);
   }
   iters_YAW += cvx_yaw->solveCvx();
   {
