@@ -1865,7 +1865,7 @@ void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::Co
 
   if (!is_initialized) {
     ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Can't set trajectory, the tracker is not initialized");
-    return; 
+    return;
   }
 
   if (!callbacks_enabled) {
@@ -2567,7 +2567,7 @@ void MpcTracker::calculateMPC() {
   // | ---------------------- cvxgen YAW axis --------------------- |
 
   brake = true;
-  if (fabs(x_yaw(0) - des_yaw_trajectory(10)) > 1.0  || fabs(x_yaw(0) - des_yaw_trajectory(30)) > 1.0  ) {
+  if (fabs(x_yaw(0) - des_yaw_trajectory(10)) > 1.0 || fabs(x_yaw(0) - des_yaw_trajectory(30)) > 1.0) {
     brake = false;
   }
   if (brake) {
@@ -2877,14 +2877,16 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         }
       }
 
-      mrs_lib::TransformStamped tf;
+      auto ret = common_handlers->transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp);
 
-      if (!common_handlers->transformer->getTransform(msg.header.frame_id, "", uav_state.header.stamp, tf)) {
+      if (!ret) {
 
         message = "Coult not create TF transformer for the trajectory.";
         ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
         return false;
       }
+
+      mrs_lib::TransformStamped tf = ret.value();
 
       for (int i = 0; i < trajectory_size; i++) {
 
@@ -2896,18 +2898,22 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         trajectory_point.reference.position.z = des_z_whole_trajectory(i);
         trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
 
-        if (!common_handlers->transformer->transformReference(tf, trajectory_point)) {
+        auto ret = common_handlers->transformer->transform(tf, trajectory_point);
+
+        if (!ret) {
 
           message = "Trajectory cannnot be transformed.";
           ROS_WARN("[MpcTracker]: the reference could not be transformed.");
           return false;
-        }
 
-        // transform the points in the trajectory to the current frame
-        des_x_whole_trajectory(i)   = trajectory_point.reference.position.x;
-        des_y_whole_trajectory(i)   = trajectory_point.reference.position.y;
-        des_z_whole_trajectory(i)   = trajectory_point.reference.position.z;
-        des_yaw_whole_trajectory(i) = trajectory_point.reference.yaw;
+        } else {
+
+          // transform the points in the trajectory to the current frame
+          des_x_whole_trajectory(i)   = ret.value().reference.position.x;
+          des_y_whole_trajectory(i)   = ret.value().reference.position.y;
+          des_z_whole_trajectory(i)   = ret.value().reference.position.z;
+          des_yaw_whole_trajectory(i) = ret.value().reference.yaw;
+        }
       }
 
       // set looping

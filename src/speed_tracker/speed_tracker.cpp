@@ -472,11 +472,13 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.velocity.y;
     vector3.vector.z = temp_command.velocity.z;
 
-    common_handlers->transformer->transformVector3Single("", vector3);
+    auto ret = common_handlers->transformer->transformSingle("", vector3);
 
-    temp_command.velocity.x = vector3.vector.x;
-    temp_command.velocity.y = vector3.vector.y;
-    temp_command.velocity.z = vector3.vector.z;
+    if (ret) {
+      temp_command.velocity.x = ret.value().vector.x;
+      temp_command.velocity.y = ret.value().vector.y;
+      temp_command.velocity.z = ret.value().vector.z;
+    }
   }
 
   // transform yaw
@@ -488,9 +490,11 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     temp_ref.reference.yaw = temp_command.yaw;
 
-    common_handlers->transformer->transformReferenceSingle("", temp_ref);
+    auto ret = common_handlers->transformer->transformSingle("", temp_ref);
 
-    temp_command.yaw = temp_ref.reference.yaw;
+    if (ret) {
+      temp_command.yaw = ret.value().reference.yaw;
+    }
   }
 
   // transform acceleration
@@ -504,13 +508,14 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.acceleration.y;
     vector3.vector.z = temp_command.acceleration.z;
 
-    common_handlers->transformer->transformVector3Single("", vector3);
+    auto ret = common_handlers->transformer->transformSingle("", vector3);
 
-    temp_command.acceleration.x = vector3.vector.x;
-    temp_command.acceleration.y = vector3.vector.y;
-    temp_command.acceleration.z = vector3.vector.z;
+    if (ret) {
+      temp_command.acceleration.x = ret.value().vector.x;
+      temp_command.acceleration.y = ret.value().vector.y;
+      temp_command.acceleration.z = ret.value().vector.z;
+    }
   }
-
 
   // transform force
 
@@ -523,11 +528,13 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     vector3.vector.y = temp_command.force.y;
     vector3.vector.z = temp_command.force.z;
 
-    common_handlers->transformer->transformVector3Single("", vector3);
+    auto ret = common_handlers->transformer->transformSingle("", vector3);
 
-    temp_command.force.x = vector3.vector.x;
-    temp_command.force.y = vector3.vector.y;
-    temp_command.force.z = vector3.vector.z;
+    if (ret) {
+      temp_command.force.x = vector3.vector.x;
+      temp_command.force.y = vector3.vector.y;
+      temp_command.force.z = vector3.vector.z;
+    }
   }
 
   external_command = temp_command;
