@@ -51,7 +51,7 @@ public:
 
   virtual bool goTo(const mrs_msgs::ReferenceConstPtr &msg);
 
-  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -507,10 +507,10 @@ const std_srvs::TriggerResponse::ConstPtr JoyBumperTracker::hover([[maybe_unused
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr JoyBumperTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr JoyBumperTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
 
-  return mrs_msgs::TrackerConstraintsResponse::Ptr();
+  return mrs_msgs::TrackerConstraintsSrvResponse::Ptr();
 }
 
 //}

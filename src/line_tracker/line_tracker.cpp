@@ -65,7 +65,7 @@ public:
 
   virtual bool goTo(const mrs_msgs::ReferenceConstPtr &msg);
 
-  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
@@ -584,27 +584,27 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr LineTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr LineTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
 
-  mrs_msgs::TrackerConstraintsResponse res;
+  mrs_msgs::TrackerConstraintsSrvResponse res;
 
   // this is the place to copy the constraints
   {
     std::scoped_lock lock(mutex_constraints);
 
-    horizontal_speed_        = cmd->horizontal_speed;
-    horizontal_acceleration_ = cmd->horizontal_acceleration;
+    horizontal_speed_        = cmd->constraints.horizontal_speed;
+    horizontal_acceleration_ = cmd->constraints.horizontal_acceleration;
 
-    vertical_speed_        = cmd->vertical_ascending_speed;
-    vertical_acceleration_ = cmd->vertical_ascending_acceleration;
+    vertical_speed_        = cmd->constraints.vertical_ascending_speed;
+    vertical_acceleration_ = cmd->constraints.vertical_ascending_acceleration;
 
-    yaw_rate_ = cmd->yaw_speed;
+    yaw_rate_ = cmd->constraints.yaw_speed;
   }
 
   res.success = true;
   res.message = "constraints updated";
 
-  return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+  return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse(res));
 }
 
 //}

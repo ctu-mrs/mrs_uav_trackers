@@ -83,7 +83,7 @@ public:
 
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
-  virtual const mrs_msgs::TrackerConstraintsResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd);
+  virtual const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
 
 private:
   bool callbacks_enabled = true;
@@ -144,26 +144,26 @@ private:
   ros::Time coef_time;
 
   // constraints
-  std::mutex                          mutex_constraints;
-  ros::Time                           priority_time;
-  mrs_msgs::TrackerConstraintsRequest desired_constraints;
-  bool                                all_constraints_set = false;
-  double                              max_horizontal_speed;
-  double                              max_horizontal_acceleration;
-  double                              max_horizontal_jerk;
-  double                              max_horizontal_snap;
-  double                              max_vertical_ascending_acceleration;
-  double                              max_vertical_ascending_speed;
-  double                              max_vertical_ascending_jerk;
-  double                              max_vertical_ascending_snap;
-  double                              max_vertical_descending_speed;
-  double                              max_vertical_descending_acceleration;
-  double                              max_vertical_descending_jerk;
-  double                              max_vertical_descending_snap;
-  double                              max_yaw_rate;
-  double                              max_yaw_acceleration;
-  double                              max_yaw_jerk;
-  double                              max_yaw_snap;
+  std::mutex                             mutex_constraints;
+  ros::Time                              priority_time;
+  mrs_msgs::TrackerConstraintsSrvRequest desired_constraints;
+  bool                                   all_constraints_set = false;
+  double                                 max_horizontal_speed;
+  double                                 max_horizontal_acceleration;
+  double                                 max_horizontal_jerk;
+  double                                 max_horizontal_snap;
+  double                                 max_vertical_ascending_acceleration;
+  double                                 max_vertical_ascending_speed;
+  double                                 max_vertical_ascending_jerk;
+  double                                 max_vertical_ascending_snap;
+  double                                 max_vertical_descending_speed;
+  double                                 max_vertical_descending_acceleration;
+  double                                 max_vertical_descending_jerk;
+  double                                 max_vertical_descending_snap;
+  double                                 max_yaw_rate;
+  double                                 max_yaw_acceleration;
+  double                                 max_yaw_jerk;
+  double                                 max_yaw_snap;
 
   bool publish_debug_trajectory = false;
 
@@ -1271,19 +1271,19 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
 
 /* //{ setConstraints() service */
 
-const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsRequest::ConstPtr &cmd) {
+const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
 
   desired_constraints = *cmd;
-  mrs_msgs::TrackerConstraintsResponse res;
+  mrs_msgs::TrackerConstraintsSrvResponse res;
   all_constraints_set = false;
 
   {
     std::scoped_lock lock(mutex_constraints);
     // only speeds are set here, the rest is handled in manageConstraints()
-    max_horizontal_speed          = cmd->horizontal_speed;
-    max_vertical_ascending_speed  = cmd->vertical_ascending_speed;
-    max_vertical_descending_speed = cmd->vertical_descending_speed;
-    max_yaw_rate                  = cmd->yaw_speed;
+    max_horizontal_speed          = cmd->constraints.horizontal_speed;
+    max_vertical_ascending_speed  = cmd->constraints.vertical_ascending_speed;
+    max_vertical_descending_speed = cmd->constraints.vertical_descending_speed;
+    max_yaw_rate                  = cmd->constraints.yaw_speed;
   }
 
   ROS_INFO("[MpcTracker]: updating constraints");
@@ -1291,7 +1291,7 @@ const mrs_msgs::TrackerConstraintsResponse::ConstPtr MpcTracker::setConstraints(
   res.success = true;
   res.message = "constraints updated";
 
-  return mrs_msgs::TrackerConstraintsResponse::ConstPtr(new mrs_msgs::TrackerConstraintsResponse(res));
+  return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse(res));
 }
 
 //}
@@ -1996,34 +1996,35 @@ void MpcTracker::manageConstraints() {
     return;
   }
 
-  bool can_change = (fabs(x(1, 0)) < desired_constraints.horizontal_speed) && (fabs(x(2, 0)) < desired_constraints.horizontal_acceleration) &&
-                    (fabs(x(3, 0)) < desired_constraints.horizontal_jerk) && (fabs(x(5, 0)) < desired_constraints.horizontal_speed) &&
-                    (fabs(x(6, 0)) < desired_constraints.horizontal_acceleration) && (fabs(x(7, 0)) < desired_constraints.horizontal_jerk) &&
-                    (x(9, 0) < desired_constraints.vertical_ascending_speed) && (x(9, 0) > -desired_constraints.vertical_descending_speed) &&
-                    (x(10, 0) < desired_constraints.vertical_ascending_acceleration) && (x(10, 0) > -desired_constraints.vertical_descending_acceleration) &&
-                    (x(11, 0) < desired_constraints.vertical_ascending_jerk) && (x(11, 0) > -desired_constraints.vertical_descending_jerk) &&
-                    (fabs(x_yaw(1, 0)) < desired_constraints.yaw_speed) && (fabs(x_yaw(2, 0)) < desired_constraints.yaw_acceleration) &&
-                    (fabs(x_yaw(3, 0)) < desired_constraints.yaw_jerk);
+  bool can_change =
+      (fabs(x(1, 0)) < desired_constraints.constraints.horizontal_speed) && (fabs(x(2, 0)) < desired_constraints.constraints.horizontal_acceleration) &&
+      (fabs(x(3, 0)) < desired_constraints.constraints.horizontal_jerk) && (fabs(x(5, 0)) < desired_constraints.constraints.horizontal_speed) &&
+      (fabs(x(6, 0)) < desired_constraints.constraints.horizontal_acceleration) && (fabs(x(7, 0)) < desired_constraints.constraints.horizontal_jerk) &&
+      (x(9, 0) < desired_constraints.constraints.vertical_ascending_speed) && (x(9, 0) > -desired_constraints.constraints.vertical_descending_speed) &&
+      (x(10, 0) < desired_constraints.constraints.vertical_ascending_acceleration) &&
+      (x(10, 0) > -desired_constraints.constraints.vertical_descending_acceleration) && (x(11, 0) < desired_constraints.constraints.vertical_ascending_jerk) &&
+      (x(11, 0) > -desired_constraints.constraints.vertical_descending_jerk) && (fabs(x_yaw(1, 0)) < desired_constraints.constraints.yaw_speed) &&
+      (fabs(x_yaw(2, 0)) < desired_constraints.constraints.yaw_acceleration) && (fabs(x_yaw(3, 0)) < desired_constraints.constraints.yaw_jerk);
 
   if (can_change) {
     {
       std::scoped_lock lock(mutex_constraints);
 
-      max_horizontal_acceleration = desired_constraints.horizontal_acceleration;
-      max_horizontal_jerk         = desired_constraints.horizontal_jerk;
-      max_horizontal_snap         = desired_constraints.horizontal_snap;
+      max_horizontal_acceleration = desired_constraints.constraints.horizontal_acceleration;
+      max_horizontal_jerk         = desired_constraints.constraints.horizontal_jerk;
+      max_horizontal_snap         = desired_constraints.constraints.horizontal_snap;
 
-      max_vertical_ascending_acceleration = desired_constraints.vertical_ascending_acceleration;
-      max_vertical_ascending_jerk         = desired_constraints.vertical_ascending_jerk;
-      max_vertical_ascending_snap         = desired_constraints.vertical_ascending_snap;
+      max_vertical_ascending_acceleration = desired_constraints.constraints.vertical_ascending_acceleration;
+      max_vertical_ascending_jerk         = desired_constraints.constraints.vertical_ascending_jerk;
+      max_vertical_ascending_snap         = desired_constraints.constraints.vertical_ascending_snap;
 
-      max_vertical_descending_acceleration = desired_constraints.vertical_descending_acceleration;
-      max_vertical_descending_jerk         = desired_constraints.vertical_descending_jerk;
-      max_vertical_descending_snap         = desired_constraints.vertical_descending_snap;
+      max_vertical_descending_acceleration = desired_constraints.constraints.vertical_descending_acceleration;
+      max_vertical_descending_jerk         = desired_constraints.constraints.vertical_descending_jerk;
+      max_vertical_descending_snap         = desired_constraints.constraints.vertical_descending_snap;
 
-      max_yaw_acceleration = desired_constraints.yaw_acceleration;
-      max_yaw_jerk         = desired_constraints.yaw_jerk;
-      max_yaw_snap         = desired_constraints.yaw_snap;
+      max_yaw_acceleration = desired_constraints.constraints.yaw_acceleration;
+      max_yaw_jerk         = desired_constraints.constraints.yaw_jerk;
+      max_yaw_snap         = desired_constraints.constraints.yaw_snap;
     }
     ROS_WARN("[MpcTracker]: all constraints succesfully applied");
     all_constraints_set = true;
