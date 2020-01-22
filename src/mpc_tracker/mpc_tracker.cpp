@@ -230,19 +230,16 @@ private:
 
   bool use_yaw_in_trajectory = false;
 
-  bool   tracking_trajectory       = false;  // are we currently tracking a trajectory
-  int    trajectory_tracking_timer = 0;
-  int    trajectory_idx;  // index in the currently tracked trajectory
-  bool   wait_for_heading = false;
-  int    saved_index      = 0;
-  int    trajectory_size;                  // size of the tracked trajectory
-  double trajectory_time_offset;           // size of the tracked trajectory
-  double trajectory_interpolation_offset;  // size of the tracked trajectory
-  int    trajectory_sample_offset;         // size of the tracked trajectory
-  int    max_trajectory_size;              // maximum length of the trajectory
-  bool   trajectory_set_ = false;          // true if trajectory was set
-  int    trajectory_count;                 // counting number of trajectories uploaded to the tracker
-  bool   loop = false;                     // whether we are looping the trajectory
+  bool tracking_trajectory       = false;  // are we currently tracking a trajectory
+  int  trajectory_tracking_timer = 0;
+  int  trajectory_idx;  // index in the currently tracked trajectory
+  bool wait_for_heading = false;
+  int  saved_index      = 0;
+  int  trajectory_size;          // size of the tracked trajectory
+  int  max_trajectory_size;      // maximum length of the trajectory
+  bool trajectory_set_ = false;  // true if trajectory was set
+  int  trajectory_count;         // counting number of trajectories uploaded to the tracker
+  bool loop = false;             // whether we are looping the trajectory
 
   MatrixXd reference;      // XYZ reference for the controller
   MatrixXd reference_yaw;  // yaw reference for the controlle
@@ -532,12 +529,9 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   use_yaw_in_trajectory    = false;
   loop                     = false;
 
-  tracking_trajectory             = false;
-  trajectory_idx                  = 0;
-  trajectory_size                 = 0;
-  trajectory_time_offset          = 0.0;
-  trajectory_interpolation_offset = 0.0;
-  trajectory_sample_offset        = 0;
+  tracking_trajectory = false;
+  trajectory_idx      = 0;
+  trajectory_size     = 0;
 
   // initialize the trajectory variables
   reference     = MatrixXd::Zero(n * horizon_len_, 1);
@@ -2801,59 +2795,30 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     {
       std::scoped_lock lock(mutex_des_whole_trajectory, mutex_des_trajectory);
 
-      trajectory_size                 = msg.points.size();
-      trajectory_sample_offset        = 0;
-      trajectory_interpolation_offset = 0.0;
-
-      if (msg.fly_now) {
-        double trajectory_time = msg.header.stamp.toSec();
-        if (trajectory_time == 0.0) {
-          trajectory_time_offset = 0.0;
-        } else {
-          trajectory_time_offset = ros::Time::now().toSec() - trajectory_time;
-          if (trajectory_time_offset < 0.0) {
-            trajectory_time_offset = 0.0;
-            ROS_WARN("[MpcTracker]: Got trajectory with timestamp in the future");
-          }
-        }
-        trajectory_sample_offset = int(trajectory_time_offset / 0.2);
-        if (trajectory_sample_offset >= trajectory_size) {
-          message = "Trajectory timestamp is too old!";
-          ROS_ERROR("[MpcTracker]: Trajectory timestamp is too old!");
-          return false;
-        } else {
-          trajectory_interpolation_offset = fmod(trajectory_time_offset, 0.2);
-          if (trajectory_time_offset >= 0.2) {
-            ROS_WARN_STREAM("[MpcTracker]: Got trajectory with timestamp " << trajectory_time_offset << "s in the past");
-          }
-        }
-      }
+      trajectory_size = msg.points.size();
 
       // copy the trajectory to a local array
-      for (int j = trajectory_sample_offset; j < trajectory_size; j++) {
-
-        // msg is iterated with j, rest is with i
-        int i = j - trajectory_sample_offset;
+      for (int i = 0; i < trajectory_size; i++) {
 
         // check the point for NaN/inf
         bool no_nans = true;
 
-        if (!std::isfinite(msg.points[j].x)) {
+        if (!std::isfinite(msg.points[i].x)) {
           ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].x\"!!!", i);
           no_nans = false;
         }
 
-        if (!std::isfinite(msg.points[j].y)) {
+        if (!std::isfinite(msg.points[i].y)) {
           ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].y\"!!!", i);
           no_nans = false;
         }
 
-        if (!std::isfinite(msg.points[j].z)) {
+        if (!std::isfinite(msg.points[i].z)) {
           ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].z\"!!!", i);
           no_nans = false;
         }
 
-        if (!std::isfinite(msg.points[j].yaw)) {
+        if (!std::isfinite(msg.points[i].yaw)) {
           ROS_ERROR("[MpcTracker]: NaN detected in variable \"msg.points[%d].yaw\"!!!", i);
           no_nans = false;
         }
@@ -2865,35 +2830,24 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           return false;
         }
 
-        des_x_whole_trajectory(i) = msg.points[j].x;
-        des_y_whole_trajectory(i) = msg.points[j].y;
-        des_z_whole_trajectory(i) = msg.points[j].z;
+        des_x_whole_trajectory(i) = msg.points[i].x;
+        des_y_whole_trajectory(i) = msg.points[i].y;
+        des_z_whole_trajectory(i) = msg.points[i].z;
       }
 
       if (msg.use_yaw) {
 
         use_yaw_in_trajectory = true;
 
-        for (int j = trajectory_sample_offset; j < trajectory_size; j++) {
+        for (int i = 0; i < trajectory_size; i++) {
 
-          int i = j - trajectory_sample_offset;
-          // msg is iterated with j, rest is with i
-
-          des_yaw_whole_trajectory(i) = msg.points[j].yaw;
+          des_yaw_whole_trajectory(i) = msg.points[i].yaw;
         }
 
       } else {
 
         des_yaw_whole_trajectory.fill(desired_yaw);
         use_yaw_in_trajectory = false;
-      }
-
-      trajectory_size -= trajectory_sample_offset;
-
-      if (trajectory_size <= 0) {
-        message = "Trajectory size is not positive!";
-        ROS_ERROR("[MpcTracker]: Trajectory size is not positive!");
-        return false;
       }
 
       // check the trajectory using the bumper
@@ -3328,17 +3282,10 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
     {
       std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
 
-      double interp_coeff             = (trajectory_tracking_timer / 20.0) + (1 / 20) + trajectory_interpolation_offset;
-      trajectory_interpolation_offset = 0.0;
+      double interp_coeff = (trajectory_tracking_timer / 20.0) + (1 / 20);
 
       int first_idx  = trajectory_idx;
       int second_idx = trajectory_idx + 1;
-
-      if (interp_coeff > 0.2) {
-        interp_coeff -= 0.2;
-        first_idx++;
-        second_idx++;
-      }
 
       if (loop) {
 
