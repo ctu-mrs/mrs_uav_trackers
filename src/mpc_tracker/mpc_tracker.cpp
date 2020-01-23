@@ -1460,6 +1460,9 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   mrs_msgs::FutureTrajectory temp_trajectory = *msg;
 
+  // the times might not be synchronized, so just remember the time of receiving it
+  temp_trajectory.stamp = ros::Time::now();
+
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
 }
