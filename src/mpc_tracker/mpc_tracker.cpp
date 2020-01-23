@@ -263,11 +263,14 @@ private:
   MatrixXd   predicted_future_trajectory_esp;
   std::mutex mutex_predicted_trajectory;
 
-  std::string                                       uav_name_;
-  std::vector<std::string>                          other_drone_names_;
-  std::map<std::string, mrs_msgs::FutureTrajectory> other_drones_trajectories;
-  std::vector<ros::Subscriber>                      other_drones_subscribers;
-  std::mutex                                        mutex_other_drone_trajecotries;
+  std::string                                            uav_name_;
+  std::vector<std::string>                               other_drone_names_;
+  std::map<std::string, mrs_msgs::FutureTrajectory>      other_drones_trajectories;
+  std::map<std::string, mrs_msgs::MpcTrackerDiagnostics> other_drones_diagnostics;
+  std::vector<ros::Subscriber>                           other_uav_prediction_subscribers;
+  std::vector<ros::Subscriber>                           other_uav_diag_subscribers;
+  std::mutex                                             mutex_other_drone_trajecotries;
+  std::mutex                                             mutex_other_drone_diagnostics;
 
   ros::Publisher predicted_trajectory_publisher;
   ros::Publisher predicted_trajectory_esp_publisher;
@@ -279,7 +282,9 @@ private:
   double         mrs_collision_avoidance_radius;
   double         mrs_collision_avoidance_correction;
   std::string    predicted_trajectory_topic;
+  std::string    diagnostics_topic;
   void           callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr &msg);
+  void           callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosticsConstPtr &msg);
   bool           future_was_predicted = false;
   double         mrs_collision_avoidance_altitude_threshold;
   double         checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
@@ -662,6 +667,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   earliest_collision_idx  = INT_MAX;
 
   param_loader.load_param("predicted_trajectory_topic", predicted_trajectory_topic);
+  param_loader.load_param("diagnostics_topic", diagnostics_topic);
 
   param_loader.load_param("mrs_collision_avoidance/predicted_trajectory_publish_rate", predicted_trajectory_publish_rate);
   param_loader.load_param("mrs_collision_avoidance/use_priority_swap", use_priority_swap);
@@ -680,11 +686,18 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   // create subscribers on other drones diagnostics
   for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
 
-    std::string topic_name = std::string("/") + other_drone_names_[i] + std::string("/") + predicted_trajectory_topic;
+    std::string prediction_topic_name = std::string("/") + other_drone_names_[i] + std::string("/") + predicted_trajectory_topic;
+    std::string diag_topic_name       = std::string("/") + other_drone_names_[i] + std::string("/") + diagnostics_topic;
 
-    ROS_INFO("[MpcTracker]: subscribing to %s", topic_name.c_str());
+    ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
-    other_drones_subscribers.push_back(nh_.subscribe(topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
+    other_uav_prediction_subscribers.push_back(
+        nh_.subscribe(prediction_topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
+
+
+    ROS_INFO("[MpcTracker]: subscribing to %s", diag_topic_name.c_str());
+
+    other_uav_diag_subscribers.push_back(nh_.subscribe(diag_topic_name, 1, &MpcTracker::callbackOtherMavDiagnostics, this, ros::TransportHints().tcpNoDelay()));
   }
 
   service_server_headless_mode      = nh_.advertiseService("headless_in", &MpcTracker::callbackHeadlessMode, this);
@@ -1465,6 +1478,25 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   // update the diagnostics
   other_drones_trajectories[msg->uav_name] = temp_trajectory;
+}
+
+//}
+
+/* //{ callbackOtherMavDiagnostics() */
+
+void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosticsConstPtr &msg) {
+
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
+
+  std::scoped_lock lock(mutex_other_drone_diagnostics);
+
+  mrs_msgs::MpcTrackerDiagnostics temp_diagnostics = *msg;
+
+  // the times might not be synchronized, so just remember the time of receiving it
+  temp_diagnostics.header.stamp = ros::Time::now();
+
+  // update the diagnostics
+  other_drones_diagnostics[msg->uav_name] = temp_diagnostics;
 }
 
 //}
@@ -2677,6 +2709,8 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.header.stamp    = ros::Time::now();
   diagnostics.header.frame_id = uav_state_.header.frame_id;
 
+  diagnostics.uav_name = uav_name_;
+
   diagnostics.tracker_active = is_active;
 
   diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
@@ -2714,17 +2748,20 @@ void MpcTracker::publishDiagnostics(void) {
   buffer[0] = 0;
 
   {
-    std::scoped_lock lock(mutex_other_drone_trajecotries);
+    std::scoped_lock lock(mutex_other_drone_diagnostics);
 
     // fill in if other UAVs are sending their trajectories
-    std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_drones_trajectories.begin();
+    std::map<std::string, mrs_msgs::MpcTrackerDiagnostics>::iterator u = other_drones_diagnostics.begin();
 
-    while (u != other_drones_trajectories.end()) {
+    while (u != other_drones_diagnostics.end()) {
 
-      // is the other's trajectory fresh enought?
-      if ((ros::Time::now() - u->second.stamp).toSec() < collision_trajectory_timeout) {
-        diagnostics.avoidance_active_uavs.push_back(u->first);
-        sprintf(buffer + strlen(buffer), "%s ", u->first.c_str());
+      if (u->second.collision_avoidance_active) {
+
+        // is the other's trajectory fresh enought?
+        if ((ros::Time::now() - u->second.header.stamp).toSec() < collision_trajectory_timeout) {
+          diagnostics.avoidance_active_uavs.push_back(u->first);
+          sprintf(buffer + strlen(buffer), "%s ", u->first.c_str());
+        }
       }
 
       u++;
