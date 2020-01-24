@@ -2951,12 +2951,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       marker.header.stamp = ros::Time::now();
     }
 
-    marker.type    = visualization_msgs::Marker::LINE_LIST;
-    marker.color.a = 1;
-    marker.scale.x = 0.05;
-    marker.color.r = 0;
-    marker.color.g = 1;
-    marker.color.b = 0;
+    marker.type               = visualization_msgs::Marker::LINE_LIST;
+    marker.color.a            = 1;
+    marker.scale.x            = 0.05;
+    marker.color.r            = 0;
+    marker.color.g            = 1;
+    marker.color.b            = 0;
+    marker.pose.orientation.w = 1;
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
@@ -3513,14 +3514,15 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     visualization_msgs::Marker marker;
 
-    marker.header.stamp    = ros::Time::now();
-    marker.header.frame_id = current_frame_id;
-    marker.type            = visualization_msgs::Marker::LINE_LIST;
-    marker.color.a         = 1;
-    marker.scale.x         = 0.05;
-    marker.color.r         = 1;
-    marker.color.g         = 0;
-    marker.color.b         = 0;
+    marker.header.stamp       = ros::Time::now();
+    marker.header.frame_id    = current_frame_id;
+    marker.type               = visualization_msgs::Marker::LINE_LIST;
+    marker.color.a            = 1;
+    marker.scale.x            = 0.05;
+    marker.color.r            = 1;
+    marker.color.g            = 0;
+    marker.color.b            = 0;
+    marker.pose.orientation.w = 1;
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
