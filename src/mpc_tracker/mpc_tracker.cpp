@@ -3119,11 +3119,80 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
   //}
 
+  std::string current_frame_id = msg.header.frame_id;
+
+  /* transform the trajectory to the safety area frame //{ */
+
+  if (common_handlers->safety_area.use_safety_area) {
+
+    auto ret = common_handlers->transformer->getTransform(current_frame_id, common_handlers->safety_area.frame_id, uav_state_.header.stamp);
+
+    if (!ret) {
+
+      message = "Coult not create TF transformer for the trajectory.";
+      ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Coult not create TF transformer for the trajectory.");
+      return false;
+    }
+
+    current_frame_id = common_handlers->safety_area.frame_id;
+
+    mrs_lib::TransformStamped tf = ret.value();
+
+    for (int i = 0; i < trajectory_size; i++) {
+
+      mrs_msgs::ReferenceStamped trajectory_point;
+      trajectory_point.header = msg.header;
+
+      trajectory_point.reference.position.x = des_x_whole_trajectory(i);
+      trajectory_point.reference.position.y = des_y_whole_trajectory(i);
+      trajectory_point.reference.position.z = des_z_whole_trajectory(i);
+      trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
+
+      auto ret = common_handlers->transformer->transform(tf, trajectory_point);
+
+      if (!ret) {
+
+        message = "Trajectory cannnot be transformed to the safety area frame.";
+        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: the reference could not be transformed.");
+        return false;
+
+      } else {
+
+        // transform the points in the trajectory to the current frame
+        des_x_whole_trajectory(i)   = ret.value().reference.position.x;
+        des_y_whole_trajectory(i)   = ret.value().reference.position.y;
+        des_z_whole_trajectory(i)   = ret.value().reference.position.z;
+        des_yaw_whole_trajectory(i) = ret.value().reference.yaw;
+      }
+    }
+  }
+
+  //}
+
   /* safety area check //{ */
 
   bool safety_area_pass = true;
 
   if (common_handlers->safety_area.use_safety_area) {
+
+    // transform the current state to the safety area frame
+    mrs_msgs::ReferenceStamped x_current_frame;
+    x_current_frame.header               = uav_state.header;
+    x_current_frame.reference.position.x = x(0, 0);
+    x_current_frame.reference.position.y = x(4, 0);
+
+    auto res = common_handlers->transformer->transformSingle(common_handlers->safety_area.frame_id, x_current_frame);
+
+    mrs_msgs::ReferenceStamped x_area_frame;
+
+    if (res) {
+      x_area_frame = res.value();
+    } else {
+
+      message = "Could not transform current state to safety area frame!";
+      ROS_WARN("[MpcTracker]: %s", message.c_str());
+      return false;
+    }
 
     int last_valid_idx    = 0;
     int first_invalid_idx = -1;
@@ -3150,6 +3219,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
       // the point is not feasible
       mrs_msgs::ReferenceStamped des_reference;
+      des_reference.header.frame_id      = current_frame_id;
       des_reference.reference.position.x = des_x_whole_trajectory(i);
       des_reference.reference.position.y = des_y_whole_trajectory(i);
 
@@ -3177,14 +3247,14 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           if (last_valid_idx == -1) {  // special case, we had no valid point so far
 
             // interpolate between the current position and the valid point
-            double angle           = atan2((des_y_whole_trajectory(i) - x(4, 0)), (des_x_whole_trajectory(i) - x(0, 0)));
-            double dist_two_points = dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x(0, 0), x(4, 0));
-            double step            = dist_two_points / i;
+            double angle = atan2(des_y_whole_trajectory(i) - x_area_frame.reference.position.x, des_x_whole_trajectory(i) - x_area_frame.reference.position.y);
+            double dist_two_points =
+                dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x_area_frame.reference.position.x, x_area_frame.reference.position.y);
+            double step = dist_two_points / i;
 
             for (int j = 0; j < i; j++) {
-
-              des_x_whole_trajectory(j) = x(0, 0) + j * cos(angle) * step;
-              des_y_whole_trajectory(j) = x(4, 0) + j * sin(angle) * step;
+              des_x_whole_trajectory(j) = x_area_frame.reference.position.x + j * cos(angle) * step;
+              des_y_whole_trajectory(j) = x_area_frame.reference.position.y + j * sin(angle) * step;
             }
 
             // we have a valid point in the past
@@ -3203,7 +3273,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
             for (int j = last_valid_idx; j < i; j++) {
 
               mrs_msgs::ReferenceStamped temp_point;
-
+              temp_point.header.frame_id      = current_frame_id;
               temp_point.reference.position.x = des_x_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * cos(angle) * step;
               temp_point.reference.position.y = des_y_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * sin(angle) * step;
 
@@ -3252,7 +3322,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
   /* transform the trajectory to the current frame //{ */
 
-  auto ret = common_handlers->transformer->getTransform(msg.header.frame_id, "", uav_state_.header.stamp);
+  auto ret = common_handlers->transformer->getTransform(current_frame_id, "", uav_state_.header.stamp);
 
   if (!ret) {
 
@@ -3260,6 +3330,8 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     ROS_WARN("[MpcTracker]: Coult not create TF transformer for the trajectory.");
     return false;
   }
+
+  current_frame_id = ret.value().to();
 
   mrs_lib::TransformStamped tf = ret.value();
 
@@ -3406,7 +3478,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = uav_state_.header.frame_id;
+    debug_trajectory_out.header.frame_id = current_frame_id;
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
@@ -3442,7 +3514,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     visualization_msgs::Marker marker;
 
     marker.header.stamp    = ros::Time::now();
-    marker.header.frame_id = uav_state_.header.frame_id;
+    marker.header.frame_id = current_frame_id;
     marker.type            = visualization_msgs::Marker::LINE_LIST;
     marker.color.a         = 1;
     marker.scale.x         = 0.05;
