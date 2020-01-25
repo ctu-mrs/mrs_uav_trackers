@@ -3039,7 +3039,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       if (trajectory_sample_offset >= trajectory_size) {
 
         message = "Trajectory timestamp is too old!";
-        ROS_ERROR("[MpcTracker]: Trajectory timestamp is too old!");
+        ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: Trajectory timestamp is too old!");
 
         return false;
 
