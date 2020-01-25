@@ -3246,9 +3246,16 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           if (last_valid_idx == -1) {  // special case, we had no valid point so far
 
             // interpolate between the current position and the valid point
-            double angle = atan2(des_y_whole_trajectory(i) - x_area_frame.reference.position.x, des_x_whole_trajectory(i) - x_area_frame.reference.position.y);
+            double angle = atan2(des_y_whole_trajectory(i) - x_area_frame.reference.position.y, des_x_whole_trajectory(i) - x_area_frame.reference.position.x);
             double dist_two_points =
                 dist(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x_area_frame.reference.position.x, x_area_frame.reference.position.y);
+
+            if (dist_two_points > 1.0) {
+              message = "The trajectory starts outride of the safety area!";
+              ROS_WARN("[MpcTracker]: %s", message.c_str());
+              return false;
+            }
+
             double step = dist_two_points / i;
 
             for (int j = 0; j < i; j++) {
