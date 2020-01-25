@@ -44,6 +44,7 @@ public:
   virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
+  virtual bool resetStatic(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
@@ -334,6 +335,15 @@ void CsvTracker::deactivate(void) {
   is_active = false;
   odom_set  = false;
   tracking  = false;
+}
+
+//}
+
+/* //{ resetStatic() */
+
+bool CsvTracker::resetStatic(void) {
+
+  return false;
 }
 
 //}

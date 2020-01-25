@@ -68,6 +68,7 @@ public:
   virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
+  virtual bool resetStatic(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
@@ -857,6 +858,67 @@ void MpcTracker::deactivate(void) {
   ROS_INFO("[MpcTracker]: deactivated");
 
   publishDiagnostics();
+}
+
+//}
+
+/* //{ resetStatic() */
+
+bool MpcTracker::resetStatic(void) {
+
+  if (!is_initialized) {
+    ROS_ERROR("[MpcTracker]: cannot reset, not initialized");
+    return false;
+  }
+
+  if (!is_active) {
+    ROS_ERROR("[MpcTracker]: cannot reset, not active");
+    return false;
+  }
+
+  {
+    std::scoped_lock lock(mutex_x);
+
+    // set the initial condition from the odometry
+
+    ROS_INFO("[MpcTracker]: reseting with uav state with no dynamics");
+
+    x_(0, 0) = uav_state_.pose.position.x;
+    x_(1, 0) = 0;
+    x_(2, 0) = 0;
+    x_(3, 0) = 0;
+
+    x_(4, 0) = uav_state_.pose.position.y;
+    x_(5, 0) = 0;
+    x_(6, 0) = 0;
+    x_(7, 0) = 0;
+
+    x_(8, 0)  = uav_state_.pose.position.z;
+    x_(9, 0)  = 0;
+    x_(10, 0) = 0;
+    x_(11, 0) = 0;
+
+    x_yaw_(0, 0) = cur_yaw_;
+    x_yaw_(1, 0) = 0;
+    x_yaw_(2, 0) = 0;
+    x_yaw_(3, 0) = 0;
+
+    yaw = cur_yaw_;
+
+    tracking_trajectory_ = false;
+
+    mpc_start_time  = ros::Time::now();
+    mpc_total_delay = 0;
+
+    ROS_INFO("[MpcTracker]: reseted");
+  }
+
+  // this is here to initialize the desired_trajectory vector
+  // if deleted (and I tried) the UAV will briefly fly to the
+  // origin after activation
+  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
+
+  return true;
 }
 
 //}

@@ -51,6 +51,7 @@ public:
   virtual void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
   virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr &cmd);
   virtual void deactivate(void);
+  virtual bool resetStatic(void);
 
   virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &msg, const mrs_msgs::AttitudeCommand::ConstPtr &cmd);
   virtual const mrs_msgs::TrackerStatus             getStatus();
@@ -356,6 +357,51 @@ void LineTracker::deactivate(void) {
   is_active = false;
 
   ROS_INFO("[LineTracker]: deactivated");
+}
+
+//}
+
+/* //{ resetStatic() */
+
+bool LineTracker::resetStatic(void) {
+
+  if (!is_initialized) {
+    ROS_ERROR("[LineTracker]: cannot reset, not initialized");
+    return false;
+  }
+
+  if (!is_active) {
+    ROS_ERROR("[LineTracker]: cannot reset, not active");
+    return false;
+  }
+
+  ROS_INFO("[LineTracker]: reseting with no dynamics.");
+
+  {
+    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state);
+
+    state_x   = uav_state.pose.position.x;
+    state_y   = uav_state.pose.position.y;
+    state_z   = uav_state.pose.position.z;
+    state_yaw = uav_yaw;
+
+    speed_x                  = 0;
+    speed_y                  = 0;
+    current_heading          = 0;
+    current_horizontal_speed = 0;
+
+    current_vertical_speed     = 0;
+    current_vertical_direction = 0;
+
+    current_horizontal_acceleration = 0;
+    current_vertical_acceleration   = 0;
+
+    goal_yaw = uav_yaw;
+  }
+
+  changeState(IDLE_STATE);
+
+  return true;
 }
 
 //}
