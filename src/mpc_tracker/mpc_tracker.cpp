@@ -143,7 +143,7 @@ private:
   int       n_yaw;         // number of states - yaw
   int       m_yaw;         // number of inputs - yaw
   int       horizon_len_;  // lenght of the prediction horizon
-  double    minimum_collison_free_altitude = std::numeric_limits<float>::min();
+  double    minimum_collison_free_altitude = std::numeric_limits<float>::lowest();
   int       active_collision_index         = INT_MAX;
   double    coef_scaler                    = 0;
   ros::Time coef_time;
@@ -569,7 +569,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   mrs_msgs::FuturePoint newPoint;
   newPoint.x = std::numeric_limits<float>::max();
   newPoint.y = std::numeric_limits<float>::max();
-  newPoint.z = std::numeric_limits<float>::min();
+  newPoint.z = std::numeric_limits<float>::lowest();
 
   mrs_msgs::FuturePointInt8 newPointInt8;
   newPointInt8.x = 0;
