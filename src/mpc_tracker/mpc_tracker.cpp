@@ -143,7 +143,7 @@ private:
   int       n_yaw;         // number of states - yaw
   int       m_yaw;         // number of inputs - yaw
   int       horizon_len_;  // lenght of the prediction horizon
-  double    minimum_collison_free_altitude = 0;
+  double    minimum_collison_free_altitude = std::numeric_limits<float>::min();
   int       active_collision_index         = INT_MAX;
   double    coef_scaler                    = 0;
   ros::Time coef_time;
@@ -2960,6 +2960,8 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header = msg.header;
 
+    debug_trajectory_out.header.frame_id = common_handlers->transformer->resolveFrameName(debug_trajectory_out.header.frame_id);
+
     if (debug_trajectory_out.header.frame_id == "") {
       debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
     }
@@ -3002,6 +3004,8 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     visualization_msgs::Marker marker;
 
     marker.header = msg.header;
+
+    marker.header.frame_id = common_handlers->transformer->resolveFrameName(marker.header.frame_id);
 
     if (marker.header.frame_id == "") {
       marker.header.frame_id = uav_state.header.frame_id;
@@ -3546,7 +3550,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = current_frame_id;
+    debug_trajectory_out.header.frame_id = common_handlers->transformer->resolveFrameName(current_frame_id);
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory);
@@ -3582,7 +3586,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     visualization_msgs::Marker marker;
 
     marker.header.stamp       = ros::Time::now();
-    marker.header.frame_id    = current_frame_id;
+    marker.header.frame_id    = common_handlers->transformer->resolveFrameName(current_frame_id);
     marker.type               = visualization_msgs::Marker::LINE_LIST;
     marker.color.a            = 1;
     marker.scale.x            = 0.05;
