@@ -536,7 +536,8 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
-  // copy member variables
+  std::scoped_lock lock(mutex_goal_, mutex_state_);
+
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   double odom_roll, odom_pitch, odom_yaw;
@@ -560,41 +561,19 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ms
   double dz   = msg->pose.position.z - uav_state.pose.position.z;
   double dyaw = msg_yaw - odom_yaw;
 
-  {
-    std::scoped_lock lock(mutex_goal_);
-
-    goal_x_ += dx;
-    goal_y_ += dy;
-    goal_z_ += dz;
-    goal_yaw_ += dyaw;
-    have_goal_ = true;
-  }
+  goal_x_ += dx;
+  goal_y_ += dy;
+  goal_z_ += dz;
+  goal_yaw_ += dyaw;
 
   // | -------------------- update the state -------------------- |
 
-  {
-    std::scoped_lock lock(mutex_state_);
+  state_x_ += dx;
+  state_y_ += dy;
+  state_z_ += dz;
+  state_yaw_ += dyaw;
 
-    state_x_   = msg->pose.position.x;
-    state_y_   = msg->pose.position.y;
-    state_z_   = msg->pose.position.z;
-    state_yaw_ = msg_yaw;
-  }
-
-  // | ------- copy the new odometry as the current state ------- |
-
-  // TODO: this current state should be translated aswell
-  {
-    std::scoped_lock lock(mutex_state_, mutex_goal_);
-
-    current_horizontal_speed_ = sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2));
-    current_vertical_speed_   = msg->velocity.linear.z;
-    current_heading_          = atan2(goal_y_ - state_y_, goal_x_ - state_x_);
-  }
-
-  // | ---------- switch to stop motion, which should  ---------- |
-
-  changeState(STOP_MOTION_STATE);
+  current_heading_ = atan2(goal_y_ - state_y_, goal_x_ - state_x_);
 }
 
 //}
