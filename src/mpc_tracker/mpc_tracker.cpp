@@ -3083,7 +3083,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       // just say it, but use it like its from the current time
       if (trajectory_time_offset < 0.0) {
 
-        ROS_WARN("[MpcTracker]: Received trajectory with timestamp in the future by %.2f s", -trajectory_time_offset);
+        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: Received trajectory with timestamp in the future by %.2f s", -trajectory_time_offset);
 
         trajectory_time_offset = 0.0;
       }
@@ -3118,7 +3118,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
           // decrease the trajectory size
           trajectory_size -= trajectory_sample_offset;
 
-          ROS_WARN_STREAM("[MpcTracker]: Got trajectory with timestamp \"" << trajectory_time_offset << " s\" in the past");
+          ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Got trajectory with timestamp \"" << trajectory_time_offset << " s\" in the past");
         }
       }
     }
