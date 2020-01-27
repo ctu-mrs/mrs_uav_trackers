@@ -2734,9 +2734,9 @@ void MpcTracker::calculateMPC() {
 
   double cvx_time = (ros::Time::now() - time_begin).toSec();
   if (cvx_time > 0.01 || iters_X > max_iters_XY || iters_Y > max_iters_XY || iters_Z > max_iters_Z || iters_YAW > max_iters_YAW) {
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y
-                                                                  << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
-                                                                  << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
+    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_X << "/" << max_iters_XY << " iters Y:  " << iters_Y
+                                                                   << "/" << max_iters_XY << " iters Z: " << iters_Z << "/" << max_iters_Z
+                                                                   << " iters yaw: " << iters_YAW << "/" << max_iters_YAW);
   }
 
   {
@@ -2829,7 +2829,7 @@ void MpcTracker::publishDiagnostics(void) {
   }
 
   if (strlen(buffer) > 0) {
-    ROS_INFO_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: %s", buffer);
+    ROS_DEBUG_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: %s", buffer);
   } else if (got_odometry_diagnostics && collision_avoidance_enabled_ &&
              ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
               odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
