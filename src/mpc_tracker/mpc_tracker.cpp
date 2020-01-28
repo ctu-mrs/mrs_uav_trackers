@@ -2833,7 +2833,7 @@ void MpcTracker::publishDiagnostics(void) {
   } else if (got_odometry_diagnostics && collision_avoidance_enabled_ &&
              ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
               odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
-    ROS_WARN_THROTTLE(5.0, "[MpcTracker]: missing avoidance trajectories!");
+    ROS_WARN_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
   try {
@@ -3443,22 +3443,26 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
 
   if (msg.loop) {
 
-    double first_x = des_x_whole_trajectory(trajectory_size - 1);
-    double first_y = des_y_whole_trajectory(trajectory_size - 1);
-    double first_z = des_z_whole_trajectory(trajectory_size - 1);
+    double first_x = des_x_whole_trajectory(0);
+    double first_y = des_y_whole_trajectory(0);
+    double first_z = des_z_whole_trajectory(0);
 
     double last_x = des_x_whole_trajectory(trajectory_size - 1);
     double last_y = des_y_whole_trajectory(trajectory_size - 1);
     double last_z = des_z_whole_trajectory(trajectory_size - 1);
 
     // check whether the trajectory is loopable
+    // TODO should check yaw aswell
     if (dist3d(first_x, first_y, first_z, last_x, last_y, last_z) < 3.141592653) {
 
+      ROS_INFO_THROTTLE(1.0, "[MpcTracker]: looping enabled");
       loop = true;
 
     } else {
 
-      loop = false;
+      message = "cannot loop trajectory, the first and last points are too far apart";
+      ROS_WARN_STREAM("[MpcTracker]: " << message);
+      return false;
     }
 
   } else {
@@ -3537,6 +3541,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     trajectory_idx_            = 0;
     trajectory_tracking_timer_ = trajectory_subsample_offset;
     trajectory_set_            = true;
+    loop_                      = loop;
     trajectory_count_++;
   }
 
@@ -3800,22 +3805,13 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
     //}
 
+    /* do a step of the main tracking idx //{ */
+
+    // every 200 ms, when the subsampling timer hits 20 and we are still tracking
     if (trajectory_tracking_timer_++ == 20 && trajectory_idx_ < (trajectory_size_)) {
 
+      // reset the subsampling timer
       trajectory_tracking_timer_ = 0;
-
-      // fill the prediction horizon with the desired trajectory
-      for (int i = 0; i < horizon_len_; i++) {
-
-        int tempIdx = i + trajectory_idx_;
-        if (loop_) {
-
-          if (tempIdx >= trajectory_size_) {
-
-            tempIdx = tempIdx % trajectory_size_;
-          }
-        }
-      }
 
       if (use_yaw_in_trajectory_) {
 
@@ -3824,22 +3820,33 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
         desired_yaw = des_yaw_whole_trajectory_(trajectory_idx_);
       }
 
-      if (loop_) {  // if we are looping, the loop it
+      // INCREMENT THE TRACKING IDX
+      trajectory_idx_++;
 
-        if (++trajectory_idx_ == trajectory_size_) {
+      // if the tracking idx hits the end of the trajectory
+      if (trajectory_idx_ == trajectory_size_) {
+
+        if (loop_) {
+
+          // reset the idx
           trajectory_idx_ = 0;
-        }
 
-      } else {
-        // if we are at the end, select the last point as a constant setpoint
-        if (++trajectory_idx_ == (trajectory_size_)) {
+          ROS_INFO("[MpcTracker]: trajectory looped");
+
+        } else {
 
           tracking_trajectory_ = false;
+
+          // set the idx to the last idx of the trajectory
+          trajectory_idx_ = trajectory_size_ - 1;
+
           ROS_INFO("[MpcTracker]: Done tracking trajectory.");
           publishDiagnostics();
         }
       }
     }
+
+    //}
   }
 
   manageConstraints();
@@ -3855,6 +3862,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
   }
 
   mpc_computed_ = true;
+
   if (publish_debug_trajectory) {
 
     /* publish mpc reference //{ */
