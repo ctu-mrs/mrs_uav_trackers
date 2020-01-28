@@ -3537,6 +3537,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     trajectory_idx_            = 0;
     trajectory_tracking_timer_ = trajectory_subsample_offset;
     trajectory_set_            = true;
+    loop_                      = loop;
     trajectory_count_++;
   }
 
@@ -3800,43 +3801,48 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
     //}
 
-    if (trajectory_tracking_timer_++ == 20 && trajectory_idx_ < (trajectory_size_)) {
+    if (tracking_trajectory_) {
 
-      trajectory_tracking_timer_ = 0;
+      if (trajectory_tracking_timer_++ == 20 && trajectory_idx_ < (trajectory_size_)) {
 
-      // fill the prediction horizon with the desired trajectory
-      for (int i = 0; i < horizon_len_; i++) {
+        trajectory_tracking_timer_ = 0;
 
-        int tempIdx = i + trajectory_idx_;
-        if (loop_) {
+        // fill the prediction horizon with the desired trajectory
+        for (int i = 0; i < horizon_len_; i++) {
 
-          if (tempIdx >= trajectory_size_) {
+          int tempIdx = i + trajectory_idx_;
+          if (loop_) {
 
-            tempIdx = tempIdx % trajectory_size_;
+            if (tempIdx >= trajectory_size_) {
+
+              tempIdx = tempIdx % trajectory_size_;
+            }
           }
         }
-      }
 
-      if (use_yaw_in_trajectory_) {
+        if (use_yaw_in_trajectory_) {
 
-        std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
+          std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
 
-        desired_yaw = des_yaw_whole_trajectory_(trajectory_idx_);
-      }
-
-      if (loop_) {  // if we are looping, the loop it
-
-        if (++trajectory_idx_ == trajectory_size_) {
-          trajectory_idx_ = 0;
+          desired_yaw = des_yaw_whole_trajectory_(trajectory_idx_);
         }
 
-      } else {
-        // if we are at the end, select the last point as a constant setpoint
-        if (++trajectory_idx_ == (trajectory_size_)) {
+        if (loop_) {  // if we are looping, the loop it
 
-          tracking_trajectory_ = false;
-          ROS_INFO("[MpcTracker]: Done tracking trajectory.");
-          publishDiagnostics();
+          if (++trajectory_idx_ == trajectory_size_) {
+            trajectory_idx_ = 0;
+          }
+
+        } else {
+          // if we are at the end, select the last point as a constant setpoint
+          if (++trajectory_idx_ == trajectory_size_) {
+
+            trajectory_idx_ = trajectory_size_;
+
+            tracking_trajectory_ = false;
+            ROS_INFO("[MpcTracker]: Done tracking trajectory.");
+            publishDiagnostics();
+          }
         }
       }
     }

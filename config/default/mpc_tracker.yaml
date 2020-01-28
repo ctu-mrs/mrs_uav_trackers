@@ -13,7 +13,7 @@ wiggle:
 # mrs collision avoidance
 mrs_collision_avoidance:
   enable: true
-  use_priority_swap: true
+  use_priority_swap: false
   trajectory_timeout: 1.0 # [s]
   radius: 3.0 # [m]
   inflation_radius: 1.0 # [m] if a collision is detected in (radius + inflation radius) the uav will start to slow down. Do not set this variable lower than 0.5
