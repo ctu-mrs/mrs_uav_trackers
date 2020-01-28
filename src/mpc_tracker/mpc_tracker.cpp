@@ -3829,10 +3829,10 @@ void MpcTracker::mpcTimer(const ros::TimerEvent &event) {
 
       if (use_yaw_in_trajectory_) {
 
-          std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
+        std::scoped_lock lock(mutex_des_trajectory, mutex_des_whole_trajectory);
 
-          desired_yaw = des_yaw_whole_trajectory_(trajectory_idx_);
-        }
+        desired_yaw = des_yaw_whole_trajectory_(trajectory_idx_);
+      }
 
       // INCREMENT THE TRACKING IDX
       trajectory_idx_++;
