@@ -3182,6 +3182,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     }
   }
 
+  if (trajectory_size == 0) {
+
+    message = "the whole trajectory violates bumper, cannot execute it!";
+    ROS_WARN("[MpcTracker]: %s", message.c_str());
+    return false;
+  }
+
   //}
 
   std::string current_frame_id = msg.header.frame_id;
@@ -3388,6 +3395,13 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
         safety_area_pass = false;
       }
     }
+  }
+
+  if (trajectory_size == 0) {
+
+    message = "the trajectory somehow happened to be empty after all the checks! This message should not appear!";
+    ROS_WARN("[MpcTracker]: %s", message.c_str());
+    return false;
   }
 
   //}
