@@ -3252,6 +3252,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
     x_current_frame.header               = uav_state.header;
     x_current_frame.reference.position.x = x(0, 0);
     x_current_frame.reference.position.y = x(4, 0);
+    x_current_frame.reference.position.z = x(8, 0);
 
     auto res = common_handlers->transformer->transformSingle(common_handlers->safety_area.frame_id, x_current_frame);
 
@@ -3294,6 +3295,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory &msg, std::str
       des_reference.header.frame_id      = current_frame_id;
       des_reference.reference.position.x = des_x_whole_trajectory(i);
       des_reference.reference.position.y = des_y_whole_trajectory(i);
+      des_reference.reference.position.z = des_z_whole_trajectory(i);
 
       if (!common_handlers->safety_area.isPointInSafetyArea2d(des_reference)) {
 
