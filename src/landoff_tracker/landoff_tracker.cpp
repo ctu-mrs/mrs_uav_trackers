@@ -76,6 +76,9 @@ public:
 private:
   bool callbacks_enabled_ = true;
 
+  mrs_msgs::AttitudeCommand last_attitude_cmd_;
+  std::mutex                mutex_last_attitude_cmd_;
+
   ros::NodeHandle                                    nh_;
   std::string                                        _uav_name_;
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
@@ -431,8 +434,7 @@ bool LandoffTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&                         msg,
-                                                                 [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& cmd) {
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr& msg, const mrs_msgs::AttitudeCommand::ConstPtr& cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
@@ -477,6 +479,12 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
     position_output_.use_yaw_dot             = 1;
     position_output_.use_velocity_vertical   = 1;
     position_output_.use_velocity_horizontal = 1;
+  }
+
+  {
+    std::scoped_lock lock(mutex_last_attitude_cmd_);
+
+    last_attitude_cmd_ = *cmd;
   }
 
   if (_takeoff_disable_lateral_gains_ && taking_off_ && uav_state_.pose.position.z < _takeoff_disable_lateral_gains_height_) {
@@ -997,11 +1005,10 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
 
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
-
   auto [state_x, state_y, state_z, current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(
       mutex_state_, state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
-
   auto [goal_x, goal_y, goal_z] = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
+  auto last_attitude_cmd        = mrs_lib::get_mutexed(mutex_last_attitude_cmd_, last_attitude_cmd_);
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1038,6 +1045,11 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
             0.1, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
             error_size, _max_position_difference_, future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z);
       }
+    }
+
+    // saturate while ramping up during takeoff
+    if (last_attitude_cmd.ramping_up) {
+      takeoff_saturated = true;
     }
   }
 
