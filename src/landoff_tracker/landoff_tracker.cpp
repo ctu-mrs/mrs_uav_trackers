@@ -1049,6 +1049,8 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
 
     // saturate while ramping up during takeoff
     if (last_attitude_cmd.ramping_up) {
+
+      ROS_INFO_THROTTLE(1.0, "[LandoffTracker]: waiting for the controller to rampup");
       takeoff_saturated = true;
     }
   }
