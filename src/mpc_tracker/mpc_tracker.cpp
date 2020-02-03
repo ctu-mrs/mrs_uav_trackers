@@ -1184,7 +1184,7 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
     sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
 
-    ROS_INFO("[MpcTracker]: %s", message);
+    ROS_DEBUG("[MpcTracker]: %s", message);
 
   } else {
 
