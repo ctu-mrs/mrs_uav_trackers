@@ -2207,20 +2207,20 @@ double MpcTracker::checkTrajectoryForCollisions(double lowest_z, int &first_coll
             ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: Avoiding collision with uav" << other_uav_priority);
           } else {
             // the other drone should be avoiding, except for priority swap
-            if (use_priority_swap && first_collision) {
-              if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z) {
-                priority_time = ros::Time::now();
-                ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z
-                                                                                          << "  my: " << future_trajectory_out.points[0].z);
-                if (my_uav_priority < 1050) {
-                  // To prevent priority swapping runaway scenario
-                  my_uav_priority += 100;
-                } else {
-                  ROS_ERROR("[MpcTracker]: Saturating UAV priority");
-                }
-                continue;
-              }
-            }
+            /* if (use_priority_swap && first_collision) { */
+            /*   if (u->second.points[v].z + 0.5 < future_trajectory_out.points[v].z) { */
+            /*     priority_time = ros::Time::now(); */
+            /*     ROS_ERROR_STREAM("[MpcTracker]: LOWERING MY PRIORITY TO AVOID COLLISION " << u->second.points[0].z */
+            /*                                                                               << "  my: " << future_trajectory_out.points[0].z); */
+            /*     if (my_uav_priority < 1050) { */
+            /*       // To prevent priority swapping runaway scenario */
+            /*       my_uav_priority += 100; */
+            /*     } else { */
+            /*       ROS_ERROR("[MpcTracker]: Saturating UAV priority"); */
+            /*     } */
+            /*     continue; */
+            /*   } */
+            /* } */
             // the other uav should avoid us
             ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: Detected collision with uav" << other_uav_priority << ", not avoiding (My priority is higher)");
             first_collision = false;
@@ -2441,8 +2441,10 @@ void MpcTracker::calculateMPC() {
   double lowest_z              = std::numeric_limits<double>::max();
   bool   brake;
 
-  if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
-                                       odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
+  /* if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) || */
+  /*                                      odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) { */
+  if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name == "GPS") || odometry_diagnostics.estimator_type.name == "RTK")) {
+
     // determine the lowest point in our trajectory
     for (int i = 0; i < horizon_len_; i++) {
       if (des_z_trajectory_(i, 0) < lowest_z) {
@@ -2872,11 +2874,12 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
   setTrajectory(abs_x, abs_y, abs_z, abs_yaw);
 
   if (set_use_yaw) {
-    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f.", set_x,
-             set_y, set_z, set_yaw, abs_x, abs_y, abs_z, abs_yaw);
+    ROS_INFO_THROTTLE(1.0,
+                      "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f.",
+                      set_x, set_y, set_z, set_yaw, abs_x, abs_y, abs_z, abs_yaw);
   } else {
-    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f.", set_x, set_y, set_z, abs_x,
-             abs_y, abs_z);
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f.", set_x, set_y,
+                      set_z, abs_x, abs_y, abs_z);
   }
 
   publishDiagnostics();
