@@ -152,6 +152,7 @@ private:
   std::mutex                             mutex_constraints;
   ros::Time                              priority_time;
   mrs_msgs::TrackerConstraintsSrvRequest desired_constraints;
+  bool                                   got_constraints_    = false;
   bool                                   all_constraints_set = false;
   double                                 max_horizontal_speed;
   double                                 max_horizontal_acceleration;
@@ -1355,6 +1356,9 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
 const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
 
   desired_constraints = *cmd;
+
+  got_constraints_ = true;
+
   mrs_msgs::TrackerConstraintsSrvResponse res;
   all_constraints_set = false;
 
@@ -2103,6 +2107,10 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 /* //{ checkCollision() */
 
 void MpcTracker::manageConstraints() {
+
+  if (!got_constraints_) {
+    return;
+  }
 
   if (all_constraints_set) {
     return;
