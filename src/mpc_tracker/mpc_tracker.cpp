@@ -2872,10 +2872,10 @@ bool MpcTracker::setRelativeGoal(double set_x, double set_y, double set_z, doubl
   setTrajectory(abs_x, abs_y, abs_z, abs_yaw);
 
   if (set_use_yaw) {
-    ROS_INFO("[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f.", set_x,
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f.", set_x,
              set_y, set_z, set_yaw, abs_x, abs_y, abs_z, abs_yaw);
   } else {
-    ROS_INFO("[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f.", set_x, set_y, set_z, abs_x,
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Relative Goal to x: %2.2f y: %2.2f z: %2.2f which moves it to x: %2.2f y: %2.2f z: %2.2f.", set_x, set_y, set_z, abs_x,
              abs_y, abs_z);
   }
 
@@ -3688,9 +3688,9 @@ bool MpcTracker::setGoal(double set_x, double set_y, double set_z, double set_ya
   tracking_trajectory_ = false;
 
   if (set_use_yaw) {
-    ROS_INFO("[MpcTracker]: Setting Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f", set_x, set_y, set_z, set_yaw);
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Goal to x: %2.2f y: %2.2f z: %2.2f yaw: %2.2f", set_x, set_y, set_z, set_yaw);
   } else {
-    ROS_INFO("[MpcTracker]: Setting Goal to x: %2.2f y: %2.2f z: %2.2f", set_x, set_y, set_z);
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: Setting Goal to x: %2.2f y: %2.2f z: %2.2f", set_x, set_y, set_z);
   }
 
   publishDiagnostics();
