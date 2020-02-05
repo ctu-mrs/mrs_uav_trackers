@@ -487,7 +487,7 @@ void MpcTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   nh_.param("diagnostic_orientation_tracking_threshold", diagnostic_orientation_tracking_threshold, 0.5);
 
   ROS_INFO(
-      "MPC parameters: horizon_len_: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
+      "MPC parameters: horizon_len: %d, max_vertical_ascending_speed: %2.1f, max_horizontal_speed: %2.1f, max_horizontal_acceleration: "
       "%2.1f, max_vertical_ascending_acceleration: %2.1f, max_vertical_descending_speed: %2.1f, max_vertical_descending_acceleration: %2.1f, ",
       horizon_len_, max_vertical_ascending_speed, max_horizontal_speed, max_horizontal_acceleration, max_vertical_ascending_acceleration,
       max_vertical_descending_speed, max_vertical_descending_acceleration);
