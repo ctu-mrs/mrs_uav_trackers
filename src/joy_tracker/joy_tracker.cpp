@@ -303,23 +303,27 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   {
     std::scoped_lock lock(mutex_state, mutex_uav_state);
 
-    position_output.position.x = uav_state.pose.position.x;
-    position_output.position.y = uav_state.pose.position.y;
-    position_output.position.z = state_z;
-    position_output.yaw        = state_yaw;
+    position_output.use_position_horizontal = true;
+    position_output.use_position_vertical   = true;
+    position_output.position.x              = uav_state.pose.position.x;
+    position_output.position.y              = uav_state.pose.position.y;
+    position_output.position.z              = state_z;
 
-    position_output.velocity.x = uav_state.velocity.linear.x;
-    position_output.velocity.y = uav_state.velocity.linear.y;
-    position_output.velocity.z = current_vertical_speed;
-    position_output.yaw_dot    = current_yaw_rate;
+    position_output.use_yaw = 1;
+    position_output.yaw     = state_yaw;
+
+    position_output.use_velocity_horizontal = true;
+    position_output.use_velocity_vertical   = true;
+    position_output.velocity.x              = uav_state.velocity.linear.x;
+    position_output.velocity.y              = uav_state.velocity.linear.y;
+    position_output.velocity.z              = current_vertical_speed;
+
+    position_output.use_yaw_dot = 1;
+    position_output.yaw_dot     = current_yaw_rate;
 
     position_output.acceleration.x = 0;
     position_output.acceleration.y = 0;
     position_output.acceleration.z = 0;
-
-    position_output.use_quat_attitude = 1;
-    position_output.use_yaw           = 1;
-    position_output.use_yaw_dot       = 1;
 
     tf::Quaternion desired_orientation;
 
@@ -332,10 +336,11 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
 
     desired_orientation = tf::createQuaternionFromRPY(-desired_roll * attitude_coeff, desired_pitch * attitude_coeff, state_yaw);
 
-    position_output.attitude.w = desired_orientation.getW();
-    position_output.attitude.x = desired_orientation.getX();
-    position_output.attitude.y = desired_orientation.getY();
-    position_output.attitude.z = desired_orientation.getZ();
+    position_output.use_quat_attitude = 1;
+    position_output.attitude.w        = desired_orientation.getW();
+    position_output.attitude.x        = desired_orientation.getX();
+    position_output.attitude.y        = desired_orientation.getY();
+    position_output.attitude.z        = desired_orientation.getZ();
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
