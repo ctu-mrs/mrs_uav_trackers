@@ -1230,7 +1230,7 @@ void LandoffTracker::diagnosticsTimer(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagnostics", _diagnostics_rate_, 0.002, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagnosticsTimer", _diagnostics_rate_, 0.1, event);
 
   publishDiagnostics();
 }

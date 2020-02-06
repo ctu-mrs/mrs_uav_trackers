@@ -3734,7 +3734,7 @@ void MpcTracker::diagnosticsTimer(const ros::TimerEvent &event) {
   if (!is_initialized)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("diagnosticsTimer", diagnostics_rate, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("diagnosticsTimer", diagnostics_rate, 0.1, event);
 
   publishDiagnostics();
 }
