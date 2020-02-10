@@ -1551,7 +1551,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   if (!res) {
 
-    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: cannot transform other drone trajectory to the current frame");
+    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: cannot transform other drone trajectory to the current frame");
     return;
   }
 
@@ -4058,7 +4058,7 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent& event) {
 
     if (!res) {
 
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: cannot transform predicted future to utm_origin");
+      ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: cannot transform predicted future to utm_origin");
       return;
 
     } else {
