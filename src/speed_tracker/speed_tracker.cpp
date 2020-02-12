@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -60,6 +62,7 @@ public:
 private:
   bool callbacks_enabled = true;
 
+  std::string _version_;
   std::string uav_name_;
 
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers;
@@ -136,6 +139,14 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[SpeedTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
+
   param_loader.load_param("command_timeout", external_command_timeout_);
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
@@ -165,7 +176,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   is_initialized = true;
 
-  ROS_INFO("[SpeedTracker]: initialized");
+  ROS_INFO("[SpeedTracker]: initialized, version %s", VERSION);
 }
 
 //}

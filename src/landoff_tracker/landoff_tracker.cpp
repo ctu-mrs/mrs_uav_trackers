@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -79,8 +81,10 @@ private:
   mrs_msgs::AttitudeCommand last_attitude_cmd_;
   std::mutex                mutex_last_attitude_cmd_;
 
-  ros::NodeHandle                                    nh_;
-  std::string                                        _uav_name_;
+  std::string     _version_;
+  ros::NodeHandle nh_;
+  std::string     _uav_name_;
+
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
   mrs_msgs::UavState uav_state_;
@@ -205,6 +209,14 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[LandoffTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
+
   param_loader.load_param("enable_profiler", _profiler_enabled_);
 
   param_loader.load_param("horizontal_tracker/horizontal_speed", _horizontal_speed_);
@@ -298,7 +310,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   is_initialized_ = true;
 
-  ROS_INFO("[LandoffTracker]: initialized");
+  ROS_INFO("[LandoffTracker]: initialized, version %s", VERSION);
 }
 
 //}

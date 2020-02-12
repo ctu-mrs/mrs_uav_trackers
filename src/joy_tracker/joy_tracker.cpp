@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -58,7 +60,8 @@ private:
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers;
   bool                                               callbacks_enabled = true;
 
-  std::string uav_name_;
+  std::string _version_;
+  std::string _uav_name_;
 
 private:
   mrs_msgs::UavState uav_state;
@@ -132,7 +135,7 @@ private:
 void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
                             [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
 
-  uav_name_             = uav_name;
+  _uav_name_            = uav_name;
   this->common_handlers = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "joy_tracker");
@@ -144,6 +147,14 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
+
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[JoyTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -195,7 +206,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   is_initialized = true;
 
-  ROS_INFO("[JoyTracker]: initialized");
+  ROS_INFO("[JoyTracker]: initialized, version %s", VERSION);
 }
 
 //}

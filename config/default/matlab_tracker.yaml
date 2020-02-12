@@ -1,2 +1,4 @@
+version: "0.0.3.0"
+
 position_mode: false
 tilt_mode: true

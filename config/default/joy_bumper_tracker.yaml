@@ -1,3 +1,5 @@
+version: "0.0.3.0"
+
 bumper_enabled: true
 bumper_horizontal_repulsion_distance: 2.0
 bumper_vertical_repulsion_distance: 2.0

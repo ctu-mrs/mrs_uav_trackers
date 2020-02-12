@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -138,6 +140,7 @@ private:
 
   // params
   std::string filename_;
+  std::string _version_;
   std::string uav_name_;
 
   double x_offset_ = 0;
@@ -172,6 +175,14 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   ros::Time::waitForValid();
 
   mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
+
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[CsvTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
 
   param_loader.load_param("filename", filename_);
   param_loader.load_param("enable_profiler", profiler_enabled_);
@@ -278,7 +289,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   is_initialized = true;
 
-  ROS_INFO("[CsvTracker]: initialized");
+  ROS_INFO("[CsvTracker]: initialized, version %s", VERSION);
 }
 
 //}

@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -57,6 +59,7 @@ private:
 
   bool callbacks_enabled = true;
 
+  std::string _version_;
   std::string uav_name_;
 
 private:
@@ -125,6 +128,14 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
   mrs_lib::ParamLoader param_loader(nh_, "MatlabTracker");
 
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[MatlabTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
+
   param_loader.load_param("enable_profiler", profiler_enabled_);
   param_loader.load_param("position_mode", profiler_enabled_);
   param_loader.load_param("tilt_mode", tilt_mode_);
@@ -148,7 +159,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
   is_initialized = true;
 
-  ROS_INFO("[MatlabTracker]: initialized");
+  ROS_INFO("[MatlabTracker]: initialized, version %s", VERSION);
 }
 
 //}

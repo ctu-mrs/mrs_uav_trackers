@@ -1,3 +1,5 @@
+version: "0.0.3.0"
+
 tracker_loop_rate: 100 # [Hz]
 
 horizontal_tracker:

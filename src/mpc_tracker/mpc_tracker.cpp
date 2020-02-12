@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -265,6 +267,8 @@ private:
   MatrixXd   predicted_future_trajectory_esp;
   std::mutex mutex_predicted_trajectory_;
 
+  std::string _version_;
+
   std::string                                            uav_name_;
   std::vector<std::string>                               other_drone_names_;
   std::map<std::string, mrs_msgs::FutureTrajectory>      other_drones_trajectories;
@@ -427,6 +431,14 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   // load parameters for yaw_tracker
 
   mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[MpcTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -744,7 +756,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   is_initialized = true;
 
-  ROS_INFO("[MpcTracker]: MpcTracker initialized");
+  ROS_INFO("[MpcTracker]: initialized, version %s", VERSION);
 }
 
 //}

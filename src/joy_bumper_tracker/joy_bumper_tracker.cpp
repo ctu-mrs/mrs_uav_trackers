@@ -1,3 +1,5 @@
+#define VERSION "0.0.3.0"
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -147,6 +149,7 @@ private:
   mrs_lib::Profiler profiler;
   bool              profiler_enabled_ = false;
 
+  std::string _version_;
   std::string uav_name_;
 
   // indices of joystick buttons
@@ -201,6 +204,14 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
   // --------------------------------------------------------------
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyBumperTracker");
+
+  param_loader.load_param("version", _version_);
+
+  if (_version_ != VERSION) {
+
+    ROS_ERROR("[JoyBumperTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
+    ros::shutdown();
+  }
 
   param_loader.load_param("enable_profiler", profiler_enabled_);
 
@@ -301,7 +312,7 @@ void JoyBumperTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unus
 
   is_initialized = true;
 
-  ROS_INFO("[JoyBumperTracker]: initialized");
+  ROS_INFO("[JoyBumperTracker]: initialized, version %s", VERSION);
 }
 
 //}
