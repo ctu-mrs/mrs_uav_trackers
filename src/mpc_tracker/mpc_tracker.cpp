@@ -959,7 +959,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  if (!mpc_computed_ && mpc_result_invalid) {
+  if (!mpc_computed_ || mpc_result_invalid) {
 
     // if the tracker is not computed yet
 
@@ -1219,10 +1219,17 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
   resetting_odometry = true;
   mpc_result_invalid = true;
 
-  ROS_INFO("[MpcTracker]: start of odmetry reset x %f y %f", msg->pose.position.x, msg->pose.position.y);
+  auto x = mrs_lib::get_mutexed(mutex_x, x_);
+
+  ROS_INFO(
+      "[MpcTracker]: start of odmetry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f], "
+      "new odom [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
+      msg->velocity.linear.x, msg->velocity.linear.y, msg->velocity.linear.z, msg->acceleration.linear.x, msg->acceleration.linear.y,
+      msg->acceleration.linear.z);
 
   mpc_timer.stop();
-  ROS_INFO("[MpcTracker]: stopped mpc timer");
+  ROS_INFO("[MpcTracker]: mpc timer stopped");
 
   while (running_mpc_timer) {
 
@@ -1291,15 +1298,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
     dvz = msg->velocity.linear.z - uav_state_.velocity.linear.z;
 
-    /* ROS_INFO("[MpcTracker]: dvx %f dvy %f dvz %f dvaw %f", dvx, dvy, dvz, dvyaw); */
-
-    double velocity_scale = sqrt(pow(msg->velocity.linear.x, 2) + pow(msg->velocity.linear.y, 2)) /
-                            sqrt(pow(uav_state_.velocity.linear.x, 2) + pow(uav_state_.velocity.linear.y, 2));
-
-    double acceleration_scale = sqrt(pow(msg->acceleration.linear.x, 2) + pow(msg->acceleration.linear.y, 2)) /
-                                sqrt(pow(uav_state_.acceleration.linear.x, 2) + pow(uav_state_.acceleration.linear.y, 2));
-
-    // update the positon
+    // update the position
     {
       Eigen::Vector2d temp_vec(x_(0, 0) - uav_state_.pose.position.x, x_(4, 0) - uav_state_.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
@@ -1310,33 +1309,29 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
     // update the velocity
     {
-      Eigen::Vector2d temp_vec(x_(1, 0), x_(5, 0));
-      temp_vec = rotateVector(temp_vec, dyaw) * velocity_scale;
-      x_(1, 0) = temp_vec[0];
-      x_(5, 0) = temp_vec[1];
+      x_(1, 0) = msg->velocity.linear.x;
+      x_(5, 0) = msg->velocity.linear.y;
+      x_(9, 0) = msg->velocity.linear.z;
     }
 
     // update the acceleration
     {
-      Eigen::Vector2d temp_vec(x_(2, 0), x_(6, 0));
-      temp_vec = rotateVector(temp_vec, dyaw) * acceleration_scale;
-      x_(2, 0) = temp_vec[0];
-      x_(6, 0) = temp_vec[1];
+      x_(2, 0)  = 0;
+      x_(6, 0)  = 0;
+      x_(10, 0) = 0;
     }
-
-    // update the height
-    x_(9, 0) += dvz;
 
     // update the heading and its derivative
     x_yaw_(0, 0) += dyaw;
-    x_yaw_(1, 0) += dvyaw;
+    x_yaw_(1, 0) = msg->velocity.angular.x;
   }
 
-  ROS_INFO("[MpcTracker]: end of odometry reset in mpc x %f y %f xvel %f yvel %f hor1x %f hor1y %f", x_(0, 0), x_(4, 0), x_(1, 0), x_(5, 0),
-           des_x_trajectory_(0, 0), des_y_trajectory_(0, 0));
+  ROS_INFO(
+      "[MpcTracker]: start of odmetry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0));
 
   mpc_timer.start();
-  ROS_INFO("[MpcTracker]: started mpc timer");
+  ROS_INFO("[MpcTracker]: mpc timer started");
 
   resetting_odometry = false;
 }
