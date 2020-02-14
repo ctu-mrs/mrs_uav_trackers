@@ -1316,7 +1316,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
     {
       x_(1, 0) = msg->velocity.linear.x;
       x_(5, 0) = msg->velocity.linear.y;
-      x_(9, 0) = msg->velocity.linear.z;
+      // we leave the z velocity as it was in the original frame
     }
 
     // update the acceleration
