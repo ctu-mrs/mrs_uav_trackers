@@ -1363,7 +1363,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
 
 //}
 
-/* //{ setConstraints() service */
+/* //{ setConstraints() */
 
 const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd) {
 
@@ -1559,11 +1559,14 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
   temp_trajectory.stamp = ros::Time::now();
 
   // transform it from the utm origin to the currently used frame
-  auto res = common_handlers->transformer->getTransform("utm_origin", uav_state.header.frame_id, ros::Time::now());
+  auto res = common_handlers->transformer->getTransform("utm_origin", uav_state.header.frame_id, ros::Time::now(), true);
 
   if (!res) {
 
-    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: cannot transform other drone trajectory to the current frame");
+    std::string message = "[MpcTracker]: cannot transform other drone trajectory to the current frame";
+    ROS_WARN_STREAM_ONCE(message);
+    ROS_DEBUG_STREAM_THROTTLE(1.0, message);
+
     return;
   }
 
@@ -1590,7 +1593,10 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
       temp_trajectory.points[i].z = res.value().pose.position.z;
     } else {
 
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: could not transform point of other uav future trajectory!");
+      std::string message = "[MpcTracker]: could not transform point of other uav future trajectory!";
+      ROS_WARN_STREAM_ONCE(message);
+      ROS_DEBUG_STREAM_THROTTLE(1.0, message);
+
       return;
     }
   }
@@ -1916,7 +1922,7 @@ bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Tr
 
 //}
 
-/* //{ callbackSetQ() service */
+/* //{ callbackSetQ() */
 
 bool MpcTracker::callbackSetQ(mrs_msgs::MpcMatrixRequest& req, mrs_msgs::MpcMatrixResponse& res) {
 
@@ -2506,8 +2512,6 @@ void MpcTracker::calculateMPC() {
   double lowest_z              = std::numeric_limits<double>::max();
   bool   brake;
 
-  /* if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) || */
-  /*                                      odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) { */
   if (collision_avoidance_enabled_ && ((odometry_diagnostics.estimator_type.name == "GPS") || odometry_diagnostics.estimator_type.name == "RTK")) {
 
     // determine the lowest point in our trajectory
@@ -4065,12 +4069,14 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent& event) {
     future_trajectory_out.priority            = my_uav_priority;
     future_trajectory_out.collision_avoidance = collision_avoidance_enabled_;
 
-    // transform it from the utm origin to the currently used frame
-    auto res = common_handlers->transformer->getTransform(uav_state.header.frame_id, "utm_origin", ros::Time::now());
+    // transform it from utm_origin to the currently used frame
+    auto res = common_handlers->transformer->getTransform(uav_state.header.frame_id, "utm_origin", ros::Time::now(), true);
 
     if (!res) {
 
-      ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: cannot transform predicted future to utm_origin");
+      std::string message = "[MpcTracker]: cannot transform predicted future to utm_origin";
+      ROS_WARN_STREAM_ONCE(message);
+      ROS_DEBUG_STREAM_THROTTLE(1.0, message);
       return;
 
     } else {
@@ -4108,7 +4114,9 @@ void MpcTracker::futureTrajectoryTimer(const ros::TimerEvent& event) {
 
         } else {
 
-          ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: cannot transform a point of a future trajectory");
+          std::string message = "[MpcTracker]: cannot transform a point of a future trajectory";
+          ROS_WARN_STREAM_ONCE(message);
+          ROS_DEBUG_STREAM_THROTTLE(1.0, message);
         }
       }
     }
