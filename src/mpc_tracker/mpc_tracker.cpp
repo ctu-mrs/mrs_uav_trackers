@@ -132,7 +132,6 @@ private:
   bool      is_initialized = false;
   double    kx_[3], kv_[3];
   double    new_kx_[3], new_kv_[3];
-  double    cur_yaw_;
   ros::Time odomLastTime;
 
   // variables for yaw tracker
@@ -773,6 +772,10 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& cmd) {
     return false;
   }
 
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  double uav_state_yaw = tf::getYaw(uav_state.pose.orientation);
+
   if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
     // set the initial condition from the last tracker's cmd
@@ -797,7 +800,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& cmd) {
     x_yaw_(2, 0) = 0;
     x_yaw_(3, 0) = 0;
 
-    yaw = cur_yaw_;
+    yaw = cmd->yaw;
 
     ROS_INFO("[MpcTracker]: activated with last tracker's command");
 
@@ -805,27 +808,27 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& cmd) {
 
     // set the initial condition from the odometry
 
-    x_(0, 0) = uav_state_.pose.position.x;
-    x_(1, 0) = uav_state_.velocity.linear.x;
+    x_(0, 0) = uav_state.pose.position.x;
+    x_(1, 0) = uav_state.velocity.linear.x;
     x_(2, 0) = 0;
     x_(3, 0) = 0;
 
-    x_(4, 0) = uav_state_.pose.position.y;
-    x_(5, 0) = uav_state_.velocity.linear.y;
+    x_(4, 0) = uav_state.pose.position.y;
+    x_(5, 0) = uav_state.velocity.linear.y;
     x_(6, 0) = 0;
     x_(7, 0) = 0;
 
-    x_(8, 0)  = uav_state_.pose.position.z;
-    x_(9, 0)  = uav_state_.velocity.linear.z;
+    x_(8, 0)  = uav_state.pose.position.z;
+    x_(9, 0)  = uav_state.velocity.linear.z;
     x_(10, 0) = 0;
     x_(11, 0) = 0;
 
-    x_yaw_(0, 0) = cur_yaw_;
-    x_yaw_(1, 0) = uav_state_.velocity.angular.z;
+    x_yaw_(0, 0) = uav_state_yaw;
+    x_yaw_(1, 0) = uav_state.velocity.angular.z;
     x_yaw_(2, 0) = 0;
     x_yaw_(3, 0) = 0;
 
-    yaw = cur_yaw_;
+    yaw = uav_state_yaw;
 
     ROS_INFO("[MpcTracker]: activated with uav state");
   }
@@ -889,6 +892,10 @@ bool MpcTracker::resetStatic(void) {
     return false;
   }
 
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  double uav_state_yaw = tf::getYaw(uav_state.pose.orientation);
+
   {
     std::scoped_lock lock(mutex_x);
 
@@ -896,27 +903,27 @@ bool MpcTracker::resetStatic(void) {
 
     ROS_INFO("[MpcTracker]: reseting with uav state with no dynamics");
 
-    x_(0, 0) = uav_state_.pose.position.x;
+    x_(0, 0) = uav_state.pose.position.x;
     x_(1, 0) = 0;
     x_(2, 0) = 0;
     x_(3, 0) = 0;
 
-    x_(4, 0) = uav_state_.pose.position.y;
+    x_(4, 0) = uav_state.pose.position.y;
     x_(5, 0) = 0;
     x_(6, 0) = 0;
     x_(7, 0) = 0;
 
-    x_(8, 0)  = uav_state_.pose.position.z;
+    x_(8, 0)  = uav_state.pose.position.z;
     x_(9, 0)  = 0;
     x_(10, 0) = 0;
     x_(11, 0) = 0;
 
-    x_yaw_(0, 0) = cur_yaw_;
+    x_yaw_(0, 0) = uav_state_yaw;
     x_yaw_(1, 0) = 0;
     x_yaw_(2, 0) = 0;
     x_yaw_(3, 0) = 0;
 
-    yaw = cur_yaw_;
+    yaw = uav_state_yaw;
 
     tracking_trajectory_ = false;
 
@@ -949,8 +956,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     uav_state_ = *msg;
   }
-
-  cur_yaw_ = tf::getYaw(msg->pose.orientation);
 
   odom_set_ = true;
 
@@ -989,7 +994,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
 
     // set yaw based on current odom
-    position_cmd_.yaw       = cur_yaw_;
+    position_cmd_.yaw       = tf::getYaw(msg->pose.orientation);
     position_cmd_.yaw_dot   = msg->velocity.angular.z;
     position_cmd_.yaw_ddot  = 0;
     position_cmd_.yaw_dddot = 0;
