@@ -674,6 +674,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   predicted_future_yaw_trajectory = MatrixXd::Zero(horizon_len_ * n, 1);
 
   collision_free_altitude = common_handlers->safety_area.getMinHeight();
+
   avoiding_collision_time = ros::Time::now();
   being_avoided_time      = ros::Time::now();
   future_was_predicted    = false;
@@ -1636,11 +1637,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& re
 
   collision_avoidance_enabled_ = req.data;
 
-  if (!collision_avoidance_enabled_) {
-
-    collision_free_altitude = common_handlers->safety_area.getMinHeight();
-  }
-
   ROS_INFO("[MpcTracker]: Collision avoidance was switched %s", collision_avoidance_enabled_ ? "TRUE" : "FALSE");
 
   res.message = "Collision avoidance set.";
@@ -2167,7 +2163,7 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 //}
 
-/* //{ checkCollision() */
+/* //{ manageConstraints() */
 
 void MpcTracker::manageConstraints() {
 
@@ -2522,6 +2518,10 @@ void MpcTracker::calculateMPC() {
     }
     // Check other drone trajectories for collisions
     minimum_collison_free_altitude = checkTrajectoryForCollisions(lowest_z, first_collision_index);
+
+  } else {
+
+    minimum_collison_free_altitude = common_handlers->safety_area.getMinHeight();
   }
 
   {
