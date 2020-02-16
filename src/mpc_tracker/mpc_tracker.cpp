@@ -694,7 +694,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.load_param("mrs_collision_avoidance/trajectory_timeout", collision_trajectory_timeout);
 
   // collision avoidance toggle service
-  collision_avoidance_service = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
+  collision_avoidance_service = nh_.advertiseService("collision_avoidance_in", &MpcTracker::callbackToggleCollisionAvoidance, this);
 
   // create subscribers on other drones diagnostics
   for (unsigned long i = 0; i < other_drone_names_.size(); i++) {
