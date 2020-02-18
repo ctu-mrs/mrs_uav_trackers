@@ -1,4 +1,4 @@
-#define VERSION "0.0.3.1"
+#define VERSION "0.0.4.0"
 
 /* includes //{ */
 
