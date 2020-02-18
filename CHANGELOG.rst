@@ -2,6 +2,68 @@
 Changelog for package mrs_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fixed yet another min altitude bug
+* sanitized avoidance srv
+* updated odometry reset in mpc
+* limited rwarnings of bad avoidance tfs
+* updated yaw activation inital condition
+* fixed odometry switch bug with speed/acc scaling
+* added version check
+* avoidance trajectory published in utm_origin
+* increased t650 takeoff speed and acceleration
+* fixed constraint setting bug
+* Commented out priority swapping in collision avoidance
+* added rampup takeoff saturation
+* fixed safety area check in loadTrajectory()
+* fixed zero trajectory-length due to bumper
+* fixed traj enumeration bug and looping bug
+* fixed odom frame switching in Landoff and Line trackers
+* fixed flying bellow zero in Z
+* fixed trajectory plotting, updated min_alt
+* added trackerResetStatic() method
+* fixed safety area "out of area" bug
+* min height for avoidance got from common_handlers
+* fixed marker array warning
+* fixed safety area checks, fixed des traj transforms
+* updated diagnostics, fixed avoidance uav list
+* avoidance trajectories, stamp = time of receiving it
+* refactored trajectory loading, made it time-aware
+* Added trajectory timestamp checking and interpolation of delayed trajectories
+* changed the constraints message
+* added check for mpc tracker callbacks if it's initialized
+* trajectory topics set to latching
+* added automatic velocity penalization, removed no_overshoots completely
+* removed no_overshoots service, param and made it true by default
+  * it is true by default now, except for trajectory tracking
+* added yaw angle interpolation
+* fixed yaw tracking in trajectory
+* fixed last noloop trajectory point
+* lowered the lowest safe height in collision avoidance
+* added trajectory interpolation
+* fixed wrong loading of common handlers
+* added init checks to trajectory callbacks
+* fixed land/eland goal-reached bug
+* added checking of heading error during tracking
+* fixed arena trajectory check, added marker
+* generalized the transforms
+* updated transformer calls
+* updated to new get_mutexed()
+* updated tracker interface, added bumper to mpc
+* fixed the acceleration rotation in mpc odom switch
+* converting references using tfs
+* improved tf transformer
+* added tf to trajectory setter
+* removed z acceleration from activation
+* added speed tracker, updated trackers interface
+* removed start id from tracker trajectory
+* added accelerations to mpc tracker activation
+* setting accelerations during odometry reset
+* namespaced local_origin
+* removed PES from csv tracker
+* Contributors: Andriy, Dan Hert, Matej Petrlik, Tomas Baca, Vojtech Spurny, kratkvit
+
 0.0.3 (2019-10-25)
 ------------------
 * fixed disabling lateral gains in landoff
