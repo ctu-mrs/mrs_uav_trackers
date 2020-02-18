@@ -2,8 +2,8 @@
 Changelog for package mrs_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+0.0.4 (2020-02-18)
+------------------
 * fixed yet another min altitude bug
 * sanitized avoidance srv
 * updated odometry reset in mpc
