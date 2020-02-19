@@ -1,4 +1,4 @@
-#define VERSION "0.0.4.0"
+#define VERSION "0.0.4.1"
 
 /* includes //{ */
 
@@ -1292,9 +1292,9 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
     return true;
   }
 
-  if (req.goal < 0.5 || req.goal > 3.0) {
+  if (req.goal < 0.5 || req.goal > 10.0) {
 
-    sprintf((char*)&message, "Can't take off, the goal should be within [0.5, 3.0] m!");
+    sprintf((char*)&message, "Can't take off, the goal should be within [0.5, 10.0] m!");
     ROS_ERROR("[LandoffTracker]: %s", message);
     res.success = false;
     res.message = message;

@@ -1,4 +1,4 @@
-version: "0.0.4.0"
+version: "0.0.4.1"
 
 main_timer_rate: 100 # [Hz]
 diagnostics_loop_rate: 10 # [Hz]
