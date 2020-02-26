@@ -2,6 +2,11 @@
 Changelog for package mrs_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* increased the possible takeoff height to 10 m
+* Contributors: Tomas Baca
+
 0.0.4 (2020-02-18)
 ------------------
 * fixed yet another min altitude bug

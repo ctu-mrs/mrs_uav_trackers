@@ -1,4 +1,4 @@
-version: "0.0.4.0"
+version: "0.0.5.0"
 
 bumper_enabled: true
 bumper_horizontal_repulsion_distance: 2.0
