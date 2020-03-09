@@ -34,12 +34,6 @@
   </class>
 </library>
 
-<library path="lib/libJoyBumperTracker">
-  <class name="mrs_trackers/JoyBumperTracker" type="mrs_trackers::joy_bumper_tracker::JoyBumperTracker" base_class_type="mrs_uav_manager::Tracker">
-    <description>This is the joystick tracker with bumper.</description>
-  </class>
-</library>
-
 <library path="lib/libSpeedTracker">
   <class name="mrs_trackers/SpeedTracker" type="mrs_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_manager::Tracker">
     <description>This is the joystick tracker with bumper.</description>
