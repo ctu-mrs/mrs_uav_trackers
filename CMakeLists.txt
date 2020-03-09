@@ -156,7 +156,6 @@ install(TARGETS
   LandoffTracker
   JoyTracker
   MatlabTracker
-  JoyBumperTracker
   MpcTrackerCvxgen
   SpeedTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
