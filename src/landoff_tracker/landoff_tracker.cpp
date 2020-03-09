@@ -528,23 +528,23 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd) {
 
-  char                      message[200];
   std_srvs::SetBoolResponse res;
+  std::stringstream         ss;
 
   if (cmd->data != callbacks_enabled_) {
 
     callbacks_enabled_ = cmd->data;
 
-    sprintf((char*)&message, "Callbacks %s", callbacks_enabled_ ? "enabled" : "disabled");
-
-    ROS_INFO("[LandoffTracker]: %s", message);
+    ss << "callbacks " << (callbacks_enabled_ ? "enabled" : "disabled");
+    ROS_INFO_STREAM_THROTTLE(1.0, "[LandoffTrakcer]: " << ss.str());
 
   } else {
 
-    sprintf((char*)&message, "Callbacks were already %s", callbacks_enabled_ ? "enabled" : "disabled");
+    ss << "callbacks were already " << (callbacks_enabled_ ? "enabled" : "disabled");
+    ROS_WARN_STREAM_THROTTLE(1.0, "[LandoffTrakcer]: " << ss.str());
   }
 
-  res.message = message;
+  res.message = ss.str();
   res.success = true;
 
   return std_srvs::SetBoolResponse::ConstPtr(new std_srvs::SetBoolResponse(res));

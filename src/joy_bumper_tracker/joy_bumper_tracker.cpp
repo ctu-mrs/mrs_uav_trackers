@@ -486,23 +486,23 @@ const mrs_msgs::TrackerStatus JoyBumperTracker::getStatus() {
 
 const std_srvs::SetBoolResponse::ConstPtr JoyBumperTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
-  char                      message[100];
   std_srvs::SetBoolResponse res;
+  std::stringstream         ss;
 
   if (cmd->data != callbacks_enabled) {
 
     callbacks_enabled = cmd->data;
 
-    sprintf((char *)&message, "Callbacks %s", callbacks_enabled ? "enabled" : "disabled");
-
-    ROS_INFO("[JoyBumperTracker]: %s", message);
+    ss << "callbacks " << (callbacks_enabled ? "enabled" : "disabled");
+    ROS_INFO_STREAM_THROTTLE(1.0, "[JoyBumperTracker]: " << ss.str());
 
   } else {
 
-    sprintf((char *)&message, "Callbacks were already %s", callbacks_enabled ? "enabled" : "disabled");
+    ss << "callbacks were already " << (callbacks_enabled ? "enabled" : "disabled");
+    ROS_WARN_STREAM_THROTTLE(1.0, "[JoyBumperTracker]: " << ss.str());
   }
 
-  res.message = message;
+  res.message = ss.str();
   res.success = true;
 
   return std_srvs::SetBoolResponse::ConstPtr(new std_srvs::SetBoolResponse(res));
