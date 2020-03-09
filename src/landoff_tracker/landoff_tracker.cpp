@@ -321,7 +321,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
 
   if (!got_uav_state_) {
 
-    ROS_ERROR("[LandoffTracker]: can't activate(), odometry not set");
+    ROS_ERROR("[LandoffTracker]: can not activate, odometry not set");
     return false;
   }
 
@@ -624,7 +624,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
   horizontal_t_stop    = current_horizontal_speed / _horizontal_acceleration_;
-  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2.0;
   stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
   stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
@@ -633,7 +633,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
   // --------------------------------------------------------------
 
   double vertical_t_stop    = current_vertical_speed / _vertical_acceleration_;
-  double vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
+  double vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2.0;
 
   // --------------------------------------------------------------
   // |                        set the goal                        |
@@ -647,7 +647,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]]
     goal_z_ = state_z_ + vertical_stop_dist;
   }
 
-  res.message = "Hover initiated.";
+  res.message = "hover initiated";
   res.success = true;
 
   changeState(STOP_MOTION_STATE);
@@ -892,7 +892,7 @@ void LandoffTracker::accelerateVertical(void) {
 
   // calculate the time to stop and the distance it will take to stop [vertical]
   double vertical_t_stop    = current_vertical_speed / used_acceleration;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2.0;
   double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
 
   {
@@ -915,7 +915,13 @@ void LandoffTracker::accelerateVertical(void) {
   // Instead, landing and elanding is stopped by sensing the thrust.
   if (!elanding_ && !landing_) {
     if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * _tracker_dt_))) {
-      current_vertical_acceleration_ = 0;
+
+      {
+        std::scoped_lock lock(mutex_state_);
+
+        current_vertical_acceleration_ = 0;
+      }
+
       changeStateVertical(DECELERATING_STATE);
     }
   }
@@ -1194,7 +1200,7 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
 
     double current_yaw_rate;
 
-    if (fabs(goal_yaw_ - state_yaw_) > PI)
+    if (fabs(goal_yaw_ - state_yaw_) > M_PI)
       current_yaw_rate = -_yaw_gain_ * (goal_yaw_ - state_yaw_);
     else
       current_yaw_rate = _yaw_gain_ * (goal_yaw_ - state_yaw_);
@@ -1208,10 +1214,10 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
     // flap the resulted state_yaw_ aroud PI
     state_yaw_ += current_yaw_rate * _tracker_dt_;
 
-    if (state_yaw_ > PI) {
-      state_yaw_ -= 2 * PI;
-    } else if (state_yaw_ < -PI) {
-      state_yaw_ += 2 * PI;
+    if (state_yaw_ > M_PI) {
+      state_yaw_ -= 2 * M_PI;
+    } else if (state_yaw_ < -M_PI) {
+      state_yaw_ += 2 * M_PI;
     }
 
     if (fabs(state_yaw_ - goal_yaw_) < (2 * (_yaw_rate_ * _tracker_dt_))) {
@@ -1255,7 +1261,7 @@ void LandoffTracker::diagnosticsTimer(const ros::TimerEvent& event) {
 
 bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec1::Response& res) {
 
-  char message[200];
+  std::stringstream ss;
 
   // copy member variables
   auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
@@ -1266,38 +1272,35 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   uav_z = uav_state.pose.position.z;
 
   if (!is_active_) {
-
-    sprintf((char*)&message, "Can't take off, the tracker is not active.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not takeoff, the tracker is not active";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
   if (!callbacks_enabled_) {
-
-    sprintf((char*)&message, "Can't take off, the callbacks are disabled.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not takeoff, the callbacks are disabled";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
   if (in_the_air_) {
-
-    sprintf((char*)&message, "Can't take off, already in the air!");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not takeoff, already in the air!";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
   if (req.goal < 0.5 || req.goal > 10.0) {
 
-    sprintf((char*)&message, "Can't take off, the goal should be within [0.5, 10.0] m!");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not takeoff, the goal should be within [0.5, 10.0] m!";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
@@ -1347,26 +1350,25 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
 
 bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
-  char message[200];
+  std::stringstream ss;
 
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   if (!is_active_) {
-
-    sprintf((char*)&message, "Can't land, the tracker is not active.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not land, the tracker is not active";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
   if (!in_the_air_) {
 
-    sprintf((char*)&message, "Can't land, we are already on the ground.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not land, we are already on the ground";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     return true;
   }
 
@@ -1399,17 +1401,17 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& r
 
 bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
-  char message[200];
+  std::stringstream ss;
 
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   if (!is_active_) {
 
-    sprintf((char*)&message, "Can't eland, the tracker is not active.");
-    ROS_ERROR("[LandoffTracker]: %s", message);
+    ss << "can not eland, the tracker is not active";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
-    res.message = message;
+    res.message = ss.str();
     taking_off_ = false;
     landing_    = false;
     elanding_   = false;
@@ -1465,7 +1467,7 @@ void LandoffTracker::publishDiagnostics(void) {
     publisher_diagnostics_.publish(diagnostics_msg);
   }
   catch (...) {
-    ROS_ERROR("[LandoffTracker]: Exception caught during publishing topic %s.", publisher_diagnostics_.getTopic().c_str());
+    ROS_ERROR("[LandoffTracker]: exception caught during publishing topic %s", publisher_diagnostics_.getTopic().c_str());
   }
 }
 
