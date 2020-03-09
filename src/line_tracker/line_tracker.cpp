@@ -74,42 +74,42 @@ public:
   virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers;
+  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
-  bool callbacks_enabled = true;
+  bool callbacks_enabled_ = true;
 
   std::string _version_;
-  std::string uav_name_;
+  std::string _uav_name_;
 
 private:
   mrs_msgs::UavState uav_state_;
-  bool               got_uav_state = false;
+  bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
 
-  double uav_x;
-  double uav_y;
-  double uav_z;
-  double uav_yaw;
-  double uav_roll;
-  double uav_pitch;
+  double uav_x_;
+  double uav_y_;
+  double uav_z_;
+  double uav_yaw_;
+  double uav_roll_;
+  double uav_pitch_;
 
 private:
   // tracker's inner states
-  int    tracker_loop_rate_;
-  double tracker_dt_;
-  bool   is_initialized = false;
-  bool   is_active      = false;
-  bool   first_iter     = false;
+  double _tracker_loop_rate_;
+  double _tracker_dt_;
+  bool   is_initialized_ = false;
+  bool   is_active_      = false;
+  bool   first_iter_     = false;
 
 private:
   void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer;
+  ros::Timer main_timer_;
 
 private:
-  States_t current_state_vertical    = IDLE_STATE;
-  States_t previous_state_vertical   = IDLE_STATE;
-  States_t current_state_horizontal  = IDLE_STATE;
-  States_t previous_state_horizontal = IDLE_STATE;
+  States_t current_state_vertical_    = IDLE_STATE;
+  States_t previous_state_vertical_   = IDLE_STATE;
+  States_t current_state_horizontal_  = IDLE_STATE;
+  States_t previous_state_horizontal_ = IDLE_STATE;
 
   void changeStateHorizontal(States_t new_state);
   void changeStateVertical(States_t new_state);
@@ -127,32 +127,47 @@ private:
 
 private:
   // dynamical constraints
-  double     horizontal_speed_;
-  double     vertical_speed_;
-  double     horizontal_acceleration_;
-  double     vertical_acceleration_;
-  double     yaw_rate_;
-  double     yaw_gain_;
-  std::mutex mutex_constraints;
+  double     _horizontal_speed_;
+  double     _vertical_speed_;
+  double     _horizontal_acceleration_;
+  double     _vertical_acceleration_;
+  double     _yaw_rate_;
+  double     _yaw_gain_;
+  std::mutex mutex_constraints_;
 
 private:
   // desired goal
-  double     goal_x, goal_y, goal_z, goal_yaw;
-  double     have_goal = false;
-  std::mutex mutex_goal;
+  double     goal_x_;
+  double     goal_y_;
+  double     goal_z_;
+  double     goal_yaw_;
+  double     have_goal_ = false;
+  std::mutex mutex_goal_;
 
   // my current state
-  double     state_x, state_y, state_z, state_yaw;
-  double     speed_x, speed_y, speed_yaw;
-  double     current_heading, current_vertical_direction, current_vertical_speed, current_horizontal_speed;
-  double     current_horizontal_acceleration, current_vertical_acceleration;
-  std::mutex mutex_state;
+  double state_x_;
+  double state_y_;
+  double state_z_;
+  double state_yaw_;
 
-  mrs_msgs::PositionCommand position_output;
+  double speed_x_;
+  double speed_y_;
+  double speed_yaw_;
+
+  double current_heading_;
+  double current_vertical_direction_;
+
+  double current_vertical_speed_;
+  double current_horizontal_speed_;
+
+  double current_horizontal_acceleration_;
+  double current_vertical_acceleration_;
+
+  std::mutex mutex_state_;
 
 private:
-  mrs_lib::Profiler profiler;
-  bool              profiler_enabled_ = false;
+  mrs_lib::Profiler profiler_;
+  bool              _profiler_enabled_ = false;
 };
 
 //}
@@ -164,8 +179,8 @@ private:
 void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
                              [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
 
-  uav_name_             = uav_name;
-  this->common_handlers = common_handlers;
+  _uav_name_             = uav_name;
+  this->common_handlers_ = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "line_tracker");
 
@@ -186,64 +201,64 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", profiler_enabled_);
+  param_loader.load_param("enable_profiler", _profiler_enabled_);
 
-  param_loader.load_param("horizontal_tracker/horizontal_speed", horizontal_speed_);
-  param_loader.load_param("horizontal_tracker/horizontal_acceleration", horizontal_acceleration_);
+  param_loader.load_param("horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  param_loader.load_param("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  param_loader.load_param("vertical_tracker/vertical_speed", vertical_speed_);
-  param_loader.load_param("vertical_tracker/vertical_acceleration", vertical_acceleration_);
+  param_loader.load_param("vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.load_param("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.load_param("yaw_tracker/yaw_rate", yaw_rate_);
-  param_loader.load_param("yaw_tracker/yaw_gain", yaw_gain_);
+  param_loader.load_param("yaw_tracker/yaw_rate", _yaw_rate_);
+  param_loader.load_param("yaw_tracker/yaw_gain", _yaw_gain_);
 
-  param_loader.load_param("tracker_loop_rate", tracker_loop_rate_);
+  param_loader.load_param("tracker_loop_rate", _tracker_loop_rate_);
 
-  tracker_dt_ = 1.0 / double(tracker_loop_rate_);
+  _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
 
-  ROS_INFO("[LineTracker]: tracker_dt: %f", tracker_dt_);
+  ROS_INFO("[LineTracker]: tracker_dt: %.2f", _tracker_dt_);
 
-  state_x   = 0;
-  state_y   = 0;
-  state_z   = 0;
-  state_yaw = 0;
+  state_x_   = 0;
+  state_y_   = 0;
+  state_z_   = 0;
+  state_yaw_ = 0;
 
-  speed_x   = 0;
-  speed_y   = 0;
-  speed_yaw = 0;
+  speed_x_   = 0;
+  speed_y_   = 0;
+  speed_yaw_ = 0;
 
-  current_horizontal_speed = 0;
-  current_vertical_speed   = 0;
+  current_horizontal_speed_ = 0;
+  current_vertical_speed_   = 0;
 
-  current_horizontal_acceleration = 0;
-  current_vertical_acceleration   = 0;
+  current_horizontal_acceleration_ = 0;
+  current_vertical_acceleration_   = 0;
 
-  current_vertical_direction = 0;
+  current_vertical_direction_ = 0;
 
-  current_state_vertical  = IDLE_STATE;
-  previous_state_vertical = IDLE_STATE;
+  current_state_vertical_  = IDLE_STATE;
+  previous_state_vertical_ = IDLE_STATE;
 
-  current_state_horizontal  = IDLE_STATE;
-  previous_state_horizontal = IDLE_STATE;
+  current_state_horizontal_  = IDLE_STATE;
+  previous_state_horizontal_ = IDLE_STATE;
 
   // --------------------------------------------------------------
-  // |                          profiler                          |
+  // |                          profiler_                          |
   // --------------------------------------------------------------
 
-  profiler = mrs_lib::Profiler(nh_, "LineTracker", profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(nh_, "LineTracker", _profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer = nh_.createTimer(ros::Rate(tracker_loop_rate_), &LineTracker::mainTimer, this);
+  main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   if (!param_loader.loaded_successfully()) {
-    ROS_ERROR("[LineTracker]: Could not load all parameters!");
+    ROS_ERROR("[LineTracker]: could not load all parameters!");
     ros::shutdown();
   }
 
-  is_initialized = true;
+  is_initialized_ = true;
 
   ROS_INFO("[LineTracker]: initialized, version %s", VERSION);
 }
@@ -254,59 +269,63 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
-  if (!got_uav_state) {
-    ROS_ERROR("[LineTracker]: can't activate(), odometry not set");
+  if (!got_uav_state_) {
+
+    ROS_ERROR("[LineTracker]: can not activate, odometry not set");
     return false;
   }
 
+  // copy member variables
+  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
+
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state_);
+    std::scoped_lock lock(mutex_goal_, mutex_state_);
 
     if (mrs_msgs::PositionCommand::Ptr() != cmd) {
 
       // the last command is usable
-      state_x   = cmd->position.x;
-      state_y   = cmd->position.y;
-      state_z   = cmd->position.z;
-      state_yaw = cmd->yaw;
+      state_x_   = cmd->position.x;
+      state_y_   = cmd->position.y;
+      state_z_   = cmd->position.z;
+      state_yaw_ = cmd->yaw;
 
-      speed_x                  = cmd->velocity.x;
-      speed_y                  = cmd->velocity.y;
-      current_heading          = atan2(speed_y, speed_x);
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      speed_x_                  = cmd->velocity.x;
+      speed_y_                  = cmd->velocity.y;
+      current_heading_          = atan2(speed_y_, speed_x_);
+      current_horizontal_speed_ = sqrt(pow(speed_x_, 2) + pow(speed_y_, 2));
 
-      current_vertical_speed     = fabs(cmd->velocity.z);
-      current_vertical_direction = cmd->velocity.z > 0 ? +1 : -1;
+      current_vertical_speed_     = fabs(cmd->velocity.z);
+      current_vertical_direction_ = cmd->velocity.z > 0 ? +1 : -1;
 
-      current_horizontal_acceleration = 0;
-      current_vertical_acceleration   = 0;
+      current_horizontal_acceleration_ = 0;
+      current_vertical_acceleration_   = 0;
 
-      goal_yaw = cmd->yaw;
+      goal_yaw_ = cmd->yaw;
 
-      ROS_INFO("[LineTracker]: initial condition: x=%2.2f, y=%2.2f, z=%2.2f, yaw=%2.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
-      ROS_INFO("[LineTracker]: initial condition: x_dot=%2.2f, y_dot=%2.2f, z_dot=%2.2f", speed_x, speed_y, current_vertical_speed);
+      ROS_INFO("[LineTracker]: initial condition: x=%.2f, y=%.2f, z=%.2f, yaw=%.2f", cmd->position.x, cmd->position.y, cmd->position.z, cmd->yaw);
+      ROS_INFO("[LineTracker]: initial condition: x_dot=%.2f, y_dot=%.2f, z_dot=%.2f", speed_x_, speed_y_, current_vertical_speed_);
 
     } else {
 
-      state_x   = uav_state_.pose.position.x;
-      state_y   = uav_state_.pose.position.y;
-      state_z   = uav_state_.pose.position.z;
-      state_yaw = uav_yaw;
+      state_x_   = uav_state.pose.position.x;
+      state_y_   = uav_state.pose.position.y;
+      state_z_   = uav_state.pose.position.z;
+      state_yaw_ = uav_yaw;
 
-      speed_x                  = uav_state_.velocity.linear.x;
-      speed_y                  = uav_state_.velocity.linear.y;
-      current_heading          = atan2(speed_y, speed_x);
-      current_horizontal_speed = sqrt(pow(speed_x, 2) + pow(speed_y, 2));
+      speed_x_                  = uav_state.velocity.linear.x;
+      speed_y_                  = uav_state.velocity.linear.y;
+      current_heading_          = atan2(speed_y_, speed_x_);
+      current_horizontal_speed_ = sqrt(pow(speed_x_, 2) + pow(speed_y_, 2));
 
-      current_vertical_speed     = fabs(uav_state_.velocity.linear.z);
-      current_vertical_direction = uav_state_.velocity.linear.z > 0 ? +1 : -1;
+      current_vertical_speed_     = fabs(uav_state.velocity.linear.z);
+      current_vertical_direction_ = uav_state.velocity.linear.z > 0 ? +1 : -1;
 
-      current_horizontal_acceleration = 0;
-      current_vertical_acceleration   = 0;
+      current_horizontal_acceleration_ = 0;
+      current_vertical_acceleration_   = 0;
 
-      goal_yaw = uav_yaw;
+      goal_yaw_ = uav_yaw;
 
-      ROS_WARN("[LineTracker]: the previous command is not usable for activation, using Odometry instead.");
+      ROS_WARN("[LineTracker]: the previous command is not usable for activation, using Odometry instead");
     }
   }
 
@@ -317,12 +336,12 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
   {
-    std::scoped_lock lock(mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-    stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-    stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+    horizontal_t_stop    = current_horizontal_speed_ / _horizontal_acceleration_;
+    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed_) / 2.0;
+    stop_dist_x          = cos(current_heading_) * horizontal_stop_dist;
+    stop_dist_y          = sin(current_heading_) * horizontal_stop_dist;
   }
 
   // --------------------------------------------------------------
@@ -332,10 +351,10 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   double vertical_t_stop, vertical_stop_dist;
 
   {
-    std::scoped_lock lock(mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_t_stop    = current_vertical_speed_ / _vertical_acceleration_;
+    vertical_stop_dist = current_vertical_direction_ * (vertical_t_stop * current_vertical_speed_) / 2.0;
   }
 
   // --------------------------------------------------------------
@@ -343,15 +362,16 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
   // --------------------------------------------------------------
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_goal_, mutex_state_);
 
-    goal_x = state_x + stop_dist_x;
-    goal_y = state_y + stop_dist_y;
-    goal_z = state_z + vertical_stop_dist;
-    ROS_INFO("[LineTracker]: setting z goal to %f", goal_z);
+    goal_x_ = state_x_ + stop_dist_x;
+    goal_y_ = state_y_ + stop_dist_y;
+    goal_z_ = state_z_ + vertical_stop_dist;
+
+    ROS_INFO("[LineTracker]: setting z goal to %.2f", goal_z_);
   }
 
-  is_active = true;
+  is_active_ = true;
 
   ROS_INFO("[LineTracker]: activated");
 
@@ -366,7 +386,7 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &cmd) {
 
 void LineTracker::deactivate(void) {
 
-  is_active = false;
+  is_active_ = false;
 
   ROS_INFO("[LineTracker]: deactivated");
 }
@@ -377,38 +397,38 @@ void LineTracker::deactivate(void) {
 
 bool LineTracker::resetStatic(void) {
 
-  if (!is_initialized) {
-    ROS_ERROR("[LineTracker]: cannot reset, not initialized");
+  if (!is_initialized_) {
+    ROS_ERROR("[LineTracker]: can not reset, not initialized");
     return false;
   }
 
-  if (!is_active) {
-    ROS_ERROR("[LineTracker]: cannot reset, not active");
+  if (!is_active_) {
+    ROS_ERROR("[LineTracker]: can not reset, not active");
     return false;
   }
 
-  ROS_INFO("[LineTracker]: reseting with no dynamics.");
+  ROS_INFO("[LineTracker]: reseting with no dynamics");
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state, mutex_uav_state_);
+    std::scoped_lock lock(mutex_goal_, mutex_state_, mutex_uav_state_);
 
-    state_x   = uav_state_.pose.position.x;
-    state_y   = uav_state_.pose.position.y;
-    state_z   = uav_state_.pose.position.z;
-    state_yaw = uav_yaw;
+    state_x_   = uav_state_.pose.position.x;
+    state_y_   = uav_state_.pose.position.y;
+    state_z_   = uav_state_.pose.position.z;
+    state_yaw_ = uav_yaw_;
 
-    speed_x                  = 0;
-    speed_y                  = 0;
-    current_heading          = 0;
-    current_horizontal_speed = 0;
+    speed_x_                  = 0;
+    speed_y_                  = 0;
+    current_heading_          = 0;
+    current_horizontal_speed_ = 0;
 
-    current_vertical_speed     = 0;
-    current_vertical_direction = 0;
+    current_vertical_speed_     = 0;
+    current_vertical_direction_ = 0;
 
-    current_horizontal_acceleration = 0;
-    current_vertical_acceleration   = 0;
+    current_horizontal_acceleration_ = 0;
+    current_vertical_acceleration_   = 0;
 
-    goal_yaw = uav_yaw;
+    goal_yaw_ = uav_yaw_;
   }
 
   changeState(IDLE_STATE);
@@ -423,60 +443,64 @@ bool LineTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
     uav_state_ = *msg;
-    uav_x      = uav_state_.pose.position.x;
-    uav_y      = uav_state_.pose.position.y;
-    uav_z      = uav_state_.pose.position.z;
+    uav_x_     = uav_state_.pose.position.x;
+    uav_y_     = uav_state_.pose.position.y;
+    uav_z_     = uav_state_.pose.position.z;
 
     // calculate the euler angles
     tf::Quaternion uav_attitude;
     quaternionMsgToTF(uav_state_.pose.orientation, uav_attitude);
     tf::Matrix3x3 m(uav_attitude);
-    m.getRPY(uav_roll, uav_pitch, uav_yaw);
+    m.getRPY(uav_roll_, uav_pitch_, uav_yaw_);
 
-    got_uav_state = true;
+    got_uav_state_ = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
-  if (!is_active) {
+  if (!is_active_) {
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  position_output.header.stamp    = ros::Time::now();
-  position_output.header.frame_id = uav_state_.header.frame_id;
+  mrs_msgs::PositionCommand position_cmd;
+
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  position_cmd.header.stamp    = ros::Time::now();
+  position_cmd.header.frame_id = uav_state.header.frame_id;
 
   {
-    std::scoped_lock lock(mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    position_output.position.x = state_x;
-    position_output.position.y = state_y;
-    position_output.position.z = state_z;
-    position_output.yaw        = state_yaw;
+    position_cmd.position.x = state_x_;
+    position_cmd.position.y = state_y_;
+    position_cmd.position.z = state_z_;
+    position_cmd.yaw        = state_yaw_;
 
-    position_output.velocity.x = cos(current_heading) * current_horizontal_speed;
-    position_output.velocity.y = sin(current_heading) * current_horizontal_speed;
-    position_output.velocity.z = current_vertical_direction * current_vertical_speed;
-    position_output.yaw_dot    = speed_yaw;
+    position_cmd.velocity.x = cos(current_heading_) * current_horizontal_speed_;
+    position_cmd.velocity.y = sin(current_heading_) * current_horizontal_speed_;
+    position_cmd.velocity.z = current_vertical_direction_ * current_vertical_speed_;
+    position_cmd.yaw_dot    = speed_yaw_;
 
-    position_output.acceleration.x = 0;
-    position_output.acceleration.y = 0;
-    position_output.acceleration.z = current_vertical_direction * current_vertical_acceleration;
+    position_cmd.acceleration.x = 0;
+    position_cmd.acceleration.y = 0;
+    position_cmd.acceleration.z = current_vertical_direction_ * current_vertical_acceleration_;
 
-    position_output.use_position_vertical   = 1;
-    position_output.use_position_horizontal = 1;
-    position_output.use_yaw                 = 1;
-    position_output.use_yaw_dot             = 1;
-    position_output.use_velocity_vertical   = 1;
-    position_output.use_velocity_horizontal = 1;
-    position_output.use_acceleration        = 1;
+    position_cmd.use_position_vertical   = 1;
+    position_cmd.use_position_horizontal = 1;
+    position_cmd.use_yaw                 = 1;
+    position_cmd.use_yaw_dot             = 1;
+    position_cmd.use_velocity_vertical   = 1;
+    position_cmd.use_velocity_horizontal = 1;
+    position_cmd.use_acceleration        = 1;
   }
 
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output));
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
 }
 
 //}
@@ -487,8 +511,8 @@ const mrs_msgs::TrackerStatus LineTracker::getStatus() {
 
   mrs_msgs::TrackerStatus tracker_status;
 
-  tracker_status.active            = is_active;
-  tracker_status.callbacks_enabled = callbacks_enabled;
+  tracker_status.active            = is_active_;
+  tracker_status.callbacks_enabled = callbacks_enabled_;
 
   return tracker_status;
 }
@@ -502,16 +526,16 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
   std_srvs::SetBoolResponse res;
   std::stringstream         ss;
 
-  if (cmd->data != callbacks_enabled) {
+  if (cmd->data != callbacks_enabled_) {
 
-    callbacks_enabled = cmd->data;
+    callbacks_enabled_ = cmd->data;
 
-    ss << "callbacks " << (callbacks_enabled ? "enabled" : "disabled");
+    ss << "callbacks " << (callbacks_enabled_ ? "enabled" : "disabled");
     ROS_INFO_STREAM_THROTTLE(1.0, "[LineTracker]: " << ss.str());
 
   } else {
 
-    ss << "callbacks were already " << (callbacks_enabled ? "enabled" : "disabled");
+    ss << "callbacks were already " << (callbacks_enabled_ ? "enabled" : "disabled");
     ROS_WARN_STREAM_THROTTLE(1.0, "[LineTracker]: " << ss.str());
   }
 
@@ -527,7 +551,7 @@ const std_srvs::SetBoolResponse::ConstPtr LineTracker::enableCallbacks(const std
 
 void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) {
 
-  std::scoped_lock lock(mutex_goal, mutex_state);
+  std::scoped_lock lock(mutex_goal_, mutex_state_);
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -552,19 +576,19 @@ void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &msg) 
   double dz   = msg->pose.position.z - uav_state.pose.position.z;
   double dyaw = msg_yaw - odom_yaw;
 
-  goal_x += dx;
-  goal_y += dy;
-  goal_z += dz;
-  goal_yaw += dyaw;
+  goal_x_ += dx;
+  goal_y_ += dy;
+  goal_z_ += dz;
+  goal_yaw_ += dyaw;
 
   // | -------------------- update the state -------------------- |
 
-  state_x += dx;
-  state_y += dy;
-  state_z += dz;
-  state_yaw += dyaw;
+  state_x_ += dx;
+  state_y_ += dy;
+  state_z_ += dz;
+  state_yaw_ += dyaw;
 
-  current_heading = atan2(goal_y - state_y, goal_x - state_x);
+  current_heading_ = atan2(goal_y_ - state_y_, goal_x_ - state_x_);
 }
 
 //}
@@ -579,22 +603,22 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
   // |          horizontal initial conditions prediction          |
   // --------------------------------------------------------------
   {
-    std::scoped_lock lock(mutex_state, mutex_uav_state_);
+    std::scoped_lock lock(mutex_state_, mutex_uav_state_);
 
-    current_horizontal_speed = sqrt(pow(uav_state_.velocity.linear.x, 2) + pow(uav_state_.velocity.linear.y, 2));
-    current_vertical_speed   = uav_state_.velocity.linear.z;
-    current_heading          = atan2(uav_state_.velocity.linear.y, uav_state_.velocity.linear.x);
+    current_horizontal_speed_ = sqrt(pow(uav_state_.velocity.linear.x, 2) + pow(uav_state_.velocity.linear.y, 2));
+    current_vertical_speed_   = uav_state_.velocity.linear.z;
+    current_heading_          = atan2(uav_state_.velocity.linear.y, uav_state_.velocity.linear.x);
   }
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
   {
-    std::scoped_lock lock(mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
-    stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
-    stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
+    horizontal_t_stop    = current_horizontal_speed_ / _horizontal_acceleration_;
+    horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed_) / 2.0;
+    stop_dist_x          = cos(current_heading_) * horizontal_stop_dist;
+    stop_dist_y          = sin(current_heading_) * horizontal_stop_dist;
   }
 
   // --------------------------------------------------------------
@@ -604,10 +628,10 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
   double vertical_t_stop, vertical_stop_dist;
 
   {
-    std::scoped_lock lock(mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-    vertical_stop_dist = current_vertical_direction * (vertical_t_stop * current_vertical_speed) / 2;
+    vertical_t_stop    = current_vertical_speed_ / _vertical_acceleration_;
+    vertical_stop_dist = current_vertical_direction_ * (vertical_t_stop * current_vertical_speed_) / 2.0;
   }
 
   // --------------------------------------------------------------
@@ -615,14 +639,14 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
   // --------------------------------------------------------------
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_goal_, mutex_state_);
 
-    goal_x = state_x + stop_dist_x;
-    goal_y = state_y + stop_dist_y;
-    goal_z = state_z + vertical_stop_dist;
+    goal_x_ = state_x_ + stop_dist_x;
+    goal_y_ = state_y_ + stop_dist_y;
+    goal_z_ = state_z_ + vertical_stop_dist;
   }
 
-  res.message = "Hover initiated.";
+  res.message = "hover initiated";
   res.success = true;
 
   changeState(STOP_MOTION_STATE);
@@ -640,15 +664,15 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr LineTracker::setConstrai
 
   // this is the place to copy the constraints
   {
-    std::scoped_lock lock(mutex_constraints);
+    std::scoped_lock lock(mutex_constraints_);
 
-    horizontal_speed_        = cmd->constraints.horizontal_speed;
-    horizontal_acceleration_ = cmd->constraints.horizontal_acceleration;
+    _horizontal_speed_        = cmd->constraints.horizontal_speed;
+    _horizontal_acceleration_ = cmd->constraints.horizontal_acceleration;
 
-    vertical_speed_        = cmd->constraints.vertical_ascending_speed;
-    vertical_acceleration_ = cmd->constraints.vertical_ascending_acceleration;
+    _vertical_speed_        = cmd->constraints.vertical_ascending_speed;
+    _vertical_acceleration_ = cmd->constraints.vertical_ascending_acceleration;
 
-    yaw_rate_ = cmd->constraints.yaw_speed;
+    _yaw_rate_ = cmd->constraints.yaw_speed;
   }
 
   res.success = true;
@@ -668,17 +692,17 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goTo(const mrs_msgs:
   mrs_msgs::ReferenceSrvResponse res;
 
   {
-    std::scoped_lock lock(mutex_goal);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_x   = cmd->reference.position.x;
-    goal_y   = cmd->reference.position.y;
-    goal_z   = cmd->reference.position.z;
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->reference.yaw);
+    goal_x_   = cmd->reference.position.x;
+    goal_y_   = cmd->reference.position.y;
+    goal_z_   = cmd->reference.position.z;
+    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(cmd->reference.yaw);
+
+    ROS_INFO("[LineTracker]: received new setpoint %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_yaw_);
+
+    have_goal_ = true;
   }
-
-  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
 
   res.success = true;
   res.message = "setpoint set";
@@ -695,17 +719,17 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goTo(const mrs_msgs:
 bool LineTracker::goTo(const mrs_msgs::ReferenceConstPtr &msg) {
 
   {
-    std::scoped_lock lock(mutex_goal);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_x   = msg->position.x;
-    goal_y   = msg->position.y;
-    goal_z   = msg->position.z;
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(msg->yaw);
+    goal_x_   = msg->position.x;
+    goal_y_   = msg->position.y;
+    goal_z_   = msg->position.z;
+    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(msg->yaw);
+
+    ROS_INFO("[LineTracker]: received new setpoint %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_yaw_);
+
+    have_goal_ = true;
   }
-
-  ROS_INFO("[LineTracker]: received new setpoint %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
 
   changeState(STOP_MOTION_STATE);
 
@@ -718,20 +742,22 @@ bool LineTracker::goTo(const mrs_msgs::ReferenceConstPtr &msg) {
 
 const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
 
+  auto [state_x, state_y, state_z, state_yaw] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, state_z_, state_yaw_);
+
   mrs_msgs::ReferenceSrvResponse res;
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_x   = state_x + cmd->reference.position.x;
-    goal_y   = state_y + cmd->reference.position.y;
-    goal_z   = state_z + cmd->reference.position.z;
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->reference.yaw);
+    goal_x_   = state_x + cmd->reference.position.x;
+    goal_y_   = state_y + cmd->reference.position.y;
+    goal_z_   = state_z + cmd->reference.position.z;
+    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->reference.yaw);
+
+    ROS_INFO("[LineTracker]: received new relative setpoint, flying to %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_yaw_);
+
+    have_goal_ = true;
   }
-
-  ROS_INFO("[LineTracker]: received new relative setpoint, flying to %3.2f, %3.2f, %3.2f, %1.3f", goal_x, goal_y, goal_z, goal_yaw);
-
-  have_goal = true;
 
   res.success = true;
   res.message = "setpoint set";
@@ -747,20 +773,22 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::goToRelative(const m
 
 const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
 
+  auto [state_x, state_y, state_z, state_yaw] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, state_z_, state_yaw_);
+
   mrs_msgs::Float64SrvResponse res;
 
   {
-    std::scoped_lock lock(mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_x   = state_x;
-    goal_y   = state_y;
-    goal_z   = cmd->value;
-    goal_yaw = state_yaw;
+    goal_x_   = state_x;
+    goal_y_   = state_y;
+    goal_z_   = cmd->value;
+    goal_yaw_ = state_yaw;
 
-    have_goal = true;
+    have_goal_ = true;
+
+    ROS_INFO("[LineTracker]: received new altituded setpoint %.2f", goal_z_);
   }
-
-  ROS_INFO("[LineTracker]: received new altituded setpoint %3.2f", goal_z);
 
   res.success = true;
   res.message = "setpoint set";
@@ -779,12 +807,12 @@ const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYaw(const mrs_msgs:
   mrs_msgs::Float64SrvResponse res;
 
   {
-    std::scoped_lock lock(mutex_goal);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(cmd->value);
+    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(cmd->value);
+
+    ROS_INFO("[LineTracker]: setting yaw %.2f", goal_yaw_);
   }
-
-  ROS_INFO("[LineTracker]: setting yaw %3.2f", goal_yaw);
 
   res.success = true;
   res.message = "yaw set";
@@ -798,15 +826,17 @@ const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYaw(const mrs_msgs:
 
 const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
 
+  auto state_yaw = mrs_lib::get_mutexed(mutex_state_, state_yaw_);
+
   mrs_msgs::Float64SrvResponse res;
 
   {
-    std::scoped_lock lock(mutex_state, mutex_goal);
+    std::scoped_lock lock(mutex_goal_);
 
-    goal_yaw = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->value);
+    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(state_yaw + cmd->value);
+
+    ROS_INFO("[LineTracker]: setting relative yaw by %.2f", goal_yaw_);
   }
-
-  ROS_INFO("[LineTracker]: setting relative yaw by %3.2f", goal_yaw);
 
   res.success = true;
   res.message = "yaw set";
@@ -822,11 +852,11 @@ const mrs_msgs::Float64SrvResponse::ConstPtr LineTracker::setYawRelative(const m
 
 void LineTracker::changeStateHorizontal(States_t new_state) {
 
-  previous_state_horizontal = current_state_horizontal;
-  current_state_horizontal  = new_state;
+  previous_state_horizontal_ = current_state_horizontal_;
+  current_state_horizontal_  = new_state;
 
   // just for ROS_INFO
-  ROS_DEBUG("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal], state_names[current_state_horizontal]);
+  ROS_DEBUG("[LineTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal_], state_names[current_state_horizontal_]);
 }
 
 //}
@@ -835,11 +865,11 @@ void LineTracker::changeStateHorizontal(States_t new_state) {
 
 void LineTracker::changeStateVertical(States_t new_state) {
 
-  previous_state_vertical = current_state_vertical;
-  current_state_vertical  = new_state;
+  previous_state_vertical_ = current_state_vertical_;
+  current_state_vertical_  = new_state;
 
   // just for ROS_INFO
-  ROS_DEBUG("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical], state_names[current_state_vertical]);
+  ROS_DEBUG("[LineTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical_], state_names[current_state_vertical_]);
 }
 
 //}
@@ -860,13 +890,17 @@ void LineTracker::changeState(States_t new_state) {
 
 void LineTracker::stopHorizontalMotion(void) {
 
-  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  if (current_horizontal_speed < 0) {
-    current_horizontal_speed        = 0;
-    current_horizontal_acceleration = 0;
-  } else {
-    current_horizontal_acceleration = -horizontal_acceleration_;
+    current_horizontal_speed_ -= _horizontal_acceleration_ * _tracker_dt_;
+
+    if (current_horizontal_speed_ < 0) {
+      current_horizontal_speed_        = 0;
+      current_horizontal_acceleration_ = 0;
+    } else {
+      current_horizontal_acceleration_ = -_horizontal_acceleration_;
+    }
   }
 }
 
@@ -876,13 +910,17 @@ void LineTracker::stopHorizontalMotion(void) {
 
 void LineTracker::stopVerticalMotion(void) {
 
-  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  if (current_vertical_speed < 0) {
-    current_vertical_speed        = 0;
-    current_vertical_acceleration = 0;
-  } else {
-    current_vertical_acceleration = -vertical_acceleration_;
+    current_vertical_speed_ -= _vertical_acceleration_ * _tracker_dt_;
+
+    if (current_vertical_speed_ < 0) {
+      current_vertical_speed_        = 0;
+      current_vertical_acceleration_ = 0;
+    } else {
+      current_vertical_acceleration_ = -_vertical_acceleration_;
+    }
   }
 }
 
@@ -892,26 +930,46 @@ void LineTracker::stopVerticalMotion(void) {
 
 void LineTracker::accelerateHorizontal(void) {
 
-  current_heading = atan2(goal_y - state_y, goal_x - state_x);
+  // copy member variables
+  auto [goal_x, goal_y]                             = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_);
+  auto [state_x, state_y, current_horizontal_speed] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, current_horizontal_speed_);
+
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    current_heading_ = atan2(goal_y - state_y, goal_x - state_x);
+  }
+
+  auto current_heading = mrs_lib::get_mutexed(mutex_state_, current_heading_);
 
   double horizontal_t_stop, horizontal_stop_dist, stop_dist_x, stop_dist_y;
 
-  horizontal_t_stop    = current_horizontal_speed / horizontal_acceleration_;
-  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2;
+  horizontal_t_stop    = current_horizontal_speed / _horizontal_acceleration_;
+  horizontal_stop_dist = (horizontal_t_stop * current_horizontal_speed) / 2.0;
   stop_dist_x          = cos(current_heading) * horizontal_stop_dist;
   stop_dist_y          = sin(current_heading) * horizontal_stop_dist;
 
-  current_horizontal_speed += horizontal_acceleration_ * tracker_dt_;
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  if (current_horizontal_speed >= horizontal_speed_) {
-    current_horizontal_speed        = horizontal_speed_;
-    current_horizontal_acceleration = 0;
-  } else {
-    current_horizontal_acceleration = horizontal_acceleration_;
+    current_horizontal_speed_ += _horizontal_acceleration_ * _tracker_dt_;
+
+    if (current_horizontal_speed_ >= _horizontal_speed_) {
+      current_horizontal_speed_        = _horizontal_speed_;
+      current_horizontal_acceleration_ = 0;
+    } else {
+      current_horizontal_acceleration_ = _horizontal_acceleration_;
+    }
   }
 
-  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (horizontal_speed_ * tracker_dt_))) {
-    current_horizontal_acceleration = 0;
+  if (sqrt(pow(state_x + stop_dist_x - goal_x, 2) + pow(state_y + stop_dist_y - goal_y, 2)) < (2 * (_horizontal_speed_ * _tracker_dt_))) {
+
+    {
+      std::scoped_lock lock(mutex_state_);
+
+      current_horizontal_acceleration_ = 0;
+    }
+
     changeStateHorizontal(DECELERATING_STATE);
   }
 }
@@ -922,28 +980,47 @@ void LineTracker::accelerateHorizontal(void) {
 
 void LineTracker::accelerateVertical(void) {
 
+  auto goal_z                            = mrs_lib::get_mutexed(mutex_goal_, goal_z_);
+  auto [state_z, current_vertical_speed] = mrs_lib::get_mutexed(mutex_state_, state_z_, current_vertical_speed_);
+
   // set the right heading
   double tar_z = goal_z - state_z;
 
   // set the right vertical direction
-  current_vertical_direction = mrs_trackers_commons::sign(tar_z);
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  // calculate the time to stop and the distance it will take to stop [vertical]
-  double vertical_t_stop    = current_vertical_speed / vertical_acceleration_;
-  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2;
-  double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
-
-  current_vertical_speed += vertical_acceleration_ * tracker_dt_;
-
-  if (current_vertical_speed >= vertical_speed_) {
-    current_vertical_speed        = vertical_speed_;
-    current_vertical_acceleration = 0;
-  } else {
-    current_vertical_acceleration = vertical_acceleration_;
+    current_vertical_direction_ = mrs_trackers_commons::sign(tar_z);
   }
 
-  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (vertical_speed_ * tracker_dt_))) {
-    current_vertical_acceleration = 0;
+  auto current_vertical_direction = mrs_lib::get_mutexed(mutex_state_, current_vertical_direction_);
+
+  // calculate the time to stop and the distance it will take to stop [vertical]
+  double vertical_t_stop    = current_vertical_speed / _vertical_acceleration_;
+  double vertical_stop_dist = (vertical_t_stop * current_vertical_speed) / 2.0;
+  double stop_dist_z        = current_vertical_direction * vertical_stop_dist;
+
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    current_vertical_speed_ += _vertical_acceleration_ * _tracker_dt_;
+
+    if (current_vertical_speed_ >= _vertical_speed_) {
+      current_vertical_speed_        = _vertical_speed_;
+      current_vertical_acceleration_ = 0;
+    } else {
+      current_vertical_acceleration_ = _vertical_acceleration_;
+    }
+  }
+
+  if (fabs(state_z + stop_dist_z - goal_z) < (2 * (_vertical_speed_ * _tracker_dt_))) {
+
+    {
+      std::scoped_lock lock(mutex_state_);
+
+      current_vertical_acceleration_ = 0;
+    }
+
     changeStateVertical(DECELERATING_STATE);
   }
 }
@@ -954,16 +1031,28 @@ void LineTracker::accelerateVertical(void) {
 
 void LineTracker::decelerateHorizontal(void) {
 
-  current_horizontal_speed -= horizontal_acceleration_ * tracker_dt_;
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  if (current_horizontal_speed < 0) {
-    current_horizontal_speed = 0;
-  } else {
-    current_horizontal_acceleration = -horizontal_acceleration_;
+    current_horizontal_speed_ -= _horizontal_acceleration_ * _tracker_dt_;
+
+    if (current_horizontal_speed_ < 0) {
+      current_horizontal_speed_ = 0;
+    } else {
+      current_horizontal_acceleration_ = -_horizontal_acceleration_;
+    }
   }
 
+  auto current_horizontal_speed = mrs_lib::get_mutexed(mutex_state_, current_horizontal_speed_);
+
   if (current_horizontal_speed == 0) {
-    current_horizontal_acceleration = 0;
+
+    {
+      std::scoped_lock lock(mutex_state_);
+
+      current_horizontal_acceleration_ = 0;
+    }
+
     changeStateHorizontal(STOPPING_STATE);
   }
 }
@@ -974,16 +1063,22 @@ void LineTracker::decelerateHorizontal(void) {
 
 void LineTracker::decelerateVertical(void) {
 
-  current_vertical_speed -= vertical_acceleration_ * tracker_dt_;
+  {
+    std::scoped_lock lock(mutex_state_);
 
-  if (current_vertical_speed < 0) {
-    current_vertical_speed = 0;
-  } else {
-    current_vertical_acceleration = -vertical_acceleration_;
+    current_vertical_speed_ -= _vertical_acceleration_ * _tracker_dt_;
+
+    if (current_vertical_speed_ < 0) {
+      current_vertical_speed_ = 0;
+    } else {
+      current_vertical_acceleration_ = -_vertical_acceleration_;
+    }
   }
 
+  auto current_vertical_speed = mrs_lib::get_mutexed(mutex_state_, current_vertical_speed_);
+
   if (current_vertical_speed == 0) {
-    current_vertical_acceleration = 0;
+    current_vertical_acceleration_ = 0;
     changeStateVertical(STOPPING_STATE);
   }
 }
@@ -994,9 +1089,13 @@ void LineTracker::decelerateVertical(void) {
 
 void LineTracker::stopHorizontal(void) {
 
-  state_x                         = 0.95 * state_x + 0.05 * goal_x;
-  state_y                         = 0.95 * state_y + 0.05 * goal_y;
-  current_horizontal_acceleration = 0;
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    state_x_                         = 0.95 * state_x_ + 0.05 * goal_x_;
+    state_y_                         = 0.95 * state_y_ + 0.05 * goal_y_;
+    current_horizontal_acceleration_ = 0;
+  }
 }
 
 //}
@@ -1005,8 +1104,12 @@ void LineTracker::stopHorizontal(void) {
 
 void LineTracker::stopVertical(void) {
 
-  state_z                       = 0.95 * state_z + 0.05 * goal_z;
-  current_vertical_acceleration = 0;
+  {
+    std::scoped_lock lock(mutex_state_);
+
+    state_z_                       = 0.95 * state_z_ + 0.05 * goal_z_;
+    current_vertical_acceleration_ = 0;
+  }
 }
 
 //}
@@ -1017,139 +1120,149 @@ void LineTracker::stopVertical(void) {
 
 void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
-  if (!is_active) {
+  if (!is_active_) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("main", tracker_loop_rate_, 0.002, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("main", _tracker_loop_rate_, 0.01, event);
+
+  auto [goal_x, goal_y, goal_z]    = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
+  auto [state_x, state_y, state_z] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, state_z_);
+
+  switch (current_state_horizontal_) {
+
+    case IDLE_STATE:
+
+      break;
+
+    case HOVER_STATE:
+
+      break;
+
+    case STOP_MOTION_STATE:
+
+      stopHorizontalMotion();
+
+      break;
+
+    case ACCELERATING_STATE:
+
+      accelerateHorizontal();
+
+      break;
+
+    case DECELERATING_STATE:
+
+      decelerateHorizontal();
+
+      break;
+
+    case STOPPING_STATE:
+
+      stopHorizontal();
+
+      break;
+  }
+
+  switch (current_state_vertical_) {
+
+    case IDLE_STATE:
+
+      break;
+
+    case HOVER_STATE:
+
+      break;
+
+    case STOP_MOTION_STATE:
+
+      stopVerticalMotion();
+
+      break;
+
+    case ACCELERATING_STATE:
+
+      accelerateVertical();
+
+      break;
+
+    case DECELERATING_STATE:
+
+      decelerateVertical();
+
+      break;
+
+    case STOPPING_STATE:
+
+      stopVertical();
+
+      break;
+  }
+
+  if (current_state_horizontal_ == STOP_MOTION_STATE && current_state_vertical_ == STOP_MOTION_STATE) {
+    if (current_vertical_speed_ == 0 && current_horizontal_speed_ == 0) {
+      if (have_goal_) {
+        changeState(ACCELERATING_STATE);
+      } else {
+        changeState(STOPPING_STATE);
+      }
+    }
+  }
+
+  if (current_state_horizontal_ == STOPPING_STATE && current_state_vertical_ == STOPPING_STATE) {
+    if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
+
+      {
+        std::scoped_lock lock(mutex_state_);
+
+        state_x_ = goal_x;
+        state_y_ = goal_y;
+        state_z_ = goal_z;
+      }
+
+      changeState(HOVER_STATE);
+    }
+  }
 
   {
-    std::scoped_lock lock(mutex_constraints, mutex_uav_state_, mutex_goal, mutex_state);
+    std::scoped_lock lock(mutex_state_);
 
-    switch (current_state_horizontal) {
+    state_x_ += cos(current_heading_) * current_horizontal_speed_ * _tracker_dt_;
+    state_y_ += sin(current_heading_) * current_horizontal_speed_ * _tracker_dt_;
+    state_z_ += current_vertical_direction_ * current_vertical_speed_ * _tracker_dt_;
+  }
 
-      case IDLE_STATE:
+  // --------------------------------------------------------------
+  // |                        yaw tracking                        |
+  // --------------------------------------------------------------
 
-        break;
-
-      case HOVER_STATE:
-
-        break;
-
-      case STOP_MOTION_STATE:
-
-        stopHorizontalMotion();
-
-        break;
-
-      case ACCELERATING_STATE:
-
-        accelerateHorizontal();
-
-        break;
-
-      case DECELERATING_STATE:
-
-        decelerateHorizontal();
-
-        break;
-
-      case STOPPING_STATE:
-
-        stopHorizontal();
-
-        break;
-    }
-
-    switch (current_state_vertical) {
-
-      case IDLE_STATE:
-
-        break;
-
-      case HOVER_STATE:
-
-        break;
-
-      case STOP_MOTION_STATE:
-
-        stopVerticalMotion();
-
-        break;
-
-      case ACCELERATING_STATE:
-
-        accelerateVertical();
-
-        break;
-
-      case DECELERATING_STATE:
-
-        decelerateVertical();
-
-        break;
-
-      case STOPPING_STATE:
-
-        stopVertical();
-
-        break;
-    }
-    if (current_state_horizontal == STOP_MOTION_STATE && current_state_vertical == STOP_MOTION_STATE) {
-
-      if (current_vertical_speed == 0 && current_horizontal_speed == 0) {
-        if (have_goal) {
-          changeState(ACCELERATING_STATE);
-        } else {
-          changeState(STOPPING_STATE);
-        }
-      }
-    }
-
-    if (current_state_horizontal == STOPPING_STATE && current_state_vertical == STOPPING_STATE) {
-
-      if (fabs(state_x - goal_x) < 1e-3 && fabs(state_y - goal_y) < 1e-3 && fabs(state_z - goal_z) < 1e-3) {
-
-        state_x = goal_x;
-        state_y = goal_y;
-        state_z = goal_z;
-
-        changeState(HOVER_STATE);
-      }
-    }
-
-    state_x += cos(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_y += sin(current_heading) * current_horizontal_speed * tracker_dt_;
-    state_z += current_vertical_direction * current_vertical_speed * tracker_dt_;
-
-    // --------------------------------------------------------------
-    // |                        yaw tracking                        |
-    // --------------------------------------------------------------
+  {
+    std::scoped_lock lock(mutex_state_);
 
     // compute the desired yaw rate
     double current_yaw_rate;
-    if (fabs(goal_yaw - state_yaw) > PI)
-      current_yaw_rate = -yaw_gain_ * (goal_yaw - state_yaw);
+    if (fabs(goal_yaw_ - state_yaw_) > M_PI)
+      current_yaw_rate = -_yaw_gain_ * (goal_yaw_ - state_yaw_);
     else
-      current_yaw_rate = yaw_gain_ * (goal_yaw - state_yaw);
+      current_yaw_rate = _yaw_gain_ * (goal_yaw_ - state_yaw_);
 
-    if (current_yaw_rate > yaw_rate_) {
-      current_yaw_rate = yaw_rate_;
-    } else if (current_yaw_rate < -yaw_rate_) {
-      current_yaw_rate = -yaw_rate_;
+    if (current_yaw_rate > _yaw_rate_) {
+      current_yaw_rate = _yaw_rate_;
+    } else if (current_yaw_rate < -_yaw_rate_) {
+      current_yaw_rate = -_yaw_rate_;
     }
 
-    // flap the resulted state_yaw aroud PI
-    state_yaw += current_yaw_rate * tracker_dt_;
+    // flap the resulted state_yaw_ aroud PI
+    state_yaw_ += current_yaw_rate * _tracker_dt_;
 
-    if (state_yaw > PI) {
-      state_yaw -= 2 * PI;
-    } else if (state_yaw < -PI) {
-      state_yaw += 2 * PI;
+    if (state_yaw_ > M_PI) {
+      state_yaw_ -= 2 * M_PI;
+    } else if (state_yaw_ < -M_PI) {
+      state_yaw_ += 2 * M_PI;
     }
 
-    if (fabs(state_yaw - goal_yaw) < (2 * (yaw_rate_ * tracker_dt_))) {
-      state_yaw = goal_yaw;
+    if (fabs(state_yaw_ - goal_yaw_) < (2 * (_yaw_rate_ * _tracker_dt_))) {
+      state_yaw_ = goal_yaw_;
     }
   }
 }
