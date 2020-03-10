@@ -2187,6 +2187,7 @@ void MpcTracker::manageConstraints() {
       (fabs(x_yaw_(3, 0)) < desired_constraints.constraints.yaw_jerk);
 
   if (can_change) {
+
     {
       std::scoped_lock lock(mutex_constraints);
 
@@ -2206,8 +2207,10 @@ void MpcTracker::manageConstraints() {
       max_yaw_jerk         = desired_constraints.constraints.yaw_jerk;
       max_yaw_snap         = desired_constraints.constraints.yaw_snap;
     }
-    ROS_WARN("[MpcTracker]: all constraints succesfully applied");
+
+    ROS_INFO_THROTTLE(1.0, "[MpcTracker]: all constraints succesfully applied");
     all_constraints_set = true;
+
   } else {
     ROS_WARN_STREAM_THROTTLE(0.2, "[MpcTracker]: Slowing down to apply new constraints ");
   }
@@ -2905,7 +2908,7 @@ void MpcTracker::publishDiagnostics(void) {
   } else if (got_odometry_diagnostics && collision_avoidance_enabled_ &&
              ((odometry_diagnostics.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
               odometry_diagnostics.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
-    ROS_WARN_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
+    ROS_DEBUG_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
   try {
@@ -3826,7 +3829,7 @@ void MpcTracker::mpcTimer(const ros::TimerEvent& event) {
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("mpcIteration", int(1.0 / dt), 0.004, event);
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("mpcIteration", int(1.0 / dt), 0.01, event);
 
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
