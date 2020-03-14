@@ -77,7 +77,6 @@ public:
 private:
   bool callbacks_enabled_ = true;
 
-private:
   ros::NodeHandle                                    nh_;
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
@@ -135,7 +134,8 @@ private:
 
   double _yaw_ = 0;
 
-private:
+  // | ------------------------ profiler ------------------------ |
+
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
 };
@@ -243,7 +243,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   }
 
   // --------------------------------------------------------------
-  // |                          profiler_                          |
+  // |                          profiler                          |
   // --------------------------------------------------------------
 
   profiler_ = mrs_lib::Profiler(nh_, "CsvTracker", _profiler_enabled_);

@@ -81,7 +81,11 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-private:
+  void       mainTimer(const ros::TimerEvent &event);
+  ros::Timer main_timer_;
+
+  // | ------------------------ uav state ----------------------- |
+
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
@@ -93,7 +97,6 @@ private:
   double uav_roll_;
   double uav_pitch_;
 
-private:
   // tracker's inner states
   double _tracker_loop_rate_;
   double _tracker_dt_;
@@ -101,11 +104,8 @@ private:
   bool   is_active_      = false;
   bool   first_iter_     = false;
 
-private:
-  void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer_;
+  // | ----------------- internal state mmachine ---------------- |
 
-private:
   States_t current_state_vertical_    = IDLE_STATE;
   States_t previous_state_vertical_   = IDLE_STATE;
   States_t current_state_horizontal_  = IDLE_STATE;
@@ -115,7 +115,6 @@ private:
   void changeStateVertical(States_t new_state);
   void changeState(States_t new_state);
 
-private:
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
   void accelerateHorizontal(void);
@@ -125,8 +124,8 @@ private:
   void stopHorizontal(void);
   void stopVertical(void);
 
-private:
-  // dynamical constraints
+  // | ------------------ dynamics constraints ------------------ |
+
   double     _horizontal_speed_;
   double     _vertical_speed_;
   double     _horizontal_acceleration_;
@@ -135,8 +134,8 @@ private:
   double     _yaw_gain_;
   std::mutex mutex_constraints_;
 
-private:
-  // desired goal
+  // | ---------------------- desired goal ---------------------- |
+
   double     goal_x_;
   double     goal_y_;
   double     goal_z_;
@@ -144,7 +143,7 @@ private:
   double     have_goal_ = false;
   std::mutex mutex_goal_;
 
-  // my current state
+  // | ------------------- the state variables ------------------ |
   double state_x_;
   double state_y_;
   double state_z_;
@@ -165,7 +164,8 @@ private:
 
   std::mutex mutex_state_;
 
-private:
+  // | ------------------------ profiler ------------------------ |
+
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
 };

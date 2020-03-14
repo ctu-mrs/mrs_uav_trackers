@@ -87,6 +87,16 @@ private:
 
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
+  // main timer
+  void       mainTimer(const ros::TimerEvent& event);
+  ros::Timer main_timer_;
+
+  // diagnostics timer
+  void       diagnosticsTimer(const ros::TimerEvent& event);
+  ros::Timer diagnostics_timer_;
+
+  // | ------------------------ uav state ----------------------- |
+
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
@@ -95,7 +105,8 @@ private:
   double uav_roll_;
   double uav_pitch_;
 
-  // tracker's inner states
+  // | ---------------- the tracker's inner state --------------- |
+
   int    _main_timer_rate_;
   double _landing_reference_;
   double _tracker_dt_;
@@ -106,20 +117,8 @@ private:
   bool   _takeoff_disable_lateral_gains_ = false;
   double _takeoff_disable_lateral_gains_height_;
 
-  // main timer
-  void       mainTimer(const ros::TimerEvent& event);
-  ros::Timer main_timer_;
+  // | --------------- the tracker's state machine -------------- |
 
-  // diagnostics timer
-  void       diagnosticsTimer(const ros::TimerEvent& event);
-  ros::Timer diagnostics_timer_;
-
-  // service servers
-  ros::ServiceServer service_takeoff_;
-  ros::ServiceServer service_land_;
-  ros::ServiceServer service_eland_;
-
-  // state machines
   States_t current_state_vertical_    = IDLE_STATE;
   States_t previous_state_vertical_   = IDLE_STATE;
   States_t current_state_horizontal_  = IDLE_STATE;
@@ -134,18 +133,25 @@ private:
   bool elanding_   = false;
   bool in_the_air_ = false;
 
-private:
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
   void accelerateVertical(void);
   void decelerateVertical(void);
   void stopHorizontal(void);
   void stopVertical(void);
+
+  // | --------------- takeoff / landing services --------------- |
+
+  ros::ServiceServer service_takeoff_;
+  ros::ServiceServer service_land_;
+  ros::ServiceServer service_eland_;
+
   bool callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec1::Response& res);
   bool callbackLand(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
   bool callbackELand(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
 
-  // params
+  // | ------------------ dynamics constraints ------------------ |
+
   double _horizontal_speed_;
   double _vertical_speed_;
   double _takeoff_speed_;
@@ -163,25 +169,31 @@ private:
 
   double _max_position_difference_;
 
-  // desired goal
+  // | -------------------------- goal -------------------------- |
+
   double     goal_x_, goal_y_, goal_z_, goal_yaw_;
   double     have_goal_ = false;
   std::mutex mutex_goal_;
 
-  // my current state
+  // | ---------------- tracker's internal state ---------------- |
+
   double     state_x_, state_y_, state_z_, state_yaw_;
   double     speed_x_, speed_y_, speed_yaw_;
   double     current_heading_, current_vertical_direction_, current_vertical_speed_, current_horizontal_speed_;
   double     current_horizontal_acceleration_, current_vertical_acceleration_;
   std::mutex mutex_state_;
 
+  // | -------------------- tracker's output -------------------- |
+
   mrs_msgs::PositionCommand position_output_;
 
-private:
+  // | ------------------------ profiler ------------------------ |
+
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
 
-private:
+  // | ------------------ diagnostics publisher ----------------- |
+
   void           publishDiagnostics(void);
   ros::Publisher publisher_diagnostics_;
   double         _diagnostics_rate_;

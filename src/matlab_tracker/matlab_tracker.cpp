@@ -62,7 +62,14 @@ private:
   std::string _version_;
   std::string uav_name_;
 
-private:
+  int    tracker_loop_rate_;
+  double tracker_dt_;
+  bool   is_initialized = false;
+  bool   is_active      = false;
+  bool   first_iter     = false;
+
+  // | ------------------------ uav state ----------------------- |
+
   mrs_msgs::UavState uav_state;
   bool               got_uav_state = false;
   std::mutex         mutex_uav_state;
@@ -74,36 +81,31 @@ private:
   double uav_roll;
   double uav_pitch;
 
-private:
-  // tracker's inner states
-  int    tracker_loop_rate_;
-  double tracker_dt_;
-  bool   is_initialized = false;
-  bool   is_active      = false;
-  bool   first_iter     = false;
+  // | ------------------ dynamics constraints ------------------ |
 
-private:
-  // dynamical constraints
   double     yaw_rate_;
   std::mutex mutex_constraints;
 
-private:
-  // desired goal
+  // | ------------------------ the goal ------------------------ |
+
   double             have_goal = false;
   std::mutex         mutex_goal;
   nav_msgs::Odometry matlab_goal;
 
-  mrs_msgs::PositionCommand position_output;
-
-private:
   ros::Subscriber subscriber_matlab;
   void            callbackMatlab(const nav_msgs::Odometry &msg);
 
-private:
+  // | ------------------------ profiler ------------------------ |
+
   mrs_lib::Profiler profiler;
   bool              profiler_enabled_ = false;
-  bool              position_mode_    = false;
-  bool              tilt_mode_        = false;
+
+  // | ------------------- the tracker's ouput ------------------ |
+
+  bool position_mode_ = false;
+  bool tilt_mode_     = false;
+
+  mrs_msgs::PositionCommand position_output;
 };
 
 //}

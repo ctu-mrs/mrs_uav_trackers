@@ -64,7 +64,17 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-private:
+  void       mainTimer(const ros::TimerEvent &event);
+  ros::Timer main_timer_;
+
+  double _tracker_loop_rate_;
+  double _tracker_dt_;
+  bool   is_initialized_ = false;
+  bool   is_active_      = false;
+  bool   first_iter_     = false;
+
+  // | ------------------------ uav state ----------------------- |
+
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
@@ -76,28 +86,13 @@ private:
   double uav_roll_;
   double uav_pitch_;
 
-private:
-  // tracker's inner states
-  double _tracker_loop_rate_;
-  double _tracker_dt_;
-  bool   is_initialized_ = false;
-  bool   is_active_      = false;
-  bool   first_iter_     = false;
+  // | ------------------ dynamics constraints ------------------ |
 
-private:
-  void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer_;
-
-private:
-  // dynamical constraints
   double     _yaw_rate_;
   std::mutex mutex_constraints_;
 
-private:
-  // desired goal
-  double got_joystick_ = false;
+  // | ------------------ tracker's inner state ----------------- |
 
-  // my current state
   double     state_z_;
   double     state_yaw_;
   double     speed_yaw_;
@@ -110,11 +105,13 @@ private:
   double     current_vertical_acceleration;
   std::mutex mutex_state_;
 
-private:
+  // | ------------------- joystick subscriber ------------------ |
+
   ros::Subscriber subscriber_joystick_;
   void            callbackJoystick(const sensor_msgs::Joy &msg);
   double          _max_tilt_;
   double          _vertical_speed_;
+  double          got_joystick_ = false;
 
   // channel numbers and channel multipliers
   int _channel_pitch_;
@@ -126,7 +123,8 @@ private:
   int _channel_mult_yaw_;
   int _channel_mult_thrust_;
 
-private:
+  // | ------------------------ profiler ------------------------ |
+
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
 };

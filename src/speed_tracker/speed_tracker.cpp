@@ -68,9 +68,10 @@ private:
 
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
-  double _external_command_timeout_;
+  ros::Publisher publisher_rviz_marker_;
 
-private:
+  // | ------------------------ uav state ----------------------- |
+
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
@@ -82,28 +83,27 @@ private:
   double uav_roll_;
   double uav_pitch_;
 
-private:
-  // tracker's inner states
+  // | ---------------- the tracker's inner staet --------------- |
+
   double _tracker_loop_rate_;
   double _tracker_dt_;
   bool   is_initialized_ = false;
   bool   is_active_      = false;
 
-private:
-  // desired goal
+  // | -------------------------- goal -------------------------- |
+
   double                        got_command_ = false;
   std::mutex                    mutex_command_;
   mrs_msgs::SpeedTrackerCommand external_command_;
   ros::Time                     external_command_time_;
 
-private:
+  double _external_command_timeout_;
+
   ros::Subscriber subscriber_command_;
   void            callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg);
 
-private:
-  ros::Publisher publisher_rviz_marker_;
+  // | ------------------------ profiler ------------------------ |
 
-private:
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
 };
