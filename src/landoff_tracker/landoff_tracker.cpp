@@ -83,12 +83,12 @@ private:
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
 
   // main timer
-  void       mainTimer(const ros::TimerEvent& event);
-  ros::Timer main_timer_;
+  void       timerMain(const ros::TimerEvent& event);
+  ros::Timer timer_main_;
 
   // diagnostics timer
-  void       diagnosticsTimer(const ros::TimerEvent& event);
-  ros::Timer diagnostics_timer_;
+  void       timerDiagnostics(const ros::TimerEvent& event);
+  ros::Timer timer_diagnostics_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -210,9 +210,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   ros::Time::waitForValid();
 
-  // --------------------------------------------------------------
-  // |                       load parameters                      |
-  // --------------------------------------------------------------
+  // | --------------------- load parameters -------------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
@@ -286,32 +284,24 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   current_state_horizontal_  = LANDED_STATE;
   previous_state_horizontal_ = LANDED_STATE;
 
-  // --------------------------------------------------------------
-  // |                          profiler_                          |
-  // --------------------------------------------------------------
+  // | ------------------------ profiler ------------------------ |
 
   profiler_ = mrs_lib::Profiler(nh_, "LandoffTracker", _profiler_enabled_);
 
-  // --------------------------------------------------------------
-  // |                          services                          |
-  // --------------------------------------------------------------
+  // | ------------------------ services ------------------------ |
 
   service_takeoff_ = nh_.advertiseService("takeoff_in", &LandoffTracker::callbackTakeoff, this);
   service_land_    = nh_.advertiseService("land_in", &LandoffTracker::callbackLand, this);
   service_eland_   = nh_.advertiseService("eland_in", &LandoffTracker::callbackELand, this);
 
-  // --------------------------------------------------------------
-  // |                         publishers                         |
-  // --------------------------------------------------------------
+  // | ----------------------- publishers ----------------------- |
 
   publisher_diagnostics_ = nh_.advertise<mrs_msgs::LandoffDiagnostics>("diagnostics_out", 1);
 
-  // --------------------------------------------------------------
-  // |                           timers                           |
-  // --------------------------------------------------------------
+  // | ------------------------- timers ------------------------- |
 
-  main_timer_        = nh_.createTimer(ros::Rate(_main_timer_rate_), &LandoffTracker::mainTimer, this, false, false);
-  diagnostics_timer_ = nh_.createTimer(ros::Rate(_diagnostics_rate_), &LandoffTracker::diagnosticsTimer, this);
+  timer_main_        = nh_.createTimer(ros::Rate(_main_timer_rate_), &LandoffTracker::timerMain, this, false, false);
+  timer_diagnostics_ = nh_.createTimer(ros::Rate(_diagnostics_rate_), &LandoffTracker::timerDiagnostics, this);
 
   // | ----------------------- finish init ---------------------- |
 
@@ -405,7 +395,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   taking_off_ = false;
   is_active_  = true;
 
-  main_timer_.start();
+  timer_main_.start();
 
   {
     std::scoped_lock lock(mutex_goal_);
@@ -435,7 +425,7 @@ void LandoffTracker::deactivate(void) {
   current_state_vertical_   = IDLE_STATE;
   current_state_horizontal_ = IDLE_STATE;
 
-  main_timer_.stop();
+  timer_main_.stop();
 
   ROS_INFO("[LandoffTracker]: deactivated");
 }
@@ -1012,9 +1002,9 @@ void LandoffTracker::stopVertical(void) {
 
 // | --------------------- timer routines --------------------- |
 
-/* //{ mainTimer() */
+/* //{ timerMain() */
 
-void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
+void LandoffTracker::timerMain(const ros::TimerEvent& event) {
 
   if (!is_active_) {
     return;
@@ -1239,15 +1229,15 @@ void LandoffTracker::mainTimer(const ros::TimerEvent& event) {
 
 //}
 
-/* //{ diagnosticsTimer() */
+/* //{ timerDiagnostics() */
 
-void LandoffTracker::diagnosticsTimer(const ros::TimerEvent& event) {
+void LandoffTracker::timerDiagnostics(const ros::TimerEvent& event) {
 
   if (!is_initialized_) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("diagnosticsTimer", _diagnostics_rate_, 0.1, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("timerDiagnostics", _diagnostics_rate_, 0.1, event);
 
   publishDiagnostics();
 }

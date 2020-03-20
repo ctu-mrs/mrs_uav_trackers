@@ -78,8 +78,8 @@ private:
 
   ros::Time odometry_last_time_;
 
-  ros::Timer main_timer_;
-  ros::Timer set_traj_timer_;
+  ros::Timer timer_main_;
+  ros::Timer timer_set_trajectory_;
 
   mrs_msgs::PositionCommand position_cmd_;
   mrs_msgs::PositionCommand last_position_cmd_;
@@ -109,8 +109,8 @@ private:
   int      trajectory_len_ = 0;
 
   // methods
-  void mainTimer(const ros::TimerEvent &event);
-  void setTrajTimer(const ros::TimerEvent &event);
+  void timerMain(const ros::TimerEvent &event);
+  void timerSetTrajectory(const ros::TimerEvent &event);
 
   // params
   std::string _filename_;
@@ -235,18 +235,14 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  // --------------------------------------------------------------
-  // |                          profiler                          |
-  // --------------------------------------------------------------
+  // | ------------------------ profiler ------------------------ |
 
   profiler_ = mrs_lib::Profiler(nh_, "CsvTracker", _profiler_enabled_);
 
-  // --------------------------------------------------------------
-  // |                           timers                           |
-  // --------------------------------------------------------------
+  // | ------------------------- timers ------------------------- |
 
-  main_timer_     = nh_.createTimer(ros::Rate(100), &CsvTracker::mainTimer, this, false, false);
-  set_traj_timer_ = nh_.createTimer(ros::Rate(1), &CsvTracker::setTrajTimer, this);
+  timer_main_           = nh_.createTimer(ros::Rate(100), &CsvTracker::timerMain, this, false, false);
+  timer_set_trajectory_ = nh_.createTimer(ros::Rate(1), &CsvTracker::timerSetTrajectory, this);
 
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[CsvTracker]: could not load all parameters!");
@@ -289,7 +285,7 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
     ROS_INFO("[CsvTracker]: CSV tracker activated");
     is_active_ = true;
     tracking_  = true;
-    main_timer_.start();
+    timer_main_.start();
   }
 
   return is_active_;
@@ -619,11 +615,11 @@ bool CsvTracker::setScales(mrs_msgs::Float64Srv::Request &req, mrs_msgs::Float64
 
 // | ------------------------- timers ------------------------- |
 
-/* //{ mainTimer() */
+/* //{ timerMain() */
 
-void CsvTracker::mainTimer(const ros::TimerEvent &event) {
+void CsvTracker::timerMain(const ros::TimerEvent &event) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("mainTimer", 100, 0.005, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("timerMain", 100, 0.005, event);
 
   if (!tracking_) {
     ROS_INFO_THROTTLE(1.0, "[CsvTracker]: waiting for activation");
@@ -675,17 +671,17 @@ void CsvTracker::mainTimer(const ros::TimerEvent &event) {
 
     tracking_ = false;
 
-    main_timer_.stop();
+    timer_main_.stop();
   }
 }
 
 //}
 
-/* //{ setTrajTimer() */
+/* //{ timerSetTrajectory() */
 
-void CsvTracker::setTrajTimer(const ros::TimerEvent &event) {
+void CsvTracker::timerSetTrajectory(const ros::TimerEvent &event) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("setTrajTimer", 100, 0.01, event);
+  mrs_lib::Routine profiler_routine = profiler_.createRoutine("timerSetTrajectory", 100, 0.01, event);
 
   ros::Duration(5.0).sleep();
 
@@ -693,7 +689,7 @@ void CsvTracker::setTrajTimer(const ros::TimerEvent &event) {
 
   setInitPoint();
 
-  set_traj_timer_.stop();
+  timer_set_trajectory_.stop();
 }
 
 //}
