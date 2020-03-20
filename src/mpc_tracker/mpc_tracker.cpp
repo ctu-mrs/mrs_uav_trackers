@@ -41,8 +41,6 @@
 
 /* defines //{ */
 
-#define STRING_EQUAL 0
-
 using quat_t = Eigen::Quaterniond;
 
 //}
@@ -2493,8 +2491,7 @@ void MpcTracker::publishDiagnostics(void) {
   if (ss.str().length() > 0) {
     ROS_DEBUG_STREAM_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: " << ss.str());
   } else if (got_odometry_diagnostics_ && collision_avoidance_enabled_ &&
-             ((odometry_diagnostics_.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
-              odometry_diagnostics_.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL)) {
+             ((odometry_diagnostics_.estimator_type.name == "GPS") || odometry_diagnostics_.estimator_type.name == "RTK")) {
     ROS_DEBUG_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
@@ -3626,9 +3623,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
     avoidance_trajectory.uav_name = _uav_name_;
     avoidance_trajectory.priority = avoidance_this_uav_priority_;
     avoidance_trajectory.collision_avoidance =
-        collision_avoidance_enabled_ && ((odometry_diagnostics_.estimator_type.name.compare(std::string("GPS")) == STRING_EQUAL) ||
-                                         odometry_diagnostics_.estimator_type.name.compare(std::string("RTK")) == STRING_EQUAL);
-
+        collision_avoidance_enabled_ && ((odometry_diagnostics_.estimator_type.name == "GPS") || odometry_diagnostics_.estimator_type.name == "RTK");
 
     avoidance_trajectory.points.clear();
     avoidance_trajectory.stamp               = ros::Time::now();
