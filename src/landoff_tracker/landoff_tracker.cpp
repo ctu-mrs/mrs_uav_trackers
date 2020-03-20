@@ -4,18 +4,15 @@
 
 #include <ros/ros.h>
 
-#include <geometry_msgs/PoseStamped.h>
-
-#include <mrs_msgs/Vec1.h>
-#include <mrs_msgs/LandoffDiagnostics.h>
-
 #include <mrs_uav_manager/Tracker.h>
-#include <nav_msgs/Odometry.h>
-#include <mrs_msgs/UavState.h>
+
+#include <commons.h>
 
 #include <tf/transform_datatypes.h>
 
-#include <commons.h>
+#include <mrs_msgs/Vec1.h>
+#include <mrs_msgs/LandoffDiagnostics.h>
+#include <mrs_msgs/UavState.h>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
@@ -53,27 +50,25 @@ const char* state_names[7] = {
 
 class LandoffTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
-  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr& cmd);
-  virtual void deactivate(void);
-  virtual bool resetStatic(void);
+  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
+  void deactivate(void);
+  bool resetStatic(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& msg, const mrs_msgs::AttitudeCommand::ConstPtr& cmd);
-  virtual const mrs_msgs::TrackerStatus             getStatus();
-  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
-  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg);
+  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  const mrs_msgs::TrackerStatus             getStatus();
+  const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
+  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
-  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
 
-  virtual bool goTo(const mrs_msgs::ReferenceConstPtr& msg);
+  const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
-  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
-
-  virtual const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
   bool callbacks_enabled_ = true;
@@ -329,7 +324,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
 /* //{ activate() */
 
-bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr& cmd) {
+bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
 
   if (!got_uav_state_) {
 
@@ -458,14 +453,15 @@ bool LandoffTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr& msg, const mrs_msgs::AttitudeCommand::ConstPtr& cmd) {
+const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&        uav_state,
+                                                                 const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *msg;
+    uav_state_ = *uav_state;
 
     // calculate the euler angles
     tf::Quaternion uav_attitude;
@@ -508,7 +504,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
   {
     std::scoped_lock lock(mutex_last_attitude_cmd_);
 
-    last_attitude_cmd_ = *cmd;
+    last_attitude_cmd_ = *last_attitude_cmd;
   }
 
   if (_takeoff_disable_lateral_gains_ && taking_off_ && uav_state_.pose.position.z < _takeoff_disable_lateral_gains_height_) {
@@ -566,7 +562,7 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 /* switchOdometrySource() //{ */
 
-void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
+void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
 
   std::scoped_lock lock(mutex_goal_, mutex_state_);
 
@@ -582,15 +578,15 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ms
   m.getRPY(odom_roll, odom_pitch, odom_yaw);
 
   tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(msg->pose.orientation, quaternion_msg);
+  quaternionMsgToTF(new_uav_state->pose.orientation, quaternion_msg);
   tf::Matrix3x3 m2(quaternion_msg);
   m2.getRPY(msg_roll, msg_pitch, msg_yaw);
 
   // | --------- recalculate the goal to new coordinates -------- |
 
-  double dx   = msg->pose.position.x - uav_state.pose.position.x;
-  double dy   = msg->pose.position.y - uav_state.pose.position.y;
-  double dz   = msg->pose.position.z - uav_state.pose.position.z;
+  double dx   = new_uav_state->pose.position.x - uav_state.pose.position.x;
+  double dy   = new_uav_state->pose.position.y - uav_state.pose.position.y;
+  double dz   = new_uav_state->pose.position.z - uav_state.pose.position.z;
   double dyaw = msg_yaw - odom_yaw;
 
   goal_x_ += dx;
@@ -679,9 +675,9 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr LandoffTracker::setConst
 
 //}
 
-// | -------------- setpoint topics and services -------------- |
+// | -------------------- setpoint services ------------------- |
 
-/* //{ goTo() service */
+/* //{ goTo() */
 
 const mrs_msgs::ReferenceSrvResponse::ConstPtr LandoffTracker::goTo([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
 
@@ -690,16 +686,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LandoffTracker::goTo([[maybe_unus
 
 //}
 
-/* //{ goTo() topic */
-
-bool LandoffTracker::goTo([[maybe_unused]] const mrs_msgs::ReferenceConstPtr& msg) {
-
-  return false;
-}
-
-//}
-
-/* //{ goToRelative() service */
+/* //{ goToRelative() */
 
 const mrs_msgs::ReferenceSrvResponse::ConstPtr LandoffTracker::goToRelative([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
 
@@ -708,7 +695,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LandoffTracker::goToRelative([[ma
 
 //}
 
-/* //{ goToAltitude() service */
+/* //{ goToAltitude() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr LandoffTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 
@@ -717,7 +704,7 @@ const mrs_msgs::Float64SrvResponse::ConstPtr LandoffTracker::goToAltitude([[mayb
 
 //}
 
-/* //{ setYaw() service */
+/* //{ setYaw() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr LandoffTracker::setYaw([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 
@@ -726,7 +713,7 @@ const mrs_msgs::Float64SrvResponse::ConstPtr LandoffTracker::setYaw([[maybe_unus
 
 //}
 
-/* //{ setYawRelative() service */
+/* //{ setYawRelative() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr LandoffTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 

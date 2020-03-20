@@ -4,6 +4,10 @@
 
 #include <ros/ros.h>
 
+#include <mrs_uav_manager/Tracker.h>
+
+#include <commons.h>
+
 #include <math.h>
 #include <cmath>
 #include <mutex>
@@ -12,24 +16,14 @@
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
-#include <nav_msgs/Odometry.h>
 
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
-#include <mrs_msgs/FuturePointInt8.h>
-#include <mrs_msgs/FutureTrajectoryInt8.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/TrackerTrajectory.h>
 #include <mrs_msgs/TrackerTrajectorySrv.h>
-#include <mrs_msgs/MpcMatrix.h>
-#include <mrs_msgs/MpcMatrixRequest.h>
-#include <mrs_msgs/MpcMatrixResponse.h>
 #include <mrs_msgs/OdometryDiag.h>
-#include <mrs_msgs/UavState.h>
 
-#include <mrs_uav_manager/Tracker.h>
-
-#include <mrs_lib/ConvexPolygon.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Utils.h>
 #include <mrs_lib/ParamLoader.h>
@@ -39,8 +33,6 @@
 #include <mrs_trackers/cvx_wrapper.h>
 
 #include <mrs_trackers/mpc_trackerConfig.h>
-
-#include <commons.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -67,27 +59,25 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_manager::Tracker {
 public:
-  virtual void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
-  virtual bool activate(const mrs_msgs::PositionCommand::ConstPtr& cmd);
-  virtual void deactivate(void);
-  virtual bool resetStatic(void);
+  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
+  void deactivate(void);
+  bool resetStatic(void);
 
-  virtual const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& msg, const mrs_msgs::AttitudeCommand::ConstPtr& cmd);
-  virtual const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::TrackerStatus             getStatus();
-  virtual void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg);
+  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
+  const mrs_msgs::TrackerStatus             getStatus();
+  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
-  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  virtual const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
 
-  virtual bool goTo(const mrs_msgs::ReferenceConstPtr& msg);
+  const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
-  virtual const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
-
-  virtual const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
   ros::NodeHandle                                    nh_;
@@ -612,7 +602,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& cmd) {
+bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
 
   if (!got_odometry_diagnostics_) {
 
@@ -633,27 +623,27 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& cmd) {
   MatrixXd mpc_x     = MatrixXd::Zero(_mpc_n_states_, 1);
   MatrixXd mpc_x_yaw = MatrixXd::Zero(_mpc_n_states_yaw_, 1);
 
-  if (mrs_msgs::PositionCommand::Ptr() != cmd) {
+  if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
 
     // set the initial condition from the last tracker's cmd
 
-    mpc_x(0, 0) = cmd->position.x;
-    mpc_x(1, 0) = cmd->velocity.x;
-    mpc_x(2, 0) = cmd->acceleration.x;
+    mpc_x(0, 0) = last_position_cmd->position.x;
+    mpc_x(1, 0) = last_position_cmd->velocity.x;
+    mpc_x(2, 0) = last_position_cmd->acceleration.x;
     mpc_x(3, 0) = 0;
 
-    mpc_x(4, 0) = cmd->position.y;
-    mpc_x(5, 0) = cmd->velocity.y;
-    mpc_x(6, 0) = cmd->acceleration.y;
+    mpc_x(4, 0) = last_position_cmd->position.y;
+    mpc_x(5, 0) = last_position_cmd->velocity.y;
+    mpc_x(6, 0) = last_position_cmd->acceleration.y;
     mpc_x(7, 0) = 0;
 
-    mpc_x(8, 0)  = cmd->position.z;
-    mpc_x(9, 0)  = cmd->velocity.z;
-    mpc_x(10, 0) = cmd->acceleration.z;
+    mpc_x(8, 0)  = last_position_cmd->position.z;
+    mpc_x(9, 0)  = last_position_cmd->velocity.z;
+    mpc_x(10, 0) = last_position_cmd->acceleration.z;
     mpc_x(11, 0) = 0;
 
-    mpc_x_yaw(0, 0) = cmd->yaw;
-    mpc_x_yaw(1, 0) = cmd->yaw_dot;
+    mpc_x_yaw(0, 0) = last_position_cmd->yaw;
+    mpc_x_yaw(1, 0) = last_position_cmd->yaw_dot;
     mpc_x_yaw(2, 0) = 0;
     mpc_x_yaw(3, 0) = 0;
 
@@ -980,7 +970,7 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
+void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
 
   odometry_reset_in_progress_ = true;
   mpc_result_invalid_         = true;
@@ -990,9 +980,9 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
   ROS_INFO(
       "[MpcTracker]: start of odmetry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f], "
       "new odom [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
-      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), msg->pose.position.x, msg->pose.position.y, msg->pose.position.z,
-      msg->velocity.linear.x, msg->velocity.linear.y, msg->velocity.linear.z, msg->acceleration.linear.x, msg->acceleration.linear.y,
-      msg->acceleration.linear.z);
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), new_uav_state->pose.position.x, new_uav_state->pose.position.y,
+      new_uav_state->pose.position.z, new_uav_state->velocity.linear.x, new_uav_state->velocity.linear.y, new_uav_state->velocity.linear.z,
+      new_uav_state->acceleration.linear.x, new_uav_state->acceleration.linear.y, new_uav_state->acceleration.linear.z);
 
   timer_mpc_.stop();
   ROS_INFO("[MpcTracker]: mpc timer stopped");
@@ -1021,18 +1011,18 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
     // calculate the euler angles from the new uav state
     tf::Quaternion new_attitude;
-    quaternionMsgToTF(msg->pose.orientation, new_attitude);
+    quaternionMsgToTF(new_uav_state->pose.orientation, new_attitude);
     tf::Matrix3x3 m2(new_attitude);
     m2.getRPY(new_roll, new_pitch, new_yaw);
 
     // calculate the difference of position
-    dx   = msg->pose.position.x - uav_state_.pose.position.x;
-    dy   = msg->pose.position.y - uav_state_.pose.position.y;
-    dz   = msg->pose.position.z - uav_state_.pose.position.z;
+    dx   = new_uav_state->pose.position.x - uav_state_.pose.position.x;
+    dy   = new_uav_state->pose.position.y - uav_state_.pose.position.y;
+    dz   = new_uav_state->pose.position.z - uav_state_.pose.position.z;
     dyaw = new_yaw - old_yaw;
 
     // calculate the difference in yaw
-    dvyaw = msg->velocity.angular.z - uav_state_.velocity.angular.z;
+    dvyaw = new_uav_state->velocity.angular.z - uav_state_.velocity.angular.z;
 
     ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
   }
@@ -1045,8 +1035,8 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
       Eigen::Vector2d temp_vec(des_x_whole_trajectory_(i) - uav_state_.pose.position.x, des_y_whole_trajectory_(i) - uav_state_.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
 
-      des_x_whole_trajectory_(i) = msg->pose.position.x + temp_vec[0];
-      des_y_whole_trajectory_(i) = msg->pose.position.y + temp_vec[1];
+      des_x_whole_trajectory_(i) = new_uav_state->pose.position.x + temp_vec[0];
+      des_y_whole_trajectory_(i) = new_uav_state->pose.position.y + temp_vec[1];
       des_z_whole_trajectory_(i) += dz;
       des_yaw_whole_trajectory_(i) += dyaw;
     }
@@ -1056,27 +1046,27 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
       Eigen::Vector2d temp_vec(des_x_trajectory_(i) - uav_state_.pose.position.x, des_y_trajectory_(i) - uav_state_.pose.position.y);
       temp_vec = rotateVector(temp_vec, dyaw);
 
-      des_x_trajectory_(i, 0) = msg->pose.position.x + temp_vec[0];
-      des_y_trajectory_(i, 0) = msg->pose.position.y + temp_vec[1];
+      des_x_trajectory_(i, 0) = new_uav_state->pose.position.x + temp_vec[0];
+      des_y_trajectory_(i, 0) = new_uav_state->pose.position.y + temp_vec[1];
       des_z_trajectory_(i, 0) += dz;
       des_yaw_trajectory_(i, 0) += dyaw;
     }
 
-    dvz = msg->velocity.linear.z - uav_state_.velocity.linear.z;
+    dvz = new_uav_state->velocity.linear.z - uav_state_.velocity.linear.z;
 
     // update the position
     {
       Eigen::Vector2d temp_vec(mpc_x_(0, 0) - uav_state_.pose.position.x, mpc_x_(4, 0) - uav_state_.pose.position.y);
       temp_vec     = rotateVector(temp_vec, dyaw);
-      mpc_x_(0, 0) = msg->pose.position.x + temp_vec[0];
-      mpc_x_(4, 0) = msg->pose.position.y + temp_vec[1];
+      mpc_x_(0, 0) = new_uav_state->pose.position.x + temp_vec[0];
+      mpc_x_(4, 0) = new_uav_state->pose.position.y + temp_vec[1];
       mpc_x_(8, 0) += dz;
     }
 
     // update the velocity
     {
-      mpc_x_(1, 0) = msg->velocity.linear.x;
-      mpc_x_(5, 0) = msg->velocity.linear.y;
+      mpc_x_(1, 0) = new_uav_state->velocity.linear.x;
+      mpc_x_(5, 0) = new_uav_state->velocity.linear.y;
       // we leave the z velocity as it was in the original frame
     }
 
@@ -1089,7 +1079,7 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& msg) {
 
     // update the heading and its derivative
     mpc_x_yaw_(0, 0) += dyaw;
-    mpc_x_yaw_(1, 0) = msg->velocity.angular.x;
+    mpc_x_yaw_(1, 0) = new_uav_state->velocity.angular.x;
   }
 
   ROS_INFO(
@@ -1160,9 +1150,9 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstrain
 
 //}
 
-// | -------------- setpoint topics and services -------------- |
+// | -------------------- setpoint services ------------------- |
 
-/* //{ goTo() service */
+/* //{ goTo() */
 
 const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
 
@@ -1178,20 +1168,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goTo(const mrs_msgs::
 
 //}
 
-/* //{ goTo() topic */
-
-bool MpcTracker::goTo(const mrs_msgs::ReferenceConstPtr& msg) {
-
-  toggleHover(false);
-
-  setGoal(msg->position.x, msg->position.y, msg->position.z, msg->yaw, true);
-
-  return true;
-}
-
-//}
-
-/* //{ goToRelative() service */
+/* //{ goToRelative() */
 
 const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
 
@@ -1207,7 +1184,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goToRelative(const mr
 
 //}
 
-/* //{ goToAltitude() service */
+/* //{ goToAltitude() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 
@@ -1225,7 +1202,7 @@ const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::goToAltitude(const mrs_
 
 //}
 
-/* //{ setYaw() service */
+/* //{ setYaw() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 
@@ -1243,7 +1220,7 @@ const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYaw(const mrs_msgs::
 
 //}
 
-/* //{ setYawRelative() service */
+/* //{ setYawRelative() */
 
 const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
 
