@@ -550,7 +550,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance_in", &MpcTracker::callbackToggleCollisionAvoidance, this);
 
   // create subscribers on other drones diagnostics
-  for (unsigned long i = 0; i < _avoidance_other_uav_names_.size(); i++) {
+  for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
 
     std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_trajectory_topic_name_;
     std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_diagnostics_topic_name_;
@@ -2563,7 +2563,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory& msg, std::str
     return false;
   }
 
-  for (unsigned int i = 0; i < msg.points.size(); i++) {
+  for (int i = 0; i < int(msg.points.size()); i++) {
 
     // check the point for NaN/inf
     bool no_nans = true;
