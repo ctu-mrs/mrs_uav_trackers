@@ -2707,7 +2707,7 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory& msg, std::str
 
   /* sanitize the time-ness of the trajectory //{ */
 
-  int    trajectory_sample_offset    = 0;  // how many samples in past
+  int    trajectory_sample_offset    = 0;  // how many samples in past is the trajectory
   int    trajectory_subsample_offset = 0;  // how many simulation inner loops ahead of the first valid sample
   double trajectory_time_offset      = 0;  // how much time in past in [s]
 
@@ -2717,7 +2717,8 @@ bool MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory& msg, std::str
     ros::Time trajectory_time = msg.header.stamp;
 
     // the desired time is 0 => the current time
-    if (trajectory_time == ros::Time(0)) {
+    // the trajecoty is a single point => the current time
+    if (trajectory_time == ros::Time(0) || int(msg.points.size()) == 1) {
 
       trajectory_time_offset = 0.0;
 
