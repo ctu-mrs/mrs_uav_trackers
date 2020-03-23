@@ -44,11 +44,7 @@ public:
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr &cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
 
   const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
 
@@ -385,7 +381,7 @@ void SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavStat
 
 //}
 
-/* //{ hover() service */
+/* //{ hover() */
 
 const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
@@ -394,7 +390,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] c
 
 //}
 
-/* //{ setConstraints() service */
+/* //{ setConstraints() */
 
 const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
     [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
@@ -404,49 +400,11 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr SpeedTracker::setConstra
 
 //}
 
-// | -------------------- setpoint services ------------------- |
+/* //{ setReference() */
 
-/* //{ goTo() */
-
-const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::goTo([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::setReference([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
 
   return mrs_msgs::ReferenceSrvResponse::Ptr();
-}
-
-//}
-
-/* //{ goToRelative() */
-
-const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::goToRelative([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
-
-  return mrs_msgs::ReferenceSrvResponse::Ptr();
-}
-
-//}
-
-/* //{ goToAltitude() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr SpeedTracker::goToAltitude([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
-
-  return mrs_msgs::Float64SrvResponse::Ptr();
-}
-
-//}
-
-/* //{ setYaw() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr SpeedTracker::setYaw([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
-
-  return mrs_msgs::Float64SrvResponse::Ptr();
-}
-
-//}
-
-/* //{ setYawRelative() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr SpeedTracker::setYawRelative([[maybe_unused]] const mrs_msgs::Float64SrvRequest::ConstPtr &cmd) {
-
-  return mrs_msgs::Float64SrvResponse::Ptr();
 }
 
 //}

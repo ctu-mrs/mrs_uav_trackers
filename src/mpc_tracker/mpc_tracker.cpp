@@ -67,11 +67,7 @@ public:
   const mrs_msgs::TrackerStatus             getStatus();
   void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
-  const mrs_msgs::Float64SrvResponse::ConstPtr   setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
@@ -1148,11 +1144,9 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstrain
 
 //}
 
-// | -------------------- setpoint services ------------------- |
+/* //{ setReference() */
 
-/* //{ goTo() */
-
-const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goTo(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
+const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
 
   toggleHover(false);
 
@@ -1160,97 +1154,12 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goTo(const mrs_msgs::
 
   mrs_msgs::ReferenceSrvResponse res;
   res.success = true;
-  res.message = "on my way";
+  res.message = "reference set";
+
   return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
 }
 
 //}
-
-/* //{ goToRelative() */
-
-const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::goToRelative(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd) {
-
-  toggleHover(false);
-
-  setRelativeGoal(cmd->reference.position.x, cmd->reference.position.y, cmd->reference.position.z, cmd->reference.yaw, true);
-
-  mrs_msgs::ReferenceSrvResponse res;
-  res.success = true;
-  res.message = "on my way";
-  return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
-}
-
-//}
-
-/* //{ goToAltitude() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::goToAltitude(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
-
-  auto [mpc_x, mpc_x_yaw] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_yaw_);
-
-  toggleHover(false);
-
-  setGoal(mpc_x(0, 0), mpc_x(4, 0), cmd->value, mpc_x_yaw(0, 0), false);
-
-  mrs_msgs::Float64SrvResponse res;
-  res.success = true;
-  res.message = "on my way";
-  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
-}
-
-//}
-
-/* //{ setYaw() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYaw(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
-
-  auto mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
-
-  toggleHover(false);
-
-  setGoal(mpc_x(0, 0), mpc_x(4, 0), mpc_x(8, 0), mrs_trackers_commons::validateYawSetpoint(cmd->value), true);
-
-  mrs_msgs::Float64SrvResponse res;
-  res.success = true;
-  res.message = "on my way";
-  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
-}
-
-//}
-
-/* //{ setYawRelative() */
-
-const mrs_msgs::Float64SrvResponse::ConstPtr MpcTracker::setYawRelative(const mrs_msgs::Float64SrvRequest::ConstPtr& cmd) {
-
-  toggleHover(false);
-
-  if (trajectory_tracking_in_progress_) {
-
-    {
-      std::scoped_lock lock(mutex_des_trajectory_);
-
-      for (int i = 0; i < _mpc_horizon_len_; i++) {
-        des_yaw_trajectory_(i, 0) += mrs_trackers_commons::validateYawSetpoint(cmd->value);
-      }
-    }
-
-  } else {
-
-    setGoal(des_x_trajectory_(0, 0), des_y_trajectory_(0, 0), des_z_trajectory_(0, 0),
-            mrs_trackers_commons::validateYawSetpoint(des_yaw_trajectory_(0, 0) + cmd->value), true);
-  }
-
-  mrs_msgs::Float64SrvResponse res;
-  res.success = true;
-  res.message = "on my way";
-  return mrs_msgs::Float64SrvResponse::ConstPtr(new mrs_msgs::Float64SrvResponse(res));
-}
-
-//}
-
-// --------------------------------------------------------------
-// |                  tracker's custom routines                 |
-// --------------------------------------------------------------
 
 // | ------------------------ callbacks ----------------------- |
 
@@ -3348,9 +3257,7 @@ Eigen::Vector2d MpcTracker::rotateVector(const Eigen::Vector2d vector_in, double
 
 //}
 
-// --------------------------------------------------------------
-// |                           timers                           |
-// --------------------------------------------------------------
+// | ------------------------- timers ------------------------- |
 
 /* //{ timerDiagnostics() */
 
@@ -3723,9 +3630,7 @@ void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
 //}
 
-// --------------------------------------------------------------
-// |                       Other routines                       |
-// --------------------------------------------------------------
+// | --------------------- other routines --------------------- |
 
 /* toggleHover() //{ */
 
