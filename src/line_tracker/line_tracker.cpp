@@ -56,11 +56,16 @@ public:
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
 
   const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
+  const std_srvs::TriggerResponse::ConstPtr startTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr &cmd);
+  const std_srvs::TriggerResponse::ConstPtr stopTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr &cmd);
+  const std_srvs::TriggerResponse::ConstPtr resumeTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr &cmd);
+  const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
   std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
@@ -646,6 +651,38 @@ const std_srvs::TriggerResponse::ConstPtr LineTracker::hover([[maybe_unused]] co
 
 //}
 
+/* //{ startTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::startTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+/* //{ stopTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::stopTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+/* //{ resumeTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::resumeTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
+/* //{ gotoTrajectoryStart() */
+
+const std_srvs::TriggerResponse::ConstPtr LineTracker::gotoTrajectoryStart([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+  return std_srvs::TriggerResponse::Ptr();
+}
+
+//}
+
 /* //{ setConstraints() */
 
 const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr LineTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
@@ -698,6 +735,15 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::setReference(const m
   res.message = "reference set";
 
   return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ setTrajectoryReference() */
+
+const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr LineTracker::setTrajectoryReference([
+    [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
+  return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
 }
 
 //}

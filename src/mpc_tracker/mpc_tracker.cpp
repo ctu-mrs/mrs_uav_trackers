@@ -20,8 +20,6 @@
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
-#include <mrs_msgs/TrackerTrajectory.h>
-#include <mrs_msgs/TrackerTrajectorySrv.h>
 #include <mrs_msgs/OdometryDiag.h>
 
 #include <mrs_lib/Profiler.h>
@@ -67,9 +65,14 @@ public:
   const mrs_msgs::TrackerStatus             getStatus();
   void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
-  const mrs_msgs::ReferenceSrvResponse::ConstPtr setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr& cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
+  const std_srvs::TriggerResponse::ConstPtr startTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr& cmd);
+  const std_srvs::TriggerResponse::ConstPtr stopTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr& cmd);
+  const std_srvs::TriggerResponse::ConstPtr resumeTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr& cmd);
+  const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
   const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
 
@@ -96,10 +99,6 @@ private:
 
   bool is_active_      = false;
   bool is_initialized_ = false;
-
-  // variables for yaw tracker TODO
-  double _mpc_max_yaw_rate_;
-  double _mpc_yaw_gain_;
 
   // | --------------------- MPC base params -------------------- |
 
@@ -185,9 +184,6 @@ private:
 
   bool mpc_computed_ = false;
 
-  ros::Subscriber subscriber_desired_trajectory_;
-  void            callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr& msg);
-
   // | ------------------------- cvxgen ------------------------- |
 
   std::unique_ptr<mrs_trackers::cvx_wrapper::CvxWrapper> cvx_x_;
@@ -206,26 +202,6 @@ private:
   mrs_msgs::OdometryDiag odometry_diagnostics_;
   bool                   got_odometry_diagnostics_ = false;
   std::mutex             mutex_odometry_diagnostics_;
-
-  // | --------------------- service servers -------------------- |
-
-  ros::ServiceServer service_server_set_trajectory_;
-  bool               callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request& req, mrs_msgs::TrackerTrajectorySrv::Response& res);
-
-  ros::ServiceServer service_server_start_following_;
-  bool               callbackStartTrajectoryFollowing(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
-
-  ros::ServiceServer service_server_stop_following_;
-  bool               callbackStopTrajectoryFollowing(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
-
-  ros::ServiceServer service_server_resume_following_;
-  bool               callbackResumeTrajectoryFollowing(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
-
-  ros::ServiceServer service_server_fly_to_start_;
-  bool               callbackFlyToTrajectoryStart(std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res);
-
-  ros::ServiceServer service_server_set_yaw_;
-  bool               callbackSetYaw(mrs_msgs::Float64Srv::Request& req, mrs_msgs::Float64Srv::Response& res);
 
   // | ----------- measuring the "MPC realtime factor" ---------- |
 
@@ -327,6 +303,13 @@ private:
   bool       hovering_in_progress_ = false;
   void       toggleHover(bool in);
 
+  // | ------------------- trajectory tracking ------------------ |
+
+  std::tuple<bool, std::string> resumeTrajectoryTrackingImpl(void);
+  std::tuple<bool, std::string> startTrajectoryTrackingImpl(void);
+  std::tuple<bool, std::string> stopTrajectoryTrackingImpl(void);
+  std::tuple<bool, std::string> gotoTrajectoryStartImpl(void);
+
   // | --------------------- other routines --------------------- |
 
   void publishDiagnostics();
@@ -335,7 +318,7 @@ private:
   void setRelativeGoal(const double pos_x, const double pos_y, const double pos_z, const double yaw, const bool use_yaw);
   void setSinglePointReference(const double x, const double y, const double z, const double yaw);
 
-  std::tuple<bool, std::string, bool> loadTrajectory(const mrs_msgs::TrackerTrajectory& msg);
+  std::tuple<bool, std::string, bool> loadTrajectory(const mrs_msgs::TrajectoryReference msg);
 
   void filterYawReference(void);
   void filterReferenceZ(const double max_ascending_speed, const double max_descending_speed);
@@ -493,15 +476,9 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   des_y_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_z_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
-  subscriber_desired_trajectory_ = nh_.subscribe("set_trajectory_in", 1, &MpcTracker::callbackDesiredTrajectory, this, ros::TransportHints().tcpNoDelay());
   subscriber_odometry_diagnostics_ =
       nh_.subscribe("odometry_diagnostics_in", 1, &MpcTracker::callbackOdometryDiagnostics, this, ros::TransportHints().tcpNoDelay());
-  service_server_set_trajectory_   = nh_.advertiseService("set_trajectory_in", &MpcTracker::callbackSetTrajectory, this);
-  service_server_start_following_  = nh_.advertiseService("start_trajectory_following_in", &MpcTracker::callbackStartTrajectoryFollowing, this);
-  service_server_stop_following_   = nh_.advertiseService("stop_trajectory_following_in", &MpcTracker::callbackStopTrajectoryFollowing, this);
-  service_server_resume_following_ = nh_.advertiseService("resume_trajectory_following_in", &MpcTracker::callbackResumeTrajectoryFollowing, this);
-  service_server_fly_to_start_     = nh_.advertiseService("fly_to_trajectory_start_in", &MpcTracker::callbackFlyToTrajectoryStart, this);
-  service_client_wiggle_           = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
+  service_client_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
   pub_diagnostics_ = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
 
@@ -1111,11 +1088,72 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::hover([[maybe_unused]] con
   toggleHover(true);
 
   std::stringstream ss;
-  ss << "hover initiated";
+  ss << "initiating hover";
 
   std_srvs::TriggerResponse res;
-  res.message = ss.str();
   res.success = true;
+  res.message = ss.str();
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+/* //{ startTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::startTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
+  std::stringstream ss;
+
+  auto [success, message] = startTrajectoryTrackingImpl();
+
+  std_srvs::TriggerResponse res;
+  res.success = success;
+  res.message = message;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+/* //{ stopTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::stopTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
+
+  auto [success, message] = stopTrajectoryTrackingImpl();
+
+  std_srvs::TriggerResponse res;
+  res.success = success;
+  res.message = message;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+/* //{ resumeTrajectoryTracking() */
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::resumeTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
+
+  auto [success, message] = resumeTrajectoryTrackingImpl();
+
+  std_srvs::TriggerResponse res;
+  res.success = success;
+  res.message = message;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+}
+
+//}
+
+/* //{ gotoTrajectoryStart() */
+
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::gotoTrajectoryStart([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
+
+  auto [success, message] = gotoTrajectoryStartImpl();
+
+  std_srvs::TriggerResponse res;
+  res.success = success;
+  res.message = message;
 
   return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
@@ -1173,6 +1211,35 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::setReference(const mr
   res.message = "reference set";
 
   return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ setTrajectoryReference() */
+
+const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MpcTracker::setTrajectoryReference([
+    [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr& cmd) {
+
+  std::stringstream ss;
+
+  mrs_msgs::TrajectoryReferenceSrvResponse response;
+
+  if (hovering_in_progress_) {
+
+    ss << "can not set trajectory, hovering in progress";
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+    response.success = false;
+    response.message = ss.str();
+    return mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr(new mrs_msgs::TrajectoryReferenceSrvResponse(response));
+  }
+
+  auto [success, message, modified] = loadTrajectory(cmd->trajectory);
+
+  response.success  = success;
+  response.message  = message;
+  response.modified = modified;
+
+  return mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr(new mrs_msgs::TrajectoryReferenceSrvResponse(response));
 }
 
 //}
@@ -1284,328 +1351,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& re
 
 //}
 
-/* //{ callbackStartTrajectoryFollowing() */
-
-bool MpcTracker::callbackStartTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
-
-  std::stringstream ss;
-
-  if (!is_active_) {
-
-    ss << "can not start trajectory following, tracker not active";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ss << "can not start trajectory following, callbacks are disabled";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (hovering_in_progress_) {
-
-    ss << "can not start trajectory following, hovering in progress";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (trajectory_set_) {
-
-    toggleHover(false);
-
-    {
-      std::scoped_lock lock(mutex_des_trajectory_);
-
-      trajectory_tracking_in_progress_ = true;
-      trajectory_tracking_idx_         = 0;
-      trajectory_tracking_sub_idx_     = 0;
-    }
-
-    timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
-    timer_trajectory_tracking_.start();
-
-    ss << "starting trajectory following";
-    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-
-    res.success = true;
-
-    publishDiagnostics();
-
-  } else {
-
-    ss << "can not start trajectory following, trajectory not set";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-
-    res.success = false;
-  }
-
-  res.message = ss.str();
-
-  return true;
-}
-
-//}
-
-/* //{ callbackStopTrajectoryFollowing() */
-
-bool MpcTracker::callbackStopTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
-
-  auto [mpc_x, mpc_x_yaw] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_yaw_);
-
-  std::stringstream ss;
-
-  if (!is_active_) {
-
-    ss << "can not stop trajectory following, tracker not active";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ss << "can not stop trajectory following, callbacks are disabled";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (hovering_in_progress_) {
-
-    ss << "can not stop trajectory following, hovering in progress";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (trajectory_tracking_in_progress_) {
-
-    trajectory_tracking_in_progress_ = false;
-
-    timer_trajectory_tracking_.stop();
-
-    setSinglePointReference(mpc_x(0, 0), mpc_x(4, 0), mpc_x(8, 0), mpc_x_yaw(0, 0));
-
-    ss << "stopping trajectory following";
-    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = true;
-
-    publishDiagnostics();
-
-  } else {
-
-    ss << "can not stop trajectory tracking, already at stop";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-  }
-
-  res.message = ss.str();
-
-  return true;
-}
-
-//}
-
-/* //{ callbackFlyToTrajectoryStart() */
-
-bool MpcTracker::callbackFlyToTrajectoryStart([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
-
-  std::stringstream ss;
-
-  if (!is_active_) {
-
-    ss << "can not fly to start, tracker not active";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ss << "can not fly to start, callbacks are disabled";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (hovering_in_progress_) {
-
-    ss << "can not fly to start trajectory, hovering in progress";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (trajectory_set_) {
-
-    toggleHover(false);
-
-    {
-      std::scoped_lock lock(mutex_des_whole_trajectory_);
-
-      setGoal((*des_x_whole_trajectory_)[0], (*des_y_whole_trajectory_)[0], (*des_z_whole_trajectory_)[0], (*des_yaw_whole_trajectory_)[0],
-              trajectory_track_yaw_);
-    }
-
-    trajectory_tracking_in_progress_ = false;
-
-    timer_trajectory_tracking_.stop();
-
-    ss << "flying to the trajectory start";
-    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = true;
-
-    publishDiagnostics();
-
-  } else {
-
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    ss << "can not fly to trajectory start, trajectory not set";
-    res.success = false;
-  }
-
-  res.message = ss.str();
-
-  return true;
-}
-
-//}
-
-/* //{ callbackResumeTrajectoryFollowing() */
-
-bool MpcTracker::callbackResumeTrajectoryFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
-
-  std::stringstream ss;
-
-  if (!is_active_) {
-
-    ss << "can not resume trajectory following, tracker not active";
-    ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ss << "can not resume trajectory following, callbacks are disabled";
-    ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (hovering_in_progress_) {
-
-    ss << "can not resume trajectory following, hovering in progress";
-    ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (trajectory_set_) {
-
-    toggleHover(false);
-
-    auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
-
-    if (trajectory_tracking_idx < (trajectory_size_ - 1)) {
-
-      {
-        std::scoped_lock lock(mutex_des_trajectory_);
-
-        trajectory_tracking_in_progress_ = true;
-      }
-
-      timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
-      timer_trajectory_tracking_.start();
-
-      ss << "resuming trajectory following";
-      ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      res.success = true;
-
-      publishDiagnostics();
-
-    } else {
-
-      ss << "can not resume trajectory tracking, trajectory is already finished";
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      res.success = false;
-    }
-
-  } else {
-
-    ss << "can not resume trajectory following, trajectory not set";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-  }
-
-  res.message = ss.str();
-
-  return true;
-}
-
-//}
-
-/* //{ callbackSetTrajectory() */
-
-// service for setting desired trajectory
-bool MpcTracker::callbackSetTrajectory(mrs_msgs::TrackerTrajectorySrv::Request& req, mrs_msgs::TrackerTrajectorySrv::Response& res) {
-
-  std::stringstream ss;
-
-  if (!is_initialized_) {
-
-    ss << "can not set trajectory, tracker not initialized";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ss << "can not set trajectory, callbacks are disabled";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (hovering_in_progress_) {
-
-    ss << "can not set trajectory, hovering in progress";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  auto [success, message, modified] = loadTrajectory(req.trajectory_msg);
-
-  res.success  = success;
-  res.message  = message;
-  res.modified = modified;
-  return true;
-}
-
-//}
-
 /* //{ callbackOdometryDiagnostics() */
 
 void MpcTracker::callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr& msg) {
@@ -1621,33 +1366,6 @@ void MpcTracker::callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPt
   odometry_diagnostics_ = *msg;
 
   got_odometry_diagnostics_ = true;
-}
-
-//}
-
-/* //{ callbackDesiredTrajectory() */
-
-// callback for loading desired trajectory
-void MpcTracker::callbackDesiredTrajectory(const mrs_msgs::TrackerTrajectory::ConstPtr& msg) {
-
-  if (!is_initialized_) {
-    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: can not set trajectory, the tracker is not initialized");
-    return;
-  }
-
-  if (!callbacks_enabled_) {
-
-    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: can not set trajectory, callbacks are disabled");
-    return;
-  }
-
-  if (hovering_in_progress_) {
-
-    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: can not set trajectory, callbacks are disabled");
-    return;
-  }
-
-  auto [success, message, modified] = loadTrajectory(*msg);
 }
 
 //}
@@ -1686,7 +1404,7 @@ void MpcTracker::dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig& con
   wiggle_amplitude_ = config.wiggle_amplitude;
   wiggle_frequency_ = config.wiggle_frequency;
 
-  ROS_INFO("[So3Controller]: DRS gains updated");
+  ROS_INFO("[MpcTracker]: DRS updated");
 }
 
 //}
@@ -2339,7 +2057,7 @@ void MpcTracker::calculateMPC() {
 /* //{ loadTrajectory() */
 
 // method for setting desired trajectory
-std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::TrackerTrajectory& msg) {
+std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::TrajectoryReference msg) {
 
   // copy the member variables
   auto x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
@@ -2379,17 +2097,17 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     // check the point for NaN/inf
     bool no_nans = true;
 
-    if (!std::isfinite(msg.points[i].x)) {
+    if (!std::isfinite(msg.points[i].position.x)) {
       ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].x'!!!", i);
       no_nans = false;
     }
 
-    if (!std::isfinite(msg.points[i].y)) {
+    if (!std::isfinite(msg.points[i].position.y)) {
       ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].y'!!!", i);
       no_nans = false;
     }
 
-    if (!std::isfinite(msg.points[i].z)) {
+    if (!std::isfinite(msg.points[i].position.z)) {
       ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].z'!!!", i);
       no_nans = false;
     }
@@ -2435,9 +2153,9 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
         geometry_msgs::Pose new_pose;
 
-        new_pose.position.x = msg.points[i].x;
-        new_pose.position.y = msg.points[i].y;
-        new_pose.position.z = msg.points[i].z;
+        new_pose.position.x = msg.points[i].position.x;
+        new_pose.position.y = msg.points[i].position.y;
+        new_pose.position.z = msg.points[i].position.z;
 
         tf::Quaternion orientation;
         orientation.setEuler(0, 0, msg.points[i].yaw);
@@ -2488,17 +2206,17 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
         geometry_msgs::Point point1;
 
-        point1.x = msg.points[i].x;
-        point1.y = msg.points[i].y;
-        point1.z = msg.points[i].z;
+        point1.x = msg.points[i].position.x;
+        point1.y = msg.points[i].position.y;
+        point1.z = msg.points[i].position.z;
 
         marker.points.push_back(point1);
 
         geometry_msgs::Point point2;
 
-        point2.x = msg.points[i + 1].x;
-        point2.y = msg.points[i + 1].y;
-        point2.z = msg.points[i + 1].z;
+        point2.x = msg.points[i + 1].position.x;
+        point2.y = msg.points[i + 1].position.y;
+        point2.z = msg.points[i + 1].position.z;
 
         marker.points.push_back(point2);
       }
@@ -2603,9 +2321,9 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
   for (int i = 0; i < trajectory_size; i++) {
 
-    des_x_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].x;
-    des_y_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].y;
-    des_z_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].z;
+    des_x_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].position.x;
+    des_y_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].position.y;
+    des_z_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].position.z;
     des_yaw_whole_trajectory(i) = msg.points[trajectory_sample_offset + i].yaw;
   }
 
@@ -3222,6 +2940,163 @@ void MpcTracker::toggleHover(bool in) {
     hovering_in_progress_ = true;
 
     timer_hover_.start();
+  }
+}
+
+//}
+
+// | ------------------- trajectory tracking ------------------ |
+
+/* startTrajectoryTrackingImpl() //{ */
+
+std::tuple<bool, std::string> MpcTracker::startTrajectoryTrackingImpl(void) {
+
+  std::stringstream ss;
+
+  if (trajectory_set_) {
+
+    toggleHover(false);
+
+    {
+      std::scoped_lock lock(mutex_des_trajectory_);
+
+      trajectory_tracking_in_progress_ = true;
+      trajectory_tracking_idx_         = 0;
+      trajectory_tracking_sub_idx_     = 0;
+    }
+
+    timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
+    timer_trajectory_tracking_.start();
+
+    publishDiagnostics();
+
+    ss << "trajectory tracking started";
+    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(true, ss.str());
+
+  } else {
+
+    ss << "can not start trajectory tracking, the trajectory is not set";
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(false, ss.str());
+  }
+}
+
+//}
+
+/* resumeTrajectoryTracking() //{ */
+
+std::tuple<bool, std::string> MpcTracker::resumeTrajectoryTrackingImpl(void) {
+
+  std::stringstream ss;
+
+  if (trajectory_set_) {
+
+    toggleHover(false);
+
+    auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
+
+    if (trajectory_tracking_idx < (trajectory_size_ - 1)) {
+
+      {
+        std::scoped_lock lock(mutex_des_trajectory_);
+
+        trajectory_tracking_in_progress_ = true;
+      }
+
+      timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
+      timer_trajectory_tracking_.start();
+
+      ss << "trajectory tracking resumed";
+      ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+      publishDiagnostics();
+
+      return std::tuple(true, ss.str());
+
+    } else {
+
+      ss << "can not resume trajectory tracking, trajectory is already finished";
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+      return std::tuple(false, ss.str());
+    }
+
+  } else {
+
+    ss << "can not resume trajectory tracking, ther trajectory is not set";
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(false, ss.str());
+  }
+}
+
+//}
+
+/* stopTrajectoryTrackingImpl() //{ */
+
+std::tuple<bool, std::string> MpcTracker::stopTrajectoryTrackingImpl(void) {
+
+  std::stringstream ss;
+
+  if (trajectory_tracking_in_progress_) {
+
+    trajectory_tracking_in_progress_ = false;
+    timer_trajectory_tracking_.stop();
+
+    toggleHover(true);
+
+    ss << "stopping trajectory tracking";
+    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    publishDiagnostics();
+
+  } else {
+
+    ss << "can not stop trajectory tracking, already at stop";
+    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+  }
+
+  return std::tuple(true, ss.str());
+}
+
+//}
+
+/* gotoTrajectoryStartImpl() //{ */
+
+std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
+
+  std::stringstream ss;
+
+  if (trajectory_set_) {
+
+    toggleHover(false);
+
+    trajectory_tracking_in_progress_ = false;
+    timer_trajectory_tracking_.stop();
+
+    {
+      std::scoped_lock lock(mutex_des_whole_trajectory_);
+
+      setGoal((*des_x_whole_trajectory_)[0], (*des_y_whole_trajectory_)[0], (*des_z_whole_trajectory_)[0], (*des_yaw_whole_trajectory_)[0],
+              trajectory_track_yaw_);
+    }
+
+    publishDiagnostics();
+
+    ss << "flying to the start of the trajectory";
+    ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(true, ss.str());
+
+  } else {
+
+    ss << "can not fly to the start of the trajectory, the trajectory is not set";
+    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(false, ss.str());
   }
 }
 
