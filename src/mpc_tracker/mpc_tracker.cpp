@@ -2695,6 +2695,8 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
   {
     std::scoped_lock lock(mutex_des_whole_trajectory_, mutex_des_trajectory_, mutex_trajectory_tracking_states_);
 
+    auto mpc_x_yaw = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_yaw_);
+
     trajectory_tracking_in_progress_ = msg.fly_now;
     trajectory_track_yaw_            = msg.use_yaw;
 
@@ -2713,7 +2715,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       if (trajectory_track_yaw_) {
         (*des_yaw_whole_trajectory_)(i) = des_yaw_whole_trajectory(i);
       } else {
-        des_yaw_whole_trajectory.fill(mpc_x_yaw_(0, 0));  // TODO mutex
+        (*des_yaw_whole_trajectory_).fill(mpc_x_yaw(0, 0));
       }
     }
 
