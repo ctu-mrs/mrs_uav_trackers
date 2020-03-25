@@ -9,7 +9,7 @@
 #include <tf/transform_datatypes.h>
 #include <tf/LinearMath/Transform.h>
 
-#include <mrs_msgs/TrackerTrajectorySrv.h>
+#include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
 
 #include <mrs_msgs/Float64Stamped.h>
@@ -193,7 +193,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
       s >> trajectory_(trajectory_len_, 7);
       s >> trajectory_(trajectory_len_, 8);
 
-      ROS_INFO("[CsvTracker]: %2.2f %2.2f", trajectory_(trajectory_len_, 0), trajectory_(trajectory_len_, 1));
+      ROS_INFO("[CsvTracker]: %.2f %.2f", trajectory_(trajectory_len_, 0), trajectory_(trajectory_len_, 1));
 
       trajectory_len_++;
     }
@@ -204,8 +204,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   }
 
   service_client_switch_tracker_ = nh_.serviceClient<mrs_msgs::String>("switch_tracker_out");
-
-  service_client_set_trajectory_ = nh_.serviceClient<mrs_msgs::TrackerTrajectorySrv>("set_trajectory_out");
+  service_client_set_trajectory_ = nh_.serviceClient<mrs_msgs::TrajectoryReferenceSrv>("trajectory_reference_out");
 
   ser_x_scale_ = nh_.advertiseService("set_x_scale_in", &CsvTracker::setXScale, this);
   ser_y_scale_ = nh_.advertiseService("set_y_scale_in", &CsvTracker::setYScale, this);
@@ -223,13 +222,13 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   param_loader.load_param("yaw", _yaw_);
 
-  ROS_WARN("[CsvTracker]: offset/x: %2.2f", _x_offset_);
-  ROS_WARN("[CsvTracker]: offset/y: %2.2f", _y_offset_);
-  ROS_WARN("[CsvTracker]: offset/z: %2.2f", _z_offset_);
-  ROS_WARN("[CsvTracker]: scale/x: %2.2f", x_scale_);
-  ROS_WARN("[CsvTracker]: scale/y: %2.2f", y_scale_);
-  ROS_WARN("[CsvTracker]: scale/z: %2.2f", z_scale_);
-  ROS_WARN("[CsvTracker]: yaw: %2.2f", _yaw_);
+  ROS_WARN("[CsvTracker]: offset/x: %.2f", _x_offset_);
+  ROS_WARN("[CsvTracker]: offset/y: %.2f", _y_offset_);
+  ROS_WARN("[CsvTracker]: offset/z: %.2f", _z_offset_);
+  ROS_WARN("[CsvTracker]: scale/x: %.2f", x_scale_);
+  ROS_WARN("[CsvTracker]: scale/y: %.2f", y_scale_);
+  ROS_WARN("[CsvTracker]: scale/z: %.2f", z_scale_);
+  ROS_WARN("[CsvTracker]: yaw: %.2f", _yaw_);
 
   if (x_scale_ > 1 || y_scale_ > 1 || z_scale_ > 1) {
     ROS_ERROR("[CsvTracker]: scales are greater than 1");
@@ -271,9 +270,9 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
   double distance = sqrt(pow(uav_state_.pose.position.x - (x_scale_ * trajectory_(0, 0) + _x_offset_), 2) + pow(uav_state_.pose.position.y - _y_offset_, 2) +
                          pow(uav_state_.pose.position.z - (z_scale_ * trajectory_(0, 1) + _z_offset_), 2));
 
-  ROS_INFO("[CsvTracker]: distance: %2.2f", distance);
-  ROS_INFO("[CsvTracker]: z_start: %2.2f", z_scale_ * trajectory_(0, 1) + _z_offset_);
-  ROS_INFO("[CsvTracker]: z_scale: %2.2f", z_scale_);
+  ROS_INFO("[CsvTracker]: distance: %.2f", distance);
+  ROS_INFO("[CsvTracker]: z_start: %.2f", z_scale_ * trajectory_(0, 1) + _z_offset_);
+  ROS_INFO("[CsvTracker]: z_scale: %.2f", z_scale_);
 
   if (distance > 1.0) {
 
@@ -488,25 +487,26 @@ bool CsvTracker::callbackStart([[maybe_unused]] std_srvs::Trigger::Request &req,
 
 void CsvTracker::setInitPoint(void) {
 
-  mrs_msgs::TrackerTrajectorySrv trajectory_service;
+  mrs_msgs::TrajectoryReferenceSrv trajectory_service;
 
-  // publish the first point as a trajectory_
-  mrs_msgs::TrackerTrajectory init_trajectory;
+  // publish the first point as a trajectory
+  mrs_msgs::TrajectoryReference init_trajectory;
 
   init_trajectory.header.stamp    = ros::Time::now();
   init_trajectory.header.frame_id = uav_state_.header.frame_id;
   init_trajectory.fly_now         = false;
+  init_trajectory.dt              = 1.0;
   init_trajectory.use_yaw         = true;  // TODO
 
-  mrs_msgs::TrackerPoint point;
-  point.x   = x_scale_ * trajectory_(0, 0) + _x_offset_;
-  point.y   = _y_offset_;
-  point.z   = z_scale_ * trajectory_(0, 1) + _z_offset_;
-  point.yaw = _yaw_;
+  mrs_msgs::Reference point;
+  point.position.x = x_scale_ * trajectory_(0, 0) + _x_offset_;
+  point.position.y = _y_offset_;
+  point.position.z = z_scale_ * trajectory_(0, 1) + _z_offset_;
+  point.yaw        = _yaw_;
 
   init_trajectory.points.push_back(point);
 
-  trajectory_service.request.trajectory_msg = init_trajectory;
+  trajectory_service.request.trajectory = init_trajectory;
 
   service_client_set_trajectory_.call(trajectory_service);
 
