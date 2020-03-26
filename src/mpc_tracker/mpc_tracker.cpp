@@ -88,9 +88,6 @@ private:
   // debugging publishers
   ros::Publisher pub_diagnostics_;
 
-  ros::Publisher pub_debug_original_trajectory_poses_;
-  ros::Publisher pub_debug_original_trajectory_markers_;
-
   ros::Publisher pub_debug_processed_trajectory_poses_;
   ros::Publisher pub_debug_processed_trajectory_markers_;
 
@@ -509,9 +506,6 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   avoidance_trajectory_publisher_           = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   publisher_predicted_trajectory_debugging_ = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
   publisher_mpc_reference_debugging_        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
-
-  pub_debug_original_trajectory_poses_   = nh_.advertise<geometry_msgs::PoseArray>("trajectory_original/poses_out", 1, true);
-  pub_debug_original_trajectory_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("trajectory_original/markers_out", 1, true);
 
   pub_debug_processed_trajectory_poses_   = nh_.advertise<geometry_msgs::PoseArray>("trajectory_processed/poses_out", 1, true);
   pub_debug_processed_trajectory_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("trajectory_processed/markers_out", 1, true);
@@ -1222,19 +1216,9 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MpcTracker::setTrajecto
 
   std::stringstream ss;
 
-  mrs_msgs::TrajectoryReferenceSrvResponse response;
-
-  if (hovering_in_progress_) {
-
-    ss << "can not set trajectory, hovering in progress";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    response.success = false;
-    response.message = ss.str();
-    return mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr(new mrs_msgs::TrajectoryReferenceSrvResponse(response));
-  }
-
   auto [success, message, modified] = loadTrajectory(cmd->trajectory);
 
+  mrs_msgs::TrajectoryReferenceSrvResponse response;
   response.success  = success;
   response.message  = message;
   response.modified = modified;
@@ -2082,157 +2066,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
   //}
 
-  /* validate size and NaNs //{ */
-
-  // check for the size 0, which is invalid
-  if (msg.points.size() == 0) {
-
-    ss << "can not load trajectory with size 0";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    return std::tuple(false, ss.str(), false);
-  }
-
-  for (int i = 0; i < int(msg.points.size()); i++) {
-
-    // check the point for NaN/inf
-    bool no_nans = true;
-
-    if (!std::isfinite(msg.points[i].position.x)) {
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].x'!!!", i);
-      no_nans = false;
-    }
-
-    if (!std::isfinite(msg.points[i].position.y)) {
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].y'!!!", i);
-      no_nans = false;
-    }
-
-    if (!std::isfinite(msg.points[i].position.z)) {
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].z'!!!", i);
-      no_nans = false;
-    }
-
-    if (!std::isfinite(msg.points[i].yaw)) {
-      ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: NaN/inf detected in variable 'msg.points[%d].yaw'!!!", i);
-      no_nans = false;
-    }
-
-    if (no_nans == false) {
-
-      ss << "trajectory contains NaNs/infs.";
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      return std::tuple(false, ss.str(), false);
-    }
-  }
-
-  //}
-
   int trajectory_size = msg.points.size();
-
-  /* publish the debugging topics of the original trajectory //{ */
-
-  {
-
-    geometry_msgs::PoseArray debug_trajectory_out;
-    debug_trajectory_out.header = msg.header;
-
-    debug_trajectory_out.header.frame_id = common_handlers_->transformer->resolveFrameName(debug_trajectory_out.header.frame_id);
-
-    if (debug_trajectory_out.header.frame_id == "") {
-      debug_trajectory_out.header.frame_id = uav_state.header.frame_id;
-    }
-
-    if (debug_trajectory_out.header.stamp == ros::Time(0)) {
-      debug_trajectory_out.header.stamp = ros::Time::now();
-    }
-
-    {
-      std::scoped_lock lock(mutex_des_whole_trajectory_);
-
-      for (int i = 0; i < trajectory_size; i++) {
-
-        geometry_msgs::Pose new_pose;
-
-        new_pose.position.x = msg.points[i].position.x;
-        new_pose.position.y = msg.points[i].position.y;
-        new_pose.position.z = msg.points[i].position.z;
-
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, msg.points[i].yaw);
-        new_pose.orientation.x = orientation.x();
-        new_pose.orientation.y = orientation.y();
-        new_pose.orientation.z = orientation.z();
-        new_pose.orientation.w = orientation.w();
-
-        debug_trajectory_out.poses.push_back(new_pose);
-      }
-    }
-
-    try {
-      pub_debug_original_trajectory_poses_.publish(debug_trajectory_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_debug_original_trajectory_poses_.getTopic().c_str());
-    }
-
-    visualization_msgs::MarkerArray msg_out;
-
-    visualization_msgs::Marker marker;
-
-    marker.header = msg.header;
-
-    marker.header.frame_id = common_handlers_->transformer->resolveFrameName(marker.header.frame_id);
-
-    if (marker.header.frame_id == "") {
-      marker.header.frame_id = uav_state.header.frame_id;
-    }
-
-    if (marker.header.stamp == ros::Time(0)) {
-      marker.header.stamp = ros::Time::now();
-    }
-
-    marker.type               = visualization_msgs::Marker::LINE_LIST;
-    marker.color.a            = 1;
-    marker.scale.x            = 0.05;
-    marker.color.r            = 0;
-    marker.color.g            = 1;
-    marker.color.b            = 0;
-    marker.pose.orientation.w = 1;
-
-    {
-      std::scoped_lock lock(mutex_des_whole_trajectory_);
-
-      for (int i = 0; i < trajectory_size - 1; i++) {
-
-        geometry_msgs::Point point1;
-
-        point1.x = msg.points[i].position.x;
-        point1.y = msg.points[i].position.y;
-        point1.z = msg.points[i].position.z;
-
-        marker.points.push_back(point1);
-
-        geometry_msgs::Point point2;
-
-        point2.x = msg.points[i + 1].position.x;
-        point2.y = msg.points[i + 1].position.y;
-        point2.z = msg.points[i + 1].position.z;
-
-        marker.points.push_back(point2);
-      }
-    }
-
-    msg_out.markers.push_back(marker);
-
-    try {
-      pub_debug_original_trajectory_markers_.publish(msg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic %s", pub_debug_original_trajectory_markers_.getTopic().c_str());
-    }
-  }
-
-  //}
 
   /* sanitize the time-ness of the trajectory //{ */
 
@@ -2281,7 +2115,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       // the trajectory can not be used
       if (trajectory_sample_offset >= trajectory_size) {
 
-        ss << "trajectory timestamp is too old!";
+        ss << "trajectory timestamp is too old (time difference = " << trajectory_time_offset << ")";
         ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
         return std::tuple(false, ss.str(), false);
 
@@ -2325,306 +2159,6 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     des_y_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].position.y;
     des_z_whole_trajectory(i)   = msg.points[trajectory_sample_offset + i].position.z;
     des_yaw_whole_trajectory(i) = msg.points[trajectory_sample_offset + i].yaw;
-  }
-
-  //}
-
-  /* bumper check //{ */
-
-  if (common_handlers_->bumper.enabled) {
-
-    for (int i = 0; i < trajectory_size; i++) {
-
-      mrs_msgs::ReferenceStamped des_reference;
-      des_reference.header               = msg.header;
-      des_reference.reference.position.x = des_x_whole_trajectory(i);
-      des_reference.reference.position.y = des_y_whole_trajectory(i);
-      des_reference.reference.position.z = des_z_whole_trajectory(i);
-      des_reference.reference.yaw        = des_yaw_whole_trajectory(i);
-
-      if (!common_handlers_->bumper.bumperValidatePoint(des_reference)) {
-
-        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: trajectory violates bumper and can't be fixed, shortening it!");
-        trajectory_size = i;
-        break;
-
-      } else {
-
-        des_x_whole_trajectory(i)   = des_reference.reference.position.x;
-        des_y_whole_trajectory(i)   = des_reference.reference.position.y;
-        des_z_whole_trajectory(i)   = des_reference.reference.position.z;
-        des_yaw_whole_trajectory(i) = des_reference.reference.yaw;
-      }
-    }
-  }
-
-  if (trajectory_size == 0) {
-
-    ss << "the whole trajectory violates bumper, can not execute it!";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    return std::tuple(false, ss.str(), false);
-  }
-
-  //}
-
-  std::string current_frame_id = msg.header.frame_id;
-
-  /* transform the trajectory to the safety area frame //{ */
-
-  if (common_handlers_->safety_area.use_safety_area) {
-
-    auto ret = common_handlers_->transformer->getTransform(current_frame_id, common_handlers_->safety_area.frame_id, uav_state_.header.stamp);
-
-    if (!ret) {
-
-      ss << "coult not create TF transformer for the trajectory";
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      return std::tuple(false, ss.str(), false);
-    }
-
-    current_frame_id = common_handlers_->safety_area.frame_id;
-
-    mrs_lib::TransformStamped tf = ret.value();
-
-    for (int i = 0; i < trajectory_size; i++) {
-
-      mrs_msgs::ReferenceStamped trajectory_point;
-      trajectory_point.header = msg.header;
-
-      trajectory_point.reference.position.x = des_x_whole_trajectory(i);
-      trajectory_point.reference.position.y = des_y_whole_trajectory(i);
-      trajectory_point.reference.position.z = des_z_whole_trajectory(i);
-      trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
-
-      auto ret = common_handlers_->transformer->transform(tf, trajectory_point);
-
-      if (!ret) {
-
-        ss << "the trajectory cannnot be transformed to the safety area frame";
-        ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-        return std::tuple(false, ss.str(), false);
-
-      } else {
-
-        // transform the points in the trajectory to the current frame
-        des_x_whole_trajectory(i)   = ret.value().reference.position.x;
-        des_y_whole_trajectory(i)   = ret.value().reference.position.y;
-        des_z_whole_trajectory(i)   = ret.value().reference.position.z;
-        des_yaw_whole_trajectory(i) = ret.value().reference.yaw;
-      }
-    }
-  }
-
-  //}
-
-  /* safety area check //{ */
-
-  bool safety_area_pass = true;
-
-  if (common_handlers_->safety_area.use_safety_area) {
-
-    // transform the current state to the safety area frame
-    mrs_msgs::ReferenceStamped x_current_frame;
-    x_current_frame.header               = uav_state.header;
-    x_current_frame.reference.position.x = x(0, 0);
-    x_current_frame.reference.position.y = x(4, 0);
-    x_current_frame.reference.position.z = x(8, 0);
-
-    auto res = common_handlers_->transformer->transformSingle(common_handlers_->safety_area.frame_id, x_current_frame);
-
-    mrs_msgs::ReferenceStamped x_area_frame;
-
-    if (res) {
-      x_area_frame = res.value();
-    } else {
-
-      ss << "could not transform current state to safety area frame!";
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      return std::tuple(false, ss.str(), false);
-    }
-
-    int last_valid_idx    = 0;
-    int first_invalid_idx = -1;
-
-    double min_height = common_handlers_->safety_area.getMinHeight();
-    double max_height = common_handlers_->safety_area.getMaxHeight();
-
-    for (int i = 0; i < trajectory_size; i++) {
-
-      // saturate the trajectory to min and max height
-      if (des_z_whole_trajectory(i) < min_height) {
-
-        des_z_whole_trajectory(i) = min_height;
-        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: the trajectory violates the minimum height!");
-        safety_area_pass = false;
-      }
-
-      if (des_z_whole_trajectory(i) > max_height) {
-
-        des_z_whole_trajectory(i) = max_height;
-        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: the trajectory violates the maximum height!");
-        safety_area_pass = false;
-      }
-
-      // the point is not feasible
-      mrs_msgs::ReferenceStamped des_reference;
-      des_reference.header.frame_id      = current_frame_id;
-      des_reference.reference.position.x = des_x_whole_trajectory(i);
-      des_reference.reference.position.y = des_y_whole_trajectory(i);
-      des_reference.reference.position.z = des_z_whole_trajectory(i);
-
-      if (!common_handlers_->safety_area.isPointInSafetyArea2d(des_reference)) {
-
-        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: the trajectory contains points outside of the safety area!");
-        safety_area_pass = false;
-
-        // the first invalid point
-        if (first_invalid_idx == -1) {
-
-          first_invalid_idx = i;
-
-          last_valid_idx = i - 1;
-        }
-
-        // the point is ok
-      } else {
-
-        // we found a point, which is ok, after founding a point which was not ok
-        if (first_invalid_idx != -1) {
-
-          // interpolate
-          // TODO dont do this when fly_now == true and just start the trajectory in the first valid point
-          if (last_valid_idx == -1) {  // special case, we had no valid point so far
-
-            // interpolate between the current position and the valid point
-            double angle = atan2(des_y_whole_trajectory(i) - x_area_frame.reference.position.y, des_x_whole_trajectory(i) - x_area_frame.reference.position.x);
-            double dist_two_points =
-                dist2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i), x_area_frame.reference.position.x, x_area_frame.reference.position.y);
-
-            if (dist_two_points > 1.0) {
-              ss << "the trajectory starts outride of the safety area!";
-              ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-              return std::tuple(false, ss.str(), false);
-            }
-
-            double step = dist_two_points / i;
-
-            for (int j = 0; j < i; j++) {
-              des_x_whole_trajectory(j) = x_area_frame.reference.position.x + j * cos(angle) * step;
-              des_y_whole_trajectory(j) = x_area_frame.reference.position.y + j * sin(angle) * step;
-            }
-
-            // we have a valid point in the past
-          } else {
-
-            bool interpolation_success = true;
-
-            // iterpolate between the last valid point and this new valid point
-            double angle = atan2((des_y_whole_trajectory(i) - des_y_whole_trajectory(last_valid_idx)),
-                                 (des_x_whole_trajectory(i) - des_x_whole_trajectory(last_valid_idx)));
-
-            double dist_two_points =
-                dist2d(des_x_whole_trajectory(i), des_y_whole_trajectory(i), des_x_whole_trajectory(last_valid_idx), des_y_whole_trajectory(last_valid_idx));
-            double step = dist_two_points / (i - last_valid_idx);
-
-            for (int j = last_valid_idx; j < i; j++) {
-
-              mrs_msgs::ReferenceStamped temp_point;
-              temp_point.header.frame_id      = current_frame_id;
-              temp_point.reference.position.x = des_x_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * cos(angle) * step;
-              temp_point.reference.position.y = des_y_whole_trajectory(last_valid_idx) + (j - last_valid_idx) * sin(angle) * step;
-
-              if (!common_handlers_->safety_area.isPointInSafetyArea2d(temp_point)) {
-
-                interpolation_success = false;
-                break;
-
-              } else {
-
-                des_x_whole_trajectory(j) = temp_point.reference.position.x;
-                des_y_whole_trajectory(j) = temp_point.reference.position.y;
-              }
-            }
-
-            if (!interpolation_success) {
-              break;
-            }
-          }
-
-          first_invalid_idx = -1;
-        }
-      }
-    }
-
-    // special case, the trajectory does not end with a valid point
-    if (first_invalid_idx != -1) {
-
-      // super special case, the whole trajectory is invalid
-      if (first_invalid_idx == 0) {
-
-        ss << "the whole trajectory is outside of the safety area!";
-        ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-        return std::tuple(false, ss.str(), false);
-
-        // there is a good portion of the trajectory in the beginning
-      } else {
-
-        trajectory_size  = last_valid_idx + 1;
-        safety_area_pass = false;
-      }
-    }
-  }
-
-  if (trajectory_size == 0) {
-
-    ss << "the trajectory somehow happened to be empty after all the checks! This message should not appear!";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    return std::tuple(false, ss.str(), false);
-  }
-
-  //}
-
-  /* transform the trajectory to the current frame //{ */
-
-  auto ret = common_handlers_->transformer->getTransform(current_frame_id, "", uav_state_.header.stamp);
-
-  if (!ret) {
-
-    ss << "coult not create TF transformer for the trajectory";
-    ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-    return std::tuple(false, ss.str(), false);
-  }
-
-  current_frame_id = ret.value().to();
-
-  mrs_lib::TransformStamped tf = ret.value();
-
-  for (int i = 0; i < trajectory_size; i++) {
-
-    mrs_msgs::ReferenceStamped trajectory_point;
-    trajectory_point.header = msg.header;
-
-    trajectory_point.reference.position.x = des_x_whole_trajectory(i);
-    trajectory_point.reference.position.y = des_y_whole_trajectory(i);
-    trajectory_point.reference.position.z = des_z_whole_trajectory(i);
-    trajectory_point.reference.yaw        = des_yaw_whole_trajectory(i);
-
-    auto ret = common_handlers_->transformer->transform(tf, trajectory_point);
-
-    if (!ret) {
-
-      ss << "trajectory cannnot be transformed";
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
-      return std::tuple(false, ss.str(), false);
-
-    } else {
-
-      // transform the points in the trajectory to the current frame
-      des_x_whole_trajectory(i)   = ret.value().reference.position.x;
-      des_y_whole_trajectory(i)   = ret.value().reference.position.y;
-      des_z_whole_trajectory(i)   = ret.value().reference.position.z;
-      des_yaw_whole_trajectory(i) = ret.value().reference.yaw;
-    }
   }
 
   //}
@@ -2758,7 +2292,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
     geometry_msgs::PoseArray debug_trajectory_out;
     debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = common_handlers_->transformer->resolveFrameName(current_frame_id);
+    debug_trajectory_out.header.frame_id = common_handlers_->transformer->resolveFrameName(msg.header.frame_id);
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory_);
@@ -2794,7 +2328,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     visualization_msgs::Marker marker;
 
     marker.header.stamp       = ros::Time::now();
-    marker.header.frame_id    = common_handlers_->transformer->resolveFrameName(current_frame_id);
+    marker.header.frame_id    = common_handlers_->transformer->resolveFrameName(msg.header.frame_id);
     marker.type               = visualization_msgs::Marker::LINE_LIST;
     marker.color.a            = 1;
     marker.scale.x            = 0.05;
@@ -2840,14 +2374,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
   publishDiagnostics();
 
-  if (safety_area_pass) {
-
-    return std::tuple(true, "the trajectory successfully loaded", true);
-
-  } else {
-
-    return std::tuple(true, "the trajectory was modified from its original form", true);
-  }
+  return std::tuple(true, "trajectory loaded", false);
 }
 
 //}
@@ -2988,7 +2515,7 @@ std::tuple<bool, std::string> MpcTracker::startTrajectoryTrackingImpl(void) {
 
 //}
 
-/* resumeTrajectoryTracking() //{ */
+/* resumeTrajectoryTrackingImpl() //{ */
 
 std::tuple<bool, std::string> MpcTracker::resumeTrajectoryTrackingImpl(void) {
 
