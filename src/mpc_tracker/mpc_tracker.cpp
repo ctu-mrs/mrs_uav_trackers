@@ -2129,6 +2129,10 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
           trajectory_size -= trajectory_sample_offset;
 
           ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: got trajectory with timestamp '" << trajectory_time_offset << " s' in the past");
+
+        } else {
+
+          trajectory_sample_offset = 0;
         }
       }
     }
