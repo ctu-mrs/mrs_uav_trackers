@@ -116,8 +116,8 @@ private:
   bool got_constraints_     = false;
   bool all_constraints_set_ = false;
 
-  double _diagnostic_position_tracking_threshold_;
-  double _diagnostic_orientation_tracking_threshold_;
+  double _diag_pos_tracking_thr_;
+  double _diag_yaw_tracking_thr_;
 
   double _dt1_;
   double _dt2_;
@@ -332,6 +332,8 @@ private:
   double interpolateAngles(const double a1, const double a2, const double coeff);
   double dist2d(const double ax, const double ay, const double bx, const double by);
   double dist3d(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  double sanitizeYaw(const double yaw_in);
+  double angleDist(const double in1, const double in2);
 
   // | ------------------------ profiler ------------------------ |
 
@@ -406,8 +408,8 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.load_param("cvxgen/dt2", _dt2_);
 
   param_loader.load_param("diagnostics_rate", _diagnostics_rate_);
-  param_loader.load_param("diagnostic_position_tracking_threshold", _diagnostic_position_tracking_threshold_);
-  param_loader.load_param("diagnostic_orientation_tracking_threshold", _diagnostic_orientation_tracking_threshold_);
+  param_loader.load_param("diagnostic_position_tracking_threshold", _diag_pos_tracking_thr_);
+  param_loader.load_param("diagnostic_orientation_tracking_threshold", _diag_yaw_tracking_thr_);
 
   bool verbose_xy  = false;
   bool verbose_z   = false;
@@ -914,10 +916,35 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
 const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
+  auto [mpc_x, mpc_x_yaw]      = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_yaw_);
+  auto trajectory_size         = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
+  auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
+
+  double des_x, des_y, des_z, des_yaw;
+  {
+    std::scoped_lock lock(mutex_des_trajectory_);
+
+    des_x   = des_x_trajectory_(0);
+    des_y   = des_y_trajectory_(0);
+    des_z   = des_z_trajectory_(0);
+    des_yaw = des_yaw_trajectory_(0);
+  }
+
   mrs_msgs::TrackerStatus tracker_status;
 
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = is_active_ && callbacks_enabled_ && !hovering_in_progress_;
+
+  tracker_status.tracking_trajectory = trajectory_tracking_in_progress_;
+
+  bool have_position_error   = sqrt(pow(mpc_x(0, 0) - des_x, 2) + pow(mpc_x(4, 0) - des_y, 2) + pow(mpc_x(8, 0) - des_z, 2)) > _diag_pos_tracking_thr_;
+  bool have_yaw_error        = angleDist(mpc_x_yaw(0), des_yaw) > _diag_yaw_tracking_thr_;
+  bool have_nonzero_velocity = abs(mpc_x(1, 0)) > 0.1 || abs(mpc_x(5, 0)) > 0.1 || abs(mpc_x(9, 0)) > 0.1 || abs(mpc_x_yaw(1, 0)) > 0.1;
+
+  tracker_status.moving_reference = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_yaw_error || have_nonzero_velocity;
+
+  tracker_status.trajectory_length = trajectory_size;
+  tracker_status.trajectory_idx    = trajectory_tracking_idx;
 
   return tracker_status;
 }
@@ -2641,10 +2668,6 @@ std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
 
 void MpcTracker::publishDiagnostics(void) {
 
-  auto [mpc_x, mpc_x_yaw]      = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_yaw_);
-  auto trajectory_size         = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
-  auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
-
   mrs_msgs::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = ros::Time::now();
@@ -2652,27 +2675,8 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.uav_name = _uav_name_;
 
-  diagnostics.tracker_active = is_active_;
-
   diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
   diagnostics.avoiding_collision         = avoiding_collision_;
-
-  // true if trajectory_tracking_in_progress_ of if flying to a setpoint
-  diagnostics.tracking_trajectory = false;
-
-  if (trajectory_tracking_in_progress_ || hovering_in_progress_) {
-    diagnostics.tracking_trajectory = true;
-  } else {
-    if (sqrt(pow(mpc_x(0, 0) - des_x_trajectory_(0), 2) + pow(mpc_x(4, 0) - des_y_trajectory_(0), 2) + pow(mpc_x(8, 0) - des_z_trajectory_(0), 2)) >
-            _diagnostic_position_tracking_threshold_ ||
-        fabs(des_yaw_trajectory_(0) - mpc_x_yaw(0)) > _diagnostic_orientation_tracking_threshold_) {
-      diagnostics.tracking_trajectory = true;
-    }
-  }
-
-  diagnostics.trajectory_length = trajectory_size;
-  diagnostics.trajectory_idx    = trajectory_tracking_idx;
-  diagnostics.trajectory_count  = trajectory_count_;
 
   diagnostics.setpoint.position.x = des_x_trajectory_(0, 0);
   diagnostics.setpoint.position.y = des_y_trajectory_(0, 0);
@@ -2750,6 +2754,44 @@ double MpcTracker::dist2d(const double ax, const double ay, const double bx, con
 double MpcTracker::dist3d(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
   return sqrt(pow(ax - bx, 2) + pow(ay - by, 2) + pow(az - bz, 2));
+}
+
+//}
+
+/* sanitizeYaw() //{ */
+
+double MpcTracker::sanitizeYaw(const double yaw_in) {
+
+  double yaw_out = yaw_in;
+
+  // if desired yaw_out is grater then 2*M_PI mod it
+  if (fabs(yaw_out) > 2 * M_PI) {
+    yaw_out = fmod(yaw_out, 2 * M_PI);
+  }
+
+  // move it to its place
+  if (yaw_out > M_PI) {
+    yaw_out -= 2 * M_PI;
+  } else if (yaw_out < -M_PI) {
+    yaw_out += 2 * M_PI;
+  }
+
+  return yaw_out;
+}
+
+//}
+
+/* angleDist() //{ */
+
+double MpcTracker::angleDist(const double in1, const double in2) {
+
+  double sanitized_difference = fabs(sanitizeYaw(in1) - sanitizeYaw(in2));
+
+  if (sanitized_difference > M_PI) {
+    sanitized_difference = 2 * M_PI - sanitized_difference;
+  }
+
+  return fabs(sanitized_difference);
 }
 
 //}

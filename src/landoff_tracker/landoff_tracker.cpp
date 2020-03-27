@@ -395,6 +395,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   landing_    = false;
   taking_off_ = false;
   is_active_  = true;
+  have_goal_  = false;
 
   timer_main_.start();
 
@@ -518,6 +519,13 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
+  bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
+  bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+
+  tracker_status.moving_reference = landing_ || taking_off_ || !hovering || !idling;
+
+  tracker_status.tracking_trajectory = false;
+
   return tracker_status;
 }
 
@@ -598,7 +606,6 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ne
 //}
 
 /* //{ hover() */
-
 const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
 
   // copy member variables
@@ -1132,9 +1139,9 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   if (current_state_horizontal_ == STOP_MOTION_STATE && current_state_vertical_ == STOP_MOTION_STATE) {
     if (fabs(current_vertical_speed) <= 0.1 && fabs(current_horizontal_speed) <= 0.1) {
 
-      // if the current motion was stopped (the conditions above) but we still have a goal (landing_ or taking off)
+      // if the current motion was stopped (the conditions above) but we still have a goal (landing or taking off)
       // -> we should start accelerating towards the goal in the vertical direction
-      // This is important, do not modify without testing, otherwise your landing_ routine may crash into the ground
+      // This is important, do not modify without testing, otherwise your landing routine may crash into the ground
       // while having large lateral speed
       if (have_goal_) {
         changeStateVertical(ACCELERATING_STATE);
@@ -1155,6 +1162,8 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
         state_z_ = goal_z;
       }
       changeState(HOVER_STATE);
+
+      have_goal_ = false;
     }
   }
 
@@ -1165,6 +1174,8 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
       state_x_ = goal_x = uav_x;
       state_y_ = goal_y = uav_y;
       state_z_ = goal_z = uav_z;
+
+      have_goal_ = false;
     }
   }
 
@@ -1219,7 +1230,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   }
 
   // --------------------------------------------------------------
-  // |                      landing_ setpoint                      |
+  // |                      landing setpoint                      |
   // --------------------------------------------------------------
 
   if (landing_) {

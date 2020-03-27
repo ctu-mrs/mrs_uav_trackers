@@ -33,16 +33,15 @@ typedef enum
 
   IDLE_STATE,
   STOP_MOTION_STATE,
-  HOVER_STATE,
   ACCELERATING_STATE,
   DECELERATING_STATE,
   STOPPING_STATE,
 
 } States_t;
 
-const char *state_names[6] = {
+const char *state_names[5] = {
 
-    "IDLING", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
+    "IDLING", "STOPPING_MOTION", "ACCELERATING", "DECELERATING", "STOPPING"};
 
 class LineTracker : public mrs_uav_manager::Tracker {
 public:
@@ -508,6 +507,12 @@ const mrs_msgs::TrackerStatus LineTracker::getStatus() {
 
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
+
+  bool idling = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+
+  tracker_status.moving_reference = !idling;
+
+  tracker_status.tracking_trajectory = false;
 
   return tracker_status;
 }
@@ -1037,10 +1042,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
       break;
 
-    case HOVER_STATE:
-
-      break;
-
     case STOP_MOTION_STATE:
 
       stopHorizontalMotion();
@@ -1069,10 +1070,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
   switch (current_state_vertical_) {
 
     case IDLE_STATE:
-
-      break;
-
-    case HOVER_STATE:
 
       break;
 
@@ -1122,7 +1119,9 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
         state_z_ = goal_z;
       }
 
-      changeState(HOVER_STATE);
+      changeState(IDLE_STATE);
+
+      have_goal_ = false;
     }
   }
 

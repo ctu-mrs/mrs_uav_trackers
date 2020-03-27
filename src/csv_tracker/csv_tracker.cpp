@@ -360,6 +360,9 @@ const mrs_msgs::TrackerStatus CsvTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
+  tracker_status.tracking_trajectory = tracking_;
+  tracker_status.moving_reference    = tracking_;
+
   return tracker_status;
 }
 
