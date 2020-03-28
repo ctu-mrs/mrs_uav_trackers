@@ -510,7 +510,7 @@ const mrs_msgs::TrackerStatus LineTracker::getStatus() {
 
   bool idling = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
 
-  tracker_status.moving_reference = !idling;
+  tracker_status.have_goal = !idling;
 
   tracker_status.tracking_trajectory = false;
 

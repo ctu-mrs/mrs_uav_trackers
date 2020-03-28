@@ -941,7 +941,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   bool have_yaw_error        = angleDist(mpc_x_yaw(0), des_yaw) > _diag_yaw_tracking_thr_;
   bool have_nonzero_velocity = abs(mpc_x(1, 0)) > 0.1 || abs(mpc_x(5, 0)) > 0.1 || abs(mpc_x(9, 0)) > 0.1 || abs(mpc_x_yaw(1, 0)) > 0.1;
 
-  tracker_status.moving_reference = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_yaw_error || have_nonzero_velocity;
+  tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_yaw_error || have_nonzero_velocity;
 
   tracker_status.trajectory_length = trajectory_size;
   tracker_status.trajectory_idx    = trajectory_tracking_idx;

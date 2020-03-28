@@ -505,7 +505,7 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
   bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
 
-  tracker_status.moving_reference = landing_ || taking_off_ || !(hovering || idling);
+  tracker_status.have_goal = landing_ || taking_off_ || !(hovering || idling);
 
   tracker_status.tracking_trajectory = false;
 
