@@ -6,14 +6,6 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <commons.h>
-
-#include <math.h>
-#include <cmath>
-#include <mutex>
-#include <tf/transform_datatypes.h>
-#include <Eigen/Eigen>
-
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
 
@@ -584,7 +576,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_state_yaw = tf::getYaw(uav_state.pose.orientation);
+  double uav_state_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
 
   MatrixXd mpc_x     = MatrixXd::Zero(_mpc_n_states_, 1);
   MatrixXd mpc_x_yaw = MatrixXd::Zero(_mpc_n_states_yaw_, 1);
@@ -713,7 +705,7 @@ bool MpcTracker::resetStatic(void) {
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_state_yaw = tf::getYaw(uav_state.pose.orientation);
+  double uav_state_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
 
   {
     std::scoped_lock lock(mutex_mpc_x_);
@@ -810,7 +802,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
 
     // set yaw based on current odom
-    position_cmd.yaw       = tf::getYaw(msg->pose.orientation);
+    position_cmd.yaw       = mrs_lib::AttitudeConvertor(msg->pose.orientation).getYaw();
     position_cmd.yaw_dot   = msg->velocity.angular.z;
     position_cmd.yaw_ddot  = 0;
     position_cmd.yaw_dddot = 0;
@@ -978,7 +970,8 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_ua
   odometry_reset_in_progress_ = true;
   mpc_result_invalid_         = true;
 
-  auto x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  auto x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   ROS_INFO(
       "[MpcTracker]: start of odmetry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f], "
@@ -1000,35 +993,20 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_ua
   // | --------- recalculate the goal to new coordinates -------- |
   double dx, dy, dz, dyaw;
   double dvz, dvyaw;
-  double old_roll, old_pitch, old_yaw;
-  double new_roll, new_pitch, new_yaw;
 
-  {
-    std::scoped_lock lock(mutex_uav_state_);
+  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
 
-    // calculate the euler angles from the old uav state
-    tf::Quaternion uav_state_attitude;
-    quaternionMsgToTF(uav_state_.pose.orientation, uav_state_attitude);
-    tf::Matrix3x3 m(uav_state_attitude);
-    m.getRPY(old_roll, old_pitch, old_yaw);
+  // calculate the difference of position
+  dx   = new_uav_state->pose.position.x - uav_state_.pose.position.x;
+  dy   = new_uav_state->pose.position.y - uav_state_.pose.position.y;
+  dz   = new_uav_state->pose.position.z - uav_state_.pose.position.z;
+  dyaw = new_yaw - old_yaw;
 
-    // calculate the euler angles from the new uav state
-    tf::Quaternion new_attitude;
-    quaternionMsgToTF(new_uav_state->pose.orientation, new_attitude);
-    tf::Matrix3x3 m2(new_attitude);
-    m2.getRPY(new_roll, new_pitch, new_yaw);
+  // calculate the difference in yaw
+  dvyaw = new_uav_state->velocity.angular.z - uav_state_.velocity.angular.z;
 
-    // calculate the difference of position
-    dx   = new_uav_state->pose.position.x - uav_state_.pose.position.x;
-    dy   = new_uav_state->pose.position.y - uav_state_.pose.position.y;
-    dz   = new_uav_state->pose.position.z - uav_state_.pose.position.z;
-    dyaw = new_yaw - old_yaw;
-
-    // calculate the difference in yaw
-    dvyaw = new_uav_state->velocity.angular.z - uav_state_.velocity.angular.z;
-
-    ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
-  }
+  ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dyaw %f", dx, dy, dz, dyaw);
 
   {
     std::scoped_lock lock(mutex_mpc_x_, mutex_des_trajectory_, mutex_des_whole_trajectory_, mutex_uav_state_);
@@ -1291,10 +1269,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
     original_pose.pose.position.y = temp_trajectory.points[i].y;
     original_pose.pose.position.z = temp_trajectory.points[i].z;
 
-    original_pose.pose.orientation.x = 0;
-    original_pose.pose.orientation.y = 0;
-    original_pose.pose.orientation.z = 0;
-    original_pose.pose.orientation.w = 0;
+    original_pose.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
     auto res = common_handlers_->transformer->transform(tf, original_pose);
 
@@ -1595,6 +1570,7 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
     }
 
     wiggle_phase_ += wiggle_frequency_ * _dt1_ * 2 * M_PI;
+
     if (wiggle_phase_ > M_PI) {
       wiggle_phase_ -= 2 * M_PI;
     }
@@ -1662,27 +1638,30 @@ void MpcTracker::filterYawReference(void) {
   }
 
   // check the first trajectory member for yaw overflow
-  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) < -PI) {
+  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) < -M_PI) {
     for (int i = 0; i < _mpc_horizon_len_; i++) {
-      des_yaw_trajectory_(i, 0) += 2 * PI;
+      des_yaw_trajectory_(i, 0) += 2 * M_PI;
     }
   }
-  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) > PI) {
+
+  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) > M_PI) {
     for (int i = 0; i < _mpc_horizon_len_; i++) {
-      des_yaw_trajectory_(i, 0) -= 2 * PI;
+      des_yaw_trajectory_(i, 0) -= 2 * M_PI;
     }
   }
 
   // check the rest of the trajectory for yaw overflow
   for (int i = 1; i < _mpc_horizon_len_; i++) {
-    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) < -PI) {
+
+    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) < -M_PI) {
       for (int j = i; j < _mpc_horizon_len_; j++) {
-        des_yaw_trajectory_(j, 0) += 2 * PI;
+        des_yaw_trajectory_(j, 0) += 2 * M_PI;
       }
     }
-    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) > PI) {
+
+    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) > M_PI) {
       for (int j = i; j < _mpc_horizon_len_; j++) {
-        des_yaw_trajectory_(j, 0) -= 2 * PI;
+        des_yaw_trajectory_(j, 0) -= 2 * M_PI;
       }
     }
   }
@@ -2045,12 +2024,7 @@ void MpcTracker::calculateMPC() {
     mpc_x_     = _A_ * mpc_x_ + _B_ * cvx_u;
     mpc_x_yaw_ = _A_yaw_ * mpc_x_yaw_ + _B_yaw_ * cvx_u_yaw;
 
-    // fix possible PI overflows
-    if (mpc_x_yaw_(0) > PI) {
-      mpc_x_yaw_(0) -= 2 * PI;
-    } else if (mpc_x_yaw_(0) < -PI) {
-      mpc_x_yaw_(0) += 2 * PI;
-    }
+    mpc_x_yaw_(0) = mrs_lib::wrapAngle(mpc_x_yaw_(0));
   }
 
   future_was_predicted_ = true;
@@ -2331,12 +2305,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         new_pose.position.y = (*des_y_whole_trajectory_)(i);
         new_pose.position.z = (*des_z_whole_trajectory_)(i);
 
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, (*des_yaw_whole_trajectory_)(i));
-        new_pose.orientation.x = orientation.x();
-        new_pose.orientation.y = orientation.y();
-        new_pose.orientation.z = orientation.z();
-        new_pose.orientation.w = orientation.w();
+        new_pose.orientation = mrs_lib::AttitudeConvertor(0, 0, (*des_yaw_whole_trajectory_)(i));
 
         debug_trajectory_out.poses.push_back(new_pose);
       }
@@ -2353,15 +2322,15 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
     visualization_msgs::Marker marker;
 
-    marker.header.stamp       = ros::Time::now();
-    marker.header.frame_id    = common_handlers_->transformer->resolveFrameName(msg.header.frame_id);
-    marker.type               = visualization_msgs::Marker::LINE_LIST;
-    marker.color.a            = 1;
-    marker.scale.x            = 0.05;
-    marker.color.r            = 1;
-    marker.color.g            = 0;
-    marker.color.b            = 0;
-    marker.pose.orientation.w = 1;
+    marker.header.stamp     = ros::Time::now();
+    marker.header.frame_id  = common_handlers_->transformer->resolveFrameName(msg.header.frame_id);
+    marker.type             = visualization_msgs::Marker::LINE_LIST;
+    marker.color.a          = 1;
+    marker.scale.x          = 0.05;
+    marker.color.r          = 1;
+    marker.color.g          = 0;
+    marker.color.b          = 0;
+    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory_);
@@ -2677,12 +2646,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.position.y = des_y_trajectory_(0, 0);
   diagnostics.setpoint.position.z = des_z_trajectory_(0, 0);
 
-  tf::Quaternion orientation;
-  orientation.setEuler(0, 0, des_yaw_trajectory_(0, 0));
-  diagnostics.setpoint.orientation.x = orientation.x();
-  diagnostics.setpoint.orientation.y = orientation.y();
-  diagnostics.setpoint.orientation.z = orientation.z();
-  diagnostics.setpoint.orientation.w = orientation.w();
+  diagnostics.setpoint.orientation = mrs_lib::AttitudeConvertor(0, 0, des_yaw_trajectory_(0, 0));
 
   std::stringstream ss;
 
@@ -2869,12 +2833,7 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         new_pose.position.y = des_y_filtered_(i, 0);
         new_pose.position.z = des_z_filtered_(i, 0);
 
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, des_yaw_trajectory_(i));
-        new_pose.orientation.x = orientation.x();
-        new_pose.orientation.y = orientation.y();
-        new_pose.orientation.z = orientation.z();
-        new_pose.orientation.w = orientation.w();
+        new_pose.orientation = mrs_lib::AttitudeConvertor(0, 0, des_yaw_trajectory_(i));
 
         debug_trajectory_out.poses.push_back(new_pose);
       }
@@ -2908,12 +2867,7 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         newPose.position.y = predicted_trajectory_(i * _mpc_n_states_ + 4);
         newPose.position.z = predicted_trajectory_(i * _mpc_n_states_ + 8);
 
-        tf::Quaternion orientation;
-        orientation.setEuler(0, 0, predicted_yaw_trajectory_(i * _mpc_n_states_));
-        newPose.orientation.x = orientation.x();
-        newPose.orientation.y = orientation.y();
-        newPose.orientation.z = orientation.z();
-        newPose.orientation.w = orientation.w();
+        newPose.orientation = mrs_lib::AttitudeConvertor(0, 0, predicted_yaw_trajectory_(i * _mpc_n_states_));
 
         debug_trajectory_out.poses.push_back(newPose);
       }
@@ -3047,10 +3001,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
         original_point.pose.position.y = predicted_trajectory(i * _mpc_n_states_ + 4);
         original_point.pose.position.z = predicted_trajectory(i * _mpc_n_states_ + 8);
 
-        original_point.pose.orientation.x = 0;
-        original_point.pose.orientation.y = 0;
-        original_point.pose.orientation.z = 0;
-        original_point.pose.orientation.w = 0;
+        original_point.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
         auto res = common_handlers_->transformer->transform(tf, original_point);
 

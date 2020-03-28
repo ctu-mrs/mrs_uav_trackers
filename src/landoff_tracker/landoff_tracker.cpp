@@ -6,16 +6,14 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <commons.h>
-
-#include <tf/transform_datatypes.h>
-
 #include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/UavState.h>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/Utils.h>
 
 //}
 
@@ -91,10 +89,6 @@ private:
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
-
-  double uav_yaw_;
-  double uav_roll_;
-  double uav_pitch_;
 
   // | ---------------- the tracker's inner state --------------- |
 
@@ -307,10 +301,12 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   }
 
   // copy member variables
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
 
   {
-    std::scoped_lock lock(mutex_goal_, mutex_state_);
+    std::scoped_lock lock(mutex_goal_);
 
     // the last command is usable
     state_x_   = uav_state.pose.position.x;
@@ -438,12 +434,6 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
 
     uav_state_ = *uav_state;
 
-    // calculate the euler angles
-    tf::Quaternion uav_attitude;
-    quaternionMsgToTF(uav_state_.pose.orientation, uav_attitude);
-    tf::Matrix3x3 m(uav_attitude);
-    m.getRPY(uav_roll_, uav_pitch_, uav_yaw_);
-
     got_uav_state_ = true;
   }
 
@@ -550,26 +540,15 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ne
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double odom_roll, odom_pitch, odom_yaw;
-  double msg_roll, msg_pitch, msg_yaw;
-
-  // calculate the euler angles
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(odom_roll, odom_pitch, odom_yaw);
-
-  tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(new_uav_state->pose.orientation, quaternion_msg);
-  tf::Matrix3x3 m2(quaternion_msg);
-  m2.getRPY(msg_roll, msg_pitch, msg_yaw);
+  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
 
   // | --------- recalculate the goal to new coordinates -------- |
 
   double dx   = new_uav_state->pose.position.x - uav_state.pose.position.x;
   double dy   = new_uav_state->pose.position.y - uav_state.pose.position.y;
   double dz   = new_uav_state->pose.position.z - uav_state.pose.position.z;
-  double dyaw = msg_yaw - odom_yaw;
+  double dyaw = new_yaw - old_yaw;
 
   goal_x_ += dx;
   goal_y_ += dy;
@@ -867,7 +846,7 @@ void LandoffTracker::accelerateVertical(void) {
   {
     std::scoped_lock lock(mutex_state_);
 
-    current_vertical_direction_ = mrs_trackers_commons::sign(tar_z);
+    current_vertical_direction_ = mrs_lib::sign(tar_z);
   }
 
   auto current_vertical_direction = mrs_lib::get_mutexed(mutex_state_, current_vertical_direction_);
@@ -1025,7 +1004,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
     double err_x      = uav_x - state_x;
     double err_y      = uav_y - state_y;
     double err_z      = uav_z - state_z;
-    double error_size = mrs_trackers_commons::size3(err_x, err_y, err_z);
+    double error_size = sqrt(pow(err_x, 2) + pow(err_y, 2) + pow(err_z, 2));
 
     if (error_size > _max_position_difference_) {
 
@@ -1035,7 +1014,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
       double future_state_z = state_z + current_vertical_direction * current_vertical_speed * _tracker_dt_;
 
       // if the step would lead to a greater control error than the threshold
-      if (mrs_trackers_commons::dist3(future_state_x, uav_x, future_state_y, uav_y, future_state_z, uav_z) > error_size) {
+      if (mrs_lib::dist3d(future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z) > error_size) {
 
         // set this to true... later, we will not update the model if this is true, thus the tracker's motion will stop
         // => the tracker will wait for the controller
@@ -1235,7 +1214,9 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   std::stringstream ss;
 
   // copy member variables
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;

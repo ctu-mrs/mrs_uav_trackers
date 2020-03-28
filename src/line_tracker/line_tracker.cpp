@@ -6,14 +6,11 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <commons.h>
-
-#include <tf/transform_datatypes.h>
-#include <mutex>
-
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/Utils.h>
 
 //}
 
@@ -87,8 +84,6 @@ private:
   double uav_y_;
   double uav_z_;
   double uav_yaw_;
-  double uav_roll_;
-  double uav_pitch_;
 
   // tracker's inner states
   double _tracker_loop_rate_;
@@ -434,24 +429,20 @@ bool LineTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
-                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
+const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *msg;
+    uav_state_ = *uav_state;
     uav_x_     = uav_state_.pose.position.x;
     uav_y_     = uav_state_.pose.position.y;
     uav_z_     = uav_state_.pose.position.z;
 
-    // calculate the euler angles
-    tf::Quaternion uav_attitude;
-    quaternionMsgToTF(uav_state_.pose.orientation, uav_attitude);
-    tf::Matrix3x3 m(uav_attitude);
-    m.getRPY(uav_roll_, uav_pitch_, uav_yaw_);
+    uav_yaw_ = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
 
     got_uav_state_ = true;
   }
@@ -463,10 +454,8 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
 
   mrs_msgs::PositionCommand position_cmd;
 
-  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
-
   position_cmd.header.stamp    = ros::Time::now();
-  position_cmd.header.frame_id = uav_state.header.frame_id;
+  position_cmd.header.frame_id = uav_state->header.frame_id;
 
   {
     std::scoped_lock lock(mutex_state_);
@@ -555,26 +544,15 @@ void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_u
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double odom_roll, odom_pitch, odom_yaw;
-  double msg_roll, msg_pitch, msg_yaw;
-
-  // calculate the euler angles
-  tf::Quaternion quaternion_odometry;
-  quaternionMsgToTF(uav_state.pose.orientation, quaternion_odometry);
-  tf::Matrix3x3 m(quaternion_odometry);
-  m.getRPY(odom_roll, odom_pitch, odom_yaw);
-
-  tf::Quaternion quaternion_msg;
-  quaternionMsgToTF(new_uav_state->pose.orientation, quaternion_msg);
-  tf::Matrix3x3 m2(quaternion_msg);
-  m2.getRPY(msg_roll, msg_pitch, msg_yaw);
+  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
 
   // | --------- recalculate the goal to new coordinates -------- |
 
   double dx   = new_uav_state->pose.position.x - uav_state.pose.position.x;
   double dy   = new_uav_state->pose.position.y - uav_state.pose.position.y;
   double dz   = new_uav_state->pose.position.z - uav_state.pose.position.z;
-  double dyaw = msg_yaw - odom_yaw;
+  double dyaw = new_yaw - old_yaw;
 
   goal_x_ += dx;
   goal_y_ += dy;
@@ -727,7 +705,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::setReference(const m
     goal_x_   = cmd->reference.position.x;
     goal_y_   = cmd->reference.position.y;
     goal_z_   = cmd->reference.position.z;
-    goal_yaw_ = mrs_trackers_commons::validateYawSetpoint(cmd->reference.yaw);
+    goal_yaw_ = mrs_lib::wrapAngle(cmd->reference.yaw);
 
     ROS_INFO("[LineTracker]: received new setpoint %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_yaw_);
 
@@ -897,7 +875,7 @@ void LineTracker::accelerateVertical(void) {
   {
     std::scoped_lock lock(mutex_state_);
 
-    current_vertical_direction_ = mrs_trackers_commons::sign(tar_z);
+    current_vertical_direction_ = mrs_lib::sign(tar_z);
   }
 
   auto current_vertical_direction = mrs_lib::get_mutexed(mutex_state_, current_vertical_direction_);
@@ -1156,11 +1134,7 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
     // flap the resulted state_yaw_ aroud PI
     state_yaw_ += current_yaw_rate * _tracker_dt_;
 
-    if (state_yaw_ > M_PI) {
-      state_yaw_ -= 2 * M_PI;
-    } else if (state_yaw_ < -M_PI) {
-      state_yaw_ += 2 * M_PI;
-    }
+    state_yaw_ = mrs_lib::wrapAngle(state_yaw_);
 
     if (fabs(state_yaw_ - goal_yaw_) < (2 * (_yaw_rate_ * _tracker_dt_))) {
       state_yaw_ = goal_yaw_;

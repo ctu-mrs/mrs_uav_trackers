@@ -6,23 +6,18 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <tf/transform_datatypes.h>
-#include <tf/LinearMath/Transform.h>
-
 #include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
 
 #include <mrs_msgs/Float64Stamped.h>
 
-#include <math.h>
-#include <cmath>
-#include <eigen3/Eigen/Eigen>
 #include <fstream>
 #include <iostream>
-#include <mutex>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
+#include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/mutex.h>
 
 //}
 
@@ -316,27 +311,21 @@ bool CsvTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
-                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
+const mrs_msgs::PositionCommand::ConstPtr CsvTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *msg;
+    uav_state_ = *uav_state;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
     return mrs_msgs::PositionCommand::Ptr();
   }
-
-  // calculate the current angle
-  double                    odom_roll, odom_pitch, odom_yaw;
-  geometry_msgs::Quaternion odom_quat = msg->pose.orientation;
-  tf::Quaternion            qt(odom_quat.x, odom_quat.y, odom_quat.z, odom_quat.w);
-  tf::Matrix3x3(qt).getRPY(odom_roll, odom_pitch, odom_yaw);
 
   mrs_msgs::PositionCommand::ConstPtr out;
 

@@ -6,16 +6,12 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <commons.h>
-
 #include <mrs_msgs/SpeedTrackerCommand.h>
-
-#include <tf/transform_datatypes.h>
-#include <mutex>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/geometry_utils.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -70,13 +66,6 @@ private:
   mrs_msgs::UavState uav_state_;
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
-
-  double uav_x_;
-  double uav_y_;
-  double uav_z_;
-  double uav_yaw_;
-  double uav_roll_;
-  double uav_pitch_;
 
   // | ---------------- the tracker's inner staet --------------- |
 
@@ -229,27 +218,20 @@ bool SpeedTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
-                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
+const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *msg;
-    uav_x_     = uav_state_.pose.position.x;
-    uav_y_     = uav_state_.pose.position.y;
-    uav_z_     = uav_state_.pose.position.z;
-
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(uav_roll_, uav_pitch_, uav_yaw_);
+    uav_state_ = *uav_state;
 
     got_uav_state_ = true;
   }
+
+  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state_.pose.orientation).getYaw();
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
@@ -268,14 +250,13 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
 
   mrs_msgs::PositionCommand position_cmd;
 
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
-  auto external_command     = mrs_lib::get_mutexed(mutex_command_, external_command_);
+  auto external_command = mrs_lib::get_mutexed(mutex_command_, external_command_);
 
   position_cmd.header.stamp    = ros::Time::now();
-  position_cmd.header.frame_id = uav_state.header.frame_id;
+  position_cmd.header.frame_id = uav_state->header.frame_id;
 
-  position_cmd.position.x = uav_state.pose.position.x;
-  position_cmd.position.y = uav_state.pose.position.y;
+  position_cmd.position.x = uav_state->pose.position.x;
+  position_cmd.position.y = uav_state->pose.position.y;
 
   if (external_command.use_velocity) {
     position_cmd.velocity.x              = external_command.velocity.x;
@@ -284,9 +265,9 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.use_velocity_horizontal = true;
     position_cmd.use_velocity_vertical   = true;
   } else {
-    position_cmd.velocity.x              = uav_state.velocity.linear.x;
-    position_cmd.velocity.y              = uav_state.velocity.linear.y;
-    position_cmd.velocity.z              = uav_state.velocity.linear.z;
+    position_cmd.velocity.x              = uav_state->velocity.linear.x;
+    position_cmd.velocity.y              = uav_state->velocity.linear.y;
+    position_cmd.velocity.z              = uav_state->velocity.linear.z;
     position_cmd.use_velocity_horizontal = false;
     position_cmd.use_velocity_vertical   = false;
   }
@@ -295,7 +276,7 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.position.z            = external_command.height;
     position_cmd.use_position_vertical = true;
   } else {
-    position_cmd.position.z            = uav_state.pose.position.z;
+    position_cmd.position.z            = uav_state->pose.position.z;
     position_cmd.use_position_vertical = false;
   }
 
@@ -305,14 +286,14 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.acceleration.z   = external_command.acceleration.z;
     position_cmd.use_acceleration = true;
   } else if (external_command.use_force) {
-    position_cmd.acceleration.x   = external_command.force.x / cmd->total_mass;
-    position_cmd.acceleration.y   = external_command.force.y / cmd->total_mass;
-    position_cmd.acceleration.z   = external_command.force.z / cmd->total_mass;
+    position_cmd.acceleration.x   = external_command.force.x / last_attitude_cmd->total_mass;
+    position_cmd.acceleration.y   = external_command.force.y / last_attitude_cmd->total_mass;
+    position_cmd.acceleration.z   = external_command.force.z / last_attitude_cmd->total_mass;
     position_cmd.use_acceleration = true;
   } else {
-    position_cmd.acceleration.x   = uav_state.acceleration.linear.x;
-    position_cmd.acceleration.y   = uav_state.acceleration.linear.y;
-    position_cmd.acceleration.z   = uav_state.acceleration.linear.z;
+    position_cmd.acceleration.x   = uav_state->acceleration.linear.x;
+    position_cmd.acceleration.y   = uav_state->acceleration.linear.y;
+    position_cmd.acceleration.z   = uav_state->acceleration.linear.z;
     position_cmd.use_acceleration = false;
   }
 
@@ -328,7 +309,7 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.yaw_dot     = external_command.yaw_dot;
     position_cmd.use_yaw_dot = true;
   } else {
-    position_cmd.yaw_dot     = uav_state.velocity.angular.z;
+    position_cmd.yaw_dot     = uav_state->velocity.angular.z;
     position_cmd.use_yaw_dot = false;
   }
 
@@ -595,10 +576,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
     //}
 
@@ -661,10 +639,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
     //}
 
@@ -727,10 +702,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
+    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
 
     //}
 

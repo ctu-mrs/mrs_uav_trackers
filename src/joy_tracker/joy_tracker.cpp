@@ -6,17 +6,13 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <commons.h>
-
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
-
-#include <tf/transform_datatypes.h>
-#include <mutex>
 
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/geometry_utils.h>
 
 //}
 
@@ -75,12 +71,7 @@ private:
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
 
-  double uav_x_;
-  double uav_y_;
-  double uav_z_;
   double uav_yaw_;
-  double uav_roll_;
-  double uav_pitch_;
 
   // | ------------------ dynamics constraints ------------------ |
 
@@ -282,24 +273,17 @@ bool JoyTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        msg,
-                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &cmd) {
+const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *msg;
-    uav_x_     = uav_state_.pose.position.x;
-    uav_y_     = uav_state_.pose.position.y;
-    uav_z_     = uav_state_.pose.position.z;
+    uav_state_ = *uav_state;
 
-    // calculate the euler angles
-    tf::Quaternion quaternion_odometry;
-    quaternionMsgToTF(uav_state_.pose.orientation, quaternion_odometry);
-    tf::Matrix3x3 m(quaternion_odometry);
-    m.getRPY(uav_roll_, uav_pitch_, uav_yaw_);
+    uav_yaw_ = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
 
     got_uav_state_ = true;
   }
@@ -309,19 +293,18 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
   auto [state_z, desired_vertical_speed, desired_pitch, desired_roll, state_yaw, desired_yaw_rate] =
       mrs_lib::get_mutexed(mutex_state_, state_z_, desired_vertical_speed_, desired_pitch_, desired_roll_, state_yaw_, desired_yaw_rate_);
 
   mrs_msgs::PositionCommand position_cmd;
 
   position_cmd.header.stamp    = ros::Time::now();
-  position_cmd.header.frame_id = uav_state.header.frame_id;
+  position_cmd.header.frame_id = uav_state->header.frame_id;
 
   position_cmd.use_position_horizontal = true;
   position_cmd.use_position_vertical   = true;
-  position_cmd.position.x              = uav_state.pose.position.x;
-  position_cmd.position.y              = uav_state.pose.position.y;
+  position_cmd.position.x              = uav_state->pose.position.x;
+  position_cmd.position.y              = uav_state->pose.position.y;
   position_cmd.position.z              = state_z;
 
   position_cmd.use_yaw = 1;
@@ -329,8 +312,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
 
   position_cmd.use_velocity_horizontal = true;
   position_cmd.use_velocity_vertical   = true;
-  position_cmd.velocity.x              = uav_state.velocity.linear.x;
-  position_cmd.velocity.y              = uav_state.velocity.linear.y;
+  position_cmd.velocity.x              = uav_state->velocity.linear.x;
+  position_cmd.velocity.y              = uav_state->velocity.linear.y;
   position_cmd.velocity.z              = desired_vertical_speed;
 
   position_cmd.use_yaw_dot = 1;
@@ -340,15 +323,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   position_cmd.acceleration.y = 0;
   position_cmd.acceleration.z = 0;
 
-  tf::Quaternion desired_orientation;
-
-  desired_orientation = tf::createQuaternionFromRPY(-desired_roll, desired_pitch, state_yaw);
-
-  position_cmd.use_quat_attitude = 1;
-  position_cmd.attitude.w        = desired_orientation.getW();
-  position_cmd.attitude.x        = desired_orientation.getX();
-  position_cmd.attitude.y        = desired_orientation.getY();
-  position_cmd.attitude.z        = desired_orientation.getZ();
+  position_cmd.attitude = mrs_lib::AttitudeConvertor(-desired_roll, desired_pitch, state_yaw);
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
 }
@@ -498,14 +473,9 @@ void JoyTracker::mainTimer(const ros::TimerEvent &event) {
     // |                        yaw tracking                        |
     // --------------------------------------------------------------
 
-    // flap the resulted state_yaw_ aroud PI
     state_yaw_ += desired_yaw_rate_ * _tracker_dt_;
 
-    if (state_yaw_ > PI) {
-      state_yaw_ -= 2 * PI;
-    } else if (state_yaw_ < -PI) {
-      state_yaw_ += 2 * PI;
-    }
+    state_yaw_ = mrs_lib::wrapAngle(state_yaw_);
   }
 }
 
