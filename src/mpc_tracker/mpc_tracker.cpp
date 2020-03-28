@@ -26,6 +26,7 @@
 #include <mrs_lib/Utils.h>
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/geometry_utils.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mrs_trackers/cvx_wrapper.h>
@@ -328,12 +329,6 @@ private:
   void calculateMPC();
 
   Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
-
-  double interpolateAngles(const double a1, const double a2, const double coeff);
-  double dist2d(const double ax, const double ay, const double bx, const double by);
-  double dist3d(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  double sanitizeYaw(const double yaw_in);
-  double angleDist(const double in1, const double in2);
 
   // | ------------------------ profiler ------------------------ |
 
@@ -938,7 +933,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   tracker_status.tracking_trajectory = trajectory_tracking_in_progress_;
 
   bool have_position_error   = sqrt(pow(mpc_x(0, 0) - des_x, 2) + pow(mpc_x(4, 0) - des_y, 2) + pow(mpc_x(8, 0) - des_z, 2)) > _diag_pos_tracking_thr_;
-  bool have_yaw_error        = angleDist(mpc_x_yaw(0), des_yaw) > _diag_yaw_tracking_thr_;
+  bool have_yaw_error        = mrs_lib::angleBetween(mpc_x_yaw(0), des_yaw) > _diag_yaw_tracking_thr_;
   bool have_nonzero_velocity = abs(mpc_x(1, 0)) > 0.1 || abs(mpc_x(5, 0)) > 0.1 || abs(mpc_x(9, 0)) > 0.1 || abs(mpc_x_yaw(1, 0)) > 0.1;
 
   tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_yaw_error || have_nonzero_velocity;
@@ -1430,7 +1425,7 @@ void MpcTracker::dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig& con
 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
+  if (mrs_lib::dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
     return true;
 
   } else {
@@ -1445,7 +1440,7 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 double MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
+  if (mrs_lib::dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
     return true;
 
   } else {
@@ -2210,7 +2205,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
     // check whether the trajectory is loopable
     // TODO should check yaw aswell
-    if (dist3d(first_x, first_y, first_z, last_x, last_y, last_z) < 3.141592653) {
+    if (mrs_lib::dist3d(first_x, first_y, first_z, last_x, last_y, last_z) < 3.141592653) {
 
       ROS_INFO_THROTTLE(1.0, "[MpcTracker]: looping enabled");
       loop = true;
@@ -2729,92 +2724,6 @@ void MpcTracker::publishDiagnostics(void) {
 
 //}
 
-/* rotateVector() //{ */
-
-Eigen::Vector2d MpcTracker::rotateVector(const Eigen::Vector2d vector_in, double angle) {
-
-  Eigen::Rotation2D<double> rot2(angle);
-
-  return rot2.toRotationMatrix() * vector_in;
-}
-
-//}
-
-/* //{ dist2d() */
-
-double MpcTracker::dist2d(const double ax, const double ay, const double bx, const double by) {
-
-  return sqrt(pow(ax - bx, 2) + pow(ay - by, 2));
-}
-
-//}
-
-/* //{ dist3d() */
-
-double MpcTracker::dist3d(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
-
-  return sqrt(pow(ax - bx, 2) + pow(ay - by, 2) + pow(az - bz, 2));
-}
-
-//}
-
-/* sanitizeYaw() //{ */
-
-double MpcTracker::sanitizeYaw(const double yaw_in) {
-
-  double yaw_out = yaw_in;
-
-  // if desired yaw_out is grater then 2*M_PI mod it
-  if (fabs(yaw_out) > 2 * M_PI) {
-    yaw_out = fmod(yaw_out, 2 * M_PI);
-  }
-
-  // move it to its place
-  if (yaw_out > M_PI) {
-    yaw_out -= 2 * M_PI;
-  } else if (yaw_out < -M_PI) {
-    yaw_out += 2 * M_PI;
-  }
-
-  return yaw_out;
-}
-
-//}
-
-/* angleDist() //{ */
-
-double MpcTracker::angleDist(const double in1, const double in2) {
-
-  double sanitized_difference = fabs(sanitizeYaw(in1) - sanitizeYaw(in2));
-
-  if (sanitized_difference > M_PI) {
-    sanitized_difference = 2 * M_PI - sanitized_difference;
-  }
-
-  return fabs(sanitized_difference);
-}
-
-//}
-
-/* interpolateAngles() //{ */
-
-double MpcTracker::interpolateAngles(const double a1, const double a2, const double coeff) {
-
-  // interpolate the yaw
-  Eigen::Vector3d axis = Eigen::Vector3d(0, 0, 1);
-
-  Eigen::Quaterniond quat1 = Eigen::Quaterniond(Eigen::AngleAxis<double>(a1, axis));
-  Eigen::Quaterniond quat2 = Eigen::Quaterniond(Eigen::AngleAxis<double>(a2, axis));
-
-  quat_t new_quat = quat1.slerp(coeff, quat2);
-
-  Eigen::Vector3d vecx = new_quat * Eigen::Vector3d(1, 0, 0);
-
-  return atan2(vecx[1], vecx[0]);
-}
-
-//}
-
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -2907,7 +2816,8 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         des_y_trajectory_(i, 0) = (1 - interp_coeff) * (*des_y_whole_trajectory_)(first_idx) + interp_coeff * (*des_y_whole_trajectory_)(second_idx);
         des_z_trajectory_(i, 0) = (1 - interp_coeff) * (*des_z_whole_trajectory_)(first_idx) + interp_coeff * (*des_z_whole_trajectory_)(second_idx);
 
-        des_yaw_trajectory_(i, 0) = interpolateAngles((*des_yaw_whole_trajectory_)(first_idx), (*des_yaw_whole_trajectory_)(second_idx), 1 - interp_coeff);
+        des_yaw_trajectory_(i, 0) =
+            mrs_lib::interpolateAngles((*des_yaw_whole_trajectory_)(first_idx), (*des_yaw_whole_trajectory_)(second_idx), 1 - interp_coeff);
       }
     }
 
