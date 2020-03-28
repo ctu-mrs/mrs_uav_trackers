@@ -11,7 +11,6 @@
 #include <tf/transform_datatypes.h>
 
 #include <mrs_msgs/Vec1.h>
-#include <mrs_msgs/LandoffDiagnostics.h>
 #include <mrs_msgs/UavState.h>
 
 #include <mrs_lib/ParamLoader.h>
@@ -86,10 +85,6 @@ private:
   // main timer
   void       timerMain(const ros::TimerEvent& event);
   ros::Timer timer_main_;
-
-  // diagnostics timer
-  void       timerDiagnostics(const ros::TimerEvent& event);
-  ros::Timer timer_diagnostics_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -187,12 +182,6 @@ private:
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
-
-  // | ------------------ diagnostics publisher ----------------- |
-
-  void           publishDiagnostics(void);
-  ros::Publisher publisher_diagnostics_;
-  double         _diagnostics_rate_;
 };
 
 //}
@@ -244,7 +233,6 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   param_loader.load_param("yaw_tracker/yaw_gain", _yaw_gain_);
 
   param_loader.load_param("main_timer_rate", _main_timer_rate_);
-  param_loader.load_param("diagnostics_loop_rate", _diagnostics_rate_);
 
   param_loader.load_param("landing_reference", _landing_reference_);
 
@@ -295,14 +283,9 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   service_land_    = nh_.advertiseService("land_in", &LandoffTracker::callbackLand, this);
   service_eland_   = nh_.advertiseService("eland_in", &LandoffTracker::callbackELand, this);
 
-  // | ----------------------- publishers ----------------------- |
-
-  publisher_diagnostics_ = nh_.advertise<mrs_msgs::LandoffDiagnostics>("diagnostics_out", 1);
-
   // | ------------------------- timers ------------------------- |
 
-  timer_main_        = nh_.createTimer(ros::Rate(_main_timer_rate_), &LandoffTracker::timerMain, this, false, false);
-  timer_diagnostics_ = nh_.createTimer(ros::Rate(_diagnostics_rate_), &LandoffTracker::timerDiagnostics, this);
+  timer_main_ = nh_.createTimer(ros::Rate(_main_timer_rate_), &LandoffTracker::timerMain, this, false, false);
 
   // | ----------------------- finish init ---------------------- |
 
@@ -522,7 +505,7 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
   bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
 
-  tracker_status.moving_reference = landing_ || taking_off_ || !hovering || !idling;
+  tracker_status.moving_reference = landing_ || taking_off_ || !(hovering || idling);
 
   tracker_status.tracking_trajectory = false;
 
@@ -775,7 +758,6 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
       break;
     case HOVER_STATE:
       taking_off_ = false;
-      publishDiagnostics();
       break;
     case STOP_MOTION_STATE:
       break;
@@ -1244,21 +1226,6 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
 
 //}
 
-/* //{ timerDiagnostics() */
-
-void LandoffTracker::timerDiagnostics(const ros::TimerEvent& event) {
-
-  if (!is_initialized_) {
-    return;
-  }
-
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("timerDiagnostics", _diagnostics_rate_, 0.1, event);
-
-  publishDiagnostics();
-}
-
-//}
-
 // | ------------------------ callbacks ----------------------- |
 
 /* //{ callbackTakeoff() */
@@ -1343,8 +1310,6 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
 
   changeState(STOP_MOTION_STATE);
 
-  publishDiagnostics();
-
   return true;
 }
 
@@ -1394,8 +1359,6 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& r
 
   changeState(STOP_MOTION_STATE);
 
-  publishDiagnostics();
-
   return true;
 }
 
@@ -1441,38 +1404,7 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request& 
 
   changeState(STOP_MOTION_STATE);
 
-  publishDiagnostics();
-
   return true;
-}
-
-//}
-
-// | --------------------- other routines --------------------- |
-
-/* publishDiagnostics() //{ */
-
-void LandoffTracker::publishDiagnostics(void) {
-
-  if (!is_initialized_) {
-    return;
-  }
-
-  mrs_msgs::LandoffDiagnostics diagnostics_msg;
-
-  diagnostics_msg.stamp = ros::Time::now();
-
-  diagnostics_msg.active     = is_active_;
-  diagnostics_msg.landing    = landing_;
-  diagnostics_msg.taking_off = taking_off_;
-  diagnostics_msg.elanding   = elanding_;
-
-  try {
-    publisher_diagnostics_.publish(diagnostics_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[LandoffTracker]: exception caught during publishing topic %s", publisher_diagnostics_.getTopic().c_str());
-  }
 }
 
 //}
