@@ -755,12 +755,12 @@ bool MpcTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         msg,
-                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& cmd) {
+const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         uav_state,
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
-  mrs_lib::set_mutexed(mutex_uav_state_, *msg, uav_state_);
+  mrs_lib::set_mutexed(mutex_uav_state_, *uav_state, uav_state_);
 
   auto [mpc_x, mpc_x_yaw] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_yaw_);
 
@@ -776,18 +776,18 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
     // if the tracker is not computed yet
 
     // set the header
-    position_cmd.header.stamp    = msg->header.stamp;
-    position_cmd.header.frame_id = msg->header.frame_id;
+    position_cmd.header.stamp    = uav_state->header.stamp;
+    position_cmd.header.frame_id = uav_state->header.frame_id;
 
     // set positions from odom
-    position_cmd.position.x = msg->pose.position.x;
-    position_cmd.position.y = msg->pose.position.y;
-    position_cmd.position.z = msg->pose.position.z;
+    position_cmd.position.x = uav_state->pose.position.x;
+    position_cmd.position.y = uav_state->pose.position.y;
+    position_cmd.position.z = uav_state->pose.position.z;
 
     // set velocities from odom
-    position_cmd.velocity.x = msg->velocity.linear.x;
-    position_cmd.velocity.y = msg->velocity.linear.y;
-    position_cmd.velocity.z = msg->velocity.linear.z;
+    position_cmd.velocity.x = uav_state->velocity.linear.x;
+    position_cmd.velocity.y = uav_state->velocity.linear.y;
+    position_cmd.velocity.z = uav_state->velocity.linear.z;
 
     // set zero accelerations
     position_cmd.acceleration.x = 0;
@@ -801,8 +801,8 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
 
     // set yaw based on current odom
-    position_cmd.yaw       = mrs_lib::AttitudeConvertor(msg->pose.orientation).getYaw();
-    position_cmd.yaw_dot   = msg->velocity.angular.z;
+    position_cmd.yaw       = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
+    position_cmd.yaw_dot   = uav_state->velocity.angular.z;
     position_cmd.yaw_ddot  = 0;
     position_cmd.yaw_dddot = 0;
 
@@ -888,8 +888,8 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
   }
 
   // set the header
-  position_cmd.header.stamp    = msg->header.stamp;
-  position_cmd.header.frame_id = msg->header.frame_id;
+  position_cmd.header.stamp    = uav_state->header.stamp;
+  position_cmd.header.frame_id = uav_state->header.frame_id;
 
   // u have to return a position command
   // can set the jerk to 0
@@ -1533,6 +1533,7 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
     double direction_angle  = atan2(difference_y, difference_x);
     double max_dir_sample_x = abs(max_sample_x * cos(direction_angle));
     double max_dir_sample_y = abs(max_sample_y * sin(direction_angle));
+
     if (max_sample_x > max_dir_sample_x) {
       max_sample_x = max_dir_sample_x;
     }
