@@ -310,7 +310,6 @@ private:
 
   std::tuple<bool, std::string, bool> loadTrajectory(const mrs_msgs::TrajectoryReference msg);
 
-  void filterYawReference(void);
   void filterReferenceZ(const double max_ascending_speed, const double max_descending_speed);
   void filterReferenceXY(double max_speed_x, double max_speed_y);
 
@@ -1627,48 +1626,6 @@ void MpcTracker::filterReferenceZ(const double max_ascending_speed, const double
 
 //}
 
-/* //{ filterYawReference() */
-
-void MpcTracker::filterYawReference(void) {
-
-  for (int i = 0; i < _mpc_horizon_len_; i++) {
-    if (fabs(des_yaw_trajectory_(0, 0)) > 1000) {
-      ROS_WARN_THROTTLE(0.1, "desired yaw is greater than 1000 rad!");
-    }
-  }
-
-  // check the first trajectory member for yaw overflow
-  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) < -M_PI) {
-    for (int i = 0; i < _mpc_horizon_len_; i++) {
-      des_yaw_trajectory_(i, 0) += 2 * M_PI;
-    }
-  }
-
-  while (des_yaw_trajectory_(0, 0) - mpc_x_yaw_(0) > M_PI) {
-    for (int i = 0; i < _mpc_horizon_len_; i++) {
-      des_yaw_trajectory_(i, 0) -= 2 * M_PI;
-    }
-  }
-
-  // check the rest of the trajectory for yaw overflow
-  for (int i = 1; i < _mpc_horizon_len_; i++) {
-
-    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) < -M_PI) {
-      for (int j = i; j < _mpc_horizon_len_; j++) {
-        des_yaw_trajectory_(j, 0) += 2 * M_PI;
-      }
-    }
-
-    while (des_yaw_trajectory_(i, 0) - des_yaw_trajectory_(i - 1, 0) > M_PI) {
-      for (int j = i; j < _mpc_horizon_len_; j++) {
-        des_yaw_trajectory_(j, 0) -= 2 * M_PI;
-      }
-    }
-  }
-}
-
-//}
-
 /* //{ manageConstraints() */
 
 void MpcTracker::manageConstraints() {
@@ -1892,7 +1849,13 @@ void MpcTracker::calculateMPC() {
 
   filterReferenceXY(max_speed_x, max_speed_y);
 
-  filterYawReference();
+  // unwrap the yaw reference
+
+  des_yaw_trajectory_(0, 0) = mrs_lib::unwrapAngle(des_yaw_trajectory_(0, 0), mpc_x_yaw_(0));
+
+  for (int i = 1; i < _mpc_horizon_len_; i++) {
+    des_yaw_trajectory_(i, 0) = mrs_lib::unwrapAngle(des_yaw_trajectory_(i, 0), des_yaw_trajectory_(i - 1, 0));
+  }
 
   // | ---------------------- cvxgen X axis --------------------- |
 
