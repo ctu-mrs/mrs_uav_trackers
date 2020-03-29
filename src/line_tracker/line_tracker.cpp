@@ -10,6 +10,7 @@
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/Utils.h>
 
 //}
@@ -442,7 +443,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
     uav_y_     = uav_state_.pose.position.y;
     uav_z_     = uav_state_.pose.position.z;
 
-    uav_yaw_ = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
+    uav_yaw_ = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
 
     got_uav_state_ = true;
   }
@@ -544,8 +545,8 @@ void LineTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_u
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
-  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
+  double old_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getYaw();
 
   // | --------- recalculate the goal to new coordinates -------- |
 

@@ -13,6 +13,7 @@
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/Utils.h>
 
 //}
@@ -303,7 +304,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double uav_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
 
   {
     std::scoped_lock lock(mutex_goal_);
@@ -540,8 +541,8 @@ void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& ne
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
-  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
+  double old_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getYaw();
 
   // | --------- recalculate the goal to new coordinates -------- |
 
@@ -1216,7 +1217,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double uav_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;

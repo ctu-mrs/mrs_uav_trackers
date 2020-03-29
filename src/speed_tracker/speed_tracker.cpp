@@ -12,6 +12,7 @@
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -231,7 +232,7 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     got_uav_state_ = true;
   }
 
-  double uav_yaw = mrs_lib::AttitudeConvertor(uav_state_.pose.orientation).getYaw();
+  double uav_yaw = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getYaw();
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
@@ -576,7 +577,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+    marker.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     //}
 
@@ -639,7 +640,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+    marker.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     //}
 
@@ -702,7 +703,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* orientation //{ */
 
-    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+    marker.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     //}
 

@@ -19,6 +19,7 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mrs_trackers/cvx_wrapper.h>
@@ -575,7 +576,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_state_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double uav_state_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
 
   MatrixXd mpc_x     = MatrixXd::Zero(_mpc_n_states_, 1);
   MatrixXd mpc_x_yaw = MatrixXd::Zero(_mpc_n_states_yaw_, 1);
@@ -704,7 +705,7 @@ bool MpcTracker::resetStatic(void) {
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_state_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
+  double uav_state_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
 
   {
     std::scoped_lock lock(mutex_mpc_x_);
@@ -801,7 +802,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
 
     // set yaw based on current odom
-    position_cmd.yaw       = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
+    position_cmd.yaw       = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
     position_cmd.yaw_dot   = uav_state->velocity.angular.z;
     position_cmd.yaw_ddot  = 0;
     position_cmd.yaw_dddot = 0;
@@ -993,8 +994,8 @@ void MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_ua
   double dx, dy, dz, dyaw;
   double dvz, dvyaw;
 
-  double old_yaw = mrs_lib::AttitudeConvertor(uav_state.pose.orientation).getYaw();
-  double new_yaw = mrs_lib::AttitudeConvertor(new_uav_state->pose.orientation).getYaw();
+  double old_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
+  double new_yaw = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getYaw();
 
   // calculate the difference of position
   dx   = new_uav_state->pose.position.x - uav_state_.pose.position.x;
@@ -1268,7 +1269,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
     original_pose.pose.position.y = temp_trajectory.points[i].y;
     original_pose.pose.position.z = temp_trajectory.points[i].z;
 
-    original_pose.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+    original_pose.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     auto res = common_handlers_->transformer->transform(tf, original_pose);
 
@@ -2269,7 +2270,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         new_pose.position.y = (*des_y_whole_trajectory_)(i);
         new_pose.position.z = (*des_z_whole_trajectory_)(i);
 
-        new_pose.orientation = mrs_lib::AttitudeConvertor(0, 0, (*des_yaw_whole_trajectory_)(i));
+        new_pose.orientation = mrs_lib::AttitudeConverter(0, 0, (*des_yaw_whole_trajectory_)(i));
 
         debug_trajectory_out.poses.push_back(new_pose);
       }
@@ -2294,7 +2295,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     marker.color.r          = 1;
     marker.color.g          = 0;
     marker.color.b          = 0;
-    marker.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+    marker.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory_);
@@ -2610,7 +2611,7 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.setpoint.position.y = des_y_trajectory_(0, 0);
   diagnostics.setpoint.position.z = des_z_trajectory_(0, 0);
 
-  diagnostics.setpoint.orientation = mrs_lib::AttitudeConvertor(0, 0, des_yaw_trajectory_(0, 0));
+  diagnostics.setpoint.orientation = mrs_lib::AttitudeConverter(0, 0, des_yaw_trajectory_(0, 0));
 
   std::stringstream ss;
 
@@ -2797,7 +2798,7 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         new_pose.position.y = des_y_filtered_(i, 0);
         new_pose.position.z = des_z_filtered_(i, 0);
 
-        new_pose.orientation = mrs_lib::AttitudeConvertor(0, 0, des_yaw_trajectory_(i));
+        new_pose.orientation = mrs_lib::AttitudeConverter(0, 0, des_yaw_trajectory_(i));
 
         debug_trajectory_out.poses.push_back(new_pose);
       }
@@ -2831,7 +2832,7 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         newPose.position.y = predicted_trajectory_(i * _mpc_n_states_ + 4);
         newPose.position.z = predicted_trajectory_(i * _mpc_n_states_ + 8);
 
-        newPose.orientation = mrs_lib::AttitudeConvertor(0, 0, predicted_yaw_trajectory_(i * _mpc_n_states_));
+        newPose.orientation = mrs_lib::AttitudeConverter(0, 0, predicted_yaw_trajectory_(i * _mpc_n_states_));
 
         debug_trajectory_out.poses.push_back(newPose);
       }
@@ -2965,7 +2966,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
         original_point.pose.position.y = predicted_trajectory(i * _mpc_n_states_ + 4);
         original_point.pose.position.z = predicted_trajectory(i * _mpc_n_states_ + 8);
 
-        original_point.pose.orientation = mrs_lib::AttitudeConvertor(0, 0, 0);
+        original_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
         auto res = common_handlers_->transformer->transform(tf, original_point);
 

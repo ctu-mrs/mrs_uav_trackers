@@ -13,6 +13,7 @@
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
+#include <mrs_lib/attitude_converter.h>
 
 //}
 
@@ -283,7 +284,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
 
     uav_state_ = *uav_state;
 
-    uav_yaw_ = mrs_lib::AttitudeConvertor(uav_state->pose.orientation).getYaw();
+    uav_yaw_ = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
 
     got_uav_state_ = true;
   }
@@ -323,7 +324,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   position_cmd.acceleration.y = 0;
   position_cmd.acceleration.z = 0;
 
-  position_cmd.attitude = mrs_lib::AttitudeConvertor(-desired_roll, desired_pitch, state_yaw);
+  position_cmd.attitude = mrs_lib::AttitudeConverter(-desired_roll, desired_pitch, state_yaw);
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
 }
