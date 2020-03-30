@@ -320,8 +320,6 @@ private:
 
   void calculateMPC();
 
-  Eigen::Vector2d rotateVector(const Eigen::Vector2d vector_in, double angle);
-
   // | ------------------------ profiler ------------------------ |
 
   mrs_lib::Profiler profiler;
@@ -1054,7 +1052,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     for (int i = 0; i < trajectory_size_ + _mpc_horizon_len_; i++) {
 
       Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
-      temp_vec = rotateVector(temp_vec, dheading);
+      temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
 
       (*des_x_whole_trajectory_)(i) = new_uav_state->pose.position.x + temp_vec[0];
       (*des_y_whole_trajectory_)(i) = new_uav_state->pose.position.y + temp_vec[1];
@@ -1065,7 +1063,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
       Eigen::Vector2d temp_vec(des_x_trajectory_(i) - uav_state_.pose.position.x, des_y_trajectory_(i) - uav_state_.pose.position.y);
-      temp_vec = rotateVector(temp_vec, dheading);
+      temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
 
       des_x_trajectory_(i, 0) = new_uav_state->pose.position.x + temp_vec[0];
       des_y_trajectory_(i, 0) = new_uav_state->pose.position.y + temp_vec[1];
@@ -1078,7 +1076,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     // update the position
     {
       Eigen::Vector2d temp_vec(mpc_x_(0, 0) - uav_state_.pose.position.x, mpc_x_(4, 0) - uav_state_.pose.position.y);
-      temp_vec     = rotateVector(temp_vec, dheading);
+      temp_vec     = mrs_lib::rotateVector2d(temp_vec, dheading);
       mpc_x_(0, 0) = new_uav_state->pose.position.x + temp_vec[0];
       mpc_x_(4, 0) = new_uav_state->pose.position.y + temp_vec[1];
       mpc_x_(8, 0) += dz;
