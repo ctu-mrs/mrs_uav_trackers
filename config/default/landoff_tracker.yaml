@@ -30,6 +30,6 @@ vertical_tracker:
   elanding_speed: 0.5
   elanding_acceleration: 1.0
 
-yaw_tracker:
-  yaw_gain: 0.2
-  yaw_rate: 0.5
+heading_tracker:
+  heading_gain: 0.2
+  heading_rate: 0.5

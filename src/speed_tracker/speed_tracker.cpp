@@ -39,7 +39,7 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
@@ -185,7 +185,7 @@ bool SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::Co
   }
 
   // --------------------------------------------------------------
-  // |              yaw initial condition  prediction             |
+  // |              heading initial condition  prediction             |
   // --------------------------------------------------------------
 
   is_active_ = true;
@@ -232,7 +232,16 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     got_uav_state_ = true;
   }
 
-  double uav_yaw = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getYaw();
+  double uav_heading;
+
+  try {
+    uav_heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[SpeedTracker]: could not calculate UAV heading");
+
+    return mrs_msgs::PositionCommand::Ptr();
+  }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
@@ -298,20 +307,20 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.use_acceleration = false;
   }
 
-  if (external_command.use_yaw) {
-    position_cmd.yaw     = external_command.yaw;
-    position_cmd.use_yaw = true;
+  if (external_command.use_heading) {
+    position_cmd.heading     = external_command.heading;
+    position_cmd.use_heading = true;
   } else {
-    position_cmd.yaw     = uav_yaw;
-    position_cmd.use_yaw = false;
+    position_cmd.heading     = uav_heading;
+    position_cmd.use_heading = false;
   }
 
-  if (external_command.use_yaw_dot) {
-    position_cmd.yaw_dot     = external_command.yaw_dot;
-    position_cmd.use_yaw_dot = true;
+  if (external_command.use_heading_rate) {
+    position_cmd.heading_rate     = external_command.heading_rate;
+    position_cmd.use_heading_rate = true;
   } else {
-    position_cmd.yaw_dot     = uav_state->velocity.angular.z;
-    position_cmd.use_yaw_dot = false;
+    position_cmd.heading_rate     = uav_state->velocity.angular.z;
+    position_cmd.use_heading_rate = false;
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
@@ -363,7 +372,9 @@ const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const st
 
 /* switchOdometrySource() //{ */
 
-void SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+
+  return std_srvs::TriggerResponse::Ptr();
 }
 
 //}
@@ -472,19 +483,19 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
     }
   }
 
-  // transform yaw
+  // transform heading
 
-  if (msg.use_yaw) {
+  if (msg.use_heading) {
 
     mrs_msgs::ReferenceStamped temp_ref;
     temp_ref.header = msg.header;
 
-    temp_ref.reference.yaw = external_command.yaw;
+    temp_ref.reference.heading = external_command.heading;
 
     auto ret = common_handlers_->transformer->transformSingle("", temp_ref);
 
     if (ret) {
-      external_command.yaw = ret.value().reference.yaw;
+      external_command.heading = ret.value().reference.heading;
     }
   }
 

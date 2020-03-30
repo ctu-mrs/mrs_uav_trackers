@@ -37,7 +37,7 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
@@ -72,21 +72,19 @@ private:
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
 
-  double uav_yaw_;
-
   // | ------------------ dynamics constraints ------------------ |
 
-  double     _yaw_rate_;
+  double     _heading_rate_;
   std::mutex mutex_constraints_;
 
   // | ------------------ tracker's inner state ----------------- |
 
   double     state_z_;
-  double     state_yaw_;
-  double     speed_yaw_;
+  double     state_heading_;
+  double     speed_heading_;
   double     current_heading_;
   double     desired_vertical_speed_ = 0;
-  double     desired_yaw_rate_       = 0;
+  double     desired_heading_rate_   = 0;
   double     desired_pitch_          = 0;
   double     desired_roll_           = 0;
   double     current_horizontal_acceleration_;
@@ -104,11 +102,11 @@ private:
   // channel numbers and channel multipliers
   int _channel_pitch_;
   int _channel_roll_;
-  int _channel_yaw_;
+  int _channel_heading_;
   int _channel_thrust_;
   int _channel_mult_pitch_;
   int _channel_mult_roll_;
-  int _channel_mult_yaw_;
+  int _channel_mult_heading_;
   int _channel_mult_thrust_;
 
   // | ------------------------ profiler ------------------------ |
@@ -154,18 +152,18 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_param("tracker_loop_rate", _tracker_loop_rate_);
   param_loader.load_param("max_tilt", _max_tilt_);
 
-  param_loader.load_param("yaw_tracker/yaw_rate", _yaw_rate_);
+  param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
 
   // load channels
   param_loader.load_param("channels/pitch", _channel_pitch_);
   param_loader.load_param("channels/roll", _channel_roll_);
-  param_loader.load_param("channels/yaw", _channel_yaw_);
+  param_loader.load_param("channels/heading", _channel_heading_);
   param_loader.load_param("channels/thrust", _channel_thrust_);
 
   // load channel multipliers
   param_loader.load_param("channel_multipliers/pitch", _channel_mult_pitch_);
   param_loader.load_param("channel_multipliers/roll", _channel_mult_roll_);
-  param_loader.load_param("channel_multipliers/yaw", _channel_mult_yaw_);
+  param_loader.load_param("channel_multipliers/heading", _channel_mult_heading_);
   param_loader.load_param("channel_multipliers/thrust", _channel_mult_thrust_);
 
   _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
@@ -218,29 +216,38 @@ bool JoyTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
     return false;
   }
 
-  auto [uav_state, uav_yaw] = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_, uav_yaw_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  // initialized the yaw and z from the last tracker command / odometry
+  double uav_heading;
+
+  try {
+    uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[JoyTracker]: could not calculate UAV heading");
+  }
+
+  // initialized the heading and z from the last tracker command / odometry
   {
     std::scoped_lock lock(mutex_state_);
 
     if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
 
       // the last command is usable
-      state_z_   = last_position_cmd->position.z;
-      state_yaw_ = last_position_cmd->yaw;
+      state_z_       = last_position_cmd->position.z;
+      state_heading_ = last_position_cmd->heading;
 
     } else {
 
-      state_z_   = uav_state.pose.position.z;
-      state_yaw_ = uav_yaw;
+      state_z_       = uav_state.pose.position.z;
+      state_heading_ = uav_heading;
 
       ROS_WARN("[JoyTracker]: the previous command is not usable for activation, using Odometry instead");
     }
   }
 
   // --------------------------------------------------------------
-  // |              yaw initial condition  prediction             |
+  // |              heading initial condition  prediction             |
   // --------------------------------------------------------------
 
   is_active_ = true;
@@ -284,8 +291,6 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
 
     uav_state_ = *uav_state;
 
-    uav_yaw_ = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
-
     got_uav_state_ = true;
   }
 
@@ -294,8 +299,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  auto [state_z, desired_vertical_speed, desired_pitch, desired_roll, state_yaw, desired_yaw_rate] =
-      mrs_lib::get_mutexed(mutex_state_, state_z_, desired_vertical_speed_, desired_pitch_, desired_roll_, state_yaw_, desired_yaw_rate_);
+  auto [state_z, desired_vertical_speed, desired_pitch, desired_roll, state_heading, desired_heading_rate] =
+      mrs_lib::get_mutexed(mutex_state_, state_z_, desired_vertical_speed_, desired_pitch_, desired_roll_, state_heading_, desired_heading_rate_);
 
   mrs_msgs::PositionCommand position_cmd;
 
@@ -308,8 +313,8 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   position_cmd.position.y              = uav_state->pose.position.y;
   position_cmd.position.z              = state_z;
 
-  position_cmd.use_yaw = 1;
-  position_cmd.yaw     = state_yaw;
+  position_cmd.use_heading = 1;
+  position_cmd.heading     = state_heading;
 
   position_cmd.use_velocity_horizontal = true;
   position_cmd.use_velocity_vertical   = true;
@@ -317,14 +322,15 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   position_cmd.velocity.y              = uav_state->velocity.linear.y;
   position_cmd.velocity.z              = desired_vertical_speed;
 
-  position_cmd.use_yaw_dot = 1;
-  position_cmd.yaw_dot     = desired_yaw_rate;
+  position_cmd.use_heading_rate = 1;
+  position_cmd.heading_rate     = desired_heading_rate;
 
   position_cmd.acceleration.x = 0;
   position_cmd.acceleration.y = 0;
   position_cmd.acceleration.z = 0;
 
-  position_cmd.attitude = mrs_lib::AttitudeConverter(-desired_roll, desired_pitch, state_yaw);
+  position_cmd.orientation     = mrs_lib::AttitudeConverter(-desired_roll, desired_pitch, state_heading);
+  position_cmd.use_orientation = true;
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
 }
@@ -375,7 +381,8 @@ const std_srvs::SetBoolResponse::ConstPtr JoyTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-void JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+  return std_srvs::TriggerResponse::Ptr();
 }
 
 //}
@@ -471,12 +478,12 @@ void JoyTracker::mainTimer(const ros::TimerEvent &event) {
     state_z_ += desired_vertical_speed_ * _tracker_dt_;
 
     // --------------------------------------------------------------
-    // |                        yaw tracking                        |
+    // |                        heading tracking                        |
     // --------------------------------------------------------------
 
-    state_yaw_ += desired_yaw_rate_ * _tracker_dt_;
+    state_heading_ += desired_heading_rate_ * _tracker_dt_;
 
-    state_yaw_ = mrs_lib::wrapAngle(state_yaw_);
+    state_heading_ = mrs_lib::wrapAngle(state_heading_);
   }
 }
 
@@ -499,14 +506,14 @@ void JoyTracker::callbackJoystick(const sensor_msgs::Joy &msg) {
     std::scoped_lock lock(mutex_state_);
 
     desired_vertical_speed_ = _channel_mult_thrust_ * msg.axes[_channel_thrust_] * _vertical_speed_;
-    desired_yaw_rate_       = _channel_mult_yaw_ * msg.axes[_channel_yaw_] * _yaw_rate_;
+    desired_heading_rate_   = _channel_mult_heading_ * msg.axes[_channel_heading_] * _heading_rate_;
     desired_pitch_          = _channel_mult_pitch_ * msg.axes[_channel_pitch_] * _max_tilt_;
     desired_roll_           = _channel_mult_roll_ * msg.axes[_channel_roll_] * _max_tilt_;
 
     got_joystick_ = true;
 
-    ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, yaw_rate: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed_, desired_yaw_rate_,
-                      desired_pitch_, desired_roll_);
+    ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, heading_speed: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed_,
+                      desired_heading_rate_, desired_pitch_, desired_roll_);
   }
 }
 

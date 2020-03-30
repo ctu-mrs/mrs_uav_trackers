@@ -56,7 +56,7 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
-  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr& cmd);
@@ -150,21 +150,21 @@ private:
   double _landing_acceleration_;
   double _elanding_acceleration_;
 
-  double _yaw_rate_;
-  double _yaw_gain_;
+  double _heading_rate_;
+  double _heading_gain_;
 
   double _max_position_difference_;
 
   // | -------------------------- goal -------------------------- |
 
-  double     goal_x_, goal_y_, goal_z_, goal_yaw_;
+  double     goal_x_, goal_y_, goal_z_, goal_heading_;
   double     have_goal_ = false;
   std::mutex mutex_goal_;
 
   // | ---------------- tracker's internal state ---------------- |
 
-  double     state_x_, state_y_, state_z_, state_yaw_;
-  double     speed_x_, speed_y_, speed_yaw_;
+  double     state_x_, state_y_, state_z_, state_heading_;
+  double     speed_x_, speed_y_, speed_heading_;
   double     current_heading_, current_vertical_direction_, current_vertical_speed_, current_horizontal_speed_;
   double     current_horizontal_acceleration_, current_vertical_acceleration_;
   std::mutex mutex_state_;
@@ -224,8 +224,8 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   param_loader.load_param("vertical_tracker/elanding_speed", _elanding_speed_);
   param_loader.load_param("vertical_tracker/elanding_acceleration", _elanding_acceleration_);
 
-  param_loader.load_param("yaw_tracker/yaw_rate", _yaw_rate_);
-  param_loader.load_param("yaw_tracker/yaw_gain", _yaw_gain_);
+  param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
+  param_loader.load_param("heading_tracker/heading_gain", _heading_gain_);
 
   param_loader.load_param("main_timer_rate", _main_timer_rate_);
 
@@ -245,14 +245,14 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   ROS_INFO("[LandoffTracker]: tracker_dt: %f", _tracker_dt_);
 
-  state_x_   = 0;
-  state_y_   = 0;
-  state_z_   = 0;
-  state_yaw_ = 0;
+  state_x_       = 0;
+  state_y_       = 0;
+  state_z_       = 0;
+  state_heading_ = 0;
 
-  speed_x_   = 0;
-  speed_y_   = 0;
-  speed_yaw_ = 0;
+  speed_x_       = 0;
+  speed_y_       = 0;
+  speed_heading_ = 0;
 
   current_horizontal_speed_ = 0;
   current_vertical_speed_   = 0;
@@ -304,16 +304,24 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
+  double uav_heading;
+
+  try {
+    uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[LandoffTracker]: could not initialize the UAV heading");
+    return false;
+  }
 
   {
     std::scoped_lock lock(mutex_goal_);
 
     // the last command is usable
-    state_x_   = uav_state.pose.position.x;
-    state_y_   = uav_state.pose.position.y;
-    state_z_   = uav_state.pose.position.z;
-    state_yaw_ = uav_yaw;
+    state_x_       = uav_state.pose.position.x;
+    state_y_       = uav_state.pose.position.y;
+    state_z_       = uav_state.pose.position.z;
+    state_heading_ = uav_heading;
 
     speed_x_         = uav_state.velocity.linear.x;
     speed_y_         = uav_state.velocity.linear.y;
@@ -327,9 +335,9 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
     current_horizontal_acceleration_ = 0;
     current_vertical_acceleration_   = 0;
 
-    goal_yaw_ = uav_yaw;
+    goal_heading_ = uav_heading;
 
-    ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", state_x_, state_y_, state_z_, state_yaw_);
+    ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, heading: %2.2f", state_x_, state_y_, state_z_, state_heading_);
   }
 
   // --------------------------------------------------------------
@@ -361,7 +369,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   }
 
   // --------------------------------------------------------------
-  // |               yaw initial condition prediction             |
+  // |               heading initial condition prediction             |
   // --------------------------------------------------------------
 
   {
@@ -382,7 +390,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   {
     std::scoped_lock lock(mutex_goal_);
 
-    ROS_INFO("[LandoffTracker]: activated with goal x: %2.2f, y: %2.2f, z: %2.2f, yaw: %2.2f", goal_x_, goal_y_, goal_z_, goal_yaw_);
+    ROS_INFO("[LandoffTracker]: activated with goal x: %2.2f, y: %2.2f, z: %2.2f, heading: %2.2f", goal_x_, goal_y_, goal_z_, goal_heading_);
   }
 
   changeState(STOP_MOTION_STATE);
@@ -452,17 +460,17 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
     position_output_.position.x = state_x_;
     position_output_.position.y = state_y_;
     position_output_.position.z = state_z_;
-    position_output_.yaw        = state_yaw_;
+    position_output_.heading    = state_heading_;
 
-    position_output_.velocity.x = cos(current_heading_) * current_horizontal_speed_;
-    position_output_.velocity.y = sin(current_heading_) * current_horizontal_speed_;
-    position_output_.velocity.z = current_vertical_direction_ * current_vertical_speed_;
-    position_output_.yaw_dot    = speed_yaw_;
+    position_output_.velocity.x   = cos(current_heading_) * current_horizontal_speed_;
+    position_output_.velocity.y   = sin(current_heading_) * current_horizontal_speed_;
+    position_output_.velocity.z   = current_vertical_direction_ * current_vertical_speed_;
+    position_output_.heading_rate = speed_heading_;
 
     position_output_.use_position_vertical   = 1;
     position_output_.use_position_horizontal = 1;
-    position_output_.use_yaw                 = 1;
-    position_output_.use_yaw_dot             = 1;
+    position_output_.use_heading             = 1;
+    position_output_.use_heading_rate        = 1;
     position_output_.use_velocity_vertical   = 1;
     position_output_.use_velocity_horizontal = 1;
   }
@@ -535,35 +543,65 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 /* switchOdometrySource() //{ */
 
-void LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
 
   std::scoped_lock lock(mutex_goal_, mutex_state_);
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double old_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
-  double new_yaw = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getYaw();
+  double old_heading, new_heading;
+  bool   got_headings = true;
+
+  try {
+    old_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[LandoffTracker]: could not calculate the old UAV heading");
+    got_headings = false;
+  }
+
+  try {
+    new_heading = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[LandoffTracker]: could not calculate the new UAV heading");
+    got_headings = false;
+  }
+
+  std_srvs::TriggerResponse res;
+
+  if (!got_headings) {
+    res.message = "could not calculate the heading difference";
+    res.success = false;
+
+    return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
+  }
 
   // | --------- recalculate the goal to new coordinates -------- |
 
-  double dx   = new_uav_state->pose.position.x - uav_state.pose.position.x;
-  double dy   = new_uav_state->pose.position.y - uav_state.pose.position.y;
-  double dz   = new_uav_state->pose.position.z - uav_state.pose.position.z;
-  double dyaw = new_yaw - old_yaw;
+  double dx       = new_uav_state->pose.position.x - uav_state.pose.position.x;
+  double dy       = new_uav_state->pose.position.y - uav_state.pose.position.y;
+  double dz       = new_uav_state->pose.position.z - uav_state.pose.position.z;
+  double dheading = new_heading - old_heading;
 
   goal_x_ += dx;
   goal_y_ += dy;
   goal_z_ += dz;
-  goal_yaw_ += dyaw;
+  goal_heading_ += dheading;
 
   // | -------------------- update the state -------------------- |
 
   state_x_ += dx;
   state_y_ += dy;
   state_z_ += dz;
-  state_yaw_ += dyaw;
+  state_heading_ += dheading;
 
   current_heading_ = atan2(goal_y_ - state_y_, goal_x_ - state_x_);
+
+  res.message = "odometry source switched";
+  res.success = true;
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
 
 //}
@@ -1157,37 +1195,37 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   }
 
   // --------------------------------------------------------------
-  // |                        yaw tracking                        |
+  // |                        heading tracking                        |
   // --------------------------------------------------------------
 
-  // compute the desired yaw rate
+  // compute the desired heading rate
   {
     std::scoped_lock lock(mutex_state_);
 
-    double current_yaw_rate;
+    double current_heading_rate;
 
-    if (fabs(goal_yaw_ - state_yaw_) > M_PI)
-      current_yaw_rate = -_yaw_gain_ * (goal_yaw_ - state_yaw_);
+    if (fabs(goal_heading_ - state_heading_) > M_PI)
+      current_heading_rate = -_heading_gain_ * (goal_heading_ - state_heading_);
     else
-      current_yaw_rate = _yaw_gain_ * (goal_yaw_ - state_yaw_);
+      current_heading_rate = _heading_gain_ * (goal_heading_ - state_heading_);
 
-    if (current_yaw_rate > _yaw_rate_) {
-      current_yaw_rate = _yaw_rate_;
-    } else if (current_yaw_rate < -_yaw_rate_) {
-      current_yaw_rate = -_yaw_rate_;
+    if (current_heading_rate > _heading_rate_) {
+      current_heading_rate = _heading_rate_;
+    } else if (current_heading_rate < -_heading_rate_) {
+      current_heading_rate = -_heading_rate_;
     }
 
-    // flap the resulted state_yaw_ aroud PI
-    state_yaw_ += current_yaw_rate * _tracker_dt_;
+    // flap the resulted state_heading_ aroud PI
+    state_heading_ += current_heading_rate * _tracker_dt_;
 
-    if (state_yaw_ > M_PI) {
-      state_yaw_ -= 2 * M_PI;
-    } else if (state_yaw_ < -M_PI) {
-      state_yaw_ += 2 * M_PI;
+    if (state_heading_ > M_PI) {
+      state_heading_ -= 2 * M_PI;
+    } else if (state_heading_ < -M_PI) {
+      state_heading_ += 2 * M_PI;
     }
 
-    if (fabs(state_yaw_ - goal_yaw_) < (2 * (_yaw_rate_ * _tracker_dt_))) {
-      state_yaw_ = goal_yaw_;
+    if (fabs(state_heading_ - goal_heading_) < (2 * (_heading_rate_ * _tracker_dt_))) {
+      state_heading_ = goal_heading_;
     }
   }
 
@@ -1217,7 +1255,7 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_yaw = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
+  double uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1269,8 +1307,8 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
     state_z_ = uav_z;
     goal_z_  = uav_z + req.goal;
 
-    state_yaw_ = uav_yaw;
-    goal_yaw_  = uav_yaw;
+    state_heading_ = uav_heading;
+    goal_heading_  = uav_heading;
 
     speed_x_                = 0;
     speed_y_                = 0;

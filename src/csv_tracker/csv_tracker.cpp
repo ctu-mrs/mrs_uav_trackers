@@ -41,7 +41,7 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
@@ -121,7 +121,7 @@ private:
   double y_scale_ = 1;
   double z_scale_ = 1;
 
-  double _yaw_ = 0;
+  double _heading_ = 0;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -215,7 +215,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_param("scale/y", y_scale_);
   param_loader.load_param("scale/z", z_scale_);
 
-  param_loader.load_param("yaw", _yaw_);
+  param_loader.load_param("heading", _heading_);
 
   ROS_WARN("[CsvTracker]: offset/x: %.2f", _x_offset_);
   ROS_WARN("[CsvTracker]: offset/y: %.2f", _y_offset_);
@@ -223,7 +223,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   ROS_WARN("[CsvTracker]: scale/x: %.2f", x_scale_);
   ROS_WARN("[CsvTracker]: scale/y: %.2f", y_scale_);
   ROS_WARN("[CsvTracker]: scale/z: %.2f", z_scale_);
-  ROS_WARN("[CsvTracker]: yaw: %.2f", _yaw_);
+  ROS_WARN("[CsvTracker]: heading: %.2f", _heading_);
 
   if (x_scale_ > 1 || y_scale_ > 1 || z_scale_ > 1) {
     ROS_ERROR("[CsvTracker]: scales are greater than 1");
@@ -387,8 +387,8 @@ const std_srvs::SetBoolResponse::ConstPtr CsvTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-void CsvTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
-  // TODO
+const std_srvs::TriggerResponse::ConstPtr CsvTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+  return std_srvs::TriggerResponse::Ptr();
 }
 
 //}
@@ -488,13 +488,13 @@ void CsvTracker::setInitPoint(void) {
   init_trajectory.header.frame_id = uav_state_.header.frame_id;
   init_trajectory.fly_now         = false;
   init_trajectory.dt              = 1.0;
-  init_trajectory.use_yaw         = true;  // TODO
+  init_trajectory.use_heading     = true;  // TODO
 
   mrs_msgs::Reference point;
   point.position.x = x_scale_ * trajectory_(0, 0) + _x_offset_;
   point.position.y = _y_offset_;
   point.position.z = z_scale_ * trajectory_(0, 1) + _z_offset_;
-  point.yaw        = _yaw_;
+  point.heading    = _heading_;
 
   init_trajectory.points.push_back(point);
 
@@ -644,12 +644,12 @@ void CsvTracker::timerMain(const ros::TimerEvent &event) {
     position_cmd_.velocity.y     = 0;
     position_cmd_.acceleration.y = 0;
 
-    position_cmd_.yaw     = _yaw_;
-    position_cmd_.yaw_dot = 0;
+    position_cmd_.heading      = _heading_;
+    position_cmd_.heading_rate = 0;
 
     position_cmd_.use_position_vertical   = 1;
     position_cmd_.use_position_horizontal = 1;
-    position_cmd_.use_yaw                 = 1;
+    position_cmd_.use_heading             = 1;
     position_cmd_.use_velocity_vertical   = 1;
     position_cmd_.use_velocity_horizontal = 1;
     position_cmd_.use_acceleration        = 1;

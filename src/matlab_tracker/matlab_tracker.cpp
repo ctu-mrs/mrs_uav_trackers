@@ -34,7 +34,7 @@ public:
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  void                                      switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
@@ -204,11 +204,11 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::
       position_output_.acceleration.y = matlab_goal_.twist.twist.angular.y;
       position_output_.acceleration.z = matlab_goal_.twist.twist.angular.z;
 
-      position_output_.yaw     = matlab_goal_.pose.pose.orientation.x;
-      position_output_.yaw_dot = matlab_goal_.pose.pose.orientation.y;
+      position_output_.heading      = matlab_goal_.pose.pose.orientation.x;
+      position_output_.heading_rate = matlab_goal_.pose.pose.orientation.y;
 
-      position_output_.use_yaw                 = 1;
-      position_output_.use_yaw_dot             = 1;
+      position_output_.use_heading             = 1;
+      position_output_.use_heading_rate        = 1;
       position_output_.use_position_vertical   = 1;
       position_output_.use_position_horizontal = 1;
       position_output_.use_velocity_vertical   = 1;
@@ -230,7 +230,7 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::
       position_output_.acceleration.y = 0;
       position_output_.acceleration.z = 0;
 
-      position_output_.use_quat_attitude       = 1;
+      position_output_.use_orientation         = 1;
       position_output_.use_position_vertical   = 1;
       position_output_.use_position_horizontal = 1;
     }
@@ -285,7 +285,9 @@ const std_srvs::SetBoolResponse::ConstPtr MatlabTracker::enableCallbacks(const s
 
 /* switchOdometrySource() //{ */
 
-void MatlabTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr MatlabTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+
+  return std_srvs::TriggerResponse::Ptr();
 }
 
 //}
