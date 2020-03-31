@@ -1049,15 +1049,18 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
   {
     std::scoped_lock lock(mutex_mpc_x_, mutex_des_trajectory_, mutex_des_whole_trajectory_, mutex_uav_state_);
 
-    for (int i = 0; i < trajectory_size_ + _mpc_horizon_len_; i++) {
+    if (trajectory_set_) {
 
-      Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
-      temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
+      for (int i = 0; i < trajectory_size_ + _mpc_horizon_len_; i++) {
 
-      (*des_x_whole_trajectory_)(i) = new_uav_state->pose.position.x + temp_vec[0];
-      (*des_y_whole_trajectory_)(i) = new_uav_state->pose.position.y + temp_vec[1];
-      (*des_z_whole_trajectory_)(i) += dz;
-      (*des_heading_whole_trajectory_)(i) += dheading;
+        Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
+        temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
+
+        (*des_x_whole_trajectory_)(i) = new_uav_state->pose.position.x + temp_vec[0];
+        (*des_y_whole_trajectory_)(i) = new_uav_state->pose.position.y + temp_vec[1];
+        (*des_z_whole_trajectory_)(i) += dz;
+        (*des_heading_whole_trajectory_)(i) += dheading;
+      }
     }
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
