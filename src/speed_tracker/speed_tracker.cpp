@@ -8,8 +8,8 @@
 
 #include <mrs_msgs/SpeedTrackerCommand.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
@@ -112,7 +112,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -120,11 +120,11 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
     ros::shutdown();
   }
 
-  param_loader.load_param("command_timeout", _external_command_timeout_);
+  param_loader.loadParam("command_timeout", _external_command_timeout_);
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[SpeedTracker]: could not load all parameters!");
     ros::shutdown();
   }

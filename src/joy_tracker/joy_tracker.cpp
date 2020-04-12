@@ -9,8 +9,8 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
@@ -129,7 +129,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -137,27 +137,27 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  param_loader.load_param("vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
 
-  param_loader.load_param("max_tilt", _max_tilt_);
+  param_loader.loadParam("max_tilt", _max_tilt_);
 
-  param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
 
   // load channels
-  param_loader.load_param("channels/pitch", _channel_pitch_);
-  param_loader.load_param("channels/roll", _channel_roll_);
-  param_loader.load_param("channels/heading", _channel_heading_);
-  param_loader.load_param("channels/thrust", _channel_thrust_);
+  param_loader.loadParam("channels/pitch", _channel_pitch_);
+  param_loader.loadParam("channels/roll", _channel_roll_);
+  param_loader.loadParam("channels/heading", _channel_heading_);
+  param_loader.loadParam("channels/thrust", _channel_thrust_);
 
   // load channel multipliers
-  param_loader.load_param("channel_multipliers/pitch", _channel_mult_pitch_);
-  param_loader.load_param("channel_multipliers/roll", _channel_mult_roll_);
-  param_loader.load_param("channel_multipliers/heading", _channel_mult_heading_);
-  param_loader.load_param("channel_multipliers/thrust", _channel_mult_thrust_);
+  param_loader.loadParam("channel_multipliers/pitch", _channel_mult_pitch_);
+  param_loader.loadParam("channel_multipliers/roll", _channel_mult_roll_);
+  param_loader.loadParam("channel_multipliers/heading", _channel_mult_heading_);
+  param_loader.loadParam("channel_multipliers/thrust", _channel_mult_thrust_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
     ros::shutdown();
   }

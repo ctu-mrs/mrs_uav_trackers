@@ -14,8 +14,8 @@
 #include <fstream>
 #include <iostream>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/mutex.h>
 
@@ -147,7 +147,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   mrs_lib::ParamLoader param_loader(nh_, "CsvTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -155,8 +155,8 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  param_loader.load_param("filename", _filename_);
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("filename", _filename_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   // posX posY vx vy ax ay theta thrust release
   trajectory_ = MatrixXd::Zero(5000, 9);
@@ -207,15 +207,15 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   ser_scales_  = nh_.advertiseService("set_scales_in", &CsvTracker::setScales, this);
 
   // load params
-  param_loader.load_param("offset/x", _x_offset_);
-  param_loader.load_param("offset/y", _y_offset_);
-  param_loader.load_param("offset/z", _z_offset_);
+  param_loader.loadParam("offset/x", _x_offset_);
+  param_loader.loadParam("offset/y", _y_offset_);
+  param_loader.loadParam("offset/z", _z_offset_);
 
-  param_loader.load_param("scale/x", x_scale_);
-  param_loader.load_param("scale/y", y_scale_);
-  param_loader.load_param("scale/z", z_scale_);
+  param_loader.loadParam("scale/x", x_scale_);
+  param_loader.loadParam("scale/y", y_scale_);
+  param_loader.loadParam("scale/z", z_scale_);
 
-  param_loader.load_param("heading", _heading_);
+  param_loader.loadParam("heading", _heading_);
 
   ROS_WARN("[CsvTracker]: offset/x: %.2f", _x_offset_);
   ROS_WARN("[CsvTracker]: offset/y: %.2f", _y_offset_);
@@ -239,7 +239,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   timer_main_           = nh_.createTimer(ros::Rate(100), &CsvTracker::timerMain, this, false, false);
   timer_set_trajectory_ = nh_.createTimer(ros::Rate(1), &CsvTracker::timerSetTrajectory, this);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[CsvTracker]: could not load all parameters!");
     ros::shutdown();
   }

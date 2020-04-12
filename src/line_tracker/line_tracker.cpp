@@ -6,12 +6,12 @@
 
 #include <mrs_uav_manager/Tracker.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
-#include <mrs_lib/Utils.h>
+#include <mrs_lib/utils.h>
 
 //}
 
@@ -181,7 +181,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
   mrs_lib::ParamLoader param_loader(nh_, "LineTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -189,18 +189,18 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  param_loader.load_param("horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.load_param("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  param_loader.loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  param_loader.loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  param_loader.load_param("vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.load_param("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
-  param_loader.load_param("heading_tracker/heading_gain", _heading_gain_);
+  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam("heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.load_param("tracker_loop_rate", _tracker_loop_rate_);
+  param_loader.loadParam("tracker_loop_rate", _tracker_loop_rate_);
 
   _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
 
@@ -241,7 +241,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
   main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LineTracker]: could not load all parameters!");
     ros::shutdown();
   }

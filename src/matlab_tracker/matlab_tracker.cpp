@@ -8,8 +8,8 @@
 
 #include <nav_msgs/Odometry.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/subscribe_handler.h>
 
@@ -93,7 +93,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
   mrs_lib::ParamLoader param_loader(nh_, "MatlabTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -101,11 +101,11 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
-  param_loader.load_param("position_mode", _position_mode_);
-  param_loader.load_param("tilt_mode", _tilt_mode_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("position_mode", _position_mode_);
+  param_loader.loadParam("tilt_mode", _tilt_mode_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MatlabTracker]: could not load all parameters!");
     ros::shutdown();
   }

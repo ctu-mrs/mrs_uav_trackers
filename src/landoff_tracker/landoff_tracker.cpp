@@ -9,12 +9,12 @@
 #include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/UavState.h>
 
-#include <mrs_lib/ParamLoader.h>
-#include <mrs_lib/Profiler.h>
+#include <mrs_lib/param_loader.h>
+#include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
-#include <mrs_lib/Utils.h>
+#include <mrs_lib/utils.h>
 
 //}
 
@@ -199,7 +199,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -207,36 +207,36 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  param_loader.load_param("horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.load_param("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  param_loader.loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  param_loader.loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  param_loader.load_param("vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.load_param("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.load_param("vertical_tracker/takeoff_speed", _takeoff_speed_);
-  param_loader.load_param("vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
+  param_loader.loadParam("vertical_tracker/takeoff_speed", _takeoff_speed_);
+  param_loader.loadParam("vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
 
-  param_loader.load_param("vertical_tracker/landing_speed", _landing_speed_);
-  param_loader.load_param("vertical_tracker/landing_acceleration", _landing_acceleration_);
+  param_loader.loadParam("vertical_tracker/landing_speed", _landing_speed_);
+  param_loader.loadParam("vertical_tracker/landing_acceleration", _landing_acceleration_);
 
-  param_loader.load_param("vertical_tracker/elanding_speed", _elanding_speed_);
-  param_loader.load_param("vertical_tracker/elanding_acceleration", _elanding_acceleration_);
+  param_loader.loadParam("vertical_tracker/elanding_speed", _elanding_speed_);
+  param_loader.loadParam("vertical_tracker/elanding_acceleration", _elanding_acceleration_);
 
-  param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
-  param_loader.load_param("heading_tracker/heading_gain", _heading_gain_);
+  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam("heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.load_param("main_timer_rate", _main_timer_rate_);
+  param_loader.loadParam("main_timer_rate", _main_timer_rate_);
 
-  param_loader.load_param("landing_reference", _landing_reference_);
+  param_loader.loadParam("landing_reference", _landing_reference_);
 
-  param_loader.load_param("max_position_difference", _max_position_difference_);
+  param_loader.loadParam("max_position_difference", _max_position_difference_);
 
-  param_loader.load_param("takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
-  param_loader.load_param("takeoff_disable_lateral_gains_height", _takeoff_disable_lateral_gains_height_);
+  param_loader.loadParam("takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
+  param_loader.loadParam("takeoff_disable_lateral_gains_height", _takeoff_disable_lateral_gains_height_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
     ros::shutdown();
   }

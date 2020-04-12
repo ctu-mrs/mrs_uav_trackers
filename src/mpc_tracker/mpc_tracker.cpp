@@ -15,9 +15,9 @@
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/EstimatorType.h>
 
-#include <mrs_lib/Profiler.h>
-#include <mrs_lib/Utils.h>
-#include <mrs_lib/ParamLoader.h>
+#include <mrs_lib/profiler.h>
+#include <mrs_lib/utils.h>
+#include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
@@ -362,7 +362,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
 
-  param_loader.load_param("version", _version_);
+  param_loader.loadParam("version", _version_);
 
   if (_version_ != VERSION) {
 
@@ -370,27 +370,27 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  param_loader.load_param("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  param_loader.load_param("model/translation/n_states", _mpc_n_states_);
-  param_loader.load_param("model/translation/n_inputs", _mpc_m_states_);
-  param_loader.load_matrix_static("model/translation/A", _A_, _mpc_n_states_, _mpc_n_states_);
-  param_loader.load_matrix_static("model/translation/B", _B_, _mpc_n_states_, _mpc_m_states_);
+  param_loader.loadParam("model/translation/n_states", _mpc_n_states_);
+  param_loader.loadParam("model/translation/n_inputs", _mpc_m_states_);
+  param_loader.loadMatrixStatic("model/translation/A", _A_, _mpc_n_states_, _mpc_n_states_);
+  param_loader.loadMatrixStatic("model/translation/B", _B_, _mpc_n_states_, _mpc_m_states_);
 
-  param_loader.load_param("model/heading/n_states", _mpc_n_states_heading_);
-  param_loader.load_param("model/heading/n_inputs", _mpc_n_inputs_heading_);
-  param_loader.load_matrix_static("model/heading/A", _A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
-  param_loader.load_matrix_static("model/heading/B", _B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+  param_loader.loadParam("model/heading/n_states", _mpc_n_states_heading_);
+  param_loader.loadParam("model/heading/n_inputs", _mpc_n_inputs_heading_);
+  param_loader.loadMatrixStatic("model/heading/A", _A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
+  param_loader.loadMatrixStatic("model/heading/B", _B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
 
   // load the MPC parameters
-  param_loader.load_param("cvxgen/horizon_len", _mpc_horizon_len_);
+  param_loader.loadParam("cvxgen/horizon_len", _mpc_horizon_len_);
 
-  param_loader.load_param("cvxgen/dt1", _dt1_);
-  param_loader.load_param("cvxgen/dt2", _dt2_);
+  param_loader.loadParam("cvxgen/dt1", _dt1_);
+  param_loader.loadParam("cvxgen/dt2", _dt2_);
 
-  param_loader.load_param("diagnostics_rate", _diagnostics_rate_);
-  param_loader.load_param("diagnostic_position_tracking_threshold", _diag_pos_tracking_thr_);
-  param_loader.load_param("diagnostic_orientation_tracking_threshold", _diag_heading_tracking_thr_);
+  param_loader.loadParam("diagnostics_rate", _diagnostics_rate_);
+  param_loader.loadParam("diagnostic_position_tracking_threshold", _diag_pos_tracking_thr_);
+  param_loader.loadParam("diagnostic_orientation_tracking_threshold", _diag_heading_tracking_thr_);
 
   bool verbose_xy      = false;
   bool verbose_z       = false;
@@ -400,38 +400,38 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   std::vector<double> z_Q;
   std::vector<double> heading_Q;
 
-  param_loader.load_param("cvxgen_xy/verbose", verbose_xy);
-  param_loader.load_param("cvxgen_xy/max_n_iterations", _max_iters_xy_);
-  param_loader.load_param("cvxgen_xy/Q", xy_Q);
+  param_loader.loadParam("cvxgen_xy/verbose", verbose_xy);
+  param_loader.loadParam("cvxgen_xy/max_n_iterations", _max_iters_xy_);
+  param_loader.loadParam("cvxgen_xy/Q", xy_Q);
 
-  param_loader.load_param("cvxgen_z/verbose", verbose_z);
-  param_loader.load_param("cvxgen_z/max_n_iterations", _max_iters_z_);
-  param_loader.load_param("cvxgen_z/Q", z_Q);
+  param_loader.loadParam("cvxgen_z/verbose", verbose_z);
+  param_loader.loadParam("cvxgen_z/max_n_iterations", _max_iters_z_);
+  param_loader.loadParam("cvxgen_z/Q", z_Q);
 
-  param_loader.load_param("cvxgen_heading/verbose", verbose_heading);
-  param_loader.load_param("cvxgen_heading/max_n_iterations", _max_iters_heading_);
-  param_loader.load_param("cvxgen_heading/Q", heading_Q);
+  param_loader.loadParam("cvxgen_heading/verbose", verbose_heading);
+  param_loader.loadParam("cvxgen_heading/max_n_iterations", _max_iters_heading_);
+  param_loader.loadParam("cvxgen_heading/Q", heading_Q);
 
-  param_loader.load_param("wiggle/enabled", wiggle_enabled_);
-  param_loader.load_param("wiggle/amplitude", wiggle_amplitude_);
-  param_loader.load_param("wiggle/frequency", wiggle_frequency_);
+  param_loader.loadParam("wiggle/enabled", wiggle_enabled_);
+  param_loader.loadParam("wiggle/amplitude", wiggle_amplitude_);
+  param_loader.loadParam("wiggle/frequency", wiggle_frequency_);
 
   // collision avoidance
-  param_loader.load_param("collision_avoidance/enabled", collision_avoidance_enabled_);
-  param_loader.load_param("network/robot_names", _avoidance_other_uav_names_);
-  param_loader.load_param("predicted_trajectory_topic", _avoidance_trajectory_topic_name_);
-  param_loader.load_param("diagnostics_topic", _avoidance_diagnostics_topic_name_);
-  param_loader.load_param("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
-  param_loader.load_param("collision_avoidance/correction", _avoidance_height_correction_);
-  param_loader.load_param("collision_avoidance/radius", _avoidance_radius_threshold_);
-  param_loader.load_param("collision_avoidance/altitude_threshold", _avoidance_height_threshold_);
-  param_loader.load_param("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
-  param_loader.load_param("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
-  param_loader.load_param("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
-  param_loader.load_param("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
-  param_loader.load_param("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
+  param_loader.loadParam("collision_avoidance/enabled", collision_avoidance_enabled_);
+  param_loader.loadParam("network/robot_names", _avoidance_other_uav_names_);
+  param_loader.loadParam("predicted_trajectory_topic", _avoidance_trajectory_topic_name_);
+  param_loader.loadParam("diagnostics_topic", _avoidance_diagnostics_topic_name_);
+  param_loader.loadParam("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
+  param_loader.loadParam("collision_avoidance/correction", _avoidance_height_correction_);
+  param_loader.loadParam("collision_avoidance/radius", _avoidance_radius_threshold_);
+  param_loader.loadParam("collision_avoidance/altitude_threshold", _avoidance_height_threshold_);
+  param_loader.loadParam("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
+  param_loader.loadParam("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
+  param_loader.loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
+  param_loader.loadParam("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
+  param_loader.loadParam("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
 
-  if (!param_loader.loaded_successfully()) {
+  if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
     ros::shutdown();
   }
