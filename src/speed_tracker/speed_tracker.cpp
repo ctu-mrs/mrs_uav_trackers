@@ -108,9 +108,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   ros::Time::waitForValid();
 
-  // --------------------------------------------------------------
-  // |                       load parameters                      |
-  // --------------------------------------------------------------
+  // | --------------------- load the params -------------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
@@ -131,15 +129,11 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
     ros::shutdown();
   }
 
-  // --------------------------------------------------------------
-  // |                          profiler                          |
-  // --------------------------------------------------------------
+  // | ------------------------ profiler ------------------------ |
 
   profiler_ = mrs_lib::Profiler(nh_, "SpeedTracker", _profiler_enabled_);
 
-  // --------------------------------------------------------------
-  // |                         subscribers                        |
-  // --------------------------------------------------------------
+  // | ----------------------- subscribers ---------------------- |
 
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh              = nh_;
@@ -150,11 +144,11 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand>(shopts, "command_in", &SpeedTracker::callbackCommand, this);
 
-  // --------------------------------------------------------------
-  // |                         publishers                         |
-  // --------------------------------------------------------------
+  // | ----------------------- publishers ----------------------- |
 
   publisher_rviz_marker_ = nh_.advertise<visualization_msgs::MarkerArray>("rviz_marker_out", 1);
+
+  // | --------------------- finish the init -------------------- |
 
   is_initialized_ = true;
 
