@@ -14,6 +14,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/subscribe_handler.h>
 
 //}
 
@@ -57,14 +58,10 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-  void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer_;
+  bool is_initialized_ = false;
+  bool is_active_      = false;
 
-  double _tracker_loop_rate_;
-  double _tracker_dt_;
-  bool   is_initialized_ = false;
-  bool   is_active_      = false;
-  bool   first_iter_     = false;
+  ros::Time last_update;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -83,21 +80,16 @@ private:
   double     state_heading_;
   double     speed_heading_;
   double     current_heading_;
-  double     desired_vertical_speed_ = 0;
-  double     desired_heading_rate_   = 0;
-  double     desired_pitch_          = 0;
-  double     desired_roll_           = 0;
   double     current_horizontal_acceleration_;
   double     current_vertical_acceleration;
   std::mutex mutex_state_;
 
   // | ------------------- joystick subscriber ------------------ |
 
-  ros::Subscriber subscriber_joystick_;
-  void            callbackJoystick(const sensor_msgs::Joy &msg);
-  double          _max_tilt_;
-  double          _vertical_speed_;
-  double          got_joystick_ = false;
+  mrs_lib::SubscribeHandler<sensor_msgs::Joy> sh_joystick_;
+
+  double _max_tilt_;
+  double _vertical_speed_;
 
   // channel numbers and channel multipliers
   int _channel_pitch_;
@@ -149,7 +141,6 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   param_loader.load_param("vertical_tracker/vertical_speed", _vertical_speed_);
 
-  param_loader.load_param("tracker_loop_rate", _tracker_loop_rate_);
   param_loader.load_param("max_tilt", _max_tilt_);
 
   param_loader.load_param("heading_tracker/heading_rate", _heading_rate_);
@@ -166,32 +157,28 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.load_param("channel_multipliers/heading", _channel_mult_heading_);
   param_loader.load_param("channel_multipliers/thrust", _channel_mult_thrust_);
 
-  _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
-
-  ROS_INFO("[JoyTracker]: tracker_dt: %f", _tracker_dt_);
-
-  // --------------------------------------------------------------
-  // |                          profiler_                          |
-  // --------------------------------------------------------------
-
-  profiler_ = mrs_lib::Profiler(nh_, "joytracker", _profiler_enabled_);
-
-  // --------------------------------------------------------------
-  // |                         subscribers                        |
-  // --------------------------------------------------------------
-
-  subscriber_joystick_ = nh_.subscribe("joystick_in", 1, &JoyTracker::callbackJoystick, this, ros::TransportHints().tcpNoDelay());
-
-  // --------------------------------------------------------------
-  // |                           timers                           |
-  // --------------------------------------------------------------
-
-  main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &JoyTracker::mainTimer, this);
-
   if (!param_loader.loaded_successfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
     ros::shutdown();
   }
+
+  // | ------------------------ profiler ------------------------ |
+
+  profiler_ = mrs_lib::Profiler(nh_, "JoyTracker", _profiler_enabled_);
+
+  // | ----------------------- subscribers ---------------------- |
+
+  mrs_lib::SubscribeHandlerOptions shopts;
+  shopts.nh              = nh_;
+  shopts.node_name       = "JoyTracker";
+  shopts.queue_size      = 1;
+  shopts.transport_hints = ros::TransportHints().tcpNoDelay();
+
+  sh_joystick_ = mrs_lib::SubscribeHandler<sensor_msgs::Joy>(shopts, "joystick_in");
+
+  // | --------------------- finish the init -------------------- |
+
+  last_update = ros::Time(0);
 
   is_initialized_ = true;
 
@@ -210,7 +197,7 @@ bool JoyTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
     return false;
   }
 
-  if (!got_joystick_) {
+  if (!sh_joystick_.hasMsg()) {
 
     ROS_ERROR("[JoyTracker]: can not activate(), missing joystick goal");
     return false;
@@ -245,10 +232,6 @@ bool JoyTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
       ROS_WARN("[JoyTracker]: the previous command is not usable for activation, using Odometry instead");
     }
   }
-
-  // --------------------------------------------------------------
-  // |              heading initial condition  prediction             |
-  // --------------------------------------------------------------
 
   is_active_ = true;
 
@@ -294,42 +277,60 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
     got_uav_state_ = true;
   }
 
+  double dt = (ros::Time::now() - last_update).toSec();
+
+  last_update = ros::Time::now();
+
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  auto [state_z, desired_vertical_speed, desired_pitch, desired_roll, state_heading, desired_heading_rate] =
-      mrs_lib::get_mutexed(mutex_state_, state_z_, desired_vertical_speed_, desired_pitch_, desired_roll_, state_heading_, desired_heading_rate_);
+  if (!sh_joystick_.hasMsg()) {
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  // | ------------------ get the joystick data ----------------- |
+
+  sensor_msgs::JoyConstPtr joy_data = sh_joystick_.getMsg();
+
+  double desired_vertical_speed = _channel_mult_thrust_ * joy_data->axes[_channel_thrust_] * _vertical_speed_;
+  double desired_heading_rate   = _channel_mult_heading_ * joy_data->axes[_channel_heading_] * _heading_rate_;
+  double desired_pitch          = _channel_mult_pitch_ * joy_data->axes[_channel_pitch_] * _max_tilt_;
+  double desired_roll           = _channel_mult_roll_ * joy_data->axes[_channel_roll_] * _max_tilt_;
+
+  // | --------------------- height tracking -------------------- |
+
+  state_z_ += desired_vertical_speed * dt;
+
+  // | -------------------- heading tracking -------------------- |
+
+  state_heading_ += desired_heading_rate * dt;
+  state_heading_ = mrs_lib::wrapAngle(state_heading_);
+
+  ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, heading_speed: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed, desired_heading_rate,
+                    desired_pitch, desired_roll);
 
   mrs_msgs::PositionCommand position_cmd;
 
   position_cmd.header.stamp    = ros::Time::now();
   position_cmd.header.frame_id = uav_state->header.frame_id;
 
-  position_cmd.use_position_horizontal = true;
-  position_cmd.use_position_vertical   = true;
-  position_cmd.position.x              = uav_state->pose.position.x;
-  position_cmd.position.y              = uav_state->pose.position.y;
-  position_cmd.position.z              = state_z;
+  position_cmd.use_position_vertical = true;
+  position_cmd.position.z            = state_z_;
 
-  position_cmd.use_heading = 1;
-  position_cmd.heading     = state_heading;
+  // filling these anyway to allow visualization of the reference
+  position_cmd.position.x = uav_state->pose.position.x;
+  position_cmd.position.y = uav_state->pose.position.y;
 
-  position_cmd.use_velocity_horizontal = true;
-  position_cmd.use_velocity_vertical   = true;
-  position_cmd.velocity.x              = uav_state->velocity.linear.x;
-  position_cmd.velocity.y              = uav_state->velocity.linear.y;
-  position_cmd.velocity.z              = desired_vertical_speed;
+  position_cmd.use_velocity_vertical = true;
+  position_cmd.velocity.z            = desired_vertical_speed;
 
   position_cmd.use_heading_rate = 1;
   position_cmd.heading_rate     = desired_heading_rate;
 
-  position_cmd.acceleration.x = 0;
-  position_cmd.acceleration.y = 0;
-  position_cmd.acceleration.z = 0;
-
-  position_cmd.orientation     = mrs_lib::AttitudeConverter(-desired_roll, desired_pitch, state_heading);
+  /* position_cmd.orientation     = mrs_lib::AttitudeConverter(desired_roll, desired_pitch, 0).setHeadingByYaw(state_heading_); */
+  position_cmd.orientation     = mrs_lib::AttitudeConverter(desired_roll, desired_pitch, state_heading_);
   position_cmd.use_orientation = true;
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
@@ -452,69 +453,6 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr JoyTracker::setReference([[maybe_
 const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr JoyTracker::setTrajectoryReference([
     [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
-}
-
-//}
-
-// | ------------------------- timers ------------------------- |
-
-/* //{ mainTimer() */
-
-void JoyTracker::mainTimer(const ros::TimerEvent &event) {
-
-  if (!is_active_) {
-    return;
-  }
-
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("main", _tracker_loop_rate_, 0.002, event);
-
-  {
-    std::scoped_lock lock(mutex_state_);
-
-    // --------------------------------------------------------------
-    // |                       height tracking                      |
-    // --------------------------------------------------------------
-
-    state_z_ += desired_vertical_speed_ * _tracker_dt_;
-
-    // --------------------------------------------------------------
-    // |                        heading tracking                        |
-    // --------------------------------------------------------------
-
-    state_heading_ += desired_heading_rate_ * _tracker_dt_;
-
-    state_heading_ = mrs_lib::wrapAngle(state_heading_);
-  }
-}
-
-//}
-
-// | --------------------- custom methods --------------------- |
-
-/* callbackJoystick() //{ */
-
-void JoyTracker::callbackJoystick(const sensor_msgs::Joy &msg) {
-
-  if (!is_initialized_)
-    return;
-
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackJoystick");
-
-  // TODO check the size of the array
-
-  {
-    std::scoped_lock lock(mutex_state_);
-
-    desired_vertical_speed_ = _channel_mult_thrust_ * msg.axes[_channel_thrust_] * _vertical_speed_;
-    desired_heading_rate_   = _channel_mult_heading_ * msg.axes[_channel_heading_] * _heading_rate_;
-    desired_pitch_          = _channel_mult_pitch_ * msg.axes[_channel_pitch_] * _max_tilt_;
-    desired_roll_           = _channel_mult_roll_ * msg.axes[_channel_roll_] * _max_tilt_;
-
-    got_joystick_ = true;
-
-    ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, heading_speed: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed_,
-                      desired_heading_rate_, desired_pitch_, desired_roll_);
-  }
 }
 
 //}

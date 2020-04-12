@@ -1,7 +1,5 @@
 version: "0.0.5.0"
 
-tracker_loop_rate: 100 # [Hz]
-
 vertical_tracker:
   vertical_speed: 0.6
 
@@ -10,7 +8,7 @@ max_tilt: 0.50 # [rad]
 heading_tracker:
   heading_rate: 1.0
 
-# channel numbers, indeces in array
+# channel numbers, indices in array
 channels:
 
   pitch: 1 # []
@@ -22,6 +20,6 @@ channels:
 channel_multipliers:
 
   pitch: 1.0 # []
-  roll: 1.0 # []
+  roll: -1.0 # []
   heading: 1.0 # []
   thrust: 1.0 # []
