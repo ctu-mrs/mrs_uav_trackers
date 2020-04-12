@@ -13,6 +13,7 @@
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/EstimatorType.h>
 
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/Utils.h>
@@ -20,6 +21,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/subscribe_handler.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mrs_trackers/cvx_wrapper.h>
@@ -186,14 +188,6 @@ private:
   int _max_iters_z_;
   int _max_iters_heading_;
 
-  // | ------------------ odometry diagnostics ------------------ |
-
-  ros::Subscriber        subscriber_odometry_diagnostics_;
-  void                   callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr& msg);
-  mrs_msgs::OdometryDiag odometry_diagnostics_;
-  bool                   got_odometry_diagnostics_ = false;
-  std::mutex             mutex_odometry_diagnostics_;
-
   // | ----------- measuring the "MPC realtime factor" ---------- |
 
   ros::Time mpc_start_time_;
@@ -245,16 +239,18 @@ private:
   bool future_was_predicted_ = false;
 
   // subscribing to the other UAV future trajectories
-  void                                              callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr& msg);
-  std::vector<ros::Subscriber>                      other_uav_trajectory_subscribers_;
-  std::map<std::string, mrs_msgs::FutureTrajectory> other_uav_avoidance_trajectories_;
-  std::mutex                                        mutex_other_uav_avoidance_trajectories_;
+  void callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>& sh_ptr);
+
+  std::vector<mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>> other_uav_trajectory_subscribers_;
+  std::map<std::string, mrs_msgs::FutureTrajectory>                  other_uav_avoidance_trajectories_;
+  std::mutex                                                         mutex_other_uav_avoidance_trajectories_;
 
   // subscribing to the other UAV diagnostics'
-  void                                                   callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg);
-  std::vector<ros::Subscriber>                           other_uav_diag_subscribers_;
-  std::map<std::string, mrs_msgs::MpcTrackerDiagnostics> other_uav_diagnostics_;
-  std::mutex                                             mutex_other_uav_diagnostics_;
+  void callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>& sh_ptr);
+
+  std::vector<mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>> other_uav_diag_subscribers_;
+  std::map<std::string, mrs_msgs::MpcTrackerDiagnostics>                  other_uav_diagnostics_;
+  std::mutex                                                              mutex_other_uav_diagnostics_;
 
   double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   double checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
@@ -460,8 +456,6 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   des_y_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_z_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
-  subscriber_odometry_diagnostics_ =
-      nh_.subscribe("odometry_diagnostics_in", 1, &MpcTracker::callbackOdometryDiagnostics, this, ros::TransportHints().tcpNoDelay());
   service_client_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
   pub_diagnostics_ = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
@@ -506,6 +500,15 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   // collision avoidance toggle service
   service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance_in", &MpcTracker::callbackToggleCollisionAvoidance, this);
 
+  mrs_lib::SubscribeHandlerOptions shopts;
+  shopts.nh                 = nh_;
+  shopts.node_name          = "MpcTracker";
+  shopts.no_message_timeout = mrs_lib::no_timeout;
+  shopts.threadsafe         = true;
+  shopts.autostart          = true;
+  shopts.queue_size         = 10;
+  shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
+
   // create subscribers on other drones diagnostics
   for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
 
@@ -515,13 +518,12 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
     other_uav_trajectory_subscribers_.push_back(
-        nh_.subscribe(prediction_topic_name, 1, &MpcTracker::callbackOtherMavTrajectory, this, ros::TransportHints().tcpNoDelay()));
-
+        mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>(shopts, prediction_topic_name, &MpcTracker::callbackOtherMavTrajectory, this));
 
     ROS_INFO("[MpcTracker]: subscribing to %s", diag_topic_name.c_str());
 
     other_uav_diag_subscribers_.push_back(
-        nh_.subscribe(diag_topic_name, 1, &MpcTracker::callbackOtherMavDiagnostics, this, ros::TransportHints().tcpNoDelay()));
+        mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
   }
 
   // | --------------- dynamic reconfigure server --------------- |
@@ -559,12 +561,6 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 /* //{ activate() */
 
 bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
-
-  if (!got_odometry_diagnostics_) {
-
-    ROS_ERROR("[MpcTracker]: can not activate, missing odometry diagnostics");
-    return false;
-  }
 
   if (!got_constraints_) {
 
@@ -631,7 +627,12 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
     if (last_position_cmd->use_heading) {
       mpc_x_heading(0, 0) = last_position_cmd->heading;
     } else if (last_position_cmd->use_orientation) {
-      mpc_x_heading(0, 0) = mrs_lib::AttitudeConverter(last_position_cmd->orientation).getHeading();
+      try {
+        mpc_x_heading(0, 0) = mrs_lib::AttitudeConverter(last_position_cmd->orientation).getHeading();
+      }
+      catch (...) {
+        mpc_x_heading(0, 0) = uav_state_heading;
+      }
     } else {
       mpc_x_heading(0, 0) = uav_state_heading;
     }
@@ -1311,7 +1312,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MpcTracker::setTrajecto
 
 /* //{ callbackOtherMavTrajectory() */
 
-void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryConstPtr& msg) {
+void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>& sh_ptr) {
 
   if (!is_initialized_) {
     return;
@@ -1321,10 +1322,10 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  mrs_msgs::FutureTrajectory temp_trajectory = *msg;
+  mrs_msgs::FutureTrajectory trajectory = *sh_ptr.getMsg();
 
   // the times might not be synchronized, so just remember the time of receiving it
-  temp_trajectory.stamp = ros::Time::now();
+  trajectory.stamp = ros::Time::now();
 
   // transform it from the utm origin to the currently used frame
   auto res = common_handlers_->transformer->getTransform("utm_origin", uav_state.header.frame_id, ros::Time::now(), true);
@@ -1340,22 +1341,22 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
   mrs_lib::TransformStamped tf = res.value();
 
-  for (int i = 0; i < int(temp_trajectory.points.size()); i++) {
+  for (int i = 0; i < int(trajectory.points.size()); i++) {
 
     geometry_msgs::PoseStamped original_pose;
 
-    original_pose.pose.position.x = temp_trajectory.points[i].x;
-    original_pose.pose.position.y = temp_trajectory.points[i].y;
-    original_pose.pose.position.z = temp_trajectory.points[i].z;
+    original_pose.pose.position.x = trajectory.points[i].x;
+    original_pose.pose.position.y = trajectory.points[i].y;
+    original_pose.pose.position.z = trajectory.points[i].z;
 
     original_pose.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     auto res = common_handlers_->transformer->transform(tf, original_pose);
 
     if (res) {
-      temp_trajectory.points[i].x = res.value().pose.position.x;
-      temp_trajectory.points[i].y = res.value().pose.position.y;
-      temp_trajectory.points[i].z = res.value().pose.position.z;
+      trajectory.points[i].x = res.value().pose.position.x;
+      trajectory.points[i].y = res.value().pose.position.y;
+      trajectory.points[i].z = res.value().pose.position.z;
     } else {
 
       std::string message = "[MpcTracker]: could not transform point of other uav future trajectory!";
@@ -1370,7 +1371,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
     std::scoped_lock lock(mutex_other_uav_avoidance_trajectories_);
 
     // update the diagnostics
-    other_uav_avoidance_trajectories_[msg->uav_name] = temp_trajectory;
+    other_uav_avoidance_trajectories_[trajectory.uav_name] = trajectory;
   }
 }
 
@@ -1378,19 +1379,20 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectoryCons
 
 /* //{ callbackOtherMavDiagnostics() */
 
-void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosticsConstPtr& msg) {
+void MpcTracker::callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>& sh_ptr) {
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
 
   std::scoped_lock lock(mutex_other_uav_diagnostics_);
 
-  mrs_msgs::MpcTrackerDiagnostics temp_diagnostics = *msg;
+  mrs_msgs::MpcTrackerDiagnostics diagnostics = *sh_ptr.getMsg();
 
-  // the times might not be synchronized, so just remember the time of receiving it
-  temp_diagnostics.header.stamp = ros::Time::now();
+  // fill in the current time
+  // the other uav's time might not be synchronized with ours
+  diagnostics.header.stamp = ros::Time::now();
 
   // update the diagnostics
-  other_uav_diagnostics_[msg->uav_name] = temp_diagnostics;
+  other_uav_diagnostics_[diagnostics.uav_name] = diagnostics;
 }
 
 //}
@@ -1407,25 +1409,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& re
   res.success = true;
 
   return true;
-}
-
-//}
-
-/* //{ callbackOdometryDiagnostics() */
-
-void MpcTracker::callbackOdometryDiagnostics(const mrs_msgs::OdometryDiagConstPtr& msg) {
-
-  if (!is_initialized_) {
-    return;
-  }
-
-  ROS_INFO_ONCE("[MpcTracker]: getting odometry diagnostics");
-
-  std::scoped_lock lock(mutex_odometry_diagnostics_);
-
-  odometry_diagnostics_ = *msg;
-
-  got_odometry_diagnostics_ = true;
 }
 
 //}
@@ -1769,12 +1752,14 @@ void MpcTracker::calculateMPC() {
 
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
+  auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
   bool   brake;
 
-  if (collision_avoidance_enabled_ && ((odometry_diagnostics_.estimator_type.name == "GPS") || odometry_diagnostics_.estimator_type.name == "RTK")) {
+  if (collision_avoidance_enabled_ &&
+      (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS || uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK)) {
 
     // determine the lowest point in our trajectory
     for (int i = 0; i < _mpc_horizon_len_; i++) {
@@ -2715,10 +2700,12 @@ void MpcTracker::publishDiagnostics(void) {
     }
   }
 
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
   if (ss.str().length() > 0) {
     ROS_DEBUG_STREAM_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: " << ss.str());
-  } else if (got_odometry_diagnostics_ && collision_avoidance_enabled_ &&
-             ((odometry_diagnostics_.estimator_type.name == "GPS") || odometry_diagnostics_.estimator_type.name == "RTK")) {
+  } else if (collision_avoidance_enabled_ &&
+             (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS || uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK)) {
     ROS_DEBUG_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
@@ -3007,11 +2994,11 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
     mrs_msgs::FutureTrajectory avoidance_trajectory;
 
     // fill last trajectory with initial data
-    avoidance_trajectory.stamp    = ros::Time::now();
-    avoidance_trajectory.uav_name = _uav_name_;
-    avoidance_trajectory.priority = avoidance_this_uav_priority_;
-    avoidance_trajectory.collision_avoidance =
-        collision_avoidance_enabled_ && ((odometry_diagnostics_.estimator_type.name == "GPS") || odometry_diagnostics_.estimator_type.name == "RTK");
+    avoidance_trajectory.stamp               = ros::Time::now();
+    avoidance_trajectory.uav_name            = _uav_name_;
+    avoidance_trajectory.priority            = avoidance_this_uav_priority_;
+    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS ||
+                                                                                uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK);
 
     avoidance_trajectory.points.clear();
     avoidance_trajectory.stamp               = ros::Time::now();

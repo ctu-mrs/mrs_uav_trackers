@@ -13,6 +13,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
+#include <mrs_lib/subscribe_handler.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -75,17 +76,15 @@ private:
   bool   is_initialized_ = false;
   bool   is_active_      = false;
 
-  // | -------------------------- goal -------------------------- |
-
-  double                        got_command_ = false;
-  std::mutex                    mutex_command_;
-  mrs_msgs::SpeedTrackerCommand external_command_;
-  ros::Time                     external_command_time_;
-
   double _external_command_timeout_;
 
-  ros::Subscriber subscriber_command_;
-  void            callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg);
+  mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> sh_command_;
+
+  void callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> &sh_ptr);
+
+  // stores the post-processed and transformed command
+  mrs_msgs::SpeedTrackerCommand command_;
+  std::mutex                    mutex_command_;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -132,8 +131,6 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
     ros::shutdown();
   }
 
-  external_command_time_ = ros::Time(0);
-
   // --------------------------------------------------------------
   // |                          profiler                          |
   // --------------------------------------------------------------
@@ -144,7 +141,14 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   // |                         subscribers                        |
   // --------------------------------------------------------------
 
-  subscriber_command_ = nh_.subscribe("command_in", 1, &SpeedTracker::callbackCommand, this, ros::TransportHints().tcpNoDelay());
+  mrs_lib::SubscribeHandlerOptions shopts;
+  shopts.nh              = nh_;
+  shopts.node_name       = "SpeedTracker";
+  shopts.threadsafe      = true;
+  shopts.autostart       = true;
+  shopts.transport_hints = ros::TransportHints().tcpNoDelay();
+
+  sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand>(shopts, "command_in", &SpeedTracker::callbackCommand, this);
 
   // --------------------------------------------------------------
   // |                         publishers                         |
@@ -168,15 +172,13 @@ bool SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::Co
     return false;
   }
 
-  std::scoped_lock lock(mutex_command_);
-
-  if (!got_command_) {
+  if (!sh_command_.hasMsg()) {
 
     ROS_ERROR("[SpeedTracker]: can not activate, missing command");
     return false;
   }
 
-  auto external_command_time = mrs_lib::get_mutexed(mutex_command_, external_command_time_);
+  ros::Time external_command_time = sh_command_.lastMsgTime();
 
   // timeout the external command
   if ((ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
@@ -248,19 +250,17 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     return mrs_msgs::PositionCommand::Ptr();
   }
 
-  {
-    auto external_command_time = mrs_lib::get_mutexed(mutex_command_, external_command_time_);
+  ros::Time external_command_time = sh_command_.lastMsgTime();
 
-    // timeout the external command
-    if (got_command_ && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
-      ROS_ERROR("[SpeedTracker]: command timeouted, returning nil");
-      return mrs_msgs::PositionCommand::Ptr();
-    }
+  // timeout the external command
+  if (sh_command_.hasMsg() && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
+    ROS_ERROR("[SpeedTracker]: command timeouted, returning nil");
+    return mrs_msgs::PositionCommand::Ptr();
   }
 
-  mrs_msgs::PositionCommand position_cmd;
+  auto command = mrs_lib::get_mutexed(mutex_command_, command_);
 
-  auto external_command = mrs_lib::get_mutexed(mutex_command_, external_command_);
+  mrs_msgs::PositionCommand position_cmd;
 
   position_cmd.header.stamp    = ros::Time::now();
   position_cmd.header.frame_id = uav_state->header.frame_id;
@@ -268,10 +268,10 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
   position_cmd.position.x = uav_state->pose.position.x;
   position_cmd.position.y = uav_state->pose.position.y;
 
-  if (external_command.use_velocity) {
-    position_cmd.velocity.x              = external_command.velocity.x;
-    position_cmd.velocity.y              = external_command.velocity.y;
-    position_cmd.velocity.z              = external_command.velocity.z;
+  if (command.use_velocity) {
+    position_cmd.velocity.x              = command.velocity.x;
+    position_cmd.velocity.y              = command.velocity.y;
+    position_cmd.velocity.z              = command.velocity.z;
     position_cmd.use_velocity_horizontal = true;
     position_cmd.use_velocity_vertical   = true;
   } else {
@@ -282,23 +282,23 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.use_velocity_vertical   = false;
   }
 
-  if (external_command.use_height) {
-    position_cmd.position.z            = external_command.height;
+  if (command.use_height) {
+    position_cmd.position.z            = command.height;
     position_cmd.use_position_vertical = true;
   } else {
     position_cmd.position.z            = uav_state->pose.position.z;
     position_cmd.use_position_vertical = false;
   }
 
-  if (external_command.use_acceleration) {
-    position_cmd.acceleration.x   = external_command.acceleration.x;
-    position_cmd.acceleration.y   = external_command.acceleration.y;
-    position_cmd.acceleration.z   = external_command.acceleration.z;
+  if (command.use_acceleration) {
+    position_cmd.acceleration.x   = command.acceleration.x;
+    position_cmd.acceleration.y   = command.acceleration.y;
+    position_cmd.acceleration.z   = command.acceleration.z;
     position_cmd.use_acceleration = true;
-  } else if (external_command.use_force) {
-    position_cmd.acceleration.x   = external_command.force.x / last_attitude_cmd->total_mass;
-    position_cmd.acceleration.y   = external_command.force.y / last_attitude_cmd->total_mass;
-    position_cmd.acceleration.z   = external_command.force.z / last_attitude_cmd->total_mass;
+  } else if (command.use_force) {
+    position_cmd.acceleration.x   = command.force.x / last_attitude_cmd->total_mass;
+    position_cmd.acceleration.y   = command.force.y / last_attitude_cmd->total_mass;
+    position_cmd.acceleration.z   = command.force.z / last_attitude_cmd->total_mass;
     position_cmd.use_acceleration = true;
   } else {
     position_cmd.acceleration.x   = uav_state->acceleration.linear.x;
@@ -307,16 +307,16 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.use_acceleration = false;
   }
 
-  if (external_command.use_heading) {
-    position_cmd.heading     = external_command.heading;
+  if (command.use_heading) {
+    position_cmd.heading     = command.heading;
     position_cmd.use_heading = true;
   } else {
     position_cmd.heading     = uav_heading;
     position_cmd.use_heading = false;
   }
 
-  if (external_command.use_heading_rate) {
-    position_cmd.heading_rate     = external_command.heading_rate;
+  if (command.use_heading_rate) {
+    position_cmd.heading_rate     = command.heading_rate;
     position_cmd.use_heading_rate = true;
   } else {
     position_cmd.heading_rate     = uav_state->velocity.angular.z;
@@ -452,99 +452,99 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajec
 
 /* callbackCommand() //{ */
 
-void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
+void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> &sh_ptr) {
 
   if (!is_initialized_)
     return;
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackCommand");
 
-  mrs_msgs::SpeedTrackerCommand external_command = msg;
+  mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
+
+  mrs_msgs::SpeedTrackerCommand transformed_command = *external_command;
 
   // transform the command
 
   // transform velocity
 
-  if (msg.use_velocity) {
+  if (transformed_command.use_velocity) {
 
     geometry_msgs::Vector3Stamped vector3;
-    vector3.header = msg.header;
+    vector3.header = transformed_command.header;
 
-    vector3.vector.x = external_command.velocity.x;
-    vector3.vector.y = external_command.velocity.y;
-    vector3.vector.z = external_command.velocity.z;
+    vector3.vector.x = transformed_command.velocity.x;
+    vector3.vector.y = transformed_command.velocity.y;
+    vector3.vector.z = transformed_command.velocity.z;
 
     auto ret = common_handlers_->transformer->transformSingle("", vector3);
 
     if (ret) {
-      external_command.velocity.x = ret.value().vector.x;
-      external_command.velocity.y = ret.value().vector.y;
-      external_command.velocity.z = ret.value().vector.z;
+      transformed_command.velocity.x = ret.value().vector.x;
+      transformed_command.velocity.y = ret.value().vector.y;
+      transformed_command.velocity.z = ret.value().vector.z;
     }
   }
 
   // transform heading
 
-  if (msg.use_heading) {
+  if (transformed_command.use_heading) {
 
     mrs_msgs::ReferenceStamped temp_ref;
-    temp_ref.header = msg.header;
+    temp_ref.header = transformed_command.header;
 
-    temp_ref.reference.heading = external_command.heading;
+    temp_ref.reference.heading = transformed_command.heading;
 
     auto ret = common_handlers_->transformer->transformSingle("", temp_ref);
 
     if (ret) {
-      external_command.heading = ret.value().reference.heading;
+      transformed_command.heading = ret.value().reference.heading;
     }
   }
 
   // transform acceleration
 
-  if (msg.use_acceleration) {
+  if (transformed_command.use_acceleration) {
 
     geometry_msgs::Vector3Stamped vector3;
-    vector3.header = msg.header;
+    vector3.header = transformed_command.header;
 
-    vector3.vector.x = external_command.acceleration.x;
-    vector3.vector.y = external_command.acceleration.y;
-    vector3.vector.z = external_command.acceleration.z;
+    vector3.vector.x = transformed_command.acceleration.x;
+    vector3.vector.y = transformed_command.acceleration.y;
+    vector3.vector.z = transformed_command.acceleration.z;
 
     auto ret = common_handlers_->transformer->transformSingle("", vector3);
 
     if (ret) {
-      external_command.acceleration.x = ret.value().vector.x;
-      external_command.acceleration.y = ret.value().vector.y;
-      external_command.acceleration.z = ret.value().vector.z;
+      transformed_command.acceleration.x = ret.value().vector.x;
+      transformed_command.acceleration.y = ret.value().vector.y;
+      transformed_command.acceleration.z = ret.value().vector.z;
     }
   }
 
   // transform force
 
-  if (msg.use_force) {
+  if (transformed_command.use_force) {
 
     geometry_msgs::Vector3Stamped vector3;
-    vector3.header = msg.header;
+    vector3.header = transformed_command.header;
 
-    vector3.vector.x = external_command.force.x;
-    vector3.vector.y = external_command.force.y;
-    vector3.vector.z = external_command.force.z;
+    vector3.vector.x = transformed_command.force.x;
+    vector3.vector.y = transformed_command.force.y;
+    vector3.vector.z = transformed_command.force.z;
 
     auto ret = common_handlers_->transformer->transformSingle("", vector3);
 
     if (ret) {
-      external_command.force.x = vector3.vector.x;
-      external_command.force.y = vector3.vector.y;
-      external_command.force.z = vector3.vector.z;
+      transformed_command.force.x = vector3.vector.x;
+      transformed_command.force.y = vector3.vector.y;
+      transformed_command.force.z = vector3.vector.z;
     }
   }
 
   {
     std::scoped_lock lock(mutex_command_);
 
-    external_command_      = external_command;
-    external_command_time_ = ros::Time::now();
-    got_command_           = true;
+    command_ = transformed_command;
   }
 
   if (!is_active_) {
@@ -565,7 +565,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
   /* desired speed //{ */
 
-  if (external_command.use_velocity) {
+  if (transformed_command.use_velocity) {
 
     std::scoped_lock lock(mutex_uav_state_);
 
@@ -603,9 +603,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* tip //{ */
 
-    point.x = uav_state_.pose.position.x + external_command.velocity.x;
-    point.y = uav_state_.pose.position.y + external_command.velocity.y;
-    point.z = uav_state_.pose.position.z + external_command.velocity.z;
+    point.x = uav_state_.pose.position.x + transformed_command.velocity.x;
+    point.y = uav_state_.pose.position.y + transformed_command.velocity.y;
+    point.z = uav_state_.pose.position.z + transformed_command.velocity.z;
 
     marker.points.push_back(point);
 
@@ -628,7 +628,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
   //}
 
   /* desired acceleration //{ */
-  if (external_command.use_acceleration) {
+  if (transformed_command.use_acceleration) {
 
     std::scoped_lock lock(mutex_uav_state_);
 
@@ -666,9 +666,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* tip //{ */
 
-    point.x = uav_state_.pose.position.x + external_command.acceleration.x;
-    point.y = uav_state_.pose.position.y + external_command.acceleration.y;
-    point.z = uav_state_.pose.position.z + external_command.acceleration.z;
+    point.x = uav_state_.pose.position.x + transformed_command.acceleration.x;
+    point.y = uav_state_.pose.position.y + transformed_command.acceleration.y;
+    point.z = uav_state_.pose.position.z + transformed_command.acceleration.z;
 
     marker.points.push_back(point);
 
@@ -691,7 +691,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
   //}
 
   /* desired force //{ */
-  if (external_command.use_force) {
+  if (transformed_command.use_force) {
 
     std::scoped_lock lock(mutex_uav_state_);
 
@@ -729,9 +729,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand &msg) {
 
     /* tip //{ */
 
-    point.x = uav_state_.pose.position.x + external_command.force.x;
-    point.y = uav_state_.pose.position.y + external_command.force.y;
-    point.z = uav_state_.pose.position.z + external_command.force.z;
+    point.x = uav_state_.pose.position.x + transformed_command.force.x;
+    point.y = uav_state_.pose.position.y + transformed_command.force.y;
+    point.z = uav_state_.pose.position.z + transformed_command.force.z;
 
     marker.points.push_back(point);
 

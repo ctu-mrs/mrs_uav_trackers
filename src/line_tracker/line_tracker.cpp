@@ -282,13 +282,41 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_posit
     if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
 
       // the last command is usable
-      state_x_       = last_position_cmd->position.x;
-      state_y_       = last_position_cmd->position.y;
-      state_z_       = last_position_cmd->position.z;
-      state_heading_ = last_position_cmd->heading;
+      if (last_position_cmd->use_position_horizontal) {
+        state_x_ = last_position_cmd->position.x;
+        state_y_ = last_position_cmd->position.y;
+      } else {
+        state_x_ = uav_state.pose.position.x;
+        state_y_ = uav_state.pose.position.y;
+      }
 
-      speed_x_                  = last_position_cmd->velocity.x;
-      speed_y_                  = last_position_cmd->velocity.y;
+      if (last_position_cmd->use_position_vertical) {
+        state_z_ = last_position_cmd->position.z;
+      } else {
+        state_z_ = uav_state.pose.position.z;
+      }
+
+      if (last_position_cmd->use_heading) {
+        state_heading_ = last_position_cmd->heading;
+      } else if (last_position_cmd->use_orientation) {
+        try {
+          state_heading_ = mrs_lib::AttitudeConverter(last_position_cmd->orientation).getHeading();
+        }
+        catch (...) {
+          state_heading_ = uav_heading;
+        }
+      } else {
+        state_heading_ = uav_heading;
+      }
+
+      if (last_position_cmd->use_velocity_horizontal) {
+        speed_x_ = last_position_cmd->velocity.x;
+        speed_y_ = last_position_cmd->velocity.y;
+      } else {
+        speed_x_ = uav_state.velocity.linear.x;
+        speed_y_ = uav_state.velocity.linear.y;
+      }
+
       current_heading_          = atan2(speed_y_, speed_x_);
       current_horizontal_speed_ = sqrt(pow(speed_x_, 2) + pow(speed_y_, 2));
 
