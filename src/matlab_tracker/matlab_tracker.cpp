@@ -11,6 +11,7 @@
 #include <mrs_lib/ParamLoader.h>
 #include <mrs_lib/Profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/subscribe_handler.h>
 
 //}
 
@@ -56,15 +57,9 @@ private:
   bool is_active_      = false;
   bool first_iter_     = false;
 
-
   // | ------------------------ the goal ------------------------ |
 
-  double             have_goal_ = false;
-  std::mutex         mutex_goal_;
-  nav_msgs::Odometry matlab_goal_;
-
-  ros::Subscriber subscriber_matlab_;
-  void            callbackMatlab(const nav_msgs::Odometry &msg);
+  mrs_lib::SubscribeHandler<nav_msgs::Odometry> sh_goal_;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -121,7 +116,16 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
   // | ----------------------- subscribers ---------------------- |
 
-  subscriber_matlab_ = nh_.subscribe("goal_in", 1, &MatlabTracker::callbackMatlab, this, ros::TransportHints().tcpNoDelay());
+  /* subscriber_matlab_ = nh_.subscribe("goal_in", 1, &MatlabTracker::callbackMatlab, this, ros::TransportHints().tcpNoDelay()); */
+
+  mrs_lib::SubscribeHandlerOptions shopts;
+  shopts.nh              = nh_;
+  shopts.node_name       = "MatlabTracker";
+  shopts.threadsafe      = true;
+  shopts.autostart       = true;
+  shopts.transport_hints = ros::TransportHints().tcpNoDelay();
+
+  sh_goal_ = mrs_lib::SubscribeHandler<nav_msgs::Odometry>(shopts, "goal_in");
 
   // | --------------------- finish the init -------------------- |
 
@@ -136,7 +140,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
 bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
 
-  if (!have_goal_) {
+  if (!sh_goal_.hasMsg()) {
 
     ROS_ERROR("[MatlabTracker]: can not activate, missing Matlab command");
     return false;
@@ -156,7 +160,6 @@ bool MatlabTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::C
 void MatlabTracker::deactivate(void) {
 
   is_active_ = false;
-  have_goal_ = false;
 
   ROS_INFO("[MatlabTracker]: deactivated");
 }
@@ -187,53 +190,41 @@ const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::
   position_output_.header.stamp    = ros::Time::now();
   position_output_.header.frame_id = uav_state->header.frame_id;
 
-  {
-    std::scoped_lock lock(mutex_goal_);
+  nav_msgs::OdometryConstPtr goal = sh_goal_.getMsg();
 
-    if (_position_mode_) {
+  if (_position_mode_) {
 
-      position_output_.position.x = matlab_goal_.pose.pose.position.x;
-      position_output_.position.y = matlab_goal_.pose.pose.position.y;
-      position_output_.position.z = matlab_goal_.pose.pose.position.z;
+    position_output_.position.x = goal->pose.pose.position.x;
+    position_output_.position.y = goal->pose.pose.position.y;
+    position_output_.position.z = goal->pose.pose.position.z;
 
-      position_output_.velocity.x = matlab_goal_.twist.twist.linear.x;
-      position_output_.velocity.y = matlab_goal_.twist.twist.linear.y;
-      position_output_.velocity.z = matlab_goal_.twist.twist.linear.z;
+    position_output_.velocity.x = goal->twist.twist.linear.x;
+    position_output_.velocity.y = goal->twist.twist.linear.y;
+    position_output_.velocity.z = goal->twist.twist.linear.z;
 
-      position_output_.acceleration.x = matlab_goal_.twist.twist.angular.x;
-      position_output_.acceleration.y = matlab_goal_.twist.twist.angular.y;
-      position_output_.acceleration.z = matlab_goal_.twist.twist.angular.z;
+    position_output_.acceleration.x = goal->twist.twist.angular.x;
+    position_output_.acceleration.y = goal->twist.twist.angular.y;
+    position_output_.acceleration.z = goal->twist.twist.angular.z;
 
-      position_output_.heading      = matlab_goal_.pose.pose.orientation.x;
-      position_output_.heading_rate = matlab_goal_.pose.pose.orientation.y;
+    position_output_.heading      = goal->pose.pose.orientation.x;
+    position_output_.heading_rate = goal->pose.pose.orientation.y;
 
-      position_output_.use_heading             = 1;
-      position_output_.use_heading_rate        = 1;
-      position_output_.use_position_vertical   = 1;
-      position_output_.use_position_horizontal = 1;
-      position_output_.use_velocity_vertical   = 1;
-      position_output_.use_velocity_horizontal = 1;
-      position_output_.use_acceleration        = 1;
-    }
+    position_output_.use_heading             = 1;
+    position_output_.use_heading_rate        = 1;
+    position_output_.use_position_vertical   = 1;
+    position_output_.use_position_horizontal = 1;
+    position_output_.use_velocity_vertical   = 1;
+    position_output_.use_velocity_horizontal = 1;
+    position_output_.use_acceleration        = 1;
+  }
 
-    if (_tilt_mode_) {
+  if (_tilt_mode_) {
 
-      position_output_.position.x = uav_state->pose.position.x;
-      position_output_.position.y = uav_state->pose.position.x;
-      position_output_.position.z = matlab_goal_.pose.pose.position.z;
+    position_output_.position.z            = goal->pose.pose.position.z;
+    position_output_.use_position_vertical = 1;
 
-      position_output_.velocity.x = uav_state->velocity.linear.x;
-      position_output_.velocity.y = uav_state->velocity.linear.y;
-      position_output_.velocity.z = uav_state->velocity.linear.z;
-
-      position_output_.acceleration.x = 0;
-      position_output_.acceleration.y = 0;
-      position_output_.acceleration.z = 0;
-
-      position_output_.use_orientation         = 1;
-      position_output_.use_position_vertical   = 1;
-      position_output_.use_position_horizontal = 1;
-    }
+    position_output_.orientation     = mrs_lib::AttitudeConverter(goal->pose.pose.orientation);
+    position_output_.use_orientation = 1;
   }
 
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output_));
@@ -357,26 +348,6 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MatlabTracker::setReference([[may
 const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MatlabTracker::setTrajectoryReference([
     [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
-}
-
-//}
-
-// | --------------------- custom methods --------------------- |
-
-/* callbackMatlab() //{ */
-
-void MatlabTracker::callbackMatlab(const nav_msgs::Odometry &msg) {
-
-  if (!is_initialized_)
-    return;
-
-  std::scoped_lock lock(mutex_goal_);
-
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackMatlab");
-
-  matlab_goal_ = msg;
-
-  have_goal_ = true;
 }
 
 //}
