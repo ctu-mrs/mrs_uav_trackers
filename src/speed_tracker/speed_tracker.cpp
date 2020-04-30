@@ -181,7 +181,7 @@ bool SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::Co
   }
 
   // --------------------------------------------------------------
-  // |              heading initial condition  prediction             |
+  // |            heading initial condition prediction            |
   // --------------------------------------------------------------
 
   is_active_ = true;
@@ -295,9 +295,9 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
     position_cmd.acceleration.z   = command.force.z / last_attitude_cmd->total_mass;
     position_cmd.use_acceleration = true;
   } else {
-    position_cmd.acceleration.x   = uav_state->acceleration.linear.x;
-    position_cmd.acceleration.y   = uav_state->acceleration.linear.y;
-    position_cmd.acceleration.z   = uav_state->acceleration.linear.z;
+    position_cmd.acceleration.x   = 0;
+    position_cmd.acceleration.y   = 0;
+    position_cmd.acceleration.z   = 0;
     position_cmd.use_acceleration = false;
   }
 

@@ -620,9 +620,9 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
       mpc_x(6, 0)  = last_position_cmd->acceleration.y;
       mpc_x(10, 0) = last_position_cmd->acceleration.z;
     } else {
-      mpc_x(2, 0)  = uav_state.acceleration.linear.x;
-      mpc_x(6, 0)  = uav_state.acceleration.linear.y;
-      mpc_x(10, 0) = uav_state.acceleration.linear.z;
+      mpc_x(2, 0)  = 0;
+      mpc_x(6, 0)  = 0;
+      mpc_x(10, 0) = 0;
     }
 
     // the jerks
