@@ -11,5 +11,5 @@ vertical_tracker:
   vertical_acceleration: 1.0
 
 heading_tracker:
-  heading_gain: 0.5
+  heading_gain: 1.0
   heading_rate: 0.5

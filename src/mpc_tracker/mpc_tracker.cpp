@@ -836,19 +836,27 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
     position_cmd.header.frame_id = uav_state->header.frame_id;
 
     // set positions from odom
-    position_cmd.position.x = uav_state->pose.position.x;
-    position_cmd.position.y = uav_state->pose.position.y;
-    position_cmd.position.z = uav_state->pose.position.z;
+    position_cmd.position.x              = uav_state->pose.position.x;
+    position_cmd.position.y              = uav_state->pose.position.y;
+    position_cmd.position.z              = uav_state->pose.position.z;
+    position_cmd.use_position_vertical   = 1;
+    position_cmd.use_position_horizontal = 1;
 
     // set velocities from odom
-    position_cmd.velocity.x = uav_state->velocity.linear.x;
-    position_cmd.velocity.y = uav_state->velocity.linear.y;
-    position_cmd.velocity.z = uav_state->velocity.linear.z;
+    position_cmd.velocity.x              = uav_state->velocity.linear.x;
+    position_cmd.velocity.y              = uav_state->velocity.linear.y;
+    position_cmd.velocity.z              = uav_state->velocity.linear.z;
+    position_cmd.use_velocity_vertical   = 1;
+    position_cmd.use_velocity_horizontal = 1;
 
     // set zero accelerations
-    position_cmd.acceleration.x = 0;
-    position_cmd.acceleration.y = 0;
-    position_cmd.acceleration.z = 0;
+    position_cmd.acceleration.x   = 0;
+    position_cmd.acceleration.y   = 0;
+    position_cmd.acceleration.z   = 0;
+    position_cmd.use_acceleration = 1;
+
+    position_cmd.heading     = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();  // TODO catch exception
+    position_cmd.use_heading = 1;
 
     // set zero jerk
     position_cmd.jerk.x = 0;
