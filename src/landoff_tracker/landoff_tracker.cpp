@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/UavState.h>
@@ -20,7 +20,7 @@
 
 #define STOP_THR 1e-3
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace landoff_tracker
@@ -46,9 +46,9 @@ const char* state_names[7] = {
 
     "IDLING", "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
-class LandoffTracker : public mrs_uav_manager::Tracker {
+class LandoffTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -79,7 +79,7 @@ private:
   ros::NodeHandle nh_;
   std::string     _uav_name_;
 
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   // main timer
   void       timerMain(const ros::TimerEvent& event);
@@ -186,7 +186,7 @@ private:
 /* //{ initialize() */
 
 void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] const std::string uav_name,
-                                [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
+                                [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
@@ -1431,7 +1431,7 @@ bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request& 
 
 }  // namespace landoff_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::landoff_tracker::LandoffTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::landoff_tracker::LandoffTracker, mrs_uav_managers::Tracker)

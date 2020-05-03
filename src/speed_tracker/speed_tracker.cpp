@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <mrs_msgs/SpeedTrackerCommand.h>
 
@@ -22,7 +22,7 @@
 
 #define STOP_THR 1e-3
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace speed_tracker
@@ -30,9 +30,9 @@ namespace speed_tracker
 
 /* //{ class SpeedTracker */
 
-class SpeedTracker : public mrs_uav_manager::Tracker {
+class SpeedTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -59,7 +59,7 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   ros::Publisher publisher_rviz_marker_;
 
@@ -99,7 +99,7 @@ private:
 /* //{ initialize() */
 
 void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                              [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
+                              [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
@@ -759,7 +759,7 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
 }  // namespace speed_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::speed_tracker::SpeedTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::speed_tracker::SpeedTracker, mrs_uav_managers::Tracker)

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(mrs_trackers)
+project(mrs_uav_trackers)
 
 find_package(catkin REQUIRED COMPONENTS
   cmake_modules
@@ -10,8 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   mrs_lib
   mrs_msgs
-  mrs_uav_manager
-  mrs_controllers
+  mrs_uav_managers
   dynamic_reconfigure
   )
 
@@ -30,7 +29,7 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES MpcTrackerCvxgen
-  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_manager mrs_msgs mrs_controllers
+  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_managers mrs_msgs
   DEPENDS Eigen
   )
 

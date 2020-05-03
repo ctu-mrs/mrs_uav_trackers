@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
@@ -20,7 +20,7 @@
 
 #define STOP_THR 1e-3
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace joy_tracker
@@ -28,9 +28,9 @@ namespace joy_tracker
 
 /* //{ class JoyTracker */
 
-class JoyTracker : public mrs_uav_manager::Tracker {
+class JoyTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -52,7 +52,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
   bool                                               callbacks_enabled_ = true;
 
   std::string _version_;
@@ -114,7 +114,7 @@ private:
 /* //{ initialize() */
 
 void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
+                            [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
@@ -459,7 +459,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr JoyTracker::setTrajecto
 
 }  // namespace joy_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::joy_tracker::JoyTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::joy_tracker::JoyTracker, mrs_uav_managers::Tracker)

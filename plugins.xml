@@ -1,41 +1,41 @@
 <library path="lib/libLandoffTracker">
-  <class name="mrs_trackers/LandoffTracker" type="mrs_trackers::landoff_tracker::LandoffTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/LandoffTracker" type="mrs_uav_trackers::landoff_tracker::LandoffTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is Landing+Takeoff tracker.</description>
   </class>
 </library>
 
 <library path="lib/libLineTracker">
-  <class name="mrs_trackers/LineTracker" type="mrs_trackers::line_tracker::LineTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/LineTracker" type="mrs_uav_trackers::line_tracker::LineTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is Line tracker.</description>
   </class>
 </library>
 
 <library path="lib/libJoyTracker">
-  <class name="mrs_trackers/JoyTracker" type="mrs_trackers::joy_tracker::JoyTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/JoyTracker" type="mrs_uav_trackers::joy_tracker::JoyTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the joystick tracker.</description>
   </class>
 </library>
 
 <library path="lib/libMatlabTracker">
-  <class name="mrs_trackers/MatlabTracker" type="mrs_trackers::matlab_tracker::MatlabTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/MatlabTracker" type="mrs_uav_trackers::matlab_tracker::MatlabTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the Matlab tracker.</description>
   </class>
 </library>
 
 <library path="lib/libCsvTracker">
-  <class name="mrs_trackers/CsvTracker" type="mrs_trackers::csv_tracker::CsvTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/CsvTracker" type="mrs_uav_trackers::csv_tracker::CsvTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is CSV tracker.</description>
   </class>
 </library>
 
 <library path="lib/libMpcTracker">
-  <class name="mrs_trackers/MpcTracker" type="mrs_trackers::mpc_tracker::MpcTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/MpcTracker" type="mrs_uav_trackers::mpc_tracker::MpcTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is MPC tracker.</description>
   </class>
 </library>
 
 <library path="lib/libSpeedTracker">
-  <class name="mrs_trackers/SpeedTracker" type="mrs_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_manager::Tracker">
+  <class name="mrs_uav_trackers/SpeedTracker" type="mrs_uav_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the joystick tracker with bumper.</description>
   </class>
 </library>

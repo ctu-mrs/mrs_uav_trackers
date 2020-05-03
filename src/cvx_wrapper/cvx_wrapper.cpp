@@ -1,11 +1,11 @@
 /* author: Daniel Hert */
 
 #include <eigen3/Eigen/Eigen>
-#include <mrs_trackers/cvx_wrapper.h>
+#include <mrs_uav_trackers/cvx_wrapper.h>
 
 using namespace Eigen;
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace cvx_wrapper
@@ -218,4 +218,4 @@ double CvxWrapper::getFirstControlInput() {
 
 }  // namespace cvx_wrapper
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers

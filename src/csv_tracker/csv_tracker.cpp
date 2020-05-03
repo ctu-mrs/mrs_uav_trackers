@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <mrs_msgs/TrajectoryReferenceSrv.h>
 #include <mrs_msgs/String.h>
@@ -23,7 +23,7 @@
 
 using namespace Eigen;
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace csv_tracker
@@ -31,9 +31,9 @@ namespace csv_tracker
 
 /* //{ class CsvTracker */
 
-class CsvTracker : public mrs_uav_manager::Tracker {
+class CsvTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_);
+  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -67,7 +67,7 @@ private:
   bool callbacks_enabled_ = true;
 
   ros::NodeHandle                                    nh_;
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   mrs_msgs::UavState uav_state_;
   std::mutex         mutex_uav_state_;
@@ -136,7 +136,7 @@ private:
 /* //{ initialize() */
 
 void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
+                            [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
@@ -694,7 +694,7 @@ void CsvTracker::timerSetTrajectory(const ros::TimerEvent &event) {
 
 }  // namespace csv_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::csv_tracker::CsvTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::csv_tracker::CsvTracker, mrs_uav_managers::Tracker)

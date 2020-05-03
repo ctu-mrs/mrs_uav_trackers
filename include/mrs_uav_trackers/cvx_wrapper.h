@@ -4,7 +4,7 @@
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace cvx_wrapper
@@ -34,6 +34,6 @@ private:
 
 }  // namespace cvx_wrapper
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #endif

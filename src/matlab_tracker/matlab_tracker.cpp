@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <nav_msgs/Odometry.h>
 
@@ -17,7 +17,7 @@
 
 #define STOP_THR 1e-3
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace matlab_tracker
@@ -25,9 +25,9 @@ namespace matlab_tracker
 
 /* //{ class MatlabTracker */
 
-class MatlabTracker : public mrs_uav_manager::Tracker {
+class MatlabTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_);
+  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -81,7 +81,7 @@ private:
 /* //{ initialize() */
 
 void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                               [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_) {
+                               [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_) {
 
   ros::NodeHandle nh_(parent_nh, "matlab_tracker");
 
@@ -354,7 +354,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MatlabTracker::setTraje
 
 }  // namespace matlab_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::matlab_tracker::MatlabTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::matlab_tracker::MatlabTracker, mrs_uav_managers::Tracker)

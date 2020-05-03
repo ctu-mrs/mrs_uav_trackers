@@ -4,7 +4,7 @@
 
 #include <ros/ros.h>
 
-#include <mrs_uav_manager/Tracker.h>
+#include <mrs_uav_managers/tracker.h>
 
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseArray.h>
@@ -24,9 +24,9 @@
 #include <mrs_lib/subscribe_handler.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <mrs_trackers/cvx_wrapper.h>
+#include <mrs_uav_trackers/cvx_wrapper.h>
 
-#include <mrs_trackers/mpc_trackerConfig.h>
+#include <mrs_uav_trackers/mpc_trackerConfig.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -41,7 +41,7 @@ using quat_t = Eigen::Quaterniond;
 
 using namespace Eigen;
 
-namespace mrs_trackers
+namespace mrs_uav_trackers
 {
 
 namespace mpc_tracker
@@ -49,9 +49,9 @@ namespace mpc_tracker
 
 /* //{ class MpcTracker */
 
-class MpcTracker : public mrs_uav_manager::Tracker {
+class MpcTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers);
+  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
   void deactivate(void);
   bool resetStatic(void);
@@ -74,7 +74,7 @@ public:
 
 private:
   ros::NodeHandle                                    nh_;
-  std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   bool callbacks_enabled_ = true;
 
@@ -179,10 +179,10 @@ private:
 
   // | ------------------------- cvxgen ------------------------- |
 
-  std::unique_ptr<mrs_trackers::cvx_wrapper::CvxWrapper> cvx_x_;
-  std::unique_ptr<mrs_trackers::cvx_wrapper::CvxWrapper> cvx_y_;
-  std::unique_ptr<mrs_trackers::cvx_wrapper::CvxWrapper> cvx_z_;
-  std::unique_ptr<mrs_trackers::cvx_wrapper::CvxWrapper> cvx_heading_;
+  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_x_;
+  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_y_;
+  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_z_;
+  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_heading_;
 
   int _max_iters_xy_;
   int _max_iters_z_;
@@ -334,14 +334,14 @@ private:
 
   // | --------------- dynamic reconfigure server --------------- |
 
-  void dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig& config, uint32_t level);
+  void dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig& config, uint32_t level);
 
   boost::recursive_mutex                      config_mutex_;
-  typedef mrs_trackers::mpc_trackerConfig     Config;
+  typedef mrs_uav_trackers::mpc_trackerConfig Config;
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
-  void                                        drs_callback(mrs_trackers::mpc_trackerConfig& config, uint32_t level);
-  mrs_trackers::mpc_trackerConfig             drs_params;
+  void                                        drs_callback(mrs_uav_trackers::mpc_trackerConfig& config, uint32_t level);
+  mrs_uav_trackers::mpc_trackerConfig         drs_params;
 };
 
 //}
@@ -351,7 +351,7 @@ private:
 /* //{ initialize() */
 
 void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] std::shared_ptr<mrs_uav_manager::CommonHandlers_t> common_handlers) {
+                            [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   ros::NodeHandle nh_(parent_nh, "mpc_tracker");
 
@@ -436,10 +436,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  cvx_x_       = std::make_unique<mrs_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
-  cvx_y_       = std::make_unique<mrs_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
-  cvx_z_       = std::make_unique<mrs_trackers::cvx_wrapper::CvxWrapper>(verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
-  cvx_heading_ = std::make_unique<mrs_trackers::cvx_wrapper::CvxWrapper>(verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
+  cvx_x_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
+  cvx_y_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
+  cvx_z_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
+  cvx_heading_ = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(_mpc_n_states_, 1);
   mpc_x_heading_ = MatrixXd::Zero(_mpc_n_states_heading_, 1);
@@ -1451,7 +1451,7 @@ bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBo
 
 /* //{ dynamicReconfigureCallback() */
 
-void MpcTracker::dynamicReconfigureCallback(mrs_trackers::mpc_trackerConfig& config, [[maybe_unused]] uint32_t level) {
+void MpcTracker::dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig& config, [[maybe_unused]] uint32_t level) {
 
   std::scoped_lock lock(mutex_wiggle_);
 
@@ -3104,7 +3104,7 @@ void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
 }  // namespace mpc_tracker
 
-}  // namespace mrs_trackers
+}  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_trackers::mpc_tracker::MpcTracker, mrs_uav_manager::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::mpc_tracker::MpcTracker, mrs_uav_managers::Tracker)
