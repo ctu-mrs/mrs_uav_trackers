@@ -69,7 +69,11 @@ private:
   bool               got_uav_state_ = false;
   std::mutex         mutex_uav_state_;
 
-  // | ---------------- the tracker's inner staet --------------- |
+  // | ------------------- tracker constraints ------------------ |
+
+  mrs_msgs::TrackerConstraints constraints_;
+
+  // | ---------------- the tracker's inner state --------------- |
 
   double _tracker_loop_rate_;
   double _tracker_dt_;
@@ -419,7 +423,14 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::gotoTrajectoryStart([[ma
 const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
     [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
 
-  return mrs_msgs::TrackerConstraintsSrvResponse::Ptr();
+  constraints_ = cmd->constraints;
+
+  mrs_msgs::TrackerConstraintsSrvResponse res;
+
+  res.success = true;
+  res.message = "constraints updated";
+
+  return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse(res));
 }
 
 //}
@@ -476,7 +487,43 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       transformed_command.velocity.x = ret.value().vector.x;
       transformed_command.velocity.y = ret.value().vector.y;
       transformed_command.velocity.z = ret.value().vector.z;
+    } else {
+      return;
     }
+
+    /* horizontal speed limit //{ */
+
+    {
+      double des_horizontal_speed = sqrt(pow(transformed_command.velocity.x, 2) + pow(transformed_command.velocity.y, 2));
+
+      if (des_horizontal_speed > constraints_.horizontal_speed) {
+
+        double des_speed_heading = atan2(transformed_command.velocity.y, transformed_command.velocity.x);
+
+        transformed_command.velocity.x = cos(des_speed_heading) * constraints_.horizontal_speed;
+        transformed_command.velocity.y = sin(des_speed_heading) * constraints_.horizontal_speed;
+      }
+    }
+
+    //}
+
+    /* vertical speed limit //{ */
+
+    {
+      // if ascending
+      if (transformed_command.velocity.z > constraints_.vertical_ascending_speed) {
+
+        transformed_command.velocity.z = constraints_.vertical_ascending_speed;
+      }
+
+      // if descending
+      if (transformed_command.velocity.z < constraints_.vertical_descending_speed) {
+
+        transformed_command.velocity.z = constraints_.vertical_descending_speed;
+      }
+    }
+
+    //}
   }
 
   // transform heading
@@ -492,6 +539,8 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
     if (ret) {
       transformed_command.heading = ret.value().reference.heading;
+    } else {
+      return;
     }
   }
 
@@ -512,7 +561,43 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       transformed_command.acceleration.x = ret.value().vector.x;
       transformed_command.acceleration.y = ret.value().vector.y;
       transformed_command.acceleration.z = ret.value().vector.z;
+    } else {
+      return;
     }
+
+    /* horizontal acceleration limit //{ */
+
+    {
+      double des_horizontal_acceleration = sqrt(pow(transformed_command.acceleration.x, 2) + pow(transformed_command.acceleration.y, 2));
+
+      if (des_horizontal_acceleration > constraints_.horizontal_acceleration) {
+
+        double des_acc_heading = atan2(transformed_command.acceleration.y, transformed_command.acceleration.x);
+
+        transformed_command.acceleration.x = cos(des_acc_heading) * constraints_.horizontal_acceleration;
+        transformed_command.acceleration.y = sin(des_acc_heading) * constraints_.horizontal_acceleration;
+      }
+    }
+
+    //}
+
+    /* vertical acceleration limit //{ */
+
+    {
+      // if ascending
+      if (transformed_command.acceleration.z > constraints_.vertical_ascending_acceleration) {
+
+        transformed_command.acceleration.z = constraints_.vertical_ascending_acceleration;
+      }
+
+      // if descending
+      if (transformed_command.acceleration.z < constraints_.vertical_descending_acceleration) {
+
+        transformed_command.acceleration.z = constraints_.vertical_descending_acceleration;
+      }
+    }
+
+    //}
   }
 
   // transform force
@@ -532,6 +617,8 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       transformed_command.force.x = vector3.vector.x;
       transformed_command.force.y = vector3.vector.y;
       transformed_command.force.z = vector3.vector.z;
+    } else {
+      return;
     }
   }
 
