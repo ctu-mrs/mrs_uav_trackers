@@ -75,10 +75,9 @@ private:
 
   // | ---------------- the tracker's inner state --------------- |
 
-  double _tracker_loop_rate_;
-  double _tracker_dt_;
-  bool   is_initialized_ = false;
-  bool   is_active_      = false;
+  bool is_initialized_  = false;
+  bool is_active_       = false;
+  bool first_iteration_ = true;
 
   double _external_command_timeout_;
 
@@ -89,6 +88,7 @@ private:
   // stores the post-processed and transformed command
   mrs_msgs::SpeedTrackerCommand command_;
   std::mutex                    mutex_command_;
+  ros::Time                     last_command_time_;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -253,6 +253,7 @@ const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::U
   // timeout the external command
   if (sh_command_.hasMsg() && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
     ROS_ERROR("[SpeedTracker]: command timeouted, returning nil");
+    first_iteration_ = true;
     return mrs_msgs::PositionCommand::Ptr();
   }
 
@@ -464,9 +465,26 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackCommand");
 
+  double dt;
+  if (first_iteration_) {
+    last_command_time_ = ros::Time::now();
+    first_iteration_   = false;
+    return;
+  } else {
+    dt                 = (ros::Time::now() - last_command_time_).toSec();
+    last_command_time_ = ros::Time::now();
+
+    if (dt <= 1e-4) {
+      ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: the command dt is %.5f, returning", dt);
+      return;
+    }
+  }
+
   mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
 
   mrs_msgs::SpeedTrackerCommand transformed_command = *external_command;
+
+  auto old_command = mrs_lib::get_mutexed(mutex_command_, command_);
 
   // transform the command
 
@@ -507,6 +525,25 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
     //}
 
+    /* horizontal speed change rate limit //{ */
+
+    {
+      Eigen::Vector2d hor_speed_derivative =
+          Eigen::Vector2d(transformed_command.velocity.x - old_command.velocity.x, transformed_command.velocity.y - old_command.velocity.y) / dt;
+
+      // exceeding the maximum acceleration
+      if (hor_speed_derivative.norm() > constraints_.horizontal_acceleration) {
+
+        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting speed change rate");
+        double direction = atan2(hor_speed_derivative[1], hor_speed_derivative[0]);
+
+        transformed_command.velocity.x = old_command.velocity.x + cos(direction) * constraints_.horizontal_acceleration * dt;
+        transformed_command.velocity.y = old_command.velocity.y + sin(direction) * constraints_.horizontal_acceleration * dt;
+      }
+    }
+
+    //}
+
     /* vertical speed limit //{ */
 
     {
@@ -517,9 +554,29 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       }
 
       // if descending
-      if (transformed_command.velocity.z < constraints_.vertical_descending_speed) {
+      if (transformed_command.velocity.z < -constraints_.vertical_descending_speed) {
 
-        transformed_command.velocity.z = constraints_.vertical_descending_speed;
+        transformed_command.velocity.z = -constraints_.vertical_descending_speed;
+      }
+    }
+
+    //}
+
+    /* vertical speed change rate //{ */
+
+    {
+
+      double vert_speed_derivative = (transformed_command.velocity.z - old_command.velocity.z) / dt;
+
+      if (vert_speed_derivative > constraints_.vertical_ascending_acceleration) {
+
+        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical ascending speed change rate");
+        transformed_command.velocity.z = old_command.velocity.z + constraints_.vertical_ascending_acceleration * dt;
+
+      } else if (vert_speed_derivative < -constraints_.vertical_descending_acceleration) {
+
+        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical descending speed change rate");
+        transformed_command.velocity.z = old_command.velocity.z - constraints_.vertical_descending_acceleration * dt;
       }
     }
 
@@ -581,6 +638,26 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
     //}
 
+    /* horizontal acceleration change rate limit //{ */
+
+    {
+      Eigen::Vector2d hor_acc_derivative =
+          Eigen::Vector2d(transformed_command.acceleration.x - old_command.acceleration.x, transformed_command.acceleration.y - old_command.acceleration.y) /
+          (dt);
+
+      // exceeding the maximum acceleration
+      if (hor_acc_derivative.norm() > constraints_.horizontal_jerk) {
+
+        ROS_WARN_THROTTLE(1.0, "[accelerationTracker]: limitting acceleration change rate");
+        double direction = atan2(hor_acc_derivative[1], hor_acc_derivative[0]);
+
+        transformed_command.acceleration.x = old_command.acceleration.x + cos(direction) * constraints_.horizontal_jerk * dt;
+        transformed_command.acceleration.y = old_command.acceleration.y + sin(direction) * constraints_.horizontal_jerk * dt;
+      }
+    }
+
+    //}
+
     /* vertical acceleration limit //{ */
 
     {
@@ -591,9 +668,29 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       }
 
       // if descending
-      if (transformed_command.acceleration.z < constraints_.vertical_descending_acceleration) {
+      if (transformed_command.acceleration.z < -constraints_.vertical_descending_acceleration) {
 
-        transformed_command.acceleration.z = constraints_.vertical_descending_acceleration;
+        transformed_command.acceleration.z = -constraints_.vertical_descending_acceleration;
+      }
+    }
+
+    //}
+
+    /* vertical acceleration change rate //{ */
+
+    {
+
+      double vert_acc_derivative = (transformed_command.acceleration.z - old_command.acceleration.z) / dt;
+
+      if (vert_acc_derivative > constraints_.vertical_ascending_jerk) {
+
+        ROS_WARN_THROTTLE(1.0, "[accelerationTracker]: limitting vertical ascending acceleration change rate");
+        transformed_command.acceleration.z = old_command.acceleration.z + constraints_.vertical_ascending_jerk * dt;
+
+      } else if (vert_acc_derivative < -constraints_.vertical_descending_jerk) {
+
+        ROS_WARN_THROTTLE(1.0, "[accelerationTracker]: limitting vertical descending acceleration change rate");
+        transformed_command.acceleration.z = old_command.acceleration.z - constraints_.vertical_descending_jerk * dt;
       }
     }
 
@@ -620,6 +717,37 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
     } else {
       return;
     }
+  }
+
+  // check the feasibility of the height
+  {
+    double height_derivative = (transformed_command.height - old_command.height) / dt;
+
+    if (height_derivative > constraints_.vertical_ascending_speed) {
+
+      transformed_command.height = old_command.height + constraints_.vertical_ascending_speed * dt;
+
+    } else if (height_derivative < -constraints_.vertical_ascending_speed) {
+
+      transformed_command.height = old_command.height - constraints_.vertical_descending_speed * dt;
+    }
+  }
+
+  // if not active, nullify the desired speeds and accelerations
+  // this will produce a rumpum (using the constraints) after the activation
+  if (!is_active_) {
+
+    auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+    transformed_command.velocity.x = 0;
+    transformed_command.velocity.y = 0;
+    transformed_command.velocity.z = 0;
+
+    transformed_command.acceleration.x = 0;
+    transformed_command.acceleration.y = 0;
+    transformed_command.acceleration.z = 0;
+
+    transformed_command.height = uav_state_.pose.position.z;
   }
 
   {
