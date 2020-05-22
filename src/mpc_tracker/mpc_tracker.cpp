@@ -52,9 +52,9 @@ namespace mpc_tracker
 class MpcTracker : public mrs_uav_managers::Tracker {
 public:
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
-  void deactivate(void);
-  bool resetStatic(void);
+  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
+  void                          deactivate(void);
+  bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
@@ -73,7 +73,7 @@ public:
   const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
-  ros::NodeHandle                                    nh_;
+  ros::NodeHandle                                     nh_;
   std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   bool callbacks_enabled_ = true;
@@ -560,12 +560,16 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
+std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
+
+  std::stringstream ss;
 
   if (!got_constraints_) {
 
-    ROS_ERROR("[MpcTracker]: can not activate, missing constraints");
-    return false;
+    ss << "can not activate, missing constraints";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+
+    return std::tuple(false, ss.str());
   }
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
@@ -576,8 +580,9 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
     uav_state_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: could not calculate the UAV heading");
-    return false;
+    ss << "could not calculate the UAV heading";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   MatrixXd mpc_x         = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -695,7 +700,8 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
   mpc_start_time_  = ros::Time::now();
   mpc_total_delay_ = 0;
 
-  ROS_INFO("[MpcTracker]: activated");
+  ss << "activated";
+  ROS_INFO_STREAM("[MpcTracker]: " << ss.str());
 
   // this is here to initialize the desired_trajectory vector
   // if deleted (and I tried) the UAV will briefly fly to the
@@ -706,7 +712,7 @@ bool MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_positi
 
   is_active_ = true;
 
-  return true;
+  return std::tuple(true, ss.str());
 }
 
 //}

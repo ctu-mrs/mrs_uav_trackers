@@ -34,9 +34,9 @@ namespace csv_tracker
 class CsvTracker : public mrs_uav_managers::Tracker {
 public:
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
-  void deactivate(void);
-  bool resetStatic(void);
+  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  void                          deactivate(void);
+  bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
@@ -66,7 +66,7 @@ private:
 
   bool callbacks_enabled_ = true;
 
-  ros::NodeHandle                                    nh_;
+  ros::NodeHandle                                     nh_;
   std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   mrs_msgs::UavState uav_state_;
@@ -253,7 +253,7 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
 
   last_position_cmd_ = *last_position_cmd;
 
@@ -269,21 +269,26 @@ bool CsvTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_positi
   ROS_INFO("[CsvTracker]: z_start: %.2f", z_scale_ * trajectory_(0, 1) + _z_offset_);
   ROS_INFO("[CsvTracker]: z_scale: %.2f", z_scale_);
 
+  std::stringstream ss;
+
   if (distance > 1.0) {
 
-    ROS_ERROR("[CsvTracker]: cannon activate, too far from the initial point!");
+    ss << "cannon activate, too far from the initial point!";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[CsvTracker]: " << ss.str());
 
     is_active_ = false;
 
   } else {
 
-    ROS_INFO("[CsvTracker]: CSV tracker activated");
+    ss << "activated";
+    ROS_INFO_STREAM("[CsvTracker]: " << ss.str());
+
     is_active_ = true;
     tracking_  = true;
     timer_main_.start();
   }
 
-  return is_active_;
+  return std::tuple(is_active_, ss.str());
 }
 
 //}

@@ -49,9 +49,9 @@ const char* state_names[7] = {
 class LandoffTracker : public mrs_uav_managers::Tracker {
 public:
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
-  void deactivate(void);
-  bool resetStatic(void);
+  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
+  void                          deactivate(void);
+  bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
@@ -293,12 +293,15 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
 /* //{ activate() */
 
-bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
+std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
+
+  std::stringstream ss;
 
   if (!got_uav_state_) {
 
-    ROS_ERROR("[LandoffTracker]: can not activate, odometry not set");
-    return false;
+    ss << "odometry not set";
+    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   // copy member variables
@@ -310,8 +313,10 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
     uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[LandoffTracker]: could not initialize the UAV heading");
-    return false;
+
+    ss << "could not initialize the UAV heading";
+    ROS_ERROR_STREAM("[LandoffTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   {
@@ -337,7 +342,7 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
 
     goal_heading_ = uav_heading;
 
-    ROS_INFO("[LandoffTracker]: activated with initial condition x: %2.2f, y: %2.2f, z: %2.2f, heading: %2.2f", state_x_, state_y_, state_z_, state_heading_);
+    ROS_INFO("[LandoffTracker]: initial condition: x: %.2f, y: %.2f, z: %.2f, heading: %.2f", state_x_, state_y_, state_z_, state_heading_);
   }
 
   // --------------------------------------------------------------
@@ -390,12 +395,15 @@ bool LandoffTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::
   {
     std::scoped_lock lock(mutex_goal_);
 
-    ROS_INFO("[LandoffTracker]: activated with goal x: %2.2f, y: %2.2f, z: %2.2f, heading: %2.2f", goal_x_, goal_y_, goal_z_, goal_heading_);
+    ROS_INFO("[LandoffTracker]: stopping goal: x: %.2f, y: %.2f, z: %.2f, heading: %.2f", goal_x_, goal_y_, goal_z_, goal_heading_);
   }
 
   changeState(STOP_MOTION_STATE);
 
-  return true;
+  ss << "activated";
+  ROS_INFO_STREAM("[LandoffTracker]: " << ss.str());
+
+  return std::tuple(true, ss.str());
 }
 
 //}

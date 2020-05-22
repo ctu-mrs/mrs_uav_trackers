@@ -33,9 +33,9 @@ namespace speed_tracker
 class SpeedTracker : public mrs_uav_managers::Tracker {
 public:
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
-  void deactivate(void);
-  bool resetStatic(void);
+  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  void                          deactivate(void);
+  bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
@@ -164,36 +164,37 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
 /* //{ activate() */
 
-bool SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+
+  std::stringstream ss;
 
   if (!got_uav_state_) {
-    ROS_ERROR("[SpeedTracker]: can not activate, odometry not set");
-    return false;
+    ss << "odometry not set";
+    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   if (!sh_command_.hasMsg()) {
-
-    ROS_ERROR("[SpeedTracker]: can not activate, missing command");
-    return false;
+    ss << "missing command";
+    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   ros::Time external_command_time = sh_command_.lastMsgTime();
 
   // timeout the external command
   if ((ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
-    ROS_ERROR("[SpeedTracker]: can not activate, the command is too old");
-    return false;
+    ss << "the command is too old";
+    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
-
-  // --------------------------------------------------------------
-  // |            heading initial condition prediction            |
-  // --------------------------------------------------------------
 
   is_active_ = true;
 
-  ROS_INFO("[SpeedTracker]: activated");
+  ss << "activated";
+  ROS_INFO_STREAM("[SpeedTracker]: " << ss.str());
 
-  return true;
+  return std::tuple(true, ss.str());
 }
 
 //}

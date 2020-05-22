@@ -44,9 +44,9 @@ const char *state_names[5] = {
 class LineTracker : public mrs_uav_managers::Tracker {
 public:
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  bool activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
-  void deactivate(void);
-  bool resetStatic(void);
+  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  void                          deactivate(void);
+  bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
@@ -255,12 +255,15 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 /* //{ activate() */
 
-bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+
+  std::stringstream ss;
 
   if (!got_uav_state_) {
 
-    ROS_ERROR("[LineTracker]: can not activate, odometry not set");
-    return false;
+    ss << "odometry not set";
+    ROS_ERROR_STREAM("[LineTracker]: " << ss.str());
+    return std::tuple(false, ss.str());
   }
 
   // copy member variables
@@ -272,8 +275,8 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_posit
     uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[LineTracker]: could not calculate the UAV heading");
-    return false;
+    ss << "could not calculate the UAV heading";
+    return std::tuple(false, ss.str());
   }
 
   {
@@ -400,11 +403,12 @@ bool LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_posit
 
   is_active_ = true;
 
-  ROS_INFO("[LineTracker]: activated");
+  ss << "activated";
+  ROS_INFO_STREAM("[LineTracker]: " << ss.str());
 
   changeState(STOP_MOTION_STATE);
 
-  return true;
+  return std::tuple(true, ss.str());
 }
 
 //}
