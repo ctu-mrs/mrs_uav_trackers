@@ -34,6 +34,7 @@
   * forwards the commands to the controllers unchanged
   * can not follow trajectories or react to references
   * should be activated only in hover
+  * check the [tutorial](https://ctu-mrs.github.io/docs/system/speed_tracker.html)
 * "Landoff tracker"
   * particular variant of *Line Tracker* used only for landing and takeoff
   * can not fly to the desired reference nor follow a trajectory
