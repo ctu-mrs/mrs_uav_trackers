@@ -30,7 +30,7 @@
   * can stop a UAV from the previous motion
   * can be activated in mid-flight while in motion
 * "Speed tracker"
-  * subscribes a custom message containing a desired speed/acceleration, height, and heading
+  * subscribes a [custom message](https://ctu-mrs.github.io/mrs_msgs/msg/SpeedTrackerCommand.html) containing a desired speed/acceleration, height, and heading
   * forwards the commands to the controllers unchanged
   * can not follow trajectories or react to references
   * should be activated only in hover
