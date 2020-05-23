@@ -73,10 +73,11 @@ trackers : [
   "LandoffTracker",
   "JoyTracker",
   "NullTracker",
+  "SpeedTracker",
 ]
 ```
 Only the trackers within this list are actually loaded.
 Switching to a tracker with the alias *MpcTracker* is done by calling a service:
 ```bash
-rosservice call /uav1/control_manager/switch_tracker MpcTracker
+rosservice call /uav1/control_manager/switch_tracker SpeedTracker
 ```
