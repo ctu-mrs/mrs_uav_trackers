@@ -118,13 +118,17 @@ private:
   double _dt1_;
   double _dt2_;
 
-  MatrixXd  A_;  // system matrix for virtual UAV
-  MatrixXd  B_;  // input matrix for virtual UAV
+  MatrixXd  _A_;  // system matrix for virtual UAV
+  MatrixXd  _B_;  // input matrix for virtual UAV
+  MatrixXd  A_;   // system matrix for virtual UAV
+  MatrixXd  B_;   // input matrix for virtual UAV
   bool      model_first_iteration = true;
   ros::Time model_iteration_last_time;
 
-  MatrixXd A_heading_;  // system matrix for heading
-  MatrixXd B_heading_;  // input matrix for heading
+  MatrixXd _A_heading_;  // system matrix for heading
+  MatrixXd _B_heading_;  // input matrix for heading
+  MatrixXd A_heading_;   // system matrix for heading
+  MatrixXd B_heading_;   // input matrix for heading
 
   // the reference over the prediction horizon per axis
   MatrixXd   des_x_trajectory_;
@@ -376,13 +380,19 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   param_loader.loadParam("model/translation/n_states", _mpc_n_states_);
   param_loader.loadParam("model/translation/n_inputs", _mpc_m_states_);
-  param_loader.loadMatrixStatic("model/translation/A", A_, _mpc_n_states_, _mpc_n_states_);
-  param_loader.loadMatrixStatic("model/translation/B", B_, _mpc_n_states_, _mpc_m_states_);
+  param_loader.loadMatrixStatic("model/translation/A", _A_, _mpc_n_states_, _mpc_n_states_);
+  param_loader.loadMatrixStatic("model/translation/B", _B_, _mpc_n_states_, _mpc_m_states_);
+
+  A_ = _A_;
+  B_ = _B_;
 
   param_loader.loadParam("model/heading/n_states", _mpc_n_states_heading_);
   param_loader.loadParam("model/heading/n_inputs", _mpc_n_inputs_heading_);
-  param_loader.loadMatrixStatic("model/heading/A", A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
-  param_loader.loadMatrixStatic("model/heading/B", B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+  param_loader.loadMatrixStatic("model/heading/A", _A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
+  param_loader.loadMatrixStatic("model/heading/B", _B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+
+  A_heading_ = _A_heading_;
+  B_heading_ = _B_heading_;
 
   // load the MPC parameters
   param_loader.loadParam("cvxgen/horizon_len", _mpc_horizon_len_);
@@ -712,6 +722,14 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::PositionComma
 
   toggleHover(true);
 
+  model_first_iteration = true;
+
+  A_ = _A_;
+  B_ = _B_;
+
+  A_heading_ = _A_heading_;
+  B_heading_ = _B_heading_;
+
   is_active_ = true;
 
   return std::tuple(true, ss.str());
@@ -727,6 +745,7 @@ void MpcTracker::deactivate(void) {
 
   is_active_                       = false;
   trajectory_tracking_in_progress_ = false;
+  model_first_iteration            = true;
 
   timer_trajectory_tracking_.stop();
 
@@ -2073,13 +2092,15 @@ void MpcTracker::calculateMPC() {
     std::scoped_lock lock(mutex_mpc_x_);
 
     if (model_first_iteration) {
+
       model_iteration_last_time = ros::Time::now();
       model_first_iteration     = false;
+
     } else {
 
       double dt = (ros::Time::now() - model_iteration_last_time).toSec();
 
-      if (dt > 0.001) {
+      if (dt > 0.001 && dt < 0.05) {
 
         // clang-format off
         A_ << 1, dt, 0.5*dt*dt,       0, 0,   0,        0,       0, 0,    0,       0,       0,
@@ -2119,6 +2140,15 @@ void MpcTracker::calculateMPC() {
                       dt;
 
         // clang-format on
+      } else {
+
+        // fallback for weird dt
+
+        A_ = _A_;
+        B_ = _B_;
+
+        A_heading_ = _A_heading_;
+        B_heading_ = _B_heading_;
       }
 
       model_iteration_last_time = ros::Time::now();
