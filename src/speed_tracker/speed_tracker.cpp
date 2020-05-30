@@ -492,6 +492,17 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
   auto old_command = mrs_lib::get_mutexed(mutex_command_, command_);
   auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
+  auto uav_state   = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  double uav_heading;
+
+  try {
+    uav_heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[SpeedTracker]: could not calculate UAV heading");
+    return;
+  }
 
   // transform the command
 
@@ -625,6 +636,9 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
     } else {
       return;
     }
+  } else {
+    transformed_command.use_heading = false;
+    transformed_command.heading     = uav_heading;
   }
 
   //}
