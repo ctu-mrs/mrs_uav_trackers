@@ -15,6 +15,8 @@
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/EstimatorType.h>
 
+#include <std_msgs/String.h>
+
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/utils.h>
 #include <mrs_lib/param_loader.h>
@@ -83,6 +85,7 @@ private:
 
   // debugging publishers
   ros::Publisher pub_diagnostics_;
+  ros::Publisher pub_status_string_;
 
   ros::Publisher pub_debug_processed_trajectory_poses_;
   ros::Publisher pub_debug_processed_trajectory_markers_;
@@ -470,7 +473,8 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   service_client_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
-  pub_diagnostics_ = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
+  pub_diagnostics_   = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
+  pub_status_string_ = nh_.advertise<std_msgs::String>("string_out", 1);
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
@@ -2818,6 +2822,32 @@ void MpcTracker::publishDiagnostics(void) {
   }
   catch (...) {
     ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_diagnostics_.getTopic().c_str());
+  }
+
+  std_msgs::String string_msg;
+
+  if (diagnostics.avoidance_active_uavs.empty()) {
+
+    string_msg.data = "I see: NOTHING";
+
+  } else {
+
+    string_msg.data = "I see: ";
+  }
+
+  for (unsigned long i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
+    if (i == 0) {
+      string_msg.data += diagnostics.avoidance_active_uavs[i];
+    } else {
+      string_msg.data += ", " + diagnostics.avoidance_active_uavs[i];
+    }
+  }
+
+  try {
+    pub_status_string_.publish(string_msg);
+  }
+  catch (...) {
+    ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_status_string_.getTopic().c_str());
   }
 }
 
