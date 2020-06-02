@@ -12,7 +12,6 @@
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
-#include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/EstimatorType.h>
 
 #include <std_msgs/String.h>
