@@ -1,4 +1,4 @@
-landing_reference: -2.5 # [m], relative "z" reference to the UAV frame during landing
+landing_reference: -1.5 # [m], relative "z" reference to the UAV frame during landing
 
 vertical_tracker:
 
