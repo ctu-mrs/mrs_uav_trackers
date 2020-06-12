@@ -27,7 +27,6 @@ set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES MpcTrackerCvxgen
   CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_managers mrs_msgs
   DEPENDS Eigen
   )
@@ -43,14 +42,30 @@ include_directories(
   ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
   )
 
-# CVXgen wrapper for MPC tracker
+# Mpc Solver Library
 
-add_library(MpcTrackerCvxgen src/cvx_wrapper/cvx_wrapper.cpp
-  src/cvx_wrapper/cvxgen/ldl.c
-  src/cvx_wrapper/cvxgen/matrix_support.c
-  src/cvx_wrapper/cvxgen/solver.c
-  src/cvx_wrapper/cvxgen/util.c
+# Store in CMAKE_DEB_HOST_ARCH var the current build architecture
+execute_process(COMMAND
+  dpkg-architecture
+  -qDEB_HOST_ARCH
+  OUTPUT_VARIABLE
+  CMAKE_DEB_HOST_ARCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
   )
+
+# Choose the timepix library based on the system architectur
+if(${CMAKE_DEB_HOST_ARCH} MATCHES "armhf")
+  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for armhf")
+elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "i386")
+  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for i386")
+elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "x64")
+  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
+elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "amd64")
+  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
+else()
+  MESSAGE(FATAL_ERROR ${CMAKE_DEB_HOST_ARCH})
+  MESSAGE(FATAL_ERROR "MpcTrackerSolver.so has not been selected, check CMakeLists.txt.")
+endif()
 
 # MPC Tracker
 
@@ -63,7 +78,7 @@ add_dependencies(MpcTracker
 
 target_link_libraries(MpcTracker
   ${catkin_LIBRARIES}
-  MpcTrackerCvxgen
+  ${MPC_CONTROLLER_SOLVER_BIN}
   )
 
 # CSV Tracker
@@ -155,7 +170,6 @@ install(TARGETS
   LandoffTracker
   JoyTracker
   MatlabTracker
-  MpcTrackerCvxgen
   SpeedTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}

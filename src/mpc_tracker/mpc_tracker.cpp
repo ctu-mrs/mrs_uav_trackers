@@ -25,7 +25,7 @@
 #include <mrs_lib/subscribe_handler.h>
 
 #include <dynamic_reconfigure/server.h>
-#include <mrs_uav_trackers/cvx_wrapper.h>
+#include <mpc_tracker_solver.h>
 
 #include <mrs_uav_trackers/mpc_trackerConfig.h>
 
@@ -185,12 +185,12 @@ private:
 
   bool mpc_computed_ = false;
 
-  // | ------------------------- cvxgen ------------------------- |
+  // | ----------------------- MPC solver ----------------------- |
 
-  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_x_;
-  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_y_;
-  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_z_;
-  std::unique_ptr<mrs_uav_trackers::cvx_wrapper::CvxWrapper> cvx_heading_;
+  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_x_;
+  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_y_;
+  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_z_;
+  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_heading_;
 
   int _max_iters_xy_;
   int _max_iters_z_;
@@ -397,10 +397,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   B_heading_ = _B_heading_;
 
   // load the MPC parameters
-  param_loader.loadParam("cvxgen/horizon_len", _mpc_horizon_len_);
+  param_loader.loadParam("mpc_solver/horizon_len", _mpc_horizon_len_);
 
-  param_loader.loadParam("cvxgen/dt1", _dt1_);
-  param_loader.loadParam("cvxgen/dt2", _dt2_);
+  param_loader.loadParam("mpc_solver/dt1", _dt1_);
+  param_loader.loadParam("mpc_solver/dt2", _dt2_);
 
   param_loader.loadParam("diagnostics_rate", _diagnostics_rate_);
   param_loader.loadParam("diagnostic_position_tracking_threshold", _diag_pos_tracking_thr_);
@@ -414,17 +414,17 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   std::vector<double> z_Q;
   std::vector<double> heading_Q;
 
-  param_loader.loadParam("cvxgen_xy/verbose", verbose_xy);
-  param_loader.loadParam("cvxgen_xy/max_n_iterations", _max_iters_xy_);
-  param_loader.loadParam("cvxgen_xy/Q", xy_Q);
+  param_loader.loadParam("mpc_solver/xy/verbose", verbose_xy);
+  param_loader.loadParam("mpc_solver/xy/max_n_iterations", _max_iters_xy_);
+  param_loader.loadParam("mpc_solver/xy/Q", xy_Q);
 
-  param_loader.loadParam("cvxgen_z/verbose", verbose_z);
-  param_loader.loadParam("cvxgen_z/max_n_iterations", _max_iters_z_);
-  param_loader.loadParam("cvxgen_z/Q", z_Q);
+  param_loader.loadParam("mpc_solver/z/verbose", verbose_z);
+  param_loader.loadParam("mpc_solver/z/max_n_iterations", _max_iters_z_);
+  param_loader.loadParam("mpc_solver/z/Q", z_Q);
 
-  param_loader.loadParam("cvxgen_heading/verbose", verbose_heading);
-  param_loader.loadParam("cvxgen_heading/max_n_iterations", _max_iters_heading_);
-  param_loader.loadParam("cvxgen_heading/Q", heading_Q);
+  param_loader.loadParam("mpc_solver/heading/verbose", verbose_heading);
+  param_loader.loadParam("mpc_solver/heading/max_n_iterations", _max_iters_heading_);
+  param_loader.loadParam("mpc_solver/heading/Q", heading_Q);
 
   param_loader.loadParam("wiggle/enabled", wiggle_enabled_);
   param_loader.loadParam("wiggle/amplitude", wiggle_amplitude_);
@@ -450,10 +450,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  cvx_x_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
-  cvx_y_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
-  cvx_z_       = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
-  cvx_heading_ = std::make_unique<mrs_uav_trackers::cvx_wrapper::CvxWrapper>(verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
+  mpc_solver_x_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
+  mpc_solver_y_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
+  mpc_solver_z_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
+  mpc_solver_heading_ = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(_mpc_n_states_, 1);
   mpc_x_heading_ = MatrixXd::Zero(_mpc_n_states_heading_, 1);
@@ -967,7 +967,6 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   if (heading_finite) {
 
-    // set the heading output - cvxgen MPC controller
     position_cmd.heading      = mpc_x_heading(0, 0);
     position_cmd.heading_rate = mpc_x_heading(1, 0);
 
@@ -1891,9 +1890,9 @@ void MpcTracker::calculateMPC() {
     max_speed_y = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
   }
 
-  // First control input generated by cvxgen
-  VectorXd cvx_u         = VectorXd::Zero(_mpc_m_states_);
-  double   cvx_u_heading = 0;
+  // First control input generated by MPC
+  VectorXd mpc_u         = VectorXd::Zero(_mpc_m_states_);
+  double   mpc_u_heading = 0;
 
   double iters_z       = 0;
   double iters_x       = 0;
@@ -1912,16 +1911,16 @@ void MpcTracker::calculateMPC() {
     }
   }
 
-  // | ---------------------- cvxgen Z axis --------------------- |
+  // | -------------------- MPC solver z-axis ------------------- |
 
   brake = true;
   if (des_z_filtered_(10) != des_z_filtered_(_mpc_horizon_len_ - 1) || des_z_filtered_(30) != des_z_filtered_(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
-    cvx_z_->setVelQ(3000);
+    mpc_solver_z_->setVelQ(3000);
   } else {
-    cvx_z_->setVelQ(0);
+    mpc_solver_z_->setVelQ(0);
   }
 
   MatrixXd initial_z = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -1931,18 +1930,18 @@ void MpcTracker::calculateMPC() {
   initial_z(2, 0) = mpc_x(10, 0);
   initial_z(3, 0) = mpc_x(11, 0);
 
-  cvx_z_->setInitialState(initial_z);
-  cvx_z_->loadReference(des_z_filtered_offset_);
-  cvx_z_->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
-  iters_z += cvx_z_->solveCvx();
+  mpc_solver_z_->setInitialState(initial_z);
+  mpc_solver_z_->loadReference(des_z_filtered_offset_);
+  mpc_solver_z_->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
+  iters_z += mpc_solver_z_->solveMPC();
 
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    cvx_z_->getStates(predicted_trajectory_);
+    mpc_solver_z_->getStates(predicted_trajectory_);
   }
 
-  cvx_u(2) = cvx_z_->getFirstControlInput();
+  mpc_u(2) = mpc_solver_z_->getFirstControlInput();
 
   // If we are climbing to avoid a collision, reduce or arrest our horizontal velocity
   double ascend;
@@ -1967,16 +1966,16 @@ void MpcTracker::calculateMPC() {
     des_heading_trajectory_(i, 0) = mrs_lib::unwrapAngle(des_heading_trajectory_(i, 0), des_heading_trajectory_(i - 1, 0));
   }
 
-  // | ---------------------- cvxgen X axis --------------------- |
+  // | -------------------- MPC solver x-axis ------------------- |
 
   brake = true;
   if (des_x_filtered_(10) != des_x_filtered_(_mpc_horizon_len_ - 1) || des_x_filtered_(30) != des_x_filtered_(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
-    cvx_x_->setVelQ(3000);
+    mpc_solver_x_->setVelQ(3000);
   } else {
-    cvx_x_->setVelQ(0);
+    mpc_solver_x_->setVelQ(0);
   }
 
   MatrixXd initial_x = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -1986,29 +1985,29 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
-  cvx_x_->setInitialState(initial_x);
-  cvx_x_->loadReference(des_x_filtered_);
-  cvx_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
-  iters_x += cvx_x_->solveCvx();
+  mpc_solver_x_->setInitialState(initial_x);
+  mpc_solver_x_->loadReference(des_x_filtered_);
+  mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
+  iters_x += mpc_solver_x_->solveMPC();
 
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    cvx_x_->getStates(predicted_trajectory_);
+    mpc_solver_x_->getStates(predicted_trajectory_);
   }
 
-  cvx_u(0) = cvx_x_->getFirstControlInput();
+  mpc_u(0) = mpc_solver_x_->getFirstControlInput();
 
-  // | ---------------------- cvxgen Y axis --------------------- |
+  // | -------------------- MPC solver y-axis ------------------- |
 
   brake = true;
   if (des_y_filtered_(10) != des_y_filtered_(_mpc_horizon_len_ - 1) || des_y_filtered_(30) != des_y_filtered_(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
-    cvx_y_->setVelQ(3000);
+    mpc_solver_y_->setVelQ(3000);
   } else {
-    cvx_y_->setVelQ(0);
+    mpc_solver_y_->setVelQ(0);
   }
 
   MatrixXd initial_y = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -2018,18 +2017,18 @@ void MpcTracker::calculateMPC() {
   initial_y(2, 0) = mpc_x(6, 0);
   initial_y(3, 0) = mpc_x(7, 0);
 
-  cvx_y_->setInitialState(initial_y);
-  cvx_y_->loadReference(des_y_filtered_);
-  cvx_y_->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
-  iters_y += cvx_y_->solveCvx();
+  mpc_solver_y_->setInitialState(initial_y);
+  mpc_solver_y_->loadReference(des_y_filtered_);
+  mpc_solver_y_->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
+  iters_y += mpc_solver_y_->solveMPC();
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    cvx_y_->getStates(predicted_trajectory_);
+    mpc_solver_y_->getStates(predicted_trajectory_);
   }
-  cvx_u(1) = cvx_y_->getFirstControlInput();
+  mpc_u(1) = mpc_solver_y_->getFirstControlInput();
 
-  // | ---------------------- cvxgen heading axis --------------------- |
+  // | ------------------- MPC solver heading ------------------- |
 
   brake = true;
   if (fabs(mpc_x_heading(0) - des_heading_trajectory_(10)) > 1.0 || fabs(mpc_x_heading(0) - des_heading_trajectory_(30)) > 1.0) {
@@ -2037,57 +2036,58 @@ void MpcTracker::calculateMPC() {
   }
 
   if (brake) {
-    cvx_heading_->setVelQ(3000);
+    mpc_solver_heading_->setVelQ(3000);
   } else {
-    cvx_heading_->setVelQ(0);
+    mpc_solver_heading_->setVelQ(0);
   }
 
-  cvx_heading_->setInitialState(mpc_x_heading);
-  cvx_heading_->loadReference(des_heading_trajectory_);
-  cvx_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
-                          constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
-  iters_heading += cvx_heading_->solveCvx();
+  mpc_solver_heading_->setInitialState(mpc_x_heading);
+  mpc_solver_heading_->loadReference(des_heading_trajectory_);
+  mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
+                                 constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
+  iters_heading += mpc_solver_heading_->solveMPC();
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    cvx_heading_->getStates(predicted_heading_trajectory_);
+    mpc_solver_heading_->getStates(predicted_heading_trajectory_);
   }
-  cvx_u_heading = cvx_heading_->getFirstControlInput();
+  mpc_u_heading = mpc_solver_heading_->getFirstControlInput();
 
   {
     std::scoped_lock lock(mutex_constraints_);
 
-    if (cvx_u(0) > max_snap_x * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap X: " << cvx_u(0));
-      cvx_u(0) = max_snap_x;
+    if (mpc_u(0) > max_snap_x * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap X: " << mpc_u(0));
+      mpc_u(0) = max_snap_x;
     }
-    if (cvx_u(0) < -max_snap_x * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap X: " << cvx_u(0));
-      cvx_u(0) = -max_snap_x;
+    if (mpc_u(0) < -max_snap_x * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap X: " << mpc_u(0));
+      mpc_u(0) = -max_snap_x;
     }
-    if (cvx_u(1) > max_snap_y * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Y: " << cvx_u(1));
-      cvx_u(1) = max_snap_y;
+    if (mpc_u(1) > max_snap_y * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Y: " << mpc_u(1));
+      mpc_u(1) = max_snap_y;
     }
-    if (cvx_u(1) < -max_snap_y * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Y: " << cvx_u(1));
-      cvx_u(1) = -max_snap_y;
+    if (mpc_u(1) < -max_snap_y * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Y: " << mpc_u(1));
+      mpc_u(1) = -max_snap_y;
     }
-    if (cvx_u(2) > max_snap_z * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Z: " << cvx_u(2));
-      cvx_u(2) = max_snap_z;
+    if (mpc_u(2) > max_snap_z * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Z: " << mpc_u(2));
+      mpc_u(2) = max_snap_z;
     }
-    if (cvx_u(2) < -min_snap_z * 1.01) {
-      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Z: " << cvx_u(2));
-      cvx_u(2) = -min_snap_z;
+    if (mpc_u(2) < -min_snap_z * 1.01) {
+      ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: saturating snap Z: " << mpc_u(2));
+      mpc_u(2) = -min_snap_z;
     }
   }
 
-  double cvx_time = (ros::Time::now() - time_begin).toSec();
-  if (cvx_time > _dt1_ || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
-    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total CVXtime: " << cvx_time << " iters X: " << iters_x << "/" << _max_iters_xy_ << " iters Y:  " << iters_y
-                                                                   << "/" << _max_iters_xy_ << " iters Z: " << iters_z << "/" << _max_iters_z_
-                                                                   << " iters heading: " << iters_heading << "/" << _max_iters_heading_);
+  double mpc_solver_time = (ros::Time::now() - time_begin).toSec();
+  if (mpc_solver_time > _dt1_ || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
+    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_
+                                                                           << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z
+                                                                           << "/" << _max_iters_z_ << " iters heading: " << iters_heading << "/"
+                                                                           << _max_iters_heading_);
   }
 
   // iterate the models
@@ -2157,8 +2157,8 @@ void MpcTracker::calculateMPC() {
       model_iteration_last_time = ros::Time::now();
     }
 
-    mpc_x_         = A_ * mpc_x_ + B_ * cvx_u;
-    mpc_x_heading_ = A_heading_ * mpc_x_heading_ + B_heading_ * cvx_u_heading;
+    mpc_x_         = A_ * mpc_x_ + B_ * mpc_u;
+    mpc_x_heading_ = A_heading_ * mpc_x_heading_ + B_heading_ * mpc_u_heading;
 
     mpc_x_heading_(0) = mrs_lib::wrapAngle(mpc_x_heading_(0));
   }

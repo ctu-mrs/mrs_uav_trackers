@@ -71,24 +71,24 @@ model:
         0,
         0.01]
 
-cvxgen:
+mpc_solver:
 
-  horizon_len: 40 # Horizon length is hardcoded in cvxgen code, this value is used in other parts of the code
+  horizon_len: 40 # Horizon length is hardcoded in solver code, this value is used in other parts of the code
 
   dt1: 0.01
   dt2: 0.2
 
-cvxgen_xy:
-  verbose: false # cvxgen's debug output
-  max_n_iterations: 25 # default: 25
-  Q: [5000, 0, 0, 0]
+  xy:
+    verbose: false
+    max_n_iterations: 25 # default: 25
+    Q: [5000, 0, 0, 0]
 
-cvxgen_z:
-  verbose: false # cvxgen's debug output
-  max_n_iterations: 25 # default: 25
-  Q: [5000, 0, 0, 0]
+  z:
+    verbose: false
+    max_n_iterations: 25 # default: 25
+    Q: [5000, 0, 0, 0]
 
-cvxgen_heading:
-  verbose: false # cvxgen's debug output
-  max_n_iterations: 25 # default: 25
-  Q: [5000, 0, 0, 0]
+  heading:
+    verbose: false
+    max_n_iterations: 25 # default: 25
+    Q: [5000, 0, 0, 0]

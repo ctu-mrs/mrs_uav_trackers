@@ -1,39 +1,39 @@
-#ifndef CVX_WRAPPER_TRACKER
-#define CVX_WRAPPER_TRACKER
+#ifndef MPC_TRACKER_SOLVER
+#define MPC_TRACKER_SOLVER
 
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
 
-namespace mrs_uav_trackers
+namespace mrs_mpc_solvers
 {
 
-namespace cvx_wrapper
+namespace mpc_tracker
 {
 
-/* author: Daniel Hert */
-
-class CvxWrapper {
+class Solver {
 
 public:
-  CvxWrapper(bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dim);
+  Solver(std::string name, bool verbose, int max_iters, std::vector<double> tempQ, double dt, double dt2, int dim);
 
   void   setInitialState(Eigen::MatrixXd &x);
   bool   setVelQ(double Q_vel);
   bool   setQ(std::vector<double> Qnew);
   void   loadReference(Eigen::MatrixXd &reference);
   void   setLimits(double max_speed, double min_speed, double max_acc, double min_acc, double max_jerk, double min_jerk, double max_snap, double min_snap);
-  int    solveCvx();
+  int    solveMPC();
   void   getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInput();
 
 private:
-  static const int    horizon_len = 40;
-  std::vector<double> myQ;
-  int                 dim;
+  static const int _horizon_len_ = 40;
+  int              _dim_;
+  std::string      _name_;
+
+  std::vector<double> myQ_;
 };
 
-}  // namespace cvx_wrapper
+}  // namespace mpc_tracker
 
-}  // namespace mrs_uav_trackers
+}  // namespace mrs_mpc_solvers
 
 #endif

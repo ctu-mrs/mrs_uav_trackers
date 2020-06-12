@@ -107,7 +107,7 @@ Changelog for package mrs_trackers
 * fixed tracking flag in diagnostics after initial hover
 * added tilt mode to MatlabTracker
 * joystic channels moved to config file
-* moved cvx wrapper outside of mpc tracker
+* moved mpc solver outside of mpc tracker
 * Restore original joy tracker
 * Add new joy bumper tracker
 * added missing trackers to install in cmakelists
