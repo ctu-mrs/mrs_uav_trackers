@@ -13,7 +13,7 @@ Changelog for package mrs_trackers
 * sanitized avoidance srv
 * updated odometry reset in mpc
 * limited rwarnings of bad avoidance tfs
-* updated yaw activation inital condition
+* updated heading activation inital condition
 * fixed odometry switch bug with speed/acc scaling
 * added version check
 * avoidance trajectory published in utm_origin
@@ -42,8 +42,8 @@ Changelog for package mrs_trackers
 * added automatic velocity penalization, removed no_overshoots completely
 * removed no_overshoots service, param and made it true by default
   * it is true by default now, except for trajectory tracking
-* added yaw angle interpolation
-* fixed yaw tracking in trajectory
+* added heading angle interpolation
+* fixed heading tracking in trajectory
 * fixed last noloop trajectory point
 * lowered the lowest safe height in collision avoidance
 * added trajectory interpolation
@@ -102,7 +102,7 @@ Changelog for package mrs_trackers
 * fixed wiggle service client
 * added wiggle to mpc tracker
 * added "is_active" checks to trajectory service callbacks
-* fixed use_yaw during flying to trajectory start
+* fixed use_heading during flying to trajectory start
 * added avoidance status to diagnostics
 * fixed tracking flag in diagnostics after initial hover
 * added tilt mode to MatlabTracker

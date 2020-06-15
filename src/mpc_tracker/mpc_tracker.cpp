@@ -968,7 +968,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   } else {
 
-    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: yaw output is not finite!");
+    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: heading output is not finite!");
 
     position_cmd.heading_rate     = 0;
     position_cmd.use_heading_rate = 1;
