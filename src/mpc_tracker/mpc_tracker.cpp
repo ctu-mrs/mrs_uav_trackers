@@ -140,16 +140,13 @@ private:
   std::mutex mutex_des_trajectory_;
 
   // the reference filtered over the prediction horizon per axis
-  MatrixXd des_x_filtered_;
-  MatrixXd des_y_filtered_;
-  MatrixXd des_z_filtered_;
   MatrixXd des_z_filtered_offset_;
 
   // the whole trajectory reference split per axis
-  std::unique_ptr<VectorXd> des_x_whole_trajectory_;
-  std::unique_ptr<VectorXd> des_y_whole_trajectory_;
-  std::unique_ptr<VectorXd> des_z_whole_trajectory_;
-  std::unique_ptr<VectorXd> des_heading_whole_trajectory_;
+  std::shared_ptr<VectorXd> des_x_whole_trajectory_;
+  std::shared_ptr<VectorXd> des_y_whole_trajectory_;
+  std::shared_ptr<VectorXd> des_z_whole_trajectory_;
+  std::shared_ptr<VectorXd> des_heading_whole_trajectory_;
   std::mutex                mutex_des_whole_trajectory_;
 
   // trajectory tracking
@@ -187,10 +184,10 @@ private:
 
   // | ----------------------- MPC solver ----------------------- |
 
-  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_x_;
-  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_y_;
-  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_z_;
-  std::unique_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_heading_;
+  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_x_;
+  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_y_;
+  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_z_;
+  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_heading_;
 
   int _max_iters_xy_;
   int _max_iters_z_;
@@ -315,8 +312,8 @@ private:
 
   std::tuple<bool, std::string, bool> loadTrajectory(const mrs_msgs::TrajectoryReference msg);
 
-  void filterReferenceZ(const double max_ascending_speed, const double max_descending_speed);
-  void filterReferenceXY(double max_speed_x, double max_speed_y);
+  MatrixXd                       filterReferenceZ(const VectorXd& des_z_trajectory, const double max_ascending_speed, const double max_descending_speed);
+  std::tuple<MatrixXd, MatrixXd> filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x, double max_speed_y);
 
   double checkTrajectoryForCollisions(int& first_collision_index);
 
@@ -450,10 +447,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  mpc_solver_x_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
-  mpc_solver_y_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
-  mpc_solver_z_       = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
-  mpc_solver_heading_ = std::make_unique<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
+  mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
+  mpc_solver_y_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
+  mpc_solver_z_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
+  mpc_solver_heading_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(_mpc_n_states_, 1);
   mpc_x_heading_ = MatrixXd::Zero(_mpc_n_states_heading_, 1);
@@ -465,10 +462,6 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   des_z_trajectory_       = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_z_filtered_offset_  = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
-
-  des_x_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
-  des_y_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
-  des_z_filtered_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
   service_client_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
@@ -1000,14 +993,19 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   auto trajectory_size         = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
   auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
 
+  auto des_x_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_x_trajectory_);
+  auto des_y_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_y_trajectory_);
+  auto des_z_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_z_trajectory_);
+  auto des_heading_trajectory = mrs_lib::get_mutexed(mutex_des_trajectory_, des_heading_trajectory_);
+
   double des_x, des_y, des_z, des_heading;
   {
     std::scoped_lock lock(mutex_des_trajectory_);
 
-    des_x       = des_x_trajectory_(0);
-    des_y       = des_y_trajectory_(0);
-    des_z       = des_z_trajectory_(0);
-    des_heading = des_heading_trajectory_(0);
+    des_x       = des_x_trajectory(0);
+    des_y       = des_y_trajectory(0);
+    des_z       = des_z_trajectory(0);
+    des_heading = des_heading_trajectory(0);
   }
 
   mrs_msgs::TrackerStatus tracker_status;
@@ -1612,10 +1610,14 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
 /* //{ filterReferenceXY() */
 
-void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
+std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x,
+                                                             double max_speed_y) {
 
   auto mpc_x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto trajectory_dt = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_dt_);
+
+  MatrixXd filtered_x_trajectory = MatrixXd::Zero(_mpc_horizon_len_, 1);
+  MatrixXd filtered_y_trajectory = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
   double difference_x;
   double difference_y;
@@ -1625,15 +1627,15 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
   for (int i = 0; i < _mpc_horizon_len_; i++) {
 
     if (i == 0) {
-      max_sample_x = max_speed_x_ * _dt1_;
-      max_sample_y = max_speed_y_ * _dt1_;
-      difference_x = des_x_trajectory_(i, 0) - mpc_x(0, 0);
-      difference_y = des_y_trajectory_(i, 0) - mpc_x(4, 0);
+      max_sample_x = max_speed_x * _dt1_;
+      max_sample_y = max_speed_y * _dt1_;
+      difference_x = des_x_trajectory(i, 0) - mpc_x(0, 0);
+      difference_y = des_y_trajectory(i, 0) - mpc_x(4, 0);
     } else {
-      max_sample_x = max_speed_x_ * _dt2_;
-      max_sample_y = max_speed_y_ * _dt2_;
-      difference_x = des_x_trajectory_(i, 0) - des_x_filtered_(i - 1, 0);
-      difference_y = des_y_trajectory_(i, 0) - des_y_filtered_(i - 1, 0);
+      max_sample_x = max_speed_x * _dt2_;
+      max_sample_y = max_speed_y * _dt2_;
+      difference_x = des_x_trajectory(i, 0) - filtered_x_trajectory(i - 1, 0);
+      difference_y = des_y_trajectory(i, 0) - filtered_y_trajectory(i - 1, 0);
     }
 
     double direction_angle  = atan2(difference_y, difference_x);
@@ -1659,11 +1661,11 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
       difference_y = -max_sample_y;
 
     if (i == 0) {
-      des_x_filtered_(i, 0) = mpc_x(0, 0) + difference_x;
-      des_y_filtered_(i, 0) = mpc_x(4, 0) + difference_y;
+      filtered_x_trajectory(i, 0) = mpc_x(0, 0) + difference_x;
+      filtered_y_trajectory(i, 0) = mpc_x(4, 0) + difference_y;
     } else {
-      des_x_filtered_(i, 0) = des_x_filtered_(i - 1, 0) + difference_x;
-      des_y_filtered_(i, 0) = des_y_filtered_(i - 1, 0) + difference_y;
+      filtered_x_trajectory(i, 0) = filtered_x_trajectory(i - 1, 0) + difference_x;
+      filtered_y_trajectory(i, 0) = filtered_y_trajectory(i - 1, 0) + difference_y;
     }
   }
 
@@ -1671,8 +1673,8 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
   if (wiggle_enabled_) {
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
-      des_x_filtered_(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
-      des_y_filtered_(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
+      filtered_x_trajectory(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
+      filtered_x_trajectory(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
     }
 
     wiggle_phase_ += wiggle_frequency_ * _dt1_ * 2 * M_PI;
@@ -1681,24 +1683,28 @@ void MpcTracker::filterReferenceXY(double max_speed_x_, double max_speed_y_) {
       wiggle_phase_ -= 2 * M_PI;
     }
   }
+
+  return std::make_tuple(filtered_x_trajectory, filtered_y_trajectory);
 }
 
 //}
 
 /* //{ filterReferenceZ() */
 
-void MpcTracker::filterReferenceZ(const double max_ascending_speed, const double max_descending_speed) {
+MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const double max_ascending_speed, const double max_descending_speed) {
 
   auto mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
   double difference_z;
   double max_sample_z;
 
+  MatrixXd filtered_trajectory = MatrixXd::Zero(_mpc_horizon_len_, 1);
+
   for (int i = 0; i < _mpc_horizon_len_; i++) {
 
     if (i == 0) {
 
-      difference_z = des_z_trajectory_(i, 0) - mpc_x(8, 0);
+      difference_z = des_z_trajectory(i, 0) - mpc_x(8, 0);
 
       if (difference_z > 0) {
         max_sample_z = max_ascending_speed * _dt1_;
@@ -1708,7 +1714,7 @@ void MpcTracker::filterReferenceZ(const double max_ascending_speed, const double
 
     } else {
 
-      difference_z = des_z_trajectory_(i, 0) - des_z_filtered_(i - 1, 0);
+      difference_z = des_z_trajectory(i, 0) - filtered_trajectory(i - 1, 0);
 
       if (difference_z > 0) {
         max_sample_z = max_ascending_speed * _dt2_;
@@ -1724,11 +1730,13 @@ void MpcTracker::filterReferenceZ(const double max_ascending_speed, const double
       difference_z = -max_sample_z;
 
     if (i == 0) {
-      des_z_filtered_(i, 0) = mpc_x(8, 0) + difference_z;
+      filtered_trajectory(i, 0) = mpc_x(8, 0) + difference_z;
     } else {
-      des_z_filtered_(i, 0) = des_z_filtered_(i - 1, 0) + difference_z;
+      filtered_trajectory(i, 0) = filtered_trajectory(i - 1, 0) + difference_z;
     }
   }
+
+  return filtered_trajectory;
 }
 
 //}
@@ -1796,6 +1804,16 @@ void MpcTracker::calculateMPC() {
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
   auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  MatrixXd des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory;
+  {
+    std::scoped_lock lock(mutex_des_trajectory_);
+
+    des_x_trajectory       = des_x_trajectory_;
+    des_y_trajectory       = des_y_trajectory_;
+    des_z_trajectory       = des_z_trajectory_;
+    des_heading_trajectory = des_heading_trajectory_;
+  }
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
@@ -1901,20 +1919,20 @@ void MpcTracker::calculateMPC() {
 
   ros::Time time_begin = ros::Time::now();
 
-  filterReferenceZ(max_speed_z, min_speed_z);
+  MatrixXd des_z_filtered = filterReferenceZ(des_z_trajectory, max_speed_z, min_speed_z);
 
   for (int i = 0; i < _mpc_horizon_len_; i++) {
-    if (des_z_filtered_(i, 0) < minimum_collison_free_altitude_) {
+    if (des_z_filtered(i, 0) < minimum_collison_free_altitude_) {
       des_z_filtered_offset_(i, 0) = minimum_collison_free_altitude_;
     } else {
-      des_z_filtered_offset_(i, 0) = des_z_filtered_(i, 0);
+      des_z_filtered_offset_(i, 0) = des_z_filtered(i, 0);
     }
   }
 
   // | -------------------- MPC solver z-axis ------------------- |
 
   brake = true;
-  if (des_z_filtered_(10) != des_z_filtered_(_mpc_horizon_len_ - 1) || des_z_filtered_(30) != des_z_filtered_(_mpc_horizon_len_ - 1)) {
+  if (des_z_filtered(10) != des_z_filtered(_mpc_horizon_len_ - 1) || des_z_filtered(30) != des_z_filtered(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
@@ -1956,20 +1974,20 @@ void MpcTracker::calculateMPC() {
     max_speed_x = max_speed_x * (1.0 - ascend);
   }
 
-  filterReferenceXY(max_speed_x, max_speed_y);
+  auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
 
   // unwrap the heading reference
 
-  des_heading_trajectory_(0, 0) = mrs_lib::unwrapAngle(des_heading_trajectory_(0, 0), mpc_x_heading_(0));
+  des_heading_trajectory(0, 0) = mrs_lib::unwrapAngle(des_heading_trajectory(0, 0), mpc_x_heading_(0));
 
   for (int i = 1; i < _mpc_horizon_len_; i++) {
-    des_heading_trajectory_(i, 0) = mrs_lib::unwrapAngle(des_heading_trajectory_(i, 0), des_heading_trajectory_(i - 1, 0));
+    des_heading_trajectory(i, 0) = mrs_lib::unwrapAngle(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
   }
 
   // | -------------------- MPC solver x-axis ------------------- |
 
   brake = true;
-  if (des_x_filtered_(10) != des_x_filtered_(_mpc_horizon_len_ - 1) || des_x_filtered_(30) != des_x_filtered_(_mpc_horizon_len_ - 1)) {
+  if (des_x_filtered(10) != des_x_filtered(_mpc_horizon_len_ - 1) || des_x_filtered(30) != des_x_filtered(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
@@ -1986,7 +2004,7 @@ void MpcTracker::calculateMPC() {
   initial_x(3, 0) = mpc_x(3, 0);
 
   mpc_solver_x_->setInitialState(initial_x);
-  mpc_solver_x_->loadReference(des_x_filtered_);
+  mpc_solver_x_->loadReference(des_x_filtered);
   mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
   iters_x += mpc_solver_x_->solveMPC();
 
@@ -2001,7 +2019,7 @@ void MpcTracker::calculateMPC() {
   // | -------------------- MPC solver y-axis ------------------- |
 
   brake = true;
-  if (des_y_filtered_(10) != des_y_filtered_(_mpc_horizon_len_ - 1) || des_y_filtered_(30) != des_y_filtered_(_mpc_horizon_len_ - 1)) {
+  if (des_y_filtered(10) != des_y_filtered(_mpc_horizon_len_ - 1) || des_y_filtered(30) != des_y_filtered(_mpc_horizon_len_ - 1)) {
     brake = false;
   }
   if (brake) {
@@ -2018,7 +2036,7 @@ void MpcTracker::calculateMPC() {
   initial_y(3, 0) = mpc_x(7, 0);
 
   mpc_solver_y_->setInitialState(initial_y);
-  mpc_solver_y_->loadReference(des_y_filtered_);
+  mpc_solver_y_->loadReference(des_y_filtered);
   mpc_solver_y_->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
   iters_y += mpc_solver_y_->solveMPC();
   {
@@ -2031,7 +2049,7 @@ void MpcTracker::calculateMPC() {
   // | ------------------- MPC solver heading ------------------- |
 
   brake = true;
-  if (fabs(mpc_x_heading(0) - des_heading_trajectory_(10)) > 1.0 || fabs(mpc_x_heading(0) - des_heading_trajectory_(30)) > 1.0) {
+  if (fabs(mpc_x_heading(0) - des_heading_trajectory(1)) > 1.0 || fabs(mpc_x_heading(0) - des_heading_trajectory(30)) > 1.0) {
     brake = false;
   }
 
@@ -2042,7 +2060,7 @@ void MpcTracker::calculateMPC() {
   }
 
   mpc_solver_heading_->setInitialState(mpc_x_heading);
-  mpc_solver_heading_->loadReference(des_heading_trajectory_);
+  mpc_solver_heading_->loadReference(des_heading_trajectory);
   mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
                                  constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
   iters_heading += mpc_solver_heading_->solveMPC();
@@ -2164,6 +2182,40 @@ void MpcTracker::calculateMPC() {
   }
 
   future_was_predicted_ = true;
+
+  /* publish mpc reference //{ */
+
+  {
+    geometry_msgs::PoseArray debug_trajectory_out;
+    debug_trajectory_out.header.stamp    = ros::Time::now();
+    debug_trajectory_out.header.frame_id = uav_state_.header.frame_id;
+
+    {
+      std::scoped_lock lock(mutex_predicted_trajectory_);
+
+      for (int i = 0; i < _mpc_horizon_len_; i++) {
+
+        geometry_msgs::Pose new_pose;
+
+        new_pose.position.x = des_x_filtered(i, 0);
+        new_pose.position.y = des_y_filtered(i, 0);
+        new_pose.position.z = des_z_filtered(i, 0);
+
+        new_pose.orientation = mrs_lib::AttitudeConverter(0, 0, des_heading_trajectory(i));
+
+        debug_trajectory_out.poses.push_back(new_pose);
+      }
+    }
+
+    try {
+      publisher_mpc_reference_debugging_.publish(debug_trajectory_out);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_mpc_reference_debugging_.getTopic().c_str());
+    }
+  }
+
+  //}
 }
 
 //}
@@ -2236,7 +2288,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     if (trajectory_time_offset > 0) {
 
       // calculate the offset in samples
-      trajectory_sample_offset = int(floor(trajectory_time_offset / trajectory_dt_));
+      trajectory_sample_offset = int(floor(trajectory_time_offset / trajectory_dt));
 
       // and get the subsample offset, which will be used to initialize the interpolator
       trajectory_subsample_offset = int(floor(fmod(trajectory_time_offset, trajectory_dt) / (_dt1_)));
@@ -2371,10 +2423,10 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     trajectory_track_heading_        = msg.use_heading;
 
     // allocate the vectors
-    des_x_whole_trajectory_       = std::make_unique<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
-    des_y_whole_trajectory_       = std::make_unique<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
-    des_z_whole_trajectory_       = std::make_unique<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
-    des_heading_whole_trajectory_ = std::make_unique<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
+    des_x_whole_trajectory_       = std::make_shared<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
+    des_y_whole_trajectory_       = std::make_shared<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
+    des_z_whole_trajectory_       = std::make_shared<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
+    des_heading_whole_trajectory_ = std::make_shared<VectorXd>(trajectory_size + _mpc_horizon_len_, 1);
 
     for (int i = 0; i < trajectory_size + _mpc_horizon_len_; i++) {
 
@@ -2394,12 +2446,43 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
       toggleHover(false);
 
+      /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
+
       for (int i = 0; i < _mpc_horizon_len_; i++) {
 
-        des_x_trajectory_(i)       = des_x_whole_trajectory(i);
-        des_y_trajectory_(i)       = des_y_whole_trajectory(i);
-        des_z_trajectory_(i)       = des_z_whole_trajectory(i);
-        des_heading_trajectory_(i) = des_heading_whole_trajectory(i);
+        double first_time = _dt1_ + i * _dt2_ + trajectory_subsample_offset * _dt1_;
+
+        int first_idx  = floor(first_time / trajectory_dt);
+        int second_idx = first_idx + 1;
+
+        double interp_coeff = std::fmod(double(first_time), trajectory_dt) / trajectory_dt;
+
+        if (trajectory_tracking_loop_) {
+
+          if (second_idx >= trajectory_size) {
+            second_idx -= trajectory_size;
+          }
+
+          if (first_idx >= trajectory_size) {
+            first_idx -= trajectory_size;
+          }
+        } else {
+
+          if (second_idx >= trajectory_size) {
+            second_idx = trajectory_size - 1;
+          }
+
+          if (first_idx >= trajectory_size) {
+            first_idx = trajectory_size - 1;
+          }
+        }
+
+        des_x_trajectory_(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+        des_y_trajectory_(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+        des_z_trajectory_(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
+
+        des_heading_trajectory_(i, 0) =
+            mrs_lib::interpolateAngles(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), 1 - interp_coeff);
       }
     }
 
@@ -2768,6 +2851,11 @@ std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
 
 void MpcTracker::publishDiagnostics(void) {
 
+  auto des_x_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_x_trajectory_);
+  auto des_y_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_y_trajectory_);
+  auto des_z_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_z_trajectory_);
+  auto des_heading_trajectory = mrs_lib::get_mutexed(mutex_des_trajectory_, des_heading_trajectory_);
+
   mrs_msgs::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = ros::Time::now();
@@ -2778,11 +2866,11 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
   diagnostics.avoiding_collision         = avoiding_collision_;
 
-  diagnostics.setpoint.position.x = des_x_trajectory_(0, 0);
-  diagnostics.setpoint.position.y = des_y_trajectory_(0, 0);
-  diagnostics.setpoint.position.z = des_z_trajectory_(0, 0);
+  diagnostics.setpoint.position.x = des_x_trajectory(0, 0);
+  diagnostics.setpoint.position.y = des_y_trajectory(0, 0);
+  diagnostics.setpoint.position.z = des_z_trajectory(0, 0);
 
-  diagnostics.setpoint.orientation = mrs_lib::AttitudeConverter(0, 0, des_heading_trajectory_(0, 0));
+  diagnostics.setpoint.orientation = mrs_lib::AttitudeConverter(0, 0, des_heading_trajectory(0, 0));
 
   std::stringstream ss;
 
@@ -2894,11 +2982,6 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("mpcIteration", int(1.0 / _dt1_), 0.01, event);
 
-  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
-  auto [trajectory_tracking_sub_idx, trajectory_tracking_idx] =
-      mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_sub_idx_, trajectory_tracking_idx_);
-  auto trajectory_dt = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_dt_);
-
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
   ros::Duration interval;
@@ -2906,47 +2989,75 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
   // if we are tracking trajectory, copy the setpoint
   if (trajectory_tracking_in_progress_) {
 
-    /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
-
+    MatrixXd des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory;
+    VectorXd des_x_whole_trajectory, des_y_whole_trajectory, des_z_whole_trajectory, des_heading_whole_trajectory;
+    double   trajectory_size, trajectory_dt;
     {
       std::scoped_lock lock(mutex_des_trajectory_, mutex_des_whole_trajectory_);
 
-      for (int i = 0; i < _mpc_horizon_len_; i++) {
+      des_x_trajectory       = des_x_trajectory_;
+      des_y_trajectory       = des_y_trajectory_;
+      des_z_trajectory       = des_z_trajectory_;
+      des_heading_trajectory = des_heading_trajectory_;
 
-        double first_time = _dt1_ + i * _dt2_ + trajectory_tracking_sub_idx * _dt1_;
+      des_x_whole_trajectory       = *des_x_whole_trajectory_;
+      des_y_whole_trajectory       = *des_y_whole_trajectory_;
+      des_z_whole_trajectory       = *des_z_whole_trajectory_;
+      des_heading_whole_trajectory = *des_heading_whole_trajectory_;
 
-        int first_idx  = trajectory_tracking_idx + floor(first_time / trajectory_dt);
-        int second_idx = first_idx + 1;
+      trajectory_size = trajectory_size_;
+      trajectory_dt   = trajectory_dt_;
+    }
 
-        double interp_coeff = std::fmod(double(first_time), trajectory_dt) / trajectory_dt;
+    /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
-        if (trajectory_tracking_loop_) {
+    double trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
+    double trajectory_tracking_idx     = trajectory_tracking_idx_;
 
-          if (second_idx >= trajectory_size_) {
-            second_idx -= trajectory_size_;
-          }
+    for (int i = 0; i < _mpc_horizon_len_; i++) {
 
-          if (first_idx >= trajectory_size_) {
-            first_idx -= trajectory_size_;
-          }
-        } else {
+      double first_time = _dt1_ + i * _dt2_ + trajectory_tracking_sub_idx * _dt1_;
 
-          if (second_idx >= trajectory_size_) {
-            second_idx = trajectory_size_ - 1;
-          }
+      int first_idx  = trajectory_tracking_idx + floor(first_time / trajectory_dt);
+      int second_idx = first_idx + 1;
 
-          if (first_idx >= trajectory_size_) {
-            first_idx = trajectory_size_ - 1;
-          }
+      double interp_coeff = std::fmod(double(first_time), trajectory_dt) / trajectory_dt;
+
+      if (trajectory_tracking_loop_) {
+
+        if (second_idx >= trajectory_size) {
+          second_idx -= trajectory_size;
         }
 
-        des_x_trajectory_(i, 0) = (1 - interp_coeff) * (*des_x_whole_trajectory_)(first_idx) + interp_coeff * (*des_x_whole_trajectory_)(second_idx);
-        des_y_trajectory_(i, 0) = (1 - interp_coeff) * (*des_y_whole_trajectory_)(first_idx) + interp_coeff * (*des_y_whole_trajectory_)(second_idx);
-        des_z_trajectory_(i, 0) = (1 - interp_coeff) * (*des_z_whole_trajectory_)(first_idx) + interp_coeff * (*des_z_whole_trajectory_)(second_idx);
+        if (first_idx >= trajectory_size) {
+          first_idx -= trajectory_size;
+        }
+      } else {
 
-        des_heading_trajectory_(i, 0) =
-            mrs_lib::interpolateAngles((*des_heading_whole_trajectory_)(first_idx), (*des_heading_whole_trajectory_)(second_idx), 1 - interp_coeff);
+        if (second_idx >= trajectory_size) {
+          second_idx = trajectory_size - 1;
+        }
+
+        if (first_idx >= trajectory_size) {
+          first_idx = trajectory_size - 1;
+        }
       }
+
+      des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory[first_idx] + interp_coeff * des_x_whole_trajectory[second_idx];
+      des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory[first_idx] + interp_coeff * des_y_whole_trajectory[second_idx];
+      des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory[first_idx] + interp_coeff * des_z_whole_trajectory[second_idx];
+
+      des_heading_trajectory(i, 0) =
+          mrs_lib::interpolateAngles(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], 1 - interp_coeff);
+    }
+
+    {
+      std::scoped_lock lock(mutex_des_trajectory_);
+
+      des_x_trajectory_       = des_x_trajectory;
+      des_y_trajectory_       = des_y_trajectory;
+      des_z_trajectory_       = des_z_trajectory;
+      des_heading_trajectory_ = des_heading_trajectory;
     }
 
     //}
@@ -2978,40 +3089,6 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
   }
 
   mpc_computed_ = true;
-
-  /* publish mpc reference //{ */
-
-  {
-    geometry_msgs::PoseArray debug_trajectory_out;
-    debug_trajectory_out.header.stamp    = ros::Time::now();
-    debug_trajectory_out.header.frame_id = uav_state_.header.frame_id;
-
-    {
-      std::scoped_lock lock(mutex_predicted_trajectory_);
-
-      for (int i = 0; i < _mpc_horizon_len_; i++) {
-
-        geometry_msgs::Pose new_pose;
-
-        new_pose.position.x = des_x_filtered_(i, 0);
-        new_pose.position.y = des_y_filtered_(i, 0);
-        new_pose.position.z = des_z_filtered_(i, 0);
-
-        new_pose.orientation = mrs_lib::AttitudeConverter(0, 0, des_heading_trajectory_(i));
-
-        debug_trajectory_out.poses.push_back(new_pose);
-      }
-    }
-
-    try {
-      publisher_mpc_reference_debugging_.publish(debug_trajectory_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_mpc_reference_debugging_.getTopic().c_str());
-    }
-  }
-
-  //}
 
   /* publish predicted future //{ */
 
