@@ -993,19 +993,14 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   auto trajectory_size         = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
   auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
 
-  auto des_x_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_x_trajectory_);
-  auto des_y_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_y_trajectory_);
-  auto des_z_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_z_trajectory_);
-  auto des_heading_trajectory = mrs_lib::get_mutexed(mutex_des_trajectory_, des_heading_trajectory_);
-
   double des_x, des_y, des_z, des_heading;
   {
     std::scoped_lock lock(mutex_des_trajectory_);
 
-    des_x       = des_x_trajectory(0);
-    des_y       = des_y_trajectory(0);
-    des_z       = des_z_trajectory(0);
-    des_heading = des_heading_trajectory(0);
+    des_x       = des_x_trajectory_(0);
+    des_y       = des_y_trajectory_(0);
+    des_z       = des_z_trajectory_(0);
+    des_heading = des_heading_trajectory_(0);
   }
 
   mrs_msgs::TrackerStatus tracker_status;
@@ -1023,6 +1018,21 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
   tracker_status.trajectory_length = trajectory_size;
   tracker_status.trajectory_idx    = trajectory_tracking_idx;
+
+  if (trajectory_tracking_in_progress_) {
+
+    auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+    std::scoped_lock lock(mutex_des_whole_trajectory_);
+
+    tracker_status.trajectory_reference.header.stamp    = ros::Time::now();
+    tracker_status.trajectory_reference.header.frame_id = uav_state.header.frame_id;
+
+    tracker_status.trajectory_reference.reference.position.x = (*des_x_whole_trajectory_)(trajectory_tracking_idx);
+    tracker_status.trajectory_reference.reference.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
+    tracker_status.trajectory_reference.reference.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
+    tracker_status.trajectory_reference.reference.heading    = (*des_heading_whole_trajectory_)(trajectory_tracking_idx);
+  }
 
   return tracker_status;
 }
