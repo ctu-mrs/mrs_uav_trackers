@@ -53,7 +53,7 @@ execute_process(COMMAND
   OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 
-# Choose the timepix library based on the system architectur
+# deduce the library path based on the system architecture
 if(${CMAKE_DEB_HOST_ARCH} MATCHES "armhf")
   MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for armhf")
 elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "i386")
