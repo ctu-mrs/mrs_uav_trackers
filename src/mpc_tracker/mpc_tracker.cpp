@@ -1684,7 +1684,7 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
       filtered_x_trajectory(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
-      filtered_x_trajectory(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
+      filtered_y_trajectory(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
     }
 
     wiggle_phase_ += wiggle_frequency_ * _dt1_ * 2 * M_PI;
