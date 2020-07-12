@@ -2494,6 +2494,8 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         des_heading_trajectory_(i, 0) =
             mrs_lib::interpolateAngles(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), 1 - interp_coeff);
       }
+
+      //}
     }
 
     trajectory_size_             = trajectory_size;
