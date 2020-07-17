@@ -45,7 +45,7 @@ public:
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
 
-  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr startTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr &cmd);
@@ -71,8 +71,8 @@ private:
 
   // | ------------------- tracker constraints ------------------ |
 
-  mrs_msgs::TrackerConstraints constraints_;
-  std::mutex                   mutex_constraints_;
+  mrs_msgs::DynamicsConstraints constraints_;
+  std::mutex                    mutex_constraints_;
 
   // | ---------------- the tracker's inner state --------------- |
 
@@ -423,8 +423,8 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::gotoTrajectoryStart([[ma
 
 /* //{ setConstraints() */
 
-const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
 
   {
     std::scoped_lock lock(mutex_constraints_);
@@ -432,12 +432,12 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr SpeedTracker::setConstra
     constraints_ = cmd->constraints;
   }
 
-  mrs_msgs::TrackerConstraintsSrvResponse res;
+  mrs_msgs::DynamicsConstraintsSrvResponse res;
 
   res.success = true;
   res.message = "constraints updated";
 
-  return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse(res));
+  return mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr(new mrs_msgs::DynamicsConstraintsSrvResponse(res));
 }
 
 //}

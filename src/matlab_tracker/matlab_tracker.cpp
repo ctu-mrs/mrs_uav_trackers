@@ -40,7 +40,7 @@ public:
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
 
-  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr startTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr &cmd);
@@ -328,10 +328,10 @@ const std_srvs::TriggerResponse::ConstPtr MatlabTracker::gotoTrajectoryStart([[m
 
 /* //{ setConstraints() */
 
-const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MatlabTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr MatlabTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
 
-  return mrs_msgs::TrackerConstraintsSrvResponse::Ptr();
+  return mrs_msgs::DynamicsConstraintsSrvResponse::Ptr();
 }
 
 //}

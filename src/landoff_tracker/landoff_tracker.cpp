@@ -67,7 +67,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr resumeTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr& cmd);
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
-  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
   bool callbacks_enabled_ = true;
@@ -706,10 +706,10 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::gotoTrajectoryStart([[
 
 /* //{ setConstraints() */
 
-const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr LandoffTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr LandoffTracker::setConstraints([
+    [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& cmd) {
 
-  return mrs_msgs::TrackerConstraintsSrvResponse::Ptr();
+  return mrs_msgs::DynamicsConstraintsSrvResponse::Ptr();
 }
 
 //}

@@ -71,7 +71,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr resumeTrajectoryTracking(const std_srvs::TriggerRequest::ConstPtr& cmd);
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr& cmd);
 
-  const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
   ros::NodeHandle                                     nh_;
@@ -105,11 +105,11 @@ private:
 
   // | ----------------------- constraints ---------------------- |
 
-  mrs_msgs::TrackerConstraints constraints_;
-  std::mutex                   mutex_constraints_;
+  mrs_msgs::DynamicsConstraints constraints_;
+  std::mutex                    mutex_constraints_;
 
-  mrs_msgs::TrackerConstraints constraints_filtered_;
-  std::mutex                   mutex_constraints_filtered_;
+  mrs_msgs::DynamicsConstraints constraints_filtered_;
+  std::mutex                    mutex_constraints_filtered_;
 
   bool got_constraints_     = false;
   bool all_constraints_set_ = false;
@@ -1287,10 +1287,10 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::gotoTrajectoryStart([[mayb
 
 /* //{ setConstraints() */
 
-const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::TrackerConstraintsSrvRequest::ConstPtr& constraints) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr MpcTracker::setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& constraints) {
 
   if (!is_initialized_) {
-    return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse());
+    return mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr(new mrs_msgs::DynamicsConstraintsSrvResponse());
   }
 
   mrs_lib::set_mutexed(mutex_constraints_, constraints->constraints, constraints_);
@@ -1314,11 +1314,11 @@ const mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr MpcTracker::setConstrain
 
   ROS_INFO("[MpcTracker]: updating constraints");
 
-  mrs_msgs::TrackerConstraintsSrvResponse res;
+  mrs_msgs::DynamicsConstraintsSrvResponse res;
   res.success = true;
   res.message = "constraints updated";
 
-  return mrs_msgs::TrackerConstraintsSrvResponse::ConstPtr(new mrs_msgs::TrackerConstraintsSrvResponse(res));
+  return mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr(new mrs_msgs::DynamicsConstraintsSrvResponse(res));
 }
 
 //}
