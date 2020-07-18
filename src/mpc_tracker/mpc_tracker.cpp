@@ -1942,9 +1942,11 @@ void MpcTracker::calculateMPC() {
   // | -------------------- MPC solver z-axis ------------------- |
 
   brake = true;
-  if (des_z_filtered(10) != des_z_filtered(_mpc_horizon_len_ - 1) || des_z_filtered(30) != des_z_filtered(_mpc_horizon_len_ - 1)) {
+  // TODO make a better braking condition, I don't like it much
+  if (fabs(des_z_filtered(10) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_z_filtered(30) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
+
   if (brake) {
     mpc_solver_z_->setVelQ(3000);
   } else {
@@ -1997,9 +1999,11 @@ void MpcTracker::calculateMPC() {
   // | -------------------- MPC solver x-axis ------------------- |
 
   brake = true;
-  if (des_x_filtered(10) != des_x_filtered(_mpc_horizon_len_ - 1) || des_x_filtered(30) != des_x_filtered(_mpc_horizon_len_ - 1)) {
+  // TODO make a better braking condition, I don't like it much
+  if (fabs(des_x_filtered(10) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_x_filtered(30) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
+
   if (brake) {
     mpc_solver_x_->setVelQ(3000);
   } else {
@@ -2029,9 +2033,11 @@ void MpcTracker::calculateMPC() {
   // | -------------------- MPC solver y-axis ------------------- |
 
   brake = true;
-  if (des_y_filtered(10) != des_y_filtered(_mpc_horizon_len_ - 1) || des_y_filtered(30) != des_y_filtered(_mpc_horizon_len_ - 1)) {
+  // TODO make a better braking condition, I don't like it much
+  if (fabs(des_y_filtered(10) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_y_filtered(30) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
+
   if (brake) {
     mpc_solver_y_->setVelQ(3000);
   } else {
@@ -2059,7 +2065,9 @@ void MpcTracker::calculateMPC() {
   // | ------------------- MPC solver heading ------------------- |
 
   brake = true;
-  if (fabs(mpc_x_heading(0) - des_heading_trajectory(1)) > 1.0 || fabs(mpc_x_heading(0) - des_heading_trajectory(30)) > 1.0) {
+  // TODO make a better braking condition, I don't like it much
+  if (mrs_lib::angleBetween(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
+      mrs_lib::angleBetween(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
     brake = false;
   }
 
