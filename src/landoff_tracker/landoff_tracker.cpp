@@ -495,6 +495,12 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
     position_output_.disable_position_gains = false;
   }
 
+  if (taking_off_) {
+    position_output_.disable_antiwindups = true;
+  } else {
+    position_output_.disable_antiwindups = false;
+  }
+
   return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output_));
 }
 
