@@ -331,11 +331,7 @@ private:
   ros::ServiceServer service_client_wiggle_;
   bool               callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
 
-  bool       wiggle_enabled_ = false;
-  double     wiggle_amplitude_;
-  double     wiggle_frequency_;
-  double     wiggle_phase_ = 0;
-  std::mutex mutex_wiggle_;
+  double wiggle_phase_ = 0;
 
   // | --------------- dynamic reconfigure server --------------- |
 
@@ -346,7 +342,8 @@ private:
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
   void                                        drs_callback(mrs_uav_trackers::mpc_trackerConfig& config, uint32_t level);
-  mrs_uav_trackers::mpc_trackerConfig         drs_params;
+  mrs_uav_trackers::mpc_trackerConfig         drs_params_;
+  std::mutex                                  mutex_drs_params_;
 };
 
 //}
@@ -376,6 +373,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   }
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
+
+  param_loader.loadParam("braking/enabled", drs_params_.braking_enabled);
+  param_loader.loadParam("braking/q_vel_braking", drs_params_.q_vel_braking);
+  param_loader.loadParam("braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
 
   param_loader.loadParam("model/translation/n_states", _mpc_n_states_);
   param_loader.loadParam("model/translation/n_inputs", _mpc_m_states_);
@@ -423,9 +424,9 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.loadParam("mpc_solver/heading/max_n_iterations", _max_iters_heading_);
   param_loader.loadParam("mpc_solver/heading/Q", heading_Q);
 
-  param_loader.loadParam("wiggle/enabled", wiggle_enabled_);
-  param_loader.loadParam("wiggle/amplitude", wiggle_amplitude_);
-  param_loader.loadParam("wiggle/frequency", wiggle_frequency_);
+  param_loader.loadParam("wiggle/enabled", drs_params_.wiggle_enabled);
+  param_loader.loadParam("wiggle/amplitude", drs_params_.wiggle_amplitude);
+  param_loader.loadParam("wiggle/frequency", drs_params_.wiggle_frequency);
 
   // collision avoidance
   param_loader.loadParam("collision_avoidance/enabled", collision_avoidance_enabled_);
@@ -536,12 +537,8 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // | --------------- dynamic reconfigure server --------------- |
 
-  drs_params.wiggle_enabled   = wiggle_enabled_;
-  drs_params.wiggle_frequency = wiggle_frequency_;
-  drs_params.wiggle_amplitude = wiggle_amplitude_;
-
   reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
-  reconfigure_server_->updateConfig(drs_params);
+  reconfigure_server_->updateConfig(drs_params_);
   ReconfigureServer::CallbackType f = boost::bind(&MpcTracker::dynamicReconfigureCallback, this, _1, _2);
   reconfigure_server_->setCallback(f);
 
@@ -1468,8 +1465,6 @@ bool MpcTracker::callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& re
 
 bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res) {
 
-  std::scoped_lock lock(mutex_wiggle_);
-
   if (!is_initialized_) {
 
     res.success = false;
@@ -1477,9 +1472,16 @@ bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBo
     return true;
   }
 
-  wiggle_enabled_ = req.data;
-  res.success     = true;
-  res.message     = "wiggle updated";
+  {
+    std::scoped_lock lock(mutex_drs_params_);
+
+    drs_params_.wiggle_enabled = req.data;
+
+    reconfigure_server_->updateConfig(drs_params_);
+  }
+
+  res.success = true;
+  res.message = "wiggle updated";
 
   return true;
 }
@@ -1490,13 +1492,9 @@ bool MpcTracker::callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBo
 
 void MpcTracker::dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig& config, [[maybe_unused]] uint32_t level) {
 
-  std::scoped_lock lock(mutex_wiggle_);
+  std::scoped_lock lock(mutex_drs_params_);
 
-  drs_params = config;
-
-  wiggle_enabled_   = config.wiggle_enabled;
-  wiggle_amplitude_ = config.wiggle_amplitude;
-  wiggle_frequency_ = config.wiggle_frequency;
+  drs_params_ = config;
 
   ROS_INFO("[MpcTracker]: DRS updated");
 }
@@ -1680,11 +1678,15 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
   }
 
   // | ----------------------- add wiggle ----------------------- |
-  if (wiggle_enabled_) {
+
+  auto [wiggle_enabled, wiggle_amplitude, wiggle_frequency_] =
+      mrs_lib::get_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, drs_params_.wiggle_amplitude, drs_params_.wiggle_frequency);
+
+  if (wiggle_enabled) {
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
-      filtered_x_trajectory(i, 0) += wiggle_amplitude_ * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
-      filtered_y_trajectory(i, 0) += wiggle_amplitude_ * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
+      filtered_x_trajectory(i, 0) += wiggle_amplitude * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
+      filtered_y_trajectory(i, 0) += wiggle_amplitude * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
     }
 
     wiggle_phase_ += wiggle_frequency_ * _dt1_ * 2 * M_PI;
@@ -1814,6 +1816,7 @@ void MpcTracker::calculateMPC() {
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
   auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+  auto drs_params             = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
 
   MatrixXd des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory;
   {
@@ -1838,6 +1841,9 @@ void MpcTracker::calculateMPC() {
         lowest_z = des_z_trajectory_(i, 0);
       }
     }
+
+    ROS_INFO("[MpcTracker]: lowest_z = %.2f", lowest_z);
+
     // Check other drone trajectories for collisions
     minimum_collison_free_altitude_ = checkTrajectoryForCollisions(first_collision_index);
 
@@ -1916,6 +1922,10 @@ void MpcTracker::calculateMPC() {
 
     max_speed_x = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
     max_speed_y = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
+
+    ROS_INFO("[MpcTracker]: pes");
+    ROS_INFO_STREAM("[MpcTracker]: collision_free_altitude_" << collision_free_altitude_);
+    ROS_INFO_STREAM("[MpcTracker]: lowest_z #2 = " << lowest_z);
   }
 
   // First control input generated by MPC
@@ -1941,16 +1951,16 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver z-axis ------------------- |
 
-  brake = true;
+  brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
   if (fabs(des_z_filtered(10) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_z_filtered(30) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
 
   if (brake) {
-    mpc_solver_z_->setVelQ(3000);
+    mpc_solver_z_->setVelQ(drs_params.q_vel_braking);
   } else {
-    mpc_solver_z_->setVelQ(0);
+    mpc_solver_z_->setVelQ(drs_params.q_vel_no_braking);
   }
 
   MatrixXd initial_z = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -1998,16 +2008,16 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver x-axis ------------------- |
 
-  brake = true;
+  brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
   if (fabs(des_x_filtered(10) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_x_filtered(30) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
 
   if (brake) {
-    mpc_solver_x_->setVelQ(3000);
+    mpc_solver_x_->setVelQ(drs_params.q_vel_braking);
   } else {
-    mpc_solver_x_->setVelQ(0);
+    mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
   }
 
   MatrixXd initial_x = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -2032,16 +2042,16 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver y-axis ------------------- |
 
-  brake = true;
+  brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
   if (fabs(des_y_filtered(10) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_y_filtered(30) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
     brake = false;
   }
 
   if (brake) {
-    mpc_solver_y_->setVelQ(3000);
+    mpc_solver_y_->setVelQ(drs_params.q_vel_braking);
   } else {
-    mpc_solver_y_->setVelQ(0);
+    mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
   }
 
   MatrixXd initial_y = MatrixXd::Zero(_mpc_n_states_, 1);
@@ -2064,7 +2074,7 @@ void MpcTracker::calculateMPC() {
 
   // | ------------------- MPC solver heading ------------------- |
 
-  brake = true;
+  brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
   if (mrs_lib::angleBetween(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
       mrs_lib::angleBetween(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
@@ -2072,9 +2082,9 @@ void MpcTracker::calculateMPC() {
   }
 
   if (brake) {
-    mpc_solver_heading_->setVelQ(3000);
+    mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
   } else {
-    mpc_solver_heading_->setVelQ(0);
+    mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
   }
 
   mpc_solver_heading_->setInitialState(mpc_x_heading);

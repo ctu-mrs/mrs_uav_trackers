@@ -4,6 +4,11 @@ diagnostics_rate: 30                            # publish diagnostics at n Hz
 diagnostic_position_tracking_threshold: 1       # [m] distance considered as "in place"
 diagnostic_orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
 
+braking:
+  enabled: true
+  q_vel_braking: 2000.0
+  q_vel_no_braking: 0.0
+
 wiggle:
   enabled: false
   amplitude: 0.5 # [m]
