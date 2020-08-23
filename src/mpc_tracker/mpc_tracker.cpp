@@ -1842,8 +1842,6 @@ void MpcTracker::calculateMPC() {
       }
     }
 
-    ROS_INFO("[MpcTracker]: lowest_z = %.2f", lowest_z);
-
     // Check other drone trajectories for collisions
     minimum_collison_free_altitude_ = checkTrajectoryForCollisions(first_collision_index);
 
