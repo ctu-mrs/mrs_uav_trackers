@@ -2889,6 +2889,8 @@ void MpcTracker::publishDiagnostics(void) {
   diagnostics.header.stamp    = ros::Time::now();
   diagnostics.header.frame_id = uav_state_.header.frame_id;
 
+  diagnostics.active = is_active_;
+
   diagnostics.uav_name = _uav_name_;
 
   diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
