@@ -957,11 +957,15 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   if (heading_finite) {
 
-    position_cmd.heading      = mpc_x_heading(0, 0);
-    position_cmd.heading_rate = mpc_x_heading(1, 0);
+    position_cmd.heading              = mpc_x_heading(0, 0);
+    position_cmd.heading_rate         = mpc_x_heading(1, 0);
+    position_cmd.heading_acceleration = mpc_x_heading(2, 0);
+    position_cmd.heading_jerk         = mpc_x_heading(3, 0);
 
-    position_cmd.use_heading      = 1;
-    position_cmd.use_heading_rate = 1;
+    position_cmd.use_heading              = 1;
+    position_cmd.use_heading_rate         = 1;
+    position_cmd.use_heading_acceleration = 1;
+    position_cmd.use_heading_jerk         = 1;
 
   } else {
 
