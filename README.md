@@ -21,14 +21,6 @@
   * can smoothly track trajectories
   * can efficiently stop a UAV from any previous motion
   * can be activated in mid-flight while in motion
-* "Line tracker"
-  * very simple tracker used mostly for debugging and testing
-  * can fly to reference points
-  * cannot track trajectories
-  * the resulting reference is not smooth
-  * can be used on a real UAV with caution, will induce spikes in tilt control
-  * can stop a UAV from the previous motion
-  * can be activated in mid-flight while in motion
 * "Speed tracker"
   * subscribes a [custom message](https://ctu-mrs.github.io/mrs_msgs/msg/SpeedTrackerCommand.html) containing a desired speed/acceleration, height, and heading
   * forwards the commands to the controllers unchanged
@@ -47,6 +39,15 @@
   * tracks *height* and *heading*, the desired tilt is provided directly by a joystick
 * "Matlab Tracker"
   * similar to *Speed tracker*, but the subscribed topic is a standard (not custom) ROS message since Matlab can not publish custom messages
+* "Line tracker"
+  * very simple tracker used mostly for debugging and testing
+  * can fly to reference points
+  * cannot track trajectories
+  * the resulting reference is not smooth
+  * can be used on a real UAV with caution, will induce spikes in tilt control
+  * can stop a UAV from the previous motion
+  * can be activated in mid-flight while in motion
+  * **don't use on a real UAV**, kept around for debugging purposes
 
 ## Tracker interface
 
