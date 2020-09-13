@@ -2,7 +2,7 @@
 
 ![](.fig/thumbnail.jpg)
 
-## Purpose of a controller within the MRS control pipeline
+## Purpose of a tracker within the MRS control pipeline
 
 * Receiving high-level references from a navigation software, those are generally
   * a single **position** + **heading** reference,
