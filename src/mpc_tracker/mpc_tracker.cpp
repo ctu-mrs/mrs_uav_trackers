@@ -219,11 +219,6 @@ private:
   std::vector<std::string> _avoidance_other_uav_names_;
   double                   _avoidance_height_threshold_;
 
-  double _avoidance_constraints_speed_;
-  double _avoidance_constraints_acceleration_;
-  double _avoidance_constraints_jerk_;
-  double _avoidance_constraints_snap_;
-
   // how old can the other UAV trajectory be (since receive time)
   double _collision_trajectory_timeout_;
 
@@ -447,11 +442,6 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
   param_loader.loadParam("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
   param_loader.loadParam("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
-
-  param_loader.loadParam("collision_avoidance/constraints/speed", _avoidance_constraints_speed_);
-  param_loader.loadParam("collision_avoidance/constraints/acceleration", _avoidance_constraints_acceleration_);
-  param_loader.loadParam("collision_avoidance/constraints/jerk", _avoidance_constraints_jerk_);
-  param_loader.loadParam("collision_avoidance/constraints/snap", _avoidance_constraints_snap_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
@@ -1585,23 +1575,30 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
           // get the priority of the other uav
           /* sscanf(u->first.c_str(), "uav%d", &other_uav_priority); */
           other_uav_priority = u->second.priority;
+
           // check if we should be avoiding (out priority is higher, or the other uav has collision avoidance turned off)
           if ((u->second.collision_avoidance == false) || (other_uav_priority < avoidance_this_uav_priority_)) {
+
             // we should be avoiding
             avoiding_collision_      = true;
             double tmp_safe_altitude = u->second.points[v].z + _avoidance_height_correction_;
+
             if (tmp_safe_altitude > collision_free_altitude_ && v <= _avoidance_collision_start_climbing_) {
               collision_free_altitude_ = tmp_safe_altitude;
             }
+
             ROS_ERROR_STREAM_THROTTLE(1, "[MpcTracker]: avoiding collision with uav" << other_uav_priority);
+
           } else {
             // the other uav should avoid us
             ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: detected collision with uav" << other_uav_priority << ", not avoiding (my priority is higher)");
             first_collision = false;
           }
         }
+
         if (checkCollisionInflated(predicted_trajectory_(v * _mpc_n_states_, 0), predicted_trajectory_(v * _mpc_n_states_ + 4, 0),
                                    predicted_trajectory_(v * _mpc_n_states_ + 8, 0), u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+
           // collision is detected
           if (first_collision_index > v) {
             first_collision_index = v;
@@ -1726,11 +1723,13 @@ MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const do
 
   MatrixXd filtered_trajectory = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
+  double current_z = mpc_x(8, 0);
+
   for (int i = 0; i < _mpc_horizon_len_; i++) {
 
     if (i == 0) {
 
-      difference_z = des_z_trajectory(i, 0) - mpc_x(8, 0);
+      difference_z = des_z_trajectory(i, 0) - current_z;
 
       if (difference_z > 0) {
         max_sample_z = max_ascending_speed * _dt1_;
@@ -1756,7 +1755,7 @@ MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const do
       difference_z = -max_sample_z;
 
     if (i == 0) {
-      filtered_trajectory(i, 0) = mpc_x(8, 0) + difference_z;
+      filtered_trajectory(i, 0) = current_z + difference_z;
     } else {
       filtered_trajectory(i, 0) = filtered_trajectory(i - 1, 0) + difference_z;
     }
@@ -1921,17 +1920,6 @@ void MpcTracker::calculateMPC() {
   }
 
   if (collision_free_altitude_ > lowest_z) {
-
-    // we are avoiding someone, increase Z dynamics limit for faster evasion
-    max_speed_z = _avoidance_constraints_speed_;
-    max_acc_z   = _avoidance_constraints_acceleration_;
-    max_jerk_z  = _avoidance_constraints_jerk_;
-    max_snap_z  = _avoidance_constraints_snap_;
-
-    min_speed_z = _avoidance_constraints_speed_;
-    min_acc_z   = _avoidance_constraints_acceleration_;
-    min_jerk_z  = _avoidance_constraints_jerk_;
-    min_snap_z  = _avoidance_constraints_snap_;
 
     max_speed_x = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
     max_speed_y = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);

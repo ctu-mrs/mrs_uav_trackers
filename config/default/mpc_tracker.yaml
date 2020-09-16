@@ -29,12 +29,6 @@ collision_avoidance:
   collision_slow_down_start: 25 # when collision detected, start slowing down this number of steps before it
   collision_start_climbing: 25 # when avoiding, start climbing this number of steps before it
 
-  constraints:
-    speed: 2.0 # [m/s]
-    acceleration: 2.0 # [m/s^2]
-    jerk: 30.0 # [m/s^3]
-    snap: 60.0 # [m/s^4]
-
 model:
 
   translation:
