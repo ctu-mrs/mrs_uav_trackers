@@ -219,6 +219,11 @@ private:
   std::vector<std::string> _avoidance_other_uav_names_;
   double                   _avoidance_height_threshold_;
 
+  double _avoidance_constraints_speed_;
+  double _avoidance_constraints_acceleration_;
+  double _avoidance_constraints_jerk_;
+  double _avoidance_constraints_snap_;
+
   // how old can the other UAV trajectory be (since receive time)
   double _collision_trajectory_timeout_;
 
@@ -442,6 +447,11 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
   param_loader.loadParam("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
   param_loader.loadParam("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
+
+  param_loader.loadParam("collision_avoidance/constraints/speed", _avoidance_constraints_speed_);
+  param_loader.loadParam("collision_avoidance/constraints/acceleration", _avoidance_constraints_acceleration_);
+  param_loader.loadParam("collision_avoidance/constraints/jerk", _avoidance_constraints_jerk_);
+  param_loader.loadParam("collision_avoidance/constraints/snap", _avoidance_constraints_snap_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
@@ -1913,14 +1923,15 @@ void MpcTracker::calculateMPC() {
   if (collision_free_altitude_ > lowest_z) {
 
     // we are avoiding someone, increase Z dynamics limit for faster evasion
-    max_speed_z = 2.0;
-    max_acc_z   = 2.0;
-    max_jerk_z  = 2.0;
-    max_snap_z  = 4.0;
-    min_speed_z = 2.0;
-    min_acc_z   = 2.0;
-    min_jerk_z  = 4.0;
-    min_snap_z  = 4.0;
+    max_speed_z = _avoidance_constraints_speed_;
+    max_acc_z   = _avoidance_constraints_acceleration_;
+    max_jerk_z  = _avoidance_constraints_jerk_;
+    max_snap_z  = _avoidance_constraints_snap_;
+
+    min_speed_z = _avoidance_constraints_speed_;
+    min_acc_z   = _avoidance_constraints_acceleration_;
+    min_jerk_z  = _avoidance_constraints_jerk_;
+    min_snap_z  = _avoidance_constraints_snap_;
 
     max_speed_x = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
     max_speed_y = constraints.horizontal_speed * (_avoidance_collision_horizontal_speed_coef_);
