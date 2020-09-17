@@ -471,10 +471,20 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackCommand");
 
+  mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
+
   double dt;
   if (first_iteration_) {
+
     last_command_time_ = ros::Time::now();
     first_iteration_   = false;
+
+    {
+      std::scoped_lock lock(mutex_command_);
+
+      command_ = *external_command;
+    }
+
     return;
   } else {
     dt                 = (ros::Time::now() - last_command_time_).toSec();
@@ -485,8 +495,6 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       return;
     }
   }
-
-  mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
 
   mrs_msgs::SpeedTrackerCommand transformed_command = *external_command;
 
