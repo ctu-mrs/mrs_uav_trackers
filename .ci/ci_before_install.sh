@@ -23,7 +23,7 @@ sudo apt-mark hold openssh-server
 ((sleep 90 && (sudo systemctl stop google-instance-setup.service && echo "gce service stoped" || echo "gce service not stoped")) & (sudo timeout 120s apt-get -y install gce-compute-image-packages)) || echo "\e[1;31mInstallation of gce-compute-image-packages failed\e[0m"
 
 sudo apt-get -y upgrade --fix-missing
-sudo apt-get -y install dpkg git python-setuptools python3-setuptools python3-pip
+sudo apt-get -y install dpkg git
 
 echo "clone uav_core"
 cd
