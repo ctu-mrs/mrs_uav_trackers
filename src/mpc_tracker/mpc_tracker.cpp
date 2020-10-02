@@ -893,7 +893,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     position_cmd.heading_rate = uav_state->velocity.angular.z;
 
-    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: MPC not ready, reaturning current odom as the command");
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: MPC not ready, returning current odom as the command");
 
     return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
   }
