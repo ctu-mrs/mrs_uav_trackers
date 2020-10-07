@@ -2480,7 +2480,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         int first_idx  = floor(first_time / trajectory_dt);
         int second_idx = first_idx + 1;
 
-        double interp_coeff = std::fmod(double(first_time), trajectory_dt) / trajectory_dt;
+        double interp_coeff = std::fmod(first_time / trajectory_dt, 1.0);
 
         if (trajectory_tracking_loop_) {
 
@@ -3043,14 +3043,17 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
     double trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
     double trajectory_tracking_idx     = trajectory_tracking_idx_;
 
+    ROS_INFO("[MpcTracker]: interpolationg");
+
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
       double first_time = _dt1_ + i * _dt2_ + trajectory_tracking_sub_idx * _dt1_;
+      ROS_INFO("[MpcTracker]: first time %.2f", first_time);
 
       int first_idx  = trajectory_tracking_idx + floor(first_time / trajectory_dt);
       int second_idx = first_idx + 1;
 
-      double interp_coeff = std::fmod(double(first_time), trajectory_dt) / trajectory_dt;
+      double interp_coeff = std::fmod(first_time / trajectory_dt, 1.0);
 
       if (trajectory_tracking_loop_) {
 
@@ -3072,6 +3075,8 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
         }
       }
 
+      ROS_INFO("[MpcTracker]: %.2f * (first %d) + %.2f * second %d", 1.0 - interp_coeff, first_idx, interp_coeff, second_idx);
+
       des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory[first_idx] + interp_coeff * des_x_whole_trajectory[second_idx];
       des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory[first_idx] + interp_coeff * des_y_whole_trajectory[second_idx];
       des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory[first_idx] + interp_coeff * des_z_whole_trajectory[second_idx];
@@ -3079,6 +3084,8 @@ void MpcTracker::timerModelIteration(const ros::TimerEvent& event) {
       des_heading_trajectory(i, 0) =
           mrs_lib::interpolateAngles(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], 1 - interp_coeff);
     }
+
+    ROS_INFO("[MpcTracker]: interpolation done");
 
     {
       std::scoped_lock lock(mutex_des_trajectory_);
