@@ -1,8 +1,11 @@
 version: "0.0.5.2"
 
-diagnostics_rate: 30                            # publish diagnostics at n Hz
-diagnostic_position_tracking_threshold: 1       # [m] distance considered as "in place"
-diagnostic_orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
+mpc_rate: 100.0 # rate of MPC calculation, >= 10 Hz
+
+diagnostics: # diagnostics publisher
+  rate: 30                             # [Hz]
+  position_tracking_threshold: 1.0     # [m] distance considered as "in place"
+  orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
 
 braking:
   enabled: true
@@ -81,7 +84,7 @@ mpc_solver:
 
   horizon_len: 40 # Horizon length is hardcoded in solver code, this value is used in other parts of the code
 
-  dt1: 0.01
+  # dt1: 0.01 # dt1 is set as 1/main_rate
   dt2: 0.2
 
   xy:
