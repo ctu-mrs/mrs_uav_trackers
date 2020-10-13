@@ -1,0 +1,11 @@
+vertical_tracker:
+
+  takeoff_speed: 0.3
+  takeoff_acceleration: 0.3
+
+  landing_speed: 0.3
+  landing_acceleration: 0.3
+
+  # beware, this is for emergency landing only
+  elanding_speed: 0.5
+  elanding_acceleration: 1.0
