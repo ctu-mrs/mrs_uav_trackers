@@ -2150,8 +2150,6 @@ void MpcTracker::calculateMPC() {
   {
     std::scoped_lock lock(mutex_mpc_u_);
 
-    ROS_DEBUG_STREAM("[MpcTracker]: MPC result: " << mpc_u << ", " << mpc_u_heading);
-
     mpc_u_         = mpc_u;
     mpc_u_heading_ = mpc_u_heading;
   }
