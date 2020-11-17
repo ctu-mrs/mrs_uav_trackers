@@ -11,16 +11,31 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
+#include <mrs_lib/geometry/cyclic.h>
+#include <mrs_lib/geometry/misc.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 
 //}
 
+/* defines //{ */
+
 #define STOP_THR 1e-3
+
+//}
+
+/* using //{ */
+
+using vec2_t = mrs_lib::geometry::vec_t<2>;
+using vec3_t = mrs_lib::geometry::vec_t<3>;
+
+using radians  = mrs_lib::geometry::radians;
+using sradians = mrs_lib::geometry::sradians;
+
+//}
 
 namespace mrs_uav_trackers
 {
@@ -623,7 +638,7 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
     if (ret) {
 
       // calculate the produced heading rate
-      double des_hdg_rate = mrs_lib::angleBetween(ret.value().reference.heading, old_command.heading) / dt;
+      double des_hdg_rate = sradians::diff(ret.value().reference.heading, old_command.heading) / dt;
 
       // saturate the change in the desired heading
       if (des_hdg_rate > constraints.heading_speed) {

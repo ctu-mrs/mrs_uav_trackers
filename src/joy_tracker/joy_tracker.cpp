@@ -12,13 +12,27 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
+#include <mrs_lib/geometry/cyclic.h>
 
 //}
 
+/* defines //{ */
+
 #define STOP_THR 1e-3
+
+//}
+
+/* using //{ */
+
+using vec2_t = mrs_lib::geometry::vec_t<2>;
+using vec3_t = mrs_lib::geometry::vec_t<3>;
+
+using radians  = mrs_lib::geometry::radians;
+using sradians = mrs_lib::geometry::sradians;
+
+//}
 
 namespace mrs_uav_trackers
 {
@@ -309,7 +323,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   // | -------------------- heading tracking -------------------- |
 
   state_heading_ += desired_heading_rate * dt;
-  state_heading_ = mrs_lib::wrapAngle(state_heading_);
+  state_heading_ = radians::wrap(state_heading_);
 
   ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, heading_speed: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed, desired_heading_rate,
                     desired_pitch, desired_roll);

@@ -16,12 +16,15 @@
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/mutex.h>
 
 //}
 
+/* using //{ */
+
 using namespace Eigen;
+
+//}
 
 namespace mrs_uav_trackers
 {

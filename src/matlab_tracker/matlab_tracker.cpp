@@ -15,7 +15,11 @@
 
 //}
 
+/* defines //{ */
+
 #define STOP_THR 1e-3
+
+//}
 
 namespace mrs_uav_trackers
 {

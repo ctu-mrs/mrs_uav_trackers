@@ -12,13 +12,28 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/utils.h>
+#include <mrs_lib/geometry/cyclic.h>
+#include <mrs_lib/geometry/misc.h>
 
 //}
 
+/* defines //{ */
+
 #define STOP_THR 1e-3
+
+//}
+
+/* using //{ */
+
+using vec2_t = mrs_lib::geometry::vec_t<2>;
+using vec3_t = mrs_lib::geometry::vec_t<3>;
+
+using radians  = mrs_lib::geometry::radians;
+using sradians = mrs_lib::geometry::sradians;
+
+//}
 
 namespace mrs_uav_trackers
 {
@@ -899,7 +914,7 @@ void LandoffTracker::accelerateVertical(void) {
   {
     std::scoped_lock lock(mutex_state_);
 
-    current_vertical_direction_ = mrs_lib::sign(tar_z);
+    current_vertical_direction_ = mrs_lib::signum(tar_z);
   }
 
   auto current_vertical_direction = mrs_lib::get_mutexed(mutex_state_, current_vertical_direction_);
@@ -1067,7 +1082,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
       double future_state_z = state_z + current_vertical_direction * current_vertical_speed * _tracker_dt_;
 
       // if the step would lead to a greater control error than the threshold
-      if (mrs_lib::dist3d(future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z) > error_size) {
+      if (mrs_lib::geometry::dist(vec3_t(future_state_x, future_state_y, future_state_z), vec3_t(uav_x, uav_y, uav_z)) > error_size) {
 
         // set this to true... later, we will not update the model if this is true, thus the tracker's motion will stop
         // => the tracker will wait for the controller

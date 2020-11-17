@@ -20,9 +20,10 @@
 #include <mrs_lib/utils.h>
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
-#include <mrs_lib/geometry_utils.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
+#include <mrs_lib/geometry/cyclic.h>
+#include <mrs_lib/geometry/misc.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mpc_tracker_solver.h>
@@ -40,7 +41,17 @@ using quat_t = Eigen::Quaterniond;
 
 //}
 
+/* using //{ */
+
 using namespace Eigen;
+
+using vec2_t = mrs_lib::geometry::vec_t<2>;
+using vec3_t = mrs_lib::geometry::vec_t<3>;
+
+using radians  = mrs_lib::geometry::radians;
+using sradians = mrs_lib::geometry::sradians;
+
+//}
 
 namespace mrs_uav_trackers
 {
@@ -1034,7 +1045,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   tracker_status.tracking_trajectory = trajectory_tracking_in_progress_;
 
   bool have_position_error   = sqrt(pow(mpc_x(0, 0) - des_x, 2) + pow(mpc_x(4, 0) - des_y, 2) + pow(mpc_x(8, 0) - des_z, 2)) > _diag_pos_tracking_thr_;
-  bool have_heading_error    = mrs_lib::angleBetween(mpc_x_heading(0), des_heading) > _diag_heading_tracking_thr_;
+  bool have_heading_error    = radians::diff(mpc_x_heading(0), des_heading) > _diag_heading_tracking_thr_;
   bool have_nonzero_velocity = abs(mpc_x(1, 0)) > 0.1 || abs(mpc_x(5, 0)) > 0.1 || abs(mpc_x(9, 0)) > 0.1 || abs(mpc_x_heading(1, 0)) > 0.1;
 
   tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_heading_error || have_nonzero_velocity;
@@ -1165,7 +1176,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
       for (int i = 0; i < trajectory_size_ + _mpc_horizon_len_; i++) {
 
         Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
-        temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
+        temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
         (*des_x_whole_trajectory_)(i) = new_uav_state->pose.position.x + temp_vec[0];
         (*des_y_whole_trajectory_)(i) = new_uav_state->pose.position.y + temp_vec[1];
@@ -1177,7 +1188,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
       Eigen::Vector2d temp_vec(des_x_trajectory_(i) - uav_state_.pose.position.x, des_y_trajectory_(i) - uav_state_.pose.position.y);
-      temp_vec = mrs_lib::rotateVector2d(temp_vec, dheading);
+      temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
       des_x_trajectory_(i, 0) = new_uav_state->pose.position.x + temp_vec[0];
       des_y_trajectory_(i, 0) = new_uav_state->pose.position.y + temp_vec[1];
@@ -1190,7 +1201,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     // update the position
     {
       Eigen::Vector2d temp_vec(mpc_x_(0, 0) - uav_state_.pose.position.x, mpc_x_(4, 0) - uav_state_.pose.position.y);
-      temp_vec     = mrs_lib::rotateVector2d(temp_vec, dheading);
+      temp_vec     = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
       mpc_x_(0, 0) = new_uav_state->pose.position.x + temp_vec[0];
       mpc_x_(4, 0) = new_uav_state->pose.position.y + temp_vec[1];
       mpc_x_(8, 0) += dz;
@@ -1537,7 +1548,7 @@ void MpcTracker::dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig&
 
 double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (mrs_lib::dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
+  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
     return true;
 
   } else {
@@ -1552,7 +1563,7 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 double MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (mrs_lib::dist2d(ax, ay, bx, by) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
+  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
     return true;
 
   } else {
@@ -2019,10 +2030,10 @@ void MpcTracker::calculateMPC() {
 
   // unwrap the heading reference
 
-  des_heading_trajectory(0, 0) = mrs_lib::unwrapAngle(des_heading_trajectory(0, 0), mpc_x_heading_(0));
+  des_heading_trajectory(0, 0) = radians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading_(0));
 
   for (int i = 1; i < _mpc_horizon_len_; i++) {
-    des_heading_trajectory(i, 0) = mrs_lib::unwrapAngle(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
+    des_heading_trajectory(i, 0) = radians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
   }
 
   // | -------------------- MPC solver x-axis ------------------- |
@@ -2095,8 +2106,8 @@ void MpcTracker::calculateMPC() {
 
   brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
-  if (mrs_lib::angleBetween(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
-      mrs_lib::angleBetween(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
+  if (radians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
+      radians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
     brake = false;
   }
 
@@ -2274,7 +2285,7 @@ void MpcTracker::iterateModel(void) {
     mpc_x_         = A_ * mpc_x_ + B_ * mpc_u_;
     mpc_x_heading_ = A_heading_ * mpc_x_heading_ + B_heading_ * mpc_u_heading_;
 
-    mpc_x_heading_(0) = mrs_lib::wrapAngle(mpc_x_heading_(0));
+    mpc_x_heading_(0) = radians::wrap(mpc_x_heading_(0));
   }
 }
 
@@ -2427,7 +2438,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
     // check whether the trajectory is loopable
     // TODO should check heading aswell
-    if (mrs_lib::dist3d(first_x, first_y, first_z, last_x, last_y, last_z) < 3.141592653) {
+    if (mrs_lib::geometry::dist(vec3_t(first_x, first_y, first_z), vec3_t(last_x, last_y, last_z)) < 3.141592653) {
 
       ROS_INFO_THROTTLE(1.0, "[MpcTracker]: looping enabled");
       loop = true;
@@ -2541,8 +2552,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         des_y_trajectory_(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
         des_z_trajectory_(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-        des_heading_trajectory_(i, 0) =
-            mrs_lib::interpolateAngles(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), 1 - interp_coeff);
+        des_heading_trajectory_(i, 0) = radians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), 1 - interp_coeff);
       }
 
       //}
@@ -2986,7 +2996,7 @@ void MpcTracker::publishDiagnostics(void) {
     string_msg.data = "I see: ";
   }
 
-  for (unsigned long i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
+  for (size_t i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
     if (i == 0) {
       string_msg.data += diagnostics.avoidance_active_uavs[i];
     } else {
@@ -3111,8 +3121,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory[first_idx] + interp_coeff * des_y_whole_trajectory[second_idx];
       des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory[first_idx] + interp_coeff * des_z_whole_trajectory[second_idx];
 
-      des_heading_trajectory(i, 0) =
-          mrs_lib::interpolateAngles(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], 1 - interp_coeff);
+      des_heading_trajectory(i, 0) = radians::interp(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], 1 - interp_coeff);
     }
 
     {
