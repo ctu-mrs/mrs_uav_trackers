@@ -1046,7 +1046,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
   bool have_position_error   = sqrt(pow(mpc_x(0, 0) - des_x, 2) + pow(mpc_x(4, 0) - des_y, 2) + pow(mpc_x(8, 0) - des_z, 2)) > _diag_pos_tracking_thr_;
   bool have_heading_error    = radians::diff(mpc_x_heading(0), des_heading) > _diag_heading_tracking_thr_;
-  bool have_nonzero_velocity = abs(mpc_x(1, 0)) > 0.1 || abs(mpc_x(5, 0)) > 0.1 || abs(mpc_x(9, 0)) > 0.1 || abs(mpc_x_heading(1, 0)) > 0.1;
+  bool have_nonzero_velocity = fabs(mpc_x(1, 0)) > 0.1 || fabs(mpc_x(5, 0)) > 0.1 || fabs(mpc_x(9, 0)) > 0.1 || fabs(mpc_x_heading(1, 0)) > 0.1;
 
   tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_heading_error || have_nonzero_velocity;
 
@@ -2030,10 +2030,10 @@ void MpcTracker::calculateMPC() {
 
   // unwrap the heading reference
 
-  des_heading_trajectory(0, 0) = radians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading_(0));
+  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading_(0));
 
   for (int i = 1; i < _mpc_horizon_len_; i++) {
-    des_heading_trajectory(i, 0) = radians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
+    des_heading_trajectory(i, 0) = sradians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
   }
 
   // | -------------------- MPC solver x-axis ------------------- |
@@ -2106,8 +2106,8 @@ void MpcTracker::calculateMPC() {
 
   brake = drs_params.braking_enabled;
   // TODO make a better braking condition, I don't like it much
-  if (radians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
-      radians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
+  if (sradians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
+      sradians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
     brake = false;
   }
 
@@ -2285,7 +2285,7 @@ void MpcTracker::iterateModel(void) {
     mpc_x_         = A_ * mpc_x_ + B_ * mpc_u_;
     mpc_x_heading_ = A_heading_ * mpc_x_heading_ + B_heading_ * mpc_u_heading_;
 
-    mpc_x_heading_(0) = radians::wrap(mpc_x_heading_(0));
+    mpc_x_heading_(0) = sradians::wrap(mpc_x_heading_(0));
   }
 }
 
@@ -2552,7 +2552,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         des_y_trajectory_(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
         des_z_trajectory_(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-        des_heading_trajectory_(i, 0) = radians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), 1 - interp_coeff);
+        des_heading_trajectory_(i, 0) = sradians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), interp_coeff);
       }
 
       //}
@@ -2685,7 +2685,7 @@ void MpcTracker::setSinglePointReference(const double x, const double y, const d
 // set absolute goal
 void MpcTracker::setGoal(const double pos_x, const double pos_y, const double pos_z, const double heading, const bool use_heading) {
 
-  double desired_heading = heading;
+  double desired_heading = sradians::wrap(heading);
 
   auto mpc_x_heading = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_heading_);
 
@@ -3121,7 +3121,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory[first_idx] + interp_coeff * des_y_whole_trajectory[second_idx];
       des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory[first_idx] + interp_coeff * des_z_whole_trajectory[second_idx];
 
-      des_heading_trajectory(i, 0) = radians::interp(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], 1 - interp_coeff);
+      des_heading_trajectory(i, 0) = sradians::interp(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], interp_coeff);
     }
 
     {
