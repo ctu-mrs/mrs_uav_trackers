@@ -13,6 +13,7 @@
 #include <mrs_lib/utils.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/timer.h>
 
 //}
 
@@ -31,6 +32,12 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 
 using radians  = mrs_lib::geometry::radians;
 using sradians = mrs_lib::geometry::sradians;
+
+#if ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -89,8 +96,8 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-  void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer_;
+  void  mainTimer(const ros::TimerEvent &event);
+  Timer main_timer_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -256,7 +263,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
+  main_timer_ = Timer(nh_, ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LineTracker]: could not load all parameters!");

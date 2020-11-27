@@ -17,12 +17,19 @@
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
+#include <mrs_lib/timer.h>
 
 //}
 
 /* using //{ */
 
 using namespace Eigen;
+
+#if ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -77,8 +84,8 @@ private:
 
   ros::Time odometry_last_time_;
 
-  ros::Timer timer_main_;
-  ros::Timer timer_set_trajectory_;
+  Timer timer_main_;
+  Timer timer_set_trajectory_;
 
   mrs_msgs::PositionCommand position_cmd_;
   mrs_msgs::PositionCommand last_position_cmd_;
@@ -239,8 +246,8 @@ void CsvTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   // | ------------------------- timers ------------------------- |
 
-  timer_main_           = nh_.createTimer(ros::Rate(100), &CsvTracker::timerMain, this, false, false);
-  timer_set_trajectory_ = nh_.createTimer(ros::Rate(1), &CsvTracker::timerSetTrajectory, this);
+  timer_main_           = Timer(nh_, ros::Rate(100), &CsvTracker::timerMain, this, false, false);
+  timer_set_trajectory_ = Timer(nh_, ros::Rate(1), &CsvTracker::timerSetTrajectory, this);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[CsvTracker]: could not load all parameters!");
