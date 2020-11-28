@@ -1,4 +1,4 @@
-# MRS UAV Trackers [![Build Status](https://travis-ci.com/ctu-mrs/mrs_uav_trackers.svg?branch=master)](https://travis-ci.com/ctu-mrs/mrs_uav_trackers)
+# MRS UAV Trackers [![Build Status](https://github.com/ctu-mrs/mrs_uav_trackers/workflows/CI/badge.svg)](https://github.com/ctu-mrs/mrs_uav_trackers/actions)
 
 ![](.fig/thumbnail.jpg)
 
