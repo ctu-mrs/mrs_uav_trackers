@@ -13,6 +13,7 @@
 #include <mrs_lib/utils.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/timer.h>
 
 //}
 
@@ -31,6 +32,12 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 
 using radians  = mrs_lib::geometry::radians;
 using sradians = mrs_lib::geometry::sradians;
+
+#if ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -89,8 +96,8 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-  void       mainTimer(const ros::TimerEvent &event);
-  ros::Timer main_timer_;
+  void  mainTimer(const ros::TimerEvent &event);
+  Timer main_timer_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -256,7 +263,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   // |                           timers                           |
   // --------------------------------------------------------------
 
-  main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
+  main_timer_ = Timer(nh_, ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LineTracker]: could not load all parameters!");
@@ -531,7 +538,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
     position_cmd.position.x = state_x_;
     position_cmd.position.y = state_y_;
     position_cmd.position.z = state_z_;
-    position_cmd.heading    = state_heading_;
+    position_cmd.heading    = radians::wrap(state_heading_);
 
     position_cmd.velocity.x   = cos(current_heading_) * current_horizontal_speed_;
     position_cmd.velocity.y   = sin(current_heading_) * current_horizontal_speed_;
@@ -797,13 +804,15 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::setReference(const m
 
   mrs_msgs::ReferenceSrvResponse res;
 
+  auto state_heading = mrs_lib::get_mutexed(mutex_state_, state_heading_);
+
   {
     std::scoped_lock lock(mutex_goal_);
 
     goal_x_       = cmd->reference.position.x;
     goal_y_       = cmd->reference.position.y;
     goal_z_       = cmd->reference.position.z;
-    goal_heading_ = radians::wrap(cmd->reference.heading);
+    goal_heading_ = radians::unwrap(cmd->reference.heading, state_heading);
 
     ROS_INFO("[LineTracker]: received new setpoint %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_heading_);
 
@@ -1231,8 +1240,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
     // flap the resulted state_heading_ aroud PI
     state_heading_ += current_heading_rate * _tracker_dt_;
-
-    state_heading_ = radians::wrap(state_heading_);
 
     if (fabs(state_heading_ - goal_heading_) < (2 * (_heading_rate_ * _tracker_dt_))) {
       state_heading_ = goal_heading_;

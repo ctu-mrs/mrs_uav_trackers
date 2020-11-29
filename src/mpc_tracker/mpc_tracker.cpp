@@ -24,6 +24,7 @@
 #include <mrs_lib/subscribe_handler.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/timer.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mpc_tracker_solver.h>
@@ -50,6 +51,12 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 
 using radians  = mrs_lib::geometry::radians;
 using sradians = mrs_lib::geometry::sradians;
+
+#if ROS_VERSION_MINIMUM(1, 15, 8)
+using Timer = mrs_lib::ThreadTimer;
+#else
+using Timer = mrs_lib::ROSTimer;
+#endif
 
 //}
 
@@ -285,33 +292,33 @@ private:
 
   // | --------------------- MPC calculation -------------------- |
 
-  ros::Timer timer_mpc_iteration_;
-  bool       mpc_timer_running_ = false;
-  void       timerMPC(const ros::TimerEvent& event);
+  Timer timer_mpc_iteration_;
+  bool  mpc_timer_running_ = false;
+  void  timerMPC(const ros::TimerEvent& event);
 
   // | ------------------- trajectory tracking ------------------ |
 
-  ros::Timer timer_trajectory_tracking_;
-  void       timerTrajectoryTracking(const ros::TimerEvent& event);
+  Timer timer_trajectory_tracking_;
+  void  timerTrajectoryTracking(const ros::TimerEvent& event);
 
   // | ------------------ avoidance trajectory ------------------ |
 
-  ros::Timer timer_avoidance_trajectory_;
-  void       timerAvoidanceTrajectory(const ros::TimerEvent& event);
+  Timer timer_avoidance_trajectory_;
+  void  timerAvoidanceTrajectory(const ros::TimerEvent& event);
 
   // | ----------------------- diagnostics ---------------------- |
 
-  ros::Timer timer_diagnostics_;
-  double     _diagnostics_rate_;
-  void       timerDiagnostics(const ros::TimerEvent& event);
+  Timer  timer_diagnostics_;
+  double _diagnostics_rate_;
+  void   timerDiagnostics(const ros::TimerEvent& event);
 
   // | ------------------------ hovering ------------------------ |
 
-  ros::Timer timer_hover_;
-  void       timerHover(const ros::TimerEvent& event);
-  bool       hover_timer_runnning_ = false;
-  bool       hovering_in_progress_ = false;
-  void       toggleHover(bool in);
+  Timer timer_hover_;
+  void  timerHover(const ros::TimerEvent& event);
+  bool  hover_timer_runnning_ = false;
+  bool  hovering_in_progress_ = false;
+  void  toggleHover(bool in);
 
   // | ------------------- trajectory tracking ------------------ |
 
@@ -576,11 +583,11 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // | ------------------------- timers ------------------------- |
 
-  timer_avoidance_trajectory_ = nh_.createTimer(ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this);
-  timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
-  timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this);
-  timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
-  timer_hover_                = nh_.createTimer(ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
+  timer_avoidance_trajectory_ = Timer(nh_, ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this);
+  timer_diagnostics_          = Timer(nh_, ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
+  timer_mpc_iteration_        = Timer(nh_, ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this);
+  timer_trajectory_tracking_  = Timer(nh_, ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
+  timer_hover_                = Timer(nh_, ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
 
   // | ----------------------- finish init ---------------------- |
 
