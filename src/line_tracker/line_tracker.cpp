@@ -538,7 +538,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
     position_cmd.position.x = state_x_;
     position_cmd.position.y = state_y_;
     position_cmd.position.z = state_z_;
-    position_cmd.heading    = state_heading_;
+    position_cmd.heading    = radians::wrap(state_heading_);
 
     position_cmd.velocity.x   = cos(current_heading_) * current_horizontal_speed_;
     position_cmd.velocity.y   = sin(current_heading_) * current_horizontal_speed_;
@@ -804,13 +804,15 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LineTracker::setReference(const m
 
   mrs_msgs::ReferenceSrvResponse res;
 
+  auto state_heading = mrs_lib::get_mutexed(mutex_state_, state_heading_);
+
   {
     std::scoped_lock lock(mutex_goal_);
 
     goal_x_       = cmd->reference.position.x;
     goal_y_       = cmd->reference.position.y;
     goal_z_       = cmd->reference.position.z;
-    goal_heading_ = radians::wrap(cmd->reference.heading);
+    goal_heading_ = radians::unwrap(cmd->reference.heading, state_heading);
 
     ROS_INFO("[LineTracker]: received new setpoint %.2f, %.2f, %.2f, %.2f", goal_x_, goal_y_, goal_z_, goal_heading_);
 
@@ -1238,8 +1240,6 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
 
     // flap the resulted state_heading_ aroud PI
     state_heading_ += current_heading_rate * _tracker_dt_;
-
-    state_heading_ = radians::wrap(state_heading_);
 
     if (fabs(state_heading_ - goal_heading_) < (2 * (_heading_rate_ * _tracker_dt_))) {
       state_heading_ = goal_heading_;
