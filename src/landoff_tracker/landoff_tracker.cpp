@@ -16,7 +16,6 @@
 #include <mrs_lib/utils.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
-#include <mrs_lib/timer.h>
 
 //}
 
@@ -33,12 +32,6 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 
 using radians  = mrs_lib::geometry::radians;
 using sradians = mrs_lib::geometry::sradians;
-
-#if ROS_VERSION_MINIMUM(1, 15, 8)
-using Timer = mrs_lib::ThreadTimer;
-#else
-using Timer = mrs_lib::ROSTimer;
-#endif
 
 //}
 
@@ -105,7 +98,7 @@ private:
 
   // main timer
   void       timerMain(const ros::TimerEvent& event);
-  Timer timer_main_;
+  ros::Timer timer_main_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -302,7 +295,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   // | ------------------------- timers ------------------------- |
 
-  timer_main_ = Timer(nh_, ros::Rate(_main_timer_rate_), &LandoffTracker::timerMain, this, false, false);
+  timer_main_ = nh_.createTimer(ros::Rate(_main_timer_rate_), &LandoffTracker::timerMain, this, false, false);
 
   // | ----------------------- finish init ---------------------- |
 
