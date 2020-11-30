@@ -197,8 +197,11 @@ private:
 
   ros::Publisher publisher_predicted_trajectory_debugging_;
   ros::Publisher publisher_mpc_reference_debugging_;
+  ros::Publisher publisher_current_trajectory_point_;
 
   bool mpc_computed_ = false;
+
+  bool brake_ = false;
 
   // | ----------------------- MPC solver ----------------------- |
 
@@ -286,32 +289,32 @@ private:
   // | --------------------- MPC calculation -------------------- |
 
   ros::Timer timer_mpc_iteration_;
-  bool  mpc_timer_running_ = false;
-  void  timerMPC(const ros::TimerEvent& event);
+  bool       mpc_timer_running_ = false;
+  void       timerMPC(const ros::TimerEvent& event);
 
   // | ------------------- trajectory tracking ------------------ |
 
   ros::Timer timer_trajectory_tracking_;
-  void  timerTrajectoryTracking(const ros::TimerEvent& event);
+  void       timerTrajectoryTracking(const ros::TimerEvent& event);
 
   // | ------------------ avoidance trajectory ------------------ |
 
   ros::Timer timer_avoidance_trajectory_;
-  void  timerAvoidanceTrajectory(const ros::TimerEvent& event);
+  void       timerAvoidanceTrajectory(const ros::TimerEvent& event);
 
   // | ----------------------- diagnostics ---------------------- |
 
-  ros::Timer  timer_diagnostics_;
-  double _diagnostics_rate_;
-  void   timerDiagnostics(const ros::TimerEvent& event);
+  ros::Timer timer_diagnostics_;
+  double     _diagnostics_rate_;
+  void       timerDiagnostics(const ros::TimerEvent& event);
 
   // | ------------------------ hovering ------------------------ |
 
   ros::Timer timer_hover_;
-  void  timerHover(const ros::TimerEvent& event);
-  bool  hover_timer_runnning_ = false;
-  bool  hovering_in_progress_ = false;
-  void  toggleHover(bool in);
+  void       timerHover(const ros::TimerEvent& event);
+  bool       hover_timer_runnning_ = false;
+  bool       hovering_in_progress_ = false;
+  void       toggleHover(bool in);
 
   // | ------------------- trajectory tracking ------------------ |
 
@@ -524,6 +527,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   avoidance_trajectory_publisher_           = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   publisher_predicted_trajectory_debugging_ = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
   publisher_mpc_reference_debugging_        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
+  publisher_current_trajectory_point_       = nh_.advertise<geometry_msgs::PoseStamped>("current_trajectory_point_out", 1, true);
 
   pub_debug_processed_trajectory_poses_   = nh_.advertise<geometry_msgs::PoseArray>("trajectory_processed/poses_out", 1, true);
   pub_debug_processed_trajectory_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("trajectory_processed/markers_out", 1, true);
@@ -1066,6 +1070,25 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
     tracker_status.trajectory_reference.reference.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
     tracker_status.trajectory_reference.reference.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
     tracker_status.trajectory_reference.reference.heading    = (*des_heading_whole_trajectory_)(trajectory_tracking_idx);
+
+    // | ---------- publish the current trajectory point ---------- |
+
+    geometry_msgs::PoseStamped debug_trajectory_point;
+    debug_trajectory_point.header.stamp    = ros::Time::now();
+    debug_trajectory_point.header.frame_id = uav_state_.header.frame_id;
+
+    debug_trajectory_point.pose.position.x = (*des_x_whole_trajectory_)(trajectory_tracking_idx);
+    debug_trajectory_point.pose.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
+    debug_trajectory_point.pose.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
+
+    debug_trajectory_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, (*des_heading_whole_trajectory_)(trajectory_tracking_idx));
+
+    try {
+      publisher_current_trajectory_point_.publish(debug_trajectory_point);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_current_trajectory_point_.getTopic().c_str());
+    }
   }
 
   return tracker_status;
@@ -1876,7 +1899,6 @@ void MpcTracker::calculateMPC() {
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
-  bool   brake;
 
   if (collision_avoidance_enabled_ &&
       (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS || uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK)) {
@@ -1979,15 +2001,11 @@ void MpcTracker::calculateMPC() {
     }
   }
 
+  // | ----------------- prepare the references ----------------- |
+
   // | -------------------- MPC solver z-axis ------------------- |
 
-  brake = drs_params.braking_enabled;
-  // TODO make a better braking condition, I don't like it much
-  if (fabs(des_z_filtered(10) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_z_filtered(30) - des_z_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
-    brake = false;
-  }
-
-  if (brake) {
+  if (brake_) {
     mpc_solver_z_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_z_->setVelQ(drs_params.q_vel_no_braking);
@@ -2038,13 +2056,7 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver x-axis ------------------- |
 
-  brake = drs_params.braking_enabled;
-  // TODO make a better braking condition, I don't like it much
-  if (fabs(des_x_filtered(10) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_x_filtered(30) - des_x_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
-    brake = false;
-  }
-
-  if (brake) {
+  if (brake_) {
     mpc_solver_x_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
@@ -2072,13 +2084,7 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver y-axis ------------------- |
 
-  brake = drs_params.braking_enabled;
-  // TODO make a better braking condition, I don't like it much
-  if (fabs(des_y_filtered(10) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2 || fabs(des_y_filtered(30) - des_y_filtered(_mpc_horizon_len_ - 1)) > 1e-2) {
-    brake = false;
-  }
-
-  if (brake) {
+  if (brake_) {
     mpc_solver_y_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
@@ -2104,14 +2110,7 @@ void MpcTracker::calculateMPC() {
 
   // | ------------------- MPC solver heading ------------------- |
 
-  brake = drs_params.braking_enabled;
-  // TODO make a better braking condition, I don't like it much
-  if (sradians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1 ||
-      sradians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) > 0.1) {
-    brake = false;
-  }
-
-  if (brake) {
+  if (brake_) {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
@@ -2174,6 +2173,19 @@ void MpcTracker::calculateMPC() {
   }
 
   future_was_predicted_ = true;
+
+  // | ------------- breaking for the next iteration ------------ |
+
+  if (drs_params.braking_enabled &&
+      (fabs(des_x_filtered(8) - des_x_filtered(_mpc_horizon_len_ - 1)) <= 1e-1 && fabs(des_x_filtered(30) - des_x_filtered(_mpc_horizon_len_ - 1)) <= 1e-1) &&
+      (fabs(des_y_filtered(8) - des_y_filtered(_mpc_horizon_len_ - 1)) <= 1e-1 && fabs(des_y_filtered(30) - des_y_filtered(_mpc_horizon_len_ - 1)) <= 1e-1) &&
+      (fabs(des_z_filtered(8) - des_z_filtered(_mpc_horizon_len_ - 1)) <= 1e-1 && fabs(des_z_filtered(30) - des_z_filtered(_mpc_horizon_len_ - 1)) <= 1e-1) &&
+      (radians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1)) <= 0.1 &&
+       radians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1)) <= 0.1)) {
+    brake_ = true;
+  } else {
+    brake_ = false;
+  }
 
   /* publish mpc reference //{ */
 
