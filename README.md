@@ -1,6 +1,9 @@
-# MRS UAV Trackers [![Build Status](https://github.com/ctu-mrs/mrs_uav_trackers/workflows/CI/badge.svg)](https://github.com/ctu-mrs/mrs_uav_trackers/actions)
+# MRS UAV Trackers
 
 ![](.fig/thumbnail.jpg)
+
+| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_trackers/workflows/Melodic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_trackers/actions) | [![Build Status](https://github.com/ctu-mrs/mrs_uav_trackers/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_simulation/actions) |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
 
 ## Purpose of a tracker within the MRS control pipeline
 
