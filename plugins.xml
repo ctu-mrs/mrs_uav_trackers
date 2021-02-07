@@ -39,3 +39,9 @@
     <description>This is the joystick tracker with bumper.</description>
   </class>
 </library>
+
+<library path="lib/libFlipTracker">
+  <class name="mrs_uav_trackers/FlipTracker" type="mrs_uav_trackers::flip_tracker::FlipTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>This is the joystick tracker with bumper.</description>
+  </class>
+</library>

@@ -162,6 +162,19 @@ target_link_libraries(SpeedTracker
   ${catkin_LIBRARIES}
   )
 
+# Flip tracker
+
+add_library(FlipTracker
+  src/flip_tracker/flip_tracker.cpp
+  )
+add_dependencies(FlipTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(FlipTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############
@@ -174,6 +187,7 @@ install(TARGETS
   JoyTracker
   MatlabTracker
   SpeedTracker
+  FlipTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
