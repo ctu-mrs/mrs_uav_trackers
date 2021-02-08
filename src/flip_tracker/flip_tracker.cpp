@@ -412,7 +412,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.attitude_rate.y   = _flipping_attitude_rate_;
       position_cmd.use_attitude_rate = true;
 
-      if (tilt_angle > ((1.0 / 3.0) * M_PI)) {
+      if (tilt_angle > ((2.0 / 3.0) * M_PI)) {
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_INTERTIA, current_state_);
         state_change_time_ = ros::Time::now();
       }
@@ -445,7 +445,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.use_attitude_rate = false;
 
-      if (tilt_angle <= ((1.0 / 3.0)) * M_PI) {
+      if (tilt_angle <= ((2.0 / 3.0)) * M_PI) {
         mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
         state_change_time_ = ros::Time::now();
       }
