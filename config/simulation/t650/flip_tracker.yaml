@@ -1,0 +1,13 @@
+phases:
+
+  z_acceleration:
+
+    thrust: 0.7 # [-]
+
+  flipping_pulse:
+
+    attitude_rate: 15.0 # [rad/s]
+
+  recovery:
+
+    duration: 2.0 # [s]

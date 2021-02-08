@@ -2,7 +2,7 @@ version: "0.0.5.1"
 
 activation_limits:
 
-  max_velocity: 0.2 # [m/s], per axis
+  max_velocity: 0.5 # [m/s], per axis
   max_acceleration: 1.0 # [m/s^2], per axis
   max_heading_rate: 0.2 # [rad/s]
 
