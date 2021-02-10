@@ -688,10 +688,10 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   double g    = common_handlers_->g;
 
   // calculate the z acceleration
-  z_acceleration_acc_ = mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, _z_acceleration_thrust_) / mass;
+  z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, _z_acceleration_thrust_) / mass) - g;
 
   // calculate what velocity will the UAV gain while perfoming the flipping maneuvre
-  z_vel_gained_by_flipping_ = g * ((2 * M_PI) / _flipping_attitude_rate_);
+  z_vel_gained_by_flipping_ = g * ((1.2*M_PI) / _flipping_attitude_rate_);
 
   // calculate how long do we have to accelerate to create a positive velocity for the maneuvre
   z_acceleration_duration_ = z_vel_gained_by_flipping_ / z_acceleration_acc_;
