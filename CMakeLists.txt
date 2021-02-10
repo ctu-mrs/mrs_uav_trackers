@@ -16,6 +16,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 generate_dynamic_reconfigure_options(
   cfg/mpc_tracker.cfg
+  cfg/flip_tracker.cfg
   )
 
 set(CMAKE_CXX_STANDARD 17)

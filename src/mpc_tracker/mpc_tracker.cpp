@@ -25,9 +25,9 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 
-#include <dynamic_reconfigure/server.h>
 #include <mpc_tracker_solver.h>
 
+#include <dynamic_reconfigure/server.h>
 #include <mrs_uav_trackers/mpc_trackerConfig.h>
 
 #include <visualization_msgs/Marker.h>
@@ -362,7 +362,6 @@ private:
   typedef mrs_uav_trackers::mpc_trackerConfig Config;
   typedef dynamic_reconfigure::Server<Config> ReconfigureServer;
   boost::shared_ptr<ReconfigureServer>        reconfigure_server_;
-  void                                        drs_callback(mrs_uav_trackers::mpc_trackerConfig& config, uint32_t level);
   mrs_uav_trackers::mpc_trackerConfig         drs_params_;
   std::mutex                                  mutex_drs_params_;
 };
