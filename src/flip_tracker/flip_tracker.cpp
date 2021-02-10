@@ -133,6 +133,8 @@ private:
   States_t   current_state_ = STATE_IDLE;
   std::mutex mutex_current_state_;
 
+  double initial_heading_;
+
   // | ------------------------ routines ------------------------ |
 
   bool checkState(void);
@@ -183,6 +185,8 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.loadParam("phases/z_acceleration/thrust", drs_params_.acceleration_thrust);
   param_loader.loadParam("phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
   param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
+  param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
+  param_loader.loadParam("phases/flipping_pulse/direction", drs_params_.direction);
 
   param_loader.loadParam("phases/recovery/duration", _recovery_duration_);
 
@@ -348,7 +352,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
   double g    = common_handlers_->g;
 
   // calculate the z acceleration
-  double hover_thrust = mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, g * mass);
+  double hover_thrust = mrs_lib::quadratic_thrust_model::forceToThrust(common_handlers_->motor_params, mass * g);
 
   switch (current_state) {
 
@@ -430,10 +434,21 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.use_orientation = false;
 
-      position_cmd.attitude_rate.y   = drs_params.attitude_rate;
+      double direction = drs_params.direction == 0 ? 1.0 : -1.0;
+
+      if (drs_params.axis == 0) {
+        position_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+      } else if (drs_params.axis == 1) {
+        position_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+      }
+
       position_cmd.use_attitude_rate = true;
 
-      position_cmd.thrust     = hover_thrust;
+      if (tilt_angle <= M_PI / 2.0) {
+        position_cmd.thrust = hover_thrust * cos(tilt_angle);
+      } else {
+        position_cmd.thrust = 0;
+      }
       position_cmd.use_thrust = true;
 
       if (tilt_angle > ((2.0 / 3.0) * M_PI)) {
@@ -723,6 +738,15 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
 
   ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f, final vel %.2f", z_acceleration_acc_, z_acceleration_duration_,
            z_vel_gained_by_flipping_);
+
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  try {
+    initial_heading_ = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[FlipTracker]: could not calculate UAV heading");
+  }
 
   std::stringstream ss;
   ss << "flipping";
