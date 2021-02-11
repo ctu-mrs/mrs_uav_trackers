@@ -288,9 +288,9 @@ private:
 
   // | --------------------- MPC calculation -------------------- |
 
-  ros::Timer timer_mpc_iteration_;
-  bool       mpc_timer_running_ = false;
-  void       timerMPC(const ros::TimerEvent& event);
+  ros::Timer        timer_mpc_iteration_;
+  std::atomic<bool> mpc_timer_running_ = false;
+  void              timerMPC(const ros::TimerEvent& event);
 
   // | ------------------- trajectory tracking ------------------ |
 
@@ -3055,7 +3055,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::ScopeUnset unset_running(mpc_timer_running_);
+  mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
 
   bool started_with_invalid = mpc_result_invalid_;
 
@@ -3366,7 +3366,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
 
 void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
-  mrs_lib::ScopeUnset unset_running(mpc_timer_running_);
+  mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
   auto                mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
