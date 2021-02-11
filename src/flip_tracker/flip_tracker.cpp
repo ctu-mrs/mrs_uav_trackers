@@ -14,6 +14,9 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 
+#include <dynamic_reconfigure/server.h>
+#include <mrs_uav_trackers/flip_trackerConfig.h>
+
 #include <mrs_msgs/String.h>
 
 #include <visualization_msgs/Marker.h>
@@ -116,12 +119,9 @@ private:
   double _activation_max_acceleration_;
   double _activation_max_heading_rate_;
 
-  double _z_acceleration_thrust_;
   double z_acceleration_acc_;
   double z_vel_gained_by_flipping_;
   double z_acceleration_duration_;
-
-  double _flipping_attitude_rate_;
 
   double _recovery_duration_;
 
@@ -133,6 +133,8 @@ private:
   States_t   current_state_ = STATE_IDLE;
   std::mutex mutex_current_state_;
 
+  double initial_heading_;
+
   // | ------------------------ routines ------------------------ |
 
   bool checkState(void);
@@ -141,6 +143,17 @@ private:
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
+
+  // | --------------- dynamic reconfigure server --------------- |
+
+  void dynamicReconfigureCallback(mrs_uav_trackers::flip_trackerConfig &config, uint32_t level);
+
+  boost::recursive_mutex                       config_mutex_;
+  typedef mrs_uav_trackers::flip_trackerConfig Config;
+  typedef dynamic_reconfigure::Server<Config>  ReconfigureServer;
+  boost::shared_ptr<ReconfigureServer>         reconfigure_server_;
+  mrs_uav_trackers::flip_trackerConfig         drs_params_;
+  std::mutex                                   mutex_drs_params_;
 };
 
 //}
@@ -169,9 +182,11 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.loadParam("activation_limits/max_acceleration", _activation_max_acceleration_);
   param_loader.loadParam("activation_limits/max_heading_rate", _activation_max_heading_rate_);
 
-  param_loader.loadParam("phases/z_acceleration/thrust", _z_acceleration_thrust_);
-
-  param_loader.loadParam("phases/flipping_pulse/attitude_rate", _flipping_attitude_rate_);
+  param_loader.loadParam("phases/z_acceleration/thrust", drs_params_.acceleration_thrust);
+  param_loader.loadParam("phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
+  param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
+  param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
+  param_loader.loadParam("phases/flipping_pulse/direction", drs_params_.direction);
 
   param_loader.loadParam("phases/recovery/duration", _recovery_duration_);
 
@@ -187,6 +202,13 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
     ROS_ERROR("[FlipTracker]: could not load all parameters!");
     ros::shutdown();
   }
+
+  // | --------------- dynamic reconfigure server --------------- |
+
+  reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_));
+  reconfigure_server_->updateConfig(drs_params_);
+  ReconfigureServer::CallbackType f = boost::bind(&FlipTracker::dynamicReconfigureCallback, this, _1, _2);
+  reconfigure_server_->setCallback(f);
 
   // | --------------------- service servers -------------------- |
 
@@ -287,6 +309,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   auto current_state = mrs_lib::get_mutexed(mutex_current_state_, current_state_);
+  auto drs_params    = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
 
   mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
 
@@ -325,6 +348,12 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
   // calculate the angle between the drone's z axis and the world's z axis
   double tilt_angle = acos(uav_z_in_world.dot(tf2::Vector3(0, 0, 1)));
 
+  double mass = common_handlers_->getMass();
+  double g    = common_handlers_->g;
+
+  // calculate the z acceleration
+  double hover_thrust = mrs_lib::quadratic_thrust_model::forceToThrust(common_handlers_->motor_params, mass * g);
+
   switch (current_state) {
 
     case STATE_IDLE: {
@@ -352,8 +381,6 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
     }
 
     case STATE_ACCELERATION: {
-
-      ROS_INFO("[FlipTracker]: accelerationg");
 
       position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = true;
@@ -388,8 +415,6 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
     case STATE_FLIPPING_PULSE: {
 
-      ROS_INFO("[FlipTracker]: flipping pulse");
-
       position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = false;
 
@@ -409,8 +434,22 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.use_orientation = false;
 
-      position_cmd.attitude_rate.y   = _flipping_attitude_rate_;
+      double direction = drs_params.direction == 0 ? 1.0 : -1.0;
+
+      if (drs_params.axis == 0) {
+        position_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+      } else if (drs_params.axis == 1) {
+        position_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+      }
+
       position_cmd.use_attitude_rate = true;
+
+      if (tilt_angle <= M_PI / 2.0) {
+        position_cmd.thrust = hover_thrust * cos(tilt_angle);
+      } else {
+        position_cmd.thrust = 0;
+      }
+      position_cmd.use_thrust = true;
 
       if (tilt_angle > ((2.0 / 3.0) * M_PI)) {
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_INTERTIA, current_state_);
@@ -421,8 +460,6 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
     }
 
     case STATE_FLIPPING_INTERTIA: {
-
-      ROS_INFO("[FlipTracker]: flipping inertia");
 
       position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = false;
@@ -445,6 +482,9 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.use_attitude_rate = false;
 
+      position_cmd.thrust     = 0;
+      position_cmd.use_thrust = true;
+
       if (tilt_angle <= ((2.0 / 3.0)) * M_PI) {
         mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
         state_change_time_ = ros::Time::now();
@@ -454,8 +494,6 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
     }
 
     case STATE_RECOVERY: {
-
-      ROS_INFO("[FlipTracker]: flipping recovery");
 
       position_cmd.use_position_vertical   = true;
       position_cmd.use_position_horizontal = true;
@@ -687,17 +725,28 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   double mass = common_handlers_->getMass();
   double g    = common_handlers_->g;
 
+  auto drs_params = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
+
   // calculate the z acceleration
-  z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, _z_acceleration_thrust_) / mass) - g;
+  z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, drs_params.acceleration_thrust) / mass) - g;
 
   // calculate what velocity will the UAV gain while perfoming the flipping maneuvre
-  z_vel_gained_by_flipping_ = g * ((1.2*M_PI) / _flipping_attitude_rate_);
+  z_vel_gained_by_flipping_ = g * ((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate);
 
   // calculate how long do we have to accelerate to create a positive velocity for the maneuvre
   z_acceleration_duration_ = z_vel_gained_by_flipping_ / z_acceleration_acc_;
 
   ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f, final vel %.2f", z_acceleration_acc_, z_acceleration_duration_,
            z_vel_gained_by_flipping_);
+
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  try {
+    initial_heading_ = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+  }
+  catch (...) {
+    ROS_ERROR_THROTTLE(1.0, "[FlipTracker]: could not calculate UAV heading");
+  }
 
   std::stringstream ss;
   ss << "flipping";
@@ -712,6 +761,19 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   state_change_time_ = ros::Time::now();
 
   return true;
+}
+
+//}
+
+/* dynamicReconfigureCallback() //{ */
+
+void FlipTracker::dynamicReconfigureCallback(mrs_uav_trackers::flip_trackerConfig &config, [[maybe_unused]] uint32_t level) {
+
+  std::scoped_lock lock(mutex_drs_params_);
+
+  drs_params_ = config;
+
+  ROS_INFO("[FlipTracker]: DRS updated");
 }
 
 //}

@@ -11,10 +11,13 @@ phases:
   z_acceleration:
 
     thrust: 0.7 # [-]
+    velocity_gain_from_rot: 1.2 # [-]*PI
 
   flipping_pulse:
 
     attitude_rate: 15.0 # [rad/s]
+    axis: 1 # [0 = X, 1 = Y, 2 = Z]
+    direction: 0 # [0 = positive, 1 = negative]
 
   recovery:
 

@@ -2,11 +2,11 @@ phases:
 
   z_acceleration:
 
-    thrust: 0.8 # [-]
+    thrust: 0.7 # [-]
 
   flipping_pulse:
 
-    attitude_rate: 15.0 # [rad/s]
+    attitude_rate: 17.0 # [rad/s]
 
   recovery:
 
