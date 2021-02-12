@@ -16,7 +16,7 @@ phases:
   flipping_pulse:
 
     attitude_rate: 15.0 # [rad/s]
-    axis: 1 # [0 = X, 1 = Y, 2 = Z]
+    axis: 0 # [0 = X, 1 = Y, 2 = Z]
     direction: 0 # [0 = positive, 1 = negative]
 
   recovery:
