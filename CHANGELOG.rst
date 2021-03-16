@@ -2,6 +2,17 @@
 Changelog for package mrs_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* Noetic-compatible
+* MpcTracker: ultimate trajectory following with interpolation and proper time handling
+* MpcTracker: resolved running with < 1 RTF
+* MpcTracker: new min execution rate of 10 Hz
+* Major refactoring and ovehaul
+* c++ refactoring
+* other trackers: refactoring
+* Contributors: Dan Hert, Matej Petrlik, Matouš Vrba, Robert Penicka, Tomas Baca
+
 0.0.5 (2020-02-26)
 ------------------
 * increased the possible takeoff height to 10 m

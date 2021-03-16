@@ -1,4 +1,4 @@
-version: "0.0.5.1"
+version: "0.0.6.0"
 
 main_timer_rate: 100 # [Hz]
 
