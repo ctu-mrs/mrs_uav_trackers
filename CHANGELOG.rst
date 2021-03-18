@@ -1,9 +1,10 @@
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Changelog for package mrs_trackers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Changelog for package mrs_uav_trackers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Forthcoming
 -----------
+* Major release
 * Noetic-compatible
 * MpcTracker: ultimate trajectory following with interpolation and proper time handling
 * MpcTracker: resolved running with < 1 RTF

@@ -1,4 +1,4 @@
-version: "0.0.6.0"
+version: "1.0.0.0"
 
 mpc_rate: 100.0 # rate of MPC calculation, >= 10 Hz
 
