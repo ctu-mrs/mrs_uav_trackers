@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.0 (2021-03-18)
+------------------
 * Major release
 * Noetic-compatible
 * MpcTracker: ultimate trajectory following with interpolation and proper time handling
