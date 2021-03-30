@@ -495,7 +495,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
     case STATE_RECOVERY: {
 
-      position_cmd.use_position_vertical   = true;
+      position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = true;
 
       position_cmd.use_velocity_vertical   = true;
@@ -515,6 +515,9 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.use_attitude_rate = false;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _recovery_duration_) {
+
+        activation_cmd_.position.z = uav_state->pose.position.z;
+
         mrs_lib::set_mutexed(mutex_current_state_, STATE_IDLE, current_state_);
         state_change_time_ = ros::Time::now();
       }
