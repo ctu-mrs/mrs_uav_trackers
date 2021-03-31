@@ -22,3 +22,6 @@ phases:
   recovery:
 
     duration: 2.0 # [s]
+
+rampup:
+  speed: 10.0 # m/s^3
