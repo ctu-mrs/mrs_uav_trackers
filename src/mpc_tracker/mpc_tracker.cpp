@@ -13,6 +13,7 @@
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/EstimatorType.h>
+#include <mrs_msgs/MpcPredictionFullState.h>
 
 #include <std_msgs/String.h>
 
@@ -198,6 +199,7 @@ private:
   ros::Publisher publisher_predicted_trajectory_debugging_;
   ros::Publisher publisher_mpc_reference_debugging_;
   ros::Publisher publisher_current_trajectory_point_;
+  ros::Publisher publisher_prediction_full_state_;
 
   bool mpc_computed_ = false;
 
@@ -527,6 +529,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   publisher_predicted_trajectory_debugging_ = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
   publisher_mpc_reference_debugging_        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
   publisher_current_trajectory_point_       = nh_.advertise<geometry_msgs::PoseStamped>("current_trajectory_point_out", 1, true);
+  publisher_prediction_full_state_          = nh_.advertise<mrs_msgs::MpcPredictionFullState>("prediction_full_state", 1, true);
 
   pub_debug_processed_trajectory_poses_   = nh_.advertise<geometry_msgs::PoseArray>("trajectory_processed/poses_out", 1, true);
   pub_debug_processed_trajectory_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("trajectory_processed/markers_out", 1, true);
@@ -3210,6 +3213,79 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
   //}
 
+  /* publish full state prediction //{ */
+
+  {
+    mrs_msgs::MpcPredictionFullState prediction_fs_out;
+    prediction_fs_out.header.stamp    = ros::Time::now();
+    prediction_fs_out.header.frame_id = uav_state_.header.frame_id;
+
+    {
+      std::scoped_lock lock(mutex_predicted_trajectory_);
+
+      for (int i = 0; i < _mpc_horizon_len_; i++) {
+
+        {  // position
+          geometry_msgs::Point point;
+
+          point.x = predicted_trajectory_(i * _mpc_n_states_);
+          point.y = predicted_trajectory_(i * _mpc_n_states_ + 4);
+          point.z = predicted_trajectory_(i * _mpc_n_states_ + 8);
+
+          prediction_fs_out.position.push_back(point);
+        }
+
+        {  // velocity
+          geometry_msgs::Point point;
+
+          point.x = predicted_trajectory_(i * _mpc_n_states_ + 1);
+          point.y = predicted_trajectory_(i * _mpc_n_states_ + 5);
+          point.z = predicted_trajectory_(i * _mpc_n_states_ + 9);
+
+          prediction_fs_out.velocity.push_back(point);
+        }
+
+        {  // acceleration
+          geometry_msgs::Point point;
+
+          point.x = predicted_trajectory_(i * _mpc_n_states_ + 2);
+          point.y = predicted_trajectory_(i * _mpc_n_states_ + 6);
+          point.z = predicted_trajectory_(i * _mpc_n_states_ + 10);
+
+          prediction_fs_out.acceleration.push_back(point);
+        }
+
+        {  // jerk
+          geometry_msgs::Point point;
+
+          point.x = predicted_trajectory_(i * _mpc_n_states_ + 3);
+          point.y = predicted_trajectory_(i * _mpc_n_states_ + 7);
+          point.z = predicted_trajectory_(i * _mpc_n_states_ + 11);
+
+          prediction_fs_out.jerk.push_back(point);
+        }
+
+        {
+          // heading
+
+          prediction_fs_out.heading.push_back(predicted_heading_trajectory_(i * _mpc_n_states_));
+          prediction_fs_out.heading_rate.push_back(predicted_heading_trajectory_(i * _mpc_n_states_ + 1));
+          prediction_fs_out.heading_acceleration.push_back(predicted_heading_trajectory_(i * _mpc_n_states_ + 2));
+          prediction_fs_out.heading_jerk.push_back(predicted_heading_trajectory_(i * _mpc_n_states_ + 3));
+        }
+      }
+    }
+
+    try {
+      publisher_prediction_full_state_.publish(prediction_fs_out);
+    }
+    catch (...) {
+      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_prediction_full_state_.getTopic().c_str());
+    }
+  }
+
+  //}
+
   if (started_with_invalid) {
     mpc_result_invalid_ = false;
     ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %.2f, y %.2f, hor1x %.2f, hor1y %.2f", mpc_x_(0, 0), mpc_x_(4, 0),
@@ -3367,7 +3443,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
 void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
   mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
-  auto                mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  auto                     mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
 
