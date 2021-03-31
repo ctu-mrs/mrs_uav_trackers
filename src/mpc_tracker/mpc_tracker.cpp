@@ -3236,33 +3236,33 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
         }
 
         {  // velocity
-          geometry_msgs::Point point;
+          geometry_msgs::Vector3 vector;
 
-          point.x = predicted_trajectory_(i * _mpc_n_states_ + 1);
-          point.y = predicted_trajectory_(i * _mpc_n_states_ + 5);
-          point.z = predicted_trajectory_(i * _mpc_n_states_ + 9);
+          vector.x = predicted_trajectory_(i * _mpc_n_states_ + 1);
+          vector.y = predicted_trajectory_(i * _mpc_n_states_ + 5);
+          vector.z = predicted_trajectory_(i * _mpc_n_states_ + 9);
 
-          prediction_fs_out.velocity.push_back(point);
+          prediction_fs_out.velocity.push_back(vector);
         }
 
         {  // acceleration
-          geometry_msgs::Point point;
+          geometry_msgs::Vector3 vector3;
 
-          point.x = predicted_trajectory_(i * _mpc_n_states_ + 2);
-          point.y = predicted_trajectory_(i * _mpc_n_states_ + 6);
-          point.z = predicted_trajectory_(i * _mpc_n_states_ + 10);
+          vector3.x = predicted_trajectory_(i * _mpc_n_states_ + 2);
+          vector3.y = predicted_trajectory_(i * _mpc_n_states_ + 6);
+          vector3.z = predicted_trajectory_(i * _mpc_n_states_ + 10);
 
-          prediction_fs_out.acceleration.push_back(point);
+          prediction_fs_out.acceleration.push_back(vector3);
         }
 
         {  // jerk
-          geometry_msgs::Point point;
+          geometry_msgs::Vector3 vector3;
 
-          point.x = predicted_trajectory_(i * _mpc_n_states_ + 3);
-          point.y = predicted_trajectory_(i * _mpc_n_states_ + 7);
-          point.z = predicted_trajectory_(i * _mpc_n_states_ + 11);
+          vector3.x = predicted_trajectory_(i * _mpc_n_states_ + 3);
+          vector3.y = predicted_trajectory_(i * _mpc_n_states_ + 7);
+          vector3.z = predicted_trajectory_(i * _mpc_n_states_ + 11);
 
-          prediction_fs_out.jerk.push_back(point);
+          prediction_fs_out.jerk.push_back(vector3);
         }
 
         {
