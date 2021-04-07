@@ -173,7 +173,7 @@ private:
   // | -------------------------- goal -------------------------- |
 
   double     goal_x_, goal_y_, goal_z_, goal_heading_;
-  double     have_goal_ = false;
+  bool       have_goal_ = false;
   std::mutex mutex_goal_;
 
   // | ---------------- tracker's internal state ---------------- |

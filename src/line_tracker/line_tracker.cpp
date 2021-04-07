@@ -89,7 +89,7 @@ private:
   std::string _version_;
   std::string _uav_name_;
 
-  void  mainTimer(const ros::TimerEvent &event);
+  void       mainTimer(const ros::TimerEvent &event);
   ros::Timer main_timer_;
 
   // | ------------------------ uav state ----------------------- |
@@ -145,7 +145,7 @@ private:
   double     goal_y_;
   double     goal_z_;
   double     goal_heading_;
-  double     have_goal_ = false;
+  bool       have_goal_ = false;
   std::mutex mutex_goal_;
 
   // | ------------------- the state variables ------------------ |
