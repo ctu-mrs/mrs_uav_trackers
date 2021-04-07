@@ -221,7 +221,7 @@ std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::PositionComma
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double uav_heading;
+  double uav_heading = 0;
 
   try {
     uav_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
