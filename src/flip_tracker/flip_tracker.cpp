@@ -110,9 +110,8 @@ private:
 
   // | ---------------- the tracker's inner state --------------- |
 
-  bool is_initialized_  = false;
-  bool is_active_       = false;
-  bool first_iteration_ = true;
+  bool is_initialized_ = false;
+  bool is_active_      = false;
 
   // | ----------------------- parameters ----------------------- |
 
@@ -332,17 +331,6 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
     uav_state_ = *uav_state;
 
     got_uav_state_ = true;
-  }
-
-  double uav_heading;
-
-  try {
-    uav_heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
-  }
-  catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[FlipTracker]: could not calculate UAV heading");
-
-    return mrs_msgs::PositionCommand::Ptr();
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -776,7 +764,7 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
 
   if (z_acceleration_acc_ > constraints.vertical_ascending_acceleration) {
-     
+
     std::stringstream ss;
     ss << "can not flip, the required acceleration is outside of constraints";
 
