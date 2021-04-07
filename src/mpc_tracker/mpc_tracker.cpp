@@ -1610,15 +1610,9 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
   first_collision_index = INT_MAX;
   avoiding_collision_   = false;
 
-  // This variable is used for collision avoidance priority swapping, only the first detected collision is considered for priority swap, subsequent
-  // collisons are irrelevant
-  bool first_collision = true;
-
   std::map<std::string, mrs_msgs::FutureTrajectory>::iterator u = other_uav_avoidance_trajectories_.begin();
 
   while (u != other_uav_avoidance_trajectories_.end()) {
-
-    first_collision = true;
 
     // is the other's trajectory fresh enought?
     if ((ros::Time::now() - u->second.stamp).toSec() < _collision_trajectory_timeout_) {
@@ -1651,7 +1645,6 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
           } else {
             // the other uav should avoid us
             ROS_WARN_STREAM_THROTTLE(1, "[MpcTracker]: detected collision with uav" << other_uav_priority << ", not avoiding (my priority is higher)");
-            first_collision = false;
           }
         }
 
