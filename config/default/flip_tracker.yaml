@@ -18,10 +18,16 @@ phases:
     attitude_rate: 15.0 # [rad/s]
     axis: 0 # [0 = X, 1 = Y, 2 = Z]
     direction: 0 # [0 = positive, 1 = negative]
+    timeout_factor: 3.0 # [how many times the expected duration]
+
+  innertia:
+
+    timeout_factor: 3.0 # [how many times the expected duration]
 
   recovery:
 
-    duration: 2.0 # [s]
+    duration: 3.0 # [s]
 
 rampup:
+
   speed: 10.0 # m/s^3

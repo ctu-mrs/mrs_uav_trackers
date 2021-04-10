@@ -1,6 +1,9 @@
 #include "mrs_msgs/AttitudeCommand.h"
 #define VERSION "1.0.0.0"
 
+#define FLIPPING_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
+#define INNERTIA_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
+
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -125,6 +128,12 @@ private:
 
   double _recovery_duration_;
 
+  double _innertia_timeout_factor_;
+  double _innertia_timeout_;
+
+  double _pulse_timeout_factor_;
+  double _pulse_timeout_;
+
   // | ------------------------ flipping ------------------------ |
 
   mrs_msgs::PositionCommand activation_cmd_;
@@ -134,6 +143,8 @@ private:
   std::mutex mutex_current_state_;
 
   double initial_heading_;
+
+  ros::Time inertia_time_started_;
 
   // | ------------------------ routines ------------------------ |
 
@@ -197,10 +208,17 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
   param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
   param_loader.loadParam("phases/flipping_pulse/direction", drs_params_.direction);
+  param_loader.loadParam("phases/flipping_pulse/timeout_factor", _pulse_timeout_factor_);
 
   param_loader.loadParam("rampup/speed", _rampup_speed_);
 
   param_loader.loadParam("phases/recovery/duration", _recovery_duration_);
+  param_loader.loadParam("phases/innertia/timeout_factor", _innertia_timeout_factor_);
+
+  _pulse_timeout_    = _pulse_timeout_factor_ * (FLIPPING_PULSE_STOP_TILT / drs_params_.attitude_rate);
+  ROS_INFO("[FlipTracker]: initializing pulse timeout: %.4f s", _pulse_timeout_);
+  _innertia_timeout_ = _innertia_timeout_factor_ * (((M_PI - FLIPPING_PULSE_STOP_TILT) + (M_PI - INNERTIA_PULSE_STOP_TILT)) / drs_params_.attitude_rate);
+  ROS_INFO("[FlipTracker]: initializing inertia timeout: %.4f s", _innertia_timeout_);
 
   if (_version_ != VERSION) {
 
@@ -473,14 +491,27 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.use_attitude_rate = true;
 
       if (tilt_angle <= M_PI / 2.0) {
-        position_cmd.thrust = hover_thrust * cos(tilt_angle);
+        position_cmd.thrust = hover_thrust; //  * cos(tilt_angle);
       } else {
         position_cmd.thrust = 0;
       }
       position_cmd.use_thrust = true;
 
-      if (tilt_angle > ((2.0 / 3.0) * M_PI)) {
+      if ((ros::Time::now() - state_change_time_).toSec() >= _pulse_timeout_) {
+
+        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+        ROS_ERROR("[FlipTracker]: pulse phase took too long (%.4f s, timeout %.4f s), startin recovery", (ros::Time::now() - state_change_time_).toSec(),
+                  _pulse_timeout_);
+
+        state_change_time_ = ros::Time::now();
+
+      } else if (tilt_angle > FLIPPING_PULSE_STOP_TILT) {
+
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_INTERTIA, current_state_);
+
+        ROS_INFO("[FlipTracker]: pulse phase took %.4f s, (timeout %.4f s)", (ros::Time::now() - state_change_time_).toSec(), _pulse_timeout_);
+
         state_change_time_ = ros::Time::now();
       }
 
@@ -508,13 +539,30 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.use_orientation = false;
 
-      position_cmd.use_attitude_rate = false;
+      position_cmd.use_attitude_rate = true;
+
+      position_cmd.attitude_rate.x = 0;
+      position_cmd.attitude_rate.y = 0;
+      position_cmd.attitude_rate.z = 0;
 
       position_cmd.thrust     = 0;
       position_cmd.use_thrust = true;
 
-      if (tilt_angle <= ((2.0 / 3.0)) * M_PI) {
+      if ((ros::Time::now() - state_change_time_).toSec() >= _innertia_timeout_) {
+
         mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+        ROS_ERROR("[FlipTracker]: inertia phase took too long (%.4f s, timeout %.4f s), startin recovery", (ros::Time::now() - state_change_time_).toSec(),
+                  _innertia_timeout_);
+
+        state_change_time_ = ros::Time::now();
+
+      } else if (tilt_angle <= INNERTIA_PULSE_STOP_TILT) {
+
+        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+        ROS_INFO("[FlipTracker]: inertia phase took %.4f s, (timeout %.4f s)", (ros::Time::now() - state_change_time_).toSec(), _innertia_timeout_);
+
         state_change_time_ = ros::Time::now();
       }
 
