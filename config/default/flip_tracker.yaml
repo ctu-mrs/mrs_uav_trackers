@@ -15,7 +15,7 @@ phases:
 
   flipping_pulse:
 
-    attitude_rate: 15.0 # [rad/s]
+    attitude_rate: 12.0 # [rad/s]
     axis: 0 # [0 = X, 1 = Y, 2 = Z]
     direction: 0 # [0 = positive, 1 = negative]
     timeout_factor: 3.0 # [how many times the expected duration]

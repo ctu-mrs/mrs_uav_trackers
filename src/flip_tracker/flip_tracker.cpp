@@ -491,7 +491,7 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.use_attitude_rate = true;
 
       if (tilt_angle <= M_PI / 2.0) {
-        position_cmd.thrust = hover_thrust; //  * cos(tilt_angle);
+        position_cmd.thrust = hover_thrust * cos(tilt_angle);
       } else {
         position_cmd.thrust = 0;
       }

@@ -6,4 +6,4 @@ phases:
 
   flipping_pulse:
 
-    attitude_rate: 13.0 # [rad/s]
+    attitude_rate: 12.0 # [rad/s]
