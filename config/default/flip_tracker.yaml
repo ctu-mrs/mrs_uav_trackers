@@ -2,20 +2,20 @@ version: "1.0.0.0"
 
 activation_limits:
 
-  max_velocity: 0.5 # [m/s], per axis
+  max_velocity: 0.7 # [m/s], per axis
   max_acceleration: 1.0 # [m/s^2], per axis
-  max_heading_rate: 0.2 # [rad/s]
+  max_heading_rate: 0.3 # [rad/s]
 
 phases:
 
   z_acceleration:
 
-    thrust: 0.7 # [-]
-    velocity_gain_from_rot: 1.2 # [-]*PI
+    thrust: 0.8 # [-]
+    velocity_gain_from_rot: 1.15 # [-]*PI
 
   flipping_pulse:
 
-    attitude_rate: 12.0 # [rad/s]
+    attitude_rate: 9.0 # [rad/s]
     axis: 0 # [0 = X, 1 = Y, 2 = Z]
     direction: 0 # [0 = positive, 1 = negative]
     timeout_factor: 3.0 # [how many times the expected duration]
@@ -30,4 +30,4 @@ phases:
 
 rampup:
 
-  speed: 10.0 # m/s^3
+  speed: 20.0 # m/s^3
