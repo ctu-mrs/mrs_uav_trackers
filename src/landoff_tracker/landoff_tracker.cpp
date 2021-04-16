@@ -192,6 +192,11 @@ private:
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
+
+  // | ----------------------- constraints ---------------------- |
+
+  mrs_msgs::DynamicsConstraints constraints_;
+  std::mutex                    mutex_constraints_;
 };
 
 //}
@@ -730,7 +735,16 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::gotoTrajectoryStart([[
 const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr LandoffTracker::setConstraints([
     [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& cmd) {
 
-  return mrs_msgs::DynamicsConstraintsSrvResponse::Ptr();
+
+  mrs_lib::set_mutexed(mutex_constraints_, cmd->constraints, constraints_);
+
+  ROS_INFO("[LandoffTracker]: updating constraints");
+
+  mrs_msgs::DynamicsConstraintsSrvResponse res;
+  res.success = true;
+  res.message = "constraints updated";
+
+  return mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr(new mrs_msgs::DynamicsConstraintsSrvResponse(res));
 }
 
 //}
@@ -880,6 +894,7 @@ void LandoffTracker::accelerateVertical(void) {
   // copy member variables
   auto [current_vertical_speed, state_z] = mrs_lib::get_mutexed(mutex_state_, current_vertical_speed_, state_z_);
   auto goal_z                            = mrs_lib::get_mutexed(mutex_goal_, goal_z_);
+  auto constraints                       = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
 
   double used_acceleration;
   double used_speed;
@@ -888,6 +903,16 @@ void LandoffTracker::accelerateVertical(void) {
 
     used_speed        = _takeoff_speed_;
     used_acceleration = _takeoff_acceleration_;
+
+    if (used_speed > constraints.vertical_ascending_speed) {
+      used_speed = constraints.vertical_ascending_speed;
+      ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: saturating takeoff speed");
+    }
+
+    if (used_acceleration > constraints.vertical_ascending_acceleration) {
+      used_acceleration = constraints.vertical_ascending_acceleration;
+      ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: saturating takeoff acceleration");
+    }
 
   } else if (landing_) {
 
@@ -900,9 +925,21 @@ void LandoffTracker::accelerateVertical(void) {
 
       used_speed        = _landing_speed_;
       used_acceleration = _landing_acceleration_;
+
+      if (used_speed > constraints.vertical_descending_speed) {
+        used_speed = constraints.vertical_descending_speed;
+        ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: saturating landing speed");
+      }
+
+      if (used_acceleration > constraints.vertical_descending_acceleration) {
+        used_acceleration = constraints.vertical_descending_acceleration;
+        ROS_WARN_THROTTLE(1.0, "[LandoffTracker]: saturating landing acceleration");
+      }
     }
 
   } else {
+
+    // TODO take this from constraints
     used_speed        = _vertical_speed_;
     used_acceleration = _vertical_acceleration_;
   }
