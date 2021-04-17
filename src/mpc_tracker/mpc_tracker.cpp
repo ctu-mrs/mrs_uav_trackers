@@ -125,8 +125,8 @@ private:
   mrs_msgs::DynamicsConstraints constraints_filtered_;
   std::mutex                    mutex_constraints_filtered_;
 
-  bool got_constraints_     = false;
-  bool all_constraints_set_ = false;
+  std::atomic<bool> got_constraints_     = false;
+  std::atomic<bool> all_constraints_set_ = false;
 
   double _diag_pos_tracking_thr_;
   double _diag_heading_tracking_thr_;
@@ -1360,20 +1360,26 @@ const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr MpcTracker::setConstrai
 
   mrs_lib::set_mutexed(mutex_constraints_, constraints->constraints, constraints_);
 
-  got_constraints_ = true;
-
   // directly updated the speeds in the constraints
   // the reset needs to wait for manageConstraints()
   {
     std::scoped_lock lock(mutex_constraints_filtered_);
 
-    auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
+    // important! this needs to be done to initialize the full struct
+    if (!got_constraints_) {
 
-    constraints_filtered_.horizontal_speed          = constraints.horizontal_speed;
-    constraints_filtered_.vertical_ascending_speed  = constraints.vertical_ascending_speed;
-    constraints_filtered_.vertical_descending_speed = constraints.vertical_descending_speed;
-    constraints_filtered_.heading_speed             = constraints.heading_speed;
+      constraints_filtered_ = constraints->constraints;
+
+    } else {
+
+      constraints_filtered_.horizontal_speed          = constraints->constraints.horizontal_speed;
+      constraints_filtered_.vertical_ascending_speed  = constraints->constraints.vertical_ascending_speed;
+      constraints_filtered_.vertical_descending_speed = constraints->constraints.vertical_descending_speed;
+      constraints_filtered_.heading_speed             = constraints->constraints.heading_speed;
+    }
   }
+
+  got_constraints_ = true;
 
   all_constraints_set_ = false;
 
