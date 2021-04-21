@@ -74,6 +74,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd);
 
   const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd);
@@ -727,6 +728,15 @@ const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr FlipTracker::setConstra
 const mrs_msgs::ReferenceSrvResponse::ConstPtr FlipTracker::setReference([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
 
   return mrs_msgs::ReferenceSrvResponse::Ptr();
+}
+
+//}
+
+/* //{ setVelocityReference() */
+
+const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr FlipTracker::setVelocityReference([
+    [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
+  return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
 }
 
 //}

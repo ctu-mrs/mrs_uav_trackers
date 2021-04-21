@@ -1,4 +1,6 @@
 #include "mrs_msgs/OdometryDiag.h"
+#include "mrs_msgs/VelocityReference.h"
+#include "mrs_msgs/VelocityReferenceSrvResponse.h"
 #define VERSION "1.0.0.0"
 
 /* includes //{ */
@@ -77,6 +79,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
+  const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr& cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
@@ -301,6 +304,15 @@ private:
 
   ros::Timer timer_trajectory_tracking_;
   void       timerTrajectoryTracking(const ros::TimerEvent& event);
+
+  // | -------------------- velocity tracking ------------------- |
+
+  ros::Timer                  timer_velocity_tracking_;
+  void                        timerVelocityTracking(const ros::TimerEvent& event);
+  ros::Time                   velocity_reference_time_;
+  mrs_msgs::VelocityReference velocity_reference_;
+  std::mutex                  mutex_velocity_reference_;
+  std::atomic<bool>           velocity_tracking_active_ = false;
 
   // | ------------------ avoidance trajectory ------------------ |
 
@@ -527,7 +539,12 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     it++;
   }
 
+  // initialize velocity tracker
+
+  velocity_reference_time_ = ros::Time(0);
+
   // create publishers for predicted trajectory
+
   avoidance_trajectory_publisher_           = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
   publisher_predicted_trajectory_debugging_ = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
   publisher_mpc_reference_debugging_        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
@@ -591,6 +608,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
   timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this);
   timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
+  timer_velocity_tracking_    = nh_.createTimer(ros::Rate(30.0), &MpcTracker::timerVelocityTracking, this, false, false);
   timer_hover_                = nh_.createTimer(ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
 
   // | ----------------------- finish init ---------------------- |
@@ -1407,6 +1425,41 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr MpcTracker::setReference(const mr
   res.message = "reference set";
 
   return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
+}
+
+//}
+
+/* //{ setVelocityReference() */
+
+const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr MpcTracker::setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd) {
+
+  if (!is_initialized_) {
+    return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
+  }
+
+  {
+    std::scoped_lock lock(mutex_velocity_reference_);
+
+    velocity_reference_time_ = ros::Time::now();
+
+    velocity_reference_ = cmd->reference;
+  }
+
+  if (!velocity_tracking_active_) {
+
+    ROS_INFO("[MpcTracker]: starting velocity tracking timer");
+
+    timer_velocity_tracking_.stop();
+    timer_velocity_tracking_.start();
+
+    velocity_tracking_active_ = true;
+  }
+
+  mrs_msgs::VelocityReferenceSrvResponse response;
+  response.success = true;
+  response.message = "reference set";
+
+  return mrs_msgs::VelocityReferenceSrvResponse::ConstPtr(new mrs_msgs::VelocityReferenceSrvResponse(response));
 }
 
 //}
@@ -2594,7 +2647,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     timer_trajectory_tracking_.start();
   }
 
-  ROS_INFO_THROTTLE(1, "[MpcTracker]: received trajectory with length %d", trajectory_size);
+  ROS_INFO_THROTTLE(1, "[MpcTracker]: setting trajectory with length %d", trajectory_size);
 
   /* publish the debugging topics of the post-processed trajectory //{ */
 
@@ -3348,6 +3401,79 @@ void MpcTracker::timerTrajectoryTracking(const ros::TimerEvent& event) {
   }
 
   publishDiagnostics();
+}
+
+//}
+
+/* timerVelocityTracking() //{ */
+
+void MpcTracker::timerVelocityTracking(const ros::TimerEvent& event) {
+
+  if (!is_initialized_) {
+    return;
+  }
+
+  if (!velocity_tracking_active_) {
+    return;
+  }
+
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerVelocityTracking", int(30.0), 0.01, event);
+
+  // stop the timer when timeout
+  if ((ros::Time::now() - velocity_reference_time_).toSec() > 0.5) {
+
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: velocity reference timeouted, hovering");
+    timer_velocity_tracking_.stop();
+
+    toggleHover(true);
+
+    velocity_tracking_active_ = false;
+
+    return;
+  }
+
+  auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
+  auto velocity_reference     = mrs_lib::get_mutexed(mutex_velocity_reference_, velocity_reference_);
+
+  mrs_msgs::TrajectoryReference trajectory;
+
+  trajectory.fly_now         = true;
+  trajectory.use_heading     = true;
+  trajectory.dt              = 0.2;
+  trajectory.header.stamp    = ros::Time::now();
+  trajectory.header.frame_id = "";
+
+  double x       = mpc_x(0, 0);
+  double y       = mpc_x(4, 0);
+  double z       = mpc_x(8, 0);
+  double heading = mpc_x_heading(0, 0);
+
+  for (int i = 0; i < 50; i++) {
+
+    mrs_msgs::Reference reference;
+    reference.position.x = x;
+    reference.position.y = y;
+    reference.position.z = z;
+    reference.heading    = heading;
+
+    trajectory.points.push_back(reference);
+
+    x += velocity_reference.velocity.x * trajectory.dt;
+    y += velocity_reference.velocity.y * trajectory.dt;
+    z += velocity_reference.velocity.z * trajectory.dt;
+
+    if (velocity_reference.use_altitude) {
+      z = velocity_reference.altitude;
+    }
+
+    if (velocity_reference.use_heading_rate) {
+      heading += velocity_reference.heading_rate * trajectory.dt;
+    } else if (velocity_reference.use_heading) {
+      heading = velocity_reference.heading;
+    }
+  }
+
+  auto [success, message, modified] = loadTrajectory(trajectory);
 }
 
 //}
