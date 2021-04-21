@@ -574,9 +574,9 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
     case STATE_RECOVERY: {
 
-      activation_cmd_.position.z = uav_state->pose.position.z;
+      /* activation_cmd_.position.z = uav_state->pose.position.z; */
 
-      position_cmd.use_position_vertical   = false;
+      position_cmd.use_position_vertical   = true;
       position_cmd.use_position_horizontal = true;
 
       position_cmd.use_velocity_vertical   = true;
@@ -820,11 +820,11 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
 
   // calculate the z acceleration
   if (drs_params.z_mode == 0) {
-    z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, drs_params.z_thrust) / mass) - g;
-    ROS_INFO("[FlipTracker]: accelerating with thrust %.2f => %.2f m/s^2", drs_params.z_thrust, z_acceleration_acc_);
-  } else if (drs_params.z_mode == 1) {
     z_acceleration_acc_ = drs_params.z_acceleration;
     ROS_INFO("[FlipTracker]: accelerating with %.2f m/s^2", z_acceleration_acc_);
+  } else if (drs_params.z_mode == 1) {
+    z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, drs_params.z_thrust) / mass) - g;
+    ROS_INFO("[FlipTracker]: accelerating with thrust %.2f => %.2f m/s^2", drs_params.z_thrust, z_acceleration_acc_);
   } else {
     std::stringstream ss;
     ss << "invalid acceleration mode";
@@ -856,7 +856,7 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   z_pos_lost_by_flipping_ = 0.5 * g * pow(((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate), 2.0);
 
   // calculate how long do we have to accelerate to create a positive velocity for the maneuvre
-  z_acceleration_duration_ = sqrt((2 * z_pos_lost_by_flipping_) / g);
+  z_acceleration_duration_ = sqrt((2 * z_pos_lost_by_flipping_) / z_acceleration_acc_);
 
   ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f", z_acceleration_acc_, z_acceleration_duration_);
 
