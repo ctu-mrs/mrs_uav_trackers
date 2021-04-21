@@ -10,7 +10,10 @@ phases:
 
   z_acceleration:
 
+    mode: 0 # 0 = acceleration, 1 = thrust
+    acceleration: 3.0 # [m/s^2]
     thrust: 0.8 # [-]
+
     velocity_gain_from_rot: 1.15 # [-]*PI
 
   flipping_pulse:
