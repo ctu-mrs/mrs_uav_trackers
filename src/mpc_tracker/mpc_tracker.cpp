@@ -3172,6 +3172,17 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
         if (first_idx >= trajectory_size) {
           first_idx -= trajectory_size;
         }
+
+        if (first_idx < 0) {
+          ROS_ERROR("[MpcTracker]: !!! looping bug, first_idx = %d", first_idx);
+          first_idx = 0;
+        }
+
+        if (second_idx < 0) {
+          ROS_ERROR("[MpcTracker]: !!! looping bug, second_idx = %d", second_idx);
+          second_idx = 0;
+        }
+
       } else {
 
         if (second_idx >= trajectory_size) {
