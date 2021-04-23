@@ -14,7 +14,7 @@ phases:
     acceleration: 2.0 # [m/s^2]
     thrust: 0.8 # [-]
 
-    velocity_gain_from_rot: 1.15 # [-]*PI
+    velocity_gain_from_rot: 1.0 # [-]*PI
 
   flipping_pulse:
 

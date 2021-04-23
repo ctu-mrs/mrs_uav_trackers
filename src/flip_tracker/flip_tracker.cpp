@@ -124,7 +124,8 @@ private:
   double _activation_max_heading_rate_;
 
   double z_acceleration_acc_;
-  double z_pos_lost_by_flipping_;
+  /* double z_pos_lost_by_flipping_; */
+  double z_vel_gained_by_flipping_;
   double z_acceleration_duration_;
 
   double _recovery_duration_;
@@ -407,10 +408,12 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = true;
 
-      position_cmd.use_velocity_vertical   = false;
+      position_cmd.use_velocity_vertical   = true;
       position_cmd.use_velocity_horizontal = true;
 
       position_cmd.use_acceleration = true;
+
+      /* position_cmd.use_acceleration = true; */
 
       position_cmd.use_jerk = false;
 
@@ -454,7 +457,16 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.acceleration.z = z_acceleration_acc_;
 
-      if ((ros::Time::now() - state_change_time_).toSec() >= z_acceleration_duration_) {
+      position_cmd.velocity.z = z_vel_gained_by_flipping_;
+
+      if ((ros::Time::now() - state_change_time_).toSec() >= 2 * z_acceleration_duration_) {
+        ROS_INFO("[FlipTracker]: acceleration timeouted, recovering");
+        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+        state_change_time_ = ros::Time::now();
+      }
+
+      if (uav_state->velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
+        ROS_INFO("[FlipTracker]: z vel exceeded %.2f, flipping", z_vel_gained_by_flipping_);
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_PULSE, current_state_);
         state_change_time_ = ros::Time::now();
       }
@@ -574,9 +586,9 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
     case STATE_RECOVERY: {
 
-      /* activation_cmd_.position.z = uav_state->pose.position.z; */
+      activation_cmd_.position.z = uav_state->pose.position.z;
 
-      position_cmd.use_position_vertical   = true;
+      position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = true;
 
       position_cmd.use_velocity_vertical   = true;
@@ -853,10 +865,14 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   }
 
   // calculate what velocity will the UAV gain while perfoming the flipping maneuvre
-  z_pos_lost_by_flipping_ = 0.5 * g * pow(((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate), 2.0);
+  /* z_pos_lost_by_flipping_ = 0.5 * g * pow(((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate), 2.0); */
+
+  z_vel_gained_by_flipping_ = g * ((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate);
 
   // calculate how long do we have to accelerate to create a positive velocity for the maneuvre
-  z_acceleration_duration_ = sqrt((2 * z_pos_lost_by_flipping_) / z_acceleration_acc_);
+  /* z_acceleration_duration_ = sqrt((2 * z_pos_lost_by_flipping_) / z_acceleration_acc_); */
+
+  z_acceleration_duration_ = z_vel_gained_by_flipping_ / z_acceleration_acc_;
 
   ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f", z_acceleration_acc_, z_acceleration_duration_);
 
