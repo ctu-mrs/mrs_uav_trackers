@@ -3131,7 +3131,8 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     MatrixXd des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory;
     VectorXd des_x_whole_trajectory, des_y_whole_trajectory, des_z_whole_trajectory, des_heading_whole_trajectory;
-    double   trajectory_size, trajectory_dt;
+    double   trajectory_dt;
+    int      trajectory_size;
     {
       std::scoped_lock lock(mutex_des_trajectory_, mutex_des_whole_trajectory_);
 
@@ -3166,21 +3167,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       if (trajectory_tracking_loop_) {
 
         if (second_idx >= trajectory_size) {
-          second_idx -= trajectory_size;
+          second_idx = second_idx % trajectory_size;
         }
 
         if (first_idx >= trajectory_size) {
-          first_idx -= trajectory_size;
-        }
-
-        if (first_idx < 0) {
-          ROS_ERROR("[MpcTracker]: !!! looping bug, first_idx = %d", first_idx);
-          first_idx = 0;
-        }
-
-        if (second_idx < 0) {
-          ROS_ERROR("[MpcTracker]: !!! looping bug, second_idx = %d", second_idx);
-          second_idx = 0;
+          first_idx = first_idx % trajectory_size;
         }
 
       } else {
