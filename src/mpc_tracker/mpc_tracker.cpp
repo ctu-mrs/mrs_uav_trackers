@@ -997,17 +997,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: MPC outputs are not finite!");
 
-    position_cmd.velocity.x     = 0;
-    position_cmd.acceleration.x = 0;
-    position_cmd.jerk.x         = 0;
-
-    position_cmd.velocity.y     = 0;
-    position_cmd.acceleration.y = 0;
-    position_cmd.jerk.y         = 0;
-
-    position_cmd.velocity.z     = 0;
-    position_cmd.acceleration.z = 0;
-    position_cmd.jerk.z         = 0;
+    return mrs_msgs::PositionCommand::Ptr();
   }
 
   bool heading_finite = true;
@@ -1033,8 +1023,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: heading output is not finite!");
 
-    position_cmd.heading_rate     = 0;
-    position_cmd.use_heading_rate = 1;
+    return mrs_msgs::PositionCommand::Ptr();
   }
 
   // set the header
