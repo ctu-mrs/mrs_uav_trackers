@@ -108,7 +108,6 @@ private:
   double _tracker_dt_;
   bool   is_initialized_ = false;
   bool   is_active_      = false;
-  bool   first_iter_     = false;
 
   // | ----------------- internal state mmachine ---------------- |
 

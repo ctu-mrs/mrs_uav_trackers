@@ -1,6 +1,3 @@
-#include "mrs_msgs/OdometryDiag.h"
-#include "mrs_msgs/VelocityReference.h"
-#include "mrs_msgs/VelocityReferenceSrvResponse.h"
 #define VERSION "1.0.0.0"
 
 /* includes //{ */
@@ -18,6 +15,8 @@
 #include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/MpcPredictionFullState.h>
 #include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/VelocityReference.h>
+#include <mrs_msgs/VelocityReferenceSrvResponse.h>
 
 #include <std_msgs/String.h>
 
@@ -139,17 +138,17 @@ private:
   double _dt1_;
   double _dt2_;
 
-  MatrixXd          _A_;  // system matrix for virtual UAV
-  MatrixXd          _B_;  // input matrix for virtual UAV
-  MatrixXd          A_;   // system matrix for virtual UAV
-  MatrixXd          B_;   // input matrix for virtual UAV
+  MatrixXd          _mat_A_;  // system matrix for virtual UAV
+  MatrixXd          _mat_B_;  // input matrix for virtual UAV
+  MatrixXd          A_;       // system matrix for virtual UAV
+  MatrixXd          B_;       // input matrix for virtual UAV
   std::atomic<bool> model_first_iteration_ = true;
   ros::Time         model_iteration_last_time_;
 
-  MatrixXd _A_heading_;  // system matrix for heading
-  MatrixXd _B_heading_;  // input matrix for heading
-  MatrixXd A_heading_;   // system matrix for heading
-  MatrixXd B_heading_;   // input matrix for heading
+  MatrixXd _mat_A_heading_;  // system matrix for heading
+  MatrixXd _mat_B_heading_;  // input matrix for heading
+  MatrixXd A_heading_;       // system matrix for heading
+  MatrixXd B_heading_;       // input matrix for heading
 
   // the reference over the prediction horizon per axis
   MatrixXd   des_x_trajectory_;
@@ -284,8 +283,8 @@ private:
   std::map<std::string, mrs_msgs::MpcTrackerDiagnostics>                  other_uav_diagnostics_;
   std::mutex                                                              mutex_other_uav_diagnostics_;
 
-  double checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
-  double checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  bool checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
+  bool checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
 
   ros::Publisher avoidance_trajectory_publisher_;
 
@@ -426,19 +425,19 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   param_loader.loadParam("model/translation/n_states", _mpc_n_states_);
   param_loader.loadParam("model/translation/n_inputs", _mpc_m_states_);
-  param_loader.loadMatrixStatic("model/translation/A", _A_, _mpc_n_states_, _mpc_n_states_);
-  param_loader.loadMatrixStatic("model/translation/B", _B_, _mpc_n_states_, _mpc_m_states_);
+  param_loader.loadMatrixStatic("model/translation/A", _mat_A_, _mpc_n_states_, _mpc_n_states_);
+  param_loader.loadMatrixStatic("model/translation/B", _mat_B_, _mpc_n_states_, _mpc_m_states_);
 
-  A_ = _A_;
-  B_ = _B_;
+  A_ = _mat_A_;
+  B_ = _mat_B_;
 
   param_loader.loadParam("model/heading/n_states", _mpc_n_states_heading_);
   param_loader.loadParam("model/heading/n_inputs", _mpc_n_inputs_heading_);
-  param_loader.loadMatrixStatic("model/heading/A", _A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
-  param_loader.loadMatrixStatic("model/heading/B", _B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+  param_loader.loadMatrixStatic("model/heading/A", _mat_A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
+  param_loader.loadMatrixStatic("model/heading/B", _mat_B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
 
-  A_heading_ = _A_heading_;
-  B_heading_ = _B_heading_;
+  A_heading_ = _mat_A_heading_;
+  B_heading_ = _mat_B_heading_;
 
   // load the MPC parameters
   param_loader.loadParam("mpc_solver/horizon_len", _mpc_horizon_len_);
@@ -774,11 +773,11 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::PositionComma
 
   model_first_iteration_ = true;
 
-  A_ = _A_;
-  B_ = _B_;
+  A_ = _mat_A_;
+  B_ = _mat_B_;
 
-  A_heading_ = _A_heading_;
-  B_heading_ = _B_heading_;
+  A_heading_ = _mat_A_heading_;
+  B_heading_ = _mat_B_heading_;
 
   is_active_ = true;
 
@@ -1625,9 +1624,10 @@ void MpcTracker::dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig&
 
 /* //{ checkCollision() */
 
-double MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
+bool MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
   if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
+
     return true;
 
   } else {
@@ -1640,9 +1640,10 @@ double MpcTracker::checkCollision(const double ax, const double ay, const double
 
 /* //{ checkCollisionInflated() */
 
-double MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
+bool MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
   if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
+
     return true;
 
   } else {
@@ -2330,11 +2331,11 @@ void MpcTracker::iterateModel(void) {
 
       // fallback for weird dt
 
-      A_ = _A_;
-      B_ = _B_;
+      A_ = _mat_A_;
+      B_ = _mat_B_;
 
-      A_heading_ = _A_heading_;
-      B_heading_ = _B_heading_;
+      A_heading_ = _mat_A_heading_;
+      B_heading_ = _mat_B_heading_;
     }
 
     model_iteration_last_time_ = ros::Time::now();
@@ -3152,14 +3153,14 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
-    double trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
-    double trajectory_tracking_idx     = trajectory_tracking_idx_;
+    int trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
+    int trajectory_tracking_idx     = trajectory_tracking_idx_;
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
       double first_time = _dt1_ + i * _dt2_ + trajectory_tracking_sub_idx * _dt1_;
 
-      int first_idx  = trajectory_tracking_idx + floor(first_time / trajectory_dt);
+      int first_idx  = trajectory_tracking_idx + int(floor(first_time / trajectory_dt));
       int second_idx = first_idx + 1;
 
       double interp_coeff = std::fmod(first_time / trajectory_dt, 1.0);

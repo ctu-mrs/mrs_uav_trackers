@@ -1,4 +1,3 @@
-#include "mrs_msgs/AttitudeCommand.h"
 #define VERSION "1.0.0.0"
 
 #define FLIPPING_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
@@ -216,7 +215,7 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.loadParam("phases/recovery/duration", _recovery_duration_);
   param_loader.loadParam("phases/innertia/timeout_factor", _innertia_timeout_factor_);
 
-  _pulse_timeout_    = _pulse_timeout_factor_ * (FLIPPING_PULSE_STOP_TILT / drs_params_.attitude_rate);
+  _pulse_timeout_ = _pulse_timeout_factor_ * (FLIPPING_PULSE_STOP_TILT / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing pulse timeout: %.4f s", _pulse_timeout_);
   _innertia_timeout_ = _innertia_timeout_factor_ * (((M_PI - FLIPPING_PULSE_STOP_TILT) + (M_PI - INNERTIA_PULSE_STOP_TILT)) / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing inertia timeout: %.4f s", _innertia_timeout_);

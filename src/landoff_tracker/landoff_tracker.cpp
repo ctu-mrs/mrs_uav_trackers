@@ -74,7 +74,7 @@ public:
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
-  const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
+  const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd);
   const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr setTrajectoryReference(const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr& cmd);
 
   const std_srvs::TriggerResponse::ConstPtr hover(const std_srvs::TriggerRequest::ConstPtr& cmd);
@@ -114,7 +114,6 @@ private:
   double _tracker_dt_;
   bool   is_initialized_ = false;
   bool   is_active_      = false;
-  bool   first_iter_     = false;
 
   bool   _takeoff_disable_lateral_gains_ = false;
   double _takeoff_disable_lateral_gains_height_;
@@ -762,7 +761,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LandoffTracker::setReference([[ma
 /* //{ setVelocityReference() */
 
 const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr LandoffTracker::setVelocityReference([
-    [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
+    [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd) {
   return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
 }
 
@@ -788,25 +787,18 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
 
   switch (current_state_horizontal_) {
 
-    case IDLE_STATE:
-      break;
-    case LANDED_STATE:
-      break;
-    case HOVER_STATE:
-      break;
-    case STOP_MOTION_STATE:
-      break;
-    case ACCELERATING_STATE:
-      break;
-    case DECELERATING_STATE:
-      break;
     case STOPPING_STATE: {
-      {
-        std::scoped_lock lock(mutex_state_);
 
-        current_horizontal_speed_ = 0;
-      }
-    } break;
+      std::scoped_lock lock(mutex_state_);
+      current_horizontal_speed_ = 0;
+
+      break;
+    };
+
+    default: {
+
+      break;
+    }
   }
 
   ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal_], state_names[current_state_horizontal_]);
@@ -823,21 +815,14 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
 
   switch (current_state_vertical_) {
 
-    case IDLE_STATE:
-      break;
-    case LANDED_STATE:
-      break;
-    case HOVER_STATE:
+    case HOVER_STATE: {
       taking_off_ = false;
       break;
-    case STOP_MOTION_STATE:
+    }
+
+    default: {
       break;
-    case ACCELERATING_STATE:
-      break;
-    case DECELERATING_STATE:
-      break;
-    case STOPPING_STATE:
-      break;
+    }
   }
 
   ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical_], state_names[current_state_vertical_]);
@@ -1153,62 +1138,54 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
 
     switch (current_state_horizontal_) {
 
-      case IDLE_STATE:
-        break;
-
-      case LANDED_STATE:
-        break;
-
-      case HOVER_STATE:
-        break;
-
-      case STOP_MOTION_STATE:
+      case STOP_MOTION_STATE: {
 
         stopHorizontalMotion();
         break;
+      }
 
-      case ACCELERATING_STATE:
-        break;
-
-      case DECELERATING_STATE:
-        break;
-
-      case STOPPING_STATE:
+      case STOPPING_STATE: {
 
         stopHorizontal();
         break;
+      }
+
+      default: {
+
+        break;
+      }
     }
 
     switch (current_state_vertical_) {
 
-      case IDLE_STATE:
-        break;
-
-      case LANDED_STATE:
-        break;
-
-      case HOVER_STATE:
-        break;
-
-      case STOP_MOTION_STATE:
+      case STOP_MOTION_STATE: {
 
         stopVerticalMotion();
         break;
+      }
 
-      case ACCELERATING_STATE:
+      case ACCELERATING_STATE: {
 
         accelerateVertical();
         break;
+      }
 
-      case DECELERATING_STATE:
+      case DECELERATING_STATE: {
 
         decelerateVertical();
         break;
+      }
 
-      case STOPPING_STATE:
+      case STOPPING_STATE: {
 
         stopVertical();
         break;
+      }
+
+      default: {
+
+        break;
+      }
     }
   }
 

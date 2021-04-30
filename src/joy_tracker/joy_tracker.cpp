@@ -93,10 +93,6 @@ private:
 
   double     state_z_;
   double     state_heading_;
-  double     speed_heading_;
-  double     current_heading_;
-  double     current_horizontal_acceleration_;
-  double     current_vertical_acceleration;
   std::mutex mutex_state_;
 
   // | ------------------- joystick subscriber ------------------ |
@@ -107,14 +103,14 @@ private:
   double _vertical_speed_;
 
   // channel numbers and channel multipliers
-  int _channel_pitch_;
-  int _channel_roll_;
-  int _channel_heading_;
-  int _channel_thrust_;
-  int _channel_mult_pitch_;
-  int _channel_mult_roll_;
-  int _channel_mult_heading_;
-  int _channel_mult_thrust_;
+  int    _channel_pitch_;
+  int    _channel_roll_;
+  int    _channel_heading_;
+  int    _channel_thrust_;
+  double _channel_mult_pitch_;
+  double _channel_mult_roll_;
+  double _channel_mult_heading_;
+  double _channel_mult_thrust_;
 
   // | ------------------------ profiler ------------------------ |
 
