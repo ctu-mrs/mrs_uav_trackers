@@ -87,19 +87,6 @@ target_link_libraries(MpcTracker
   ${MPC_CONTROLLER_SOLVER_BIN}
   )
 
-# CSV Tracker
-
-add_library(CsvTracker
-  src/csv_tracker/csv_tracker.cpp
-  )
-add_dependencies(CsvTracker
-  ${catkin_EXPORTED_TARGETS}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  )
-target_link_libraries(CsvTracker
-  ${catkin_LIBRARIES}
-  )
-
 # Line Tracker
 
 add_library(LineTracker
@@ -184,7 +171,6 @@ target_link_libraries(FlipTracker
 
 install(TARGETS
   MpcTracker
-  CsvTracker
   LineTracker
   LandoffTracker
   JoyTracker
