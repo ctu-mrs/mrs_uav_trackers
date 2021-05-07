@@ -7,6 +7,7 @@
 #include <mrs_uav_managers/tracker.h>
 
 #include <mrs_msgs/SpeedTrackerCommand.h>
+#include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>

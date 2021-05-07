@@ -14,6 +14,8 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 
+#include <mrs_msgs/VelocityReferenceSrv.h>
+
 //}
 
 /* defines //{ */
