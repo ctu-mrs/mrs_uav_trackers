@@ -138,7 +138,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   if (_version_ != VERSION) {
 
     ROS_ERROR("[SpeedTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
+    ros::requestShutdown();
   }
 
   param_loader.loadParam("command_timeout", _external_command_timeout_);
@@ -147,7 +147,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[SpeedTracker]: could not load all parameters!");
-    ros::shutdown();
+    ros::requestShutdown();
   }
 
   // | ------------------------ profiler ------------------------ |
