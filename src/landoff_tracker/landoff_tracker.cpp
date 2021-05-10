@@ -8,6 +8,7 @@
 
 #include <mrs_msgs/Vec1.h>
 #include <mrs_msgs/UavState.h>
+#include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>

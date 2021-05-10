@@ -13,6 +13,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/subscribe_handler.h>
 
+#include <mrs_msgs/VelocityReferenceSrv.h>
 //}
 
 /* defines //{ */

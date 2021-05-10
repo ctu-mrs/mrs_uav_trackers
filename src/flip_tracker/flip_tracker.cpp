@@ -21,6 +21,7 @@
 
 #include <mrs_msgs/String.h>
 #include <mrs_msgs/AttitudeCommand.h>
+#include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>

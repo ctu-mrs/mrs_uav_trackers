@@ -16,7 +16,7 @@
 #include <mrs_msgs/MpcPredictionFullState.h>
 #include <mrs_msgs/OdometryDiag.h>
 #include <mrs_msgs/VelocityReference.h>
-#include <mrs_msgs/VelocityReferenceSrvResponse.h>
+#include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <std_msgs/String.h>
 
