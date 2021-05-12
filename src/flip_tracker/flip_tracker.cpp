@@ -124,6 +124,7 @@ private:
   double _activation_max_heading_rate_;
 
   double z_acceleration_acc_;
+  /* double z_pos_lost_by_flipping_; */
   double z_vel_gained_by_flipping_;
   double z_acceleration_duration_;
 
@@ -204,7 +205,9 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   param_loader.loadParam("activation_limits/max_acceleration", _activation_max_acceleration_);
   param_loader.loadParam("activation_limits/max_heading_rate", _activation_max_heading_rate_);
 
-  param_loader.loadParam("phases/z_acceleration/thrust", drs_params_.acceleration_thrust);
+  param_loader.loadParam("phases/z_acceleration/mode", drs_params_.z_mode);
+  param_loader.loadParam("phases/z_acceleration/acceleration", drs_params_.z_acceleration);
+  param_loader.loadParam("phases/z_acceleration/thrust", drs_params_.z_thrust);
   param_loader.loadParam("phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
   param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
   param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
@@ -405,10 +408,12 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
       position_cmd.use_position_vertical   = false;
       position_cmd.use_position_horizontal = true;
 
-      position_cmd.use_velocity_vertical   = false;
+      position_cmd.use_velocity_vertical   = true;
       position_cmd.use_velocity_horizontal = true;
 
       position_cmd.use_acceleration = true;
+
+      /* position_cmd.use_acceleration = true; */
 
       position_cmd.use_jerk = false;
 
@@ -452,7 +457,16 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
 
       position_cmd.acceleration.z = z_acceleration_acc_;
 
-      if ((ros::Time::now() - state_change_time_).toSec() >= z_acceleration_duration_) {
+      position_cmd.velocity.z = z_vel_gained_by_flipping_;
+
+      if ((ros::Time::now() - state_change_time_).toSec() >= 2 * z_acceleration_duration_) {
+        ROS_INFO("[FlipTracker]: acceleration timeouted, recovering");
+        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+        state_change_time_ = ros::Time::now();
+      }
+
+      if (uav_state->velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
+        ROS_INFO("[FlipTracker]: z vel exceeded %.2f, flipping", z_vel_gained_by_flipping_);
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_PULSE, current_state_);
         state_change_time_ = ros::Time::now();
       }
@@ -817,7 +831,23 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   auto drs_params = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
 
   // calculate the z acceleration
-  z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, drs_params.acceleration_thrust) / mass) - g;
+  if (drs_params.z_mode == 0) {
+    z_acceleration_acc_ = drs_params.z_acceleration;
+    ROS_INFO("[FlipTracker]: accelerating with %.2f m/s^2", z_acceleration_acc_);
+  } else if (drs_params.z_mode == 1) {
+    z_acceleration_acc_ = (mrs_lib::quadratic_thrust_model::thrustToForce(common_handlers_->motor_params, drs_params.z_thrust) / mass) - g;
+    ROS_INFO("[FlipTracker]: accelerating with thrust %.2f => %.2f m/s^2", drs_params.z_thrust, z_acceleration_acc_);
+  } else {
+    std::stringstream ss;
+    ss << "invalid acceleration mode";
+
+    res.message = ss.str();
+    res.success = false;
+
+    ROS_WARN_STREAM("[FlipTracker]: " << ss.str());
+
+    return true;
+  }
 
   auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
 
@@ -835,13 +865,16 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
   }
 
   // calculate what velocity will the UAV gain while perfoming the flipping maneuvre
+  /* z_pos_lost_by_flipping_ = 0.5 * g * pow(((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate), 2.0); */
+
   z_vel_gained_by_flipping_ = g * ((drs_params.velocity_gain_from_rot * M_PI) / drs_params.attitude_rate);
 
   // calculate how long do we have to accelerate to create a positive velocity for the maneuvre
+  /* z_acceleration_duration_ = sqrt((2 * z_pos_lost_by_flipping_) / z_acceleration_acc_); */
+
   z_acceleration_duration_ = z_vel_gained_by_flipping_ / z_acceleration_acc_;
 
-  ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f, final vel %.2f", z_acceleration_acc_, z_acceleration_duration_,
-           z_vel_gained_by_flipping_);
+  ROS_INFO("[FlipTracker]: z manouvre: acceleration: %.2f, duration: %.2f", z_acceleration_acc_, z_acceleration_duration_);
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 

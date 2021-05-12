@@ -1,9 +1,0 @@
-phases:
-
-  z_acceleration:
-
-    thrust: 0.7 # [-]
-
-  flipping_pulse:
-
-    attitude_rate: 13.0 # [rad/s]
