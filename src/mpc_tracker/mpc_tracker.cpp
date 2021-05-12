@@ -959,7 +959,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
 
-  // chech wheather all outputs are finite
+  // check whether all outputs are finite
   bool arefinite = true;
   for (int i = 0; i < 12; i++) {
     if (!std::isfinite(mpc_x(i, 0))) {
@@ -2336,6 +2336,8 @@ void MpcTracker::iterateModel(void) {
 
       A_heading_ = _mat_A_heading_;
       B_heading_ = _mat_B_heading_;
+
+      ROS_WARN_THROTTLE(1.0, "[MpcTracker]: using fallback calculation of the system matrices, dt = %.3f is weird!", dt);
     }
 
     model_iteration_last_time_ = ros::Time::now();
@@ -2426,7 +2428,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       // and get the subsample offset, which will be used to initialize the interpolator
       trajectory_subsample_offset = int(floor(fmod(trajectory_time_offset, trajectory_dt) / _dt1_));
 
-      ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: sanity check: %.3f", trajectory_dt * trajectory_sample_offset + _dt1_ * trajectory_subsample_offset);
+      ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: desired trajectory is from the future by %.3f s", trajectory_dt * trajectory_sample_offset + _dt1_ * trajectory_subsample_offset);
 
       // if the offset is larger than the number of points in the trajectory
       // the trajectory can not be used
@@ -3585,7 +3587,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
 void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
   mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
-  auto                     mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  MatrixXd                 mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
 
