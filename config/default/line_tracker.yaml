@@ -1,4 +1,4 @@
-version: "1.0.0.0"
+version: "1.0.1.0"
 
 tracker_loop_rate: 100 # [Hz]
 
