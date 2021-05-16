@@ -2,6 +2,26 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* version -> 1.0.1
+* MpcTracker: updated prints
+* updated ros::shutdown
+* linted the trackers, minor bug fixes
+* removed the CsvTracker
+* fixed looping with super-short trajectories
+* MpcTracker: added debugging rinfo for looping
+* MpcTracker: returning null when outputs are not finite
+* added velocity reference, MpcTracker can do velocity cmd now
+* reworking initial acceleration
+* fixed constraint initialization bug
+* landoff uses constraints for takeoff and landing
+* MPC: not doing collision avoidance without RKT or GPS estimator
+* fixed double -> bool variables
+* made the flip tracker more "admittant"
+* added full-state prediction publisher
+* Contributors: Tomas Baca
+
 1.0.0 (2021-03-18)
 ------------------
 * Major release
