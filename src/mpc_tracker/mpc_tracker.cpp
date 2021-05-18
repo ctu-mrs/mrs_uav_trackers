@@ -3247,8 +3247,11 @@ void MpcTracker::debugPrintState(const double throttle) {
 void MpcTracker::debugPrintMPCResult(const double throttle) {
 
   auto [mpc_u, mpc_u_heading] = mrs_lib::get_mutexed(mutex_mpc_u_, mpc_u_, mpc_u_heading_);
+  auto constraints            = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
 
   ROS_DEBUG_THROTTLE(throttle, "[MpcTracker]: MPC result: [%.2f, %.2f, %.2f, %.2f]", mpc_u(0), mpc_u(1), mpc_u(2), mpc_u_heading);
+  ROS_DEBUG_THROTTLE(throttle, "[MpcTracker]: snap constraint: hor: %.2f, ver asc: %.2f, vert desc: %.2f, heading: %.2f]", constraints.horizontal_snap,
+                     constraints.vertical_ascending_snap, constraints.vertical_descending_snap, constraints.heading_snap);
 }
 
 //}
