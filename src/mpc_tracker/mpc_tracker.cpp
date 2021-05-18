@@ -2022,7 +2022,7 @@ void MpcTracker::calculateMPC() {
       coef_scaler = tmp;
     }
 
-    // We are close to a possible collision, better slow down a bit to give everyone more time
+    // we are close to a possible collision, better slow down a bit to give everyone more time
     max_speed_x = constraints.horizontal_speed * ((_avoidance_collision_horizontal_speed_coef_ * coef_scaler) + (1.0 - coef_scaler));
     max_speed_y = constraints.horizontal_speed * ((_avoidance_collision_horizontal_speed_coef_ * coef_scaler) + (1.0 - coef_scaler));
   }
@@ -2182,8 +2182,6 @@ void MpcTracker::calculateMPC() {
   mpc_u_heading = mpc_solver_heading_->getFirstControlInput();
 
   {
-    std::scoped_lock lock(mutex_constraints_);
-
     bool saturating = false;
 
     if (mpc_u(0) > max_snap_x * 1.01) {
@@ -2249,6 +2247,7 @@ void MpcTracker::calculateMPC() {
       (fabs(radians::diff(des_heading_trajectory(10), des_heading_trajectory(_mpc_horizon_len_ - 1))) <= 0.1 &&
        fabs(radians::diff(des_heading_trajectory(30), des_heading_trajectory(_mpc_horizon_len_ - 1))) <= 0.1)) {
     brake_ = true;
+    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: braking");
   } else {
     brake_ = false;
   }
@@ -2349,8 +2348,6 @@ void MpcTracker::iterateModel(void) {
 
       // fallback for weird dt
 
-      dt = _dt1_;
-
       A_ = _mat_A_;
       B_ = _mat_B_;
 
@@ -2358,6 +2355,8 @@ void MpcTracker::iterateModel(void) {
       B_heading_ = _mat_B_heading_;
 
       ROS_WARN_THROTTLE(1.0, "[MpcTracker]: using fallback calculation of the system matrices, dt = %.3f is weird!", dt);
+
+      dt = _dt1_;
     }
 
     model_iteration_last_time_ = ros::Time::now();
@@ -2378,104 +2377,104 @@ void MpcTracker::iterateModel(void) {
 
       // position
 
-      if (fabs((new_mpc_x(0) - mpc_x(0)) / dt) > 1.01 * constraints.horizontal_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos x update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(0), new_mpc_x(0),
+      if (fabs((new_mpc_x(0) - mpc_x(0)) / dt) > 1.05 * constraints.horizontal_speed) {
+        ROS_DEBUG("[MpcTracker]: horizontal pos x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(0), new_mpc_x(0),
                   fabs((new_mpc_x(0) - mpc_x(0)) / dt), constraints.horizontal_speed);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(4) - mpc_x(4)) / dt) > 1.01 * constraints.horizontal_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos y update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(4), new_mpc_x(4),
+      if (fabs((new_mpc_x(4) - mpc_x(4)) / dt) > 1.05 * constraints.horizontal_speed) {
+        ROS_DEBUG("[MpcTracker]: horizontal pos y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(4), new_mpc_x(4),
                   fabs((new_mpc_x(4) - mpc_x(4)) / dt), constraints.horizontal_speed);
         problem = true;
       }
 
-      if (((new_mpc_x(8) - mpc_x(8)) / dt) > 1.01 * constraints.vertical_ascending_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos z update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
+      if (((new_mpc_x(8) - mpc_x(8)) / dt) > 1.05 * constraints.vertical_ascending_speed) {
+        ROS_DEBUG("[MpcTracker]: horizontal pos z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
                   ((new_mpc_x(8) - mpc_x(8)) / dt), constraints.vertical_ascending_speed);
         problem = true;
       }
 
-      if (((new_mpc_x(8) - mpc_x(8)) / dt) < 1.01 * -constraints.vertical_descending_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos z update violites constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(8), new_mpc_x(8),
+      if (((new_mpc_x(8) - mpc_x(8)) / dt) < 1.05 * -constraints.vertical_descending_speed) {
+        ROS_DEBUG("[MpcTracker]: horizontal pos z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(8), new_mpc_x(8),
                   ((new_mpc_x(8) - mpc_x(8)) / dt), -constraints.vertical_descending_speed);
         problem = true;
       }
 
       // velocity
 
-      if (fabs((new_mpc_x(1) - mpc_x(1)) / dt) > 1.01 * constraints.horizontal_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel x update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(1), new_mpc_x(1),
+      if (fabs((new_mpc_x(1) - mpc_x(1)) / dt) > 1.05 * constraints.horizontal_acceleration) {
+        ROS_DEBUG("[MpcTracker]: horizontal vel x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(1), new_mpc_x(1),
                   fabs((new_mpc_x(1) - mpc_x(1)) / dt), constraints.horizontal_acceleration);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(5) - mpc_x(5)) / dt) > 1.01 * constraints.horizontal_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel y update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(5), new_mpc_x(5),
+      if (fabs((new_mpc_x(5) - mpc_x(5)) / dt) > 1.05 * constraints.horizontal_acceleration) {
+        ROS_DEBUG("[MpcTracker]: horizontal vel y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(5), new_mpc_x(5),
                   fabs((new_mpc_x(5) - mpc_x(5)) / dt), constraints.horizontal_acceleration);
         problem = true;
       }
 
-      if (((new_mpc_x(9) - mpc_x(9)) / dt) > 1.01 * constraints.vertical_ascending_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel z update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(9), new_mpc_x(9),
+      if (((new_mpc_x(9) - mpc_x(9)) / dt) > 1.05 * constraints.vertical_ascending_acceleration) {
+        ROS_DEBUG("[MpcTracker]: horizontal vel z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(9), new_mpc_x(9),
                   ((new_mpc_x(9) - mpc_x(9)) / dt), constraints.vertical_ascending_acceleration);
         problem = true;
       }
 
-      if (((new_mpc_x(9) - mpc_x(9)) / dt) < 1.01 * -constraints.vertical_descending_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel z update violites constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(9), new_mpc_x(9),
+      if (((new_mpc_x(9) - mpc_x(9)) / dt) < 1.05 * -constraints.vertical_descending_acceleration) {
+        ROS_DEBUG("[MpcTracker]: horizontal vel z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(9), new_mpc_x(9),
                   ((new_mpc_x(9) - mpc_x(9)) / dt), -constraints.vertical_descending_acceleration);
         problem = true;
       }
 
       // acceleration
 
-      if (fabs((new_mpc_x(2) - mpc_x(2)) / dt) > 1.01 * constraints.horizontal_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc x update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(2), new_mpc_x(2),
+      if (fabs((new_mpc_x(2) - mpc_x(2)) / dt) > 1.05 * constraints.horizontal_jerk) {
+        ROS_DEBUG("[MpcTracker]: horizontal acc x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(2), new_mpc_x(2),
                   fabs((new_mpc_x(2) - mpc_x(2)) / dt), constraints.horizontal_jerk);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(6) - mpc_x(6)) / dt) > 1.01 * constraints.horizontal_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc y update violites constraints: %.2f -> %2.f, = %.2f > %.2f", mpc_x(6), new_mpc_x(6),
+      if (fabs((new_mpc_x(6) - mpc_x(6)) / dt) > 1.05 * constraints.horizontal_jerk) {
+        ROS_DEBUG("[MpcTracker]: horizontal acc y update violates constraints: %.2f -> %2.f, = %.2f > %.2f", mpc_x(6), new_mpc_x(6),
                   fabs((new_mpc_x(6) - mpc_x(6)) / dt), constraints.horizontal_jerk);
         problem = true;
       }
 
-      if (((new_mpc_x(10) - mpc_x(10)) / dt) > 1.01 * constraints.vertical_ascending_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc z update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(10), new_mpc_x(10),
+      if (((new_mpc_x(10) - mpc_x(10)) / dt) > 1.05 * constraints.vertical_ascending_jerk) {
+        ROS_DEBUG("[MpcTracker]: horizontal acc z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(10), new_mpc_x(10),
                   ((new_mpc_x(10) - mpc_x(10)) / dt), constraints.vertical_ascending_jerk);
         problem = true;
       }
 
-      if (((new_mpc_x(10) - mpc_x(10)) / dt) < 1.01 * -constraints.vertical_descending_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc z update violites constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(10), new_mpc_x(10),
+      if (((new_mpc_x(10) - mpc_x(10)) / dt) < 1.05 * -constraints.vertical_descending_jerk) {
+        ROS_DEBUG("[MpcTracker]: horizontal acc z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(10), new_mpc_x(10),
                   ((new_mpc_x(10) - mpc_x(10)) / dt), -constraints.vertical_descending_jerk);
         problem = true;
       }
 
       // jerk
 
-      if (fabs((new_mpc_x(3) - mpc_x(3)) / dt) > 1.01 * constraints.horizontal_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk x update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(3), new_mpc_x(3),
+      if (fabs((new_mpc_x(3) - mpc_x(3)) / dt) > 1.05 * constraints.horizontal_snap) {
+        ROS_DEBUG("[MpcTracker]: horizontal jerk x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(3), new_mpc_x(3),
                   fabs((new_mpc_x(3) - mpc_x(3)) / dt), constraints.horizontal_snap);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(7) - mpc_x(7)) / dt) > 1.01 * constraints.horizontal_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk y update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(7), new_mpc_x(7),
+      if (fabs((new_mpc_x(7) - mpc_x(7)) / dt) > 1.05 * constraints.horizontal_snap) {
+        ROS_DEBUG("[MpcTracker]: horizontal jerk y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(7), new_mpc_x(7),
                   fabs((new_mpc_x(7) - mpc_x(7)) / dt), constraints.horizontal_snap);
         problem = true;
       }
 
-      if (((new_mpc_x(11) - mpc_x(11)) / dt) > 1.01 * constraints.vertical_ascending_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violites constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(11), new_mpc_x(11),
+      if (((new_mpc_x(11) - mpc_x(11)) / dt) > 1.05 * constraints.vertical_ascending_snap) {
+        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(11), new_mpc_x(11),
                   ((new_mpc_x(11) - mpc_x(11)) / dt), constraints.vertical_ascending_snap);
         problem = true;
       }
 
-      if (((new_mpc_x(11) - mpc_x(11)) / dt) < 1.01 * -constraints.vertical_descending_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violites constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(11), new_mpc_x(11),
+      if (((new_mpc_x(11) - mpc_x(11)) / dt) < 1.05 * -constraints.vertical_descending_snap) {
+        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(11), new_mpc_x(11),
                   ((new_mpc_x(11) - mpc_x(11)) / dt), -constraints.vertical_descending_snap);
         problem = true;
       }
@@ -2557,14 +2556,14 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       // just say it, but use it like its from the current time
       if (trajectory_time_offset < 0.0) {
 
-        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: received trajectory with timestamp in the future by %.2f s", -trajectory_time_offset);
+        ROS_WARN_THROTTLE(1.0, "[MpcTracker]: received trajectory with timestamp in the future by %.3f s", -trajectory_time_offset);
 
         trajectory_time_offset = 0.0;
       }
     }
 
     // if the time offset is set, check if we need to "move the first idx"
-    if (trajectory_time_offset > 0) {
+    if (trajectory_time_offset > 0.0) {
 
       // calculate the offset in samples
       trajectory_sample_offset = int(floor(trajectory_time_offset / trajectory_dt));
@@ -2572,7 +2571,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       // and get the subsample offset, which will be used to initialize the interpolator
       trajectory_subsample_offset = int(floor(fmod(trajectory_time_offset, trajectory_dt) / _dt1_));
 
-      ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: desired trajectory is from the future by %.3f s",
+      ROS_DEBUG_THROTTLE(0.1, "[MpcTracker]: received trajectory with timestamp in the past by %.3f s",
                          trajectory_dt * trajectory_sample_offset + _dt1_ * trajectory_subsample_offset);
 
       // if the offset is larger than the number of points in the trajectory
@@ -2585,14 +2584,14 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
       } else {
 
-        // If the offset is larger than one trajectory sample,
+        // if the offset is larger than one trajectory sample,
         // offset the start
         if (trajectory_time_offset >= trajectory_dt) {
 
           // decrease the trajectory size
           trajectory_size -= trajectory_sample_offset;
 
-          ROS_WARN_STREAM_THROTTLE(1.0, "[MpcTracker]: got trajectory with timestamp '" << trajectory_time_offset << " s' in the past");
+          ROS_DEBUG_THROTTLE(0.1, "[MpcTracker]: offsetting trajectory by %d samples", trajectory_sample_offset);
 
         } else {
 
@@ -2784,7 +2783,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     timer_trajectory_tracking_.start();
   }
 
-  ROS_INFO_THROTTLE(1, "[MpcTracker]: setting trajectory with length %d", trajectory_size);
+  ROS_INFO_THROTTLE(1, "[MpcTracker]: finished setting trajectory with length %d", trajectory_size);
 
   /* publish the debugging topics of the post-processed trajectory //{ */
 
