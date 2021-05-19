@@ -1963,7 +1963,7 @@ void MpcTracker::calculateMPC() {
       }
     }
 
-    // Check other drone trajectories for collisions
+    // check other drone trajectories for collisions
     minimum_collison_free_altitude_ = checkTrajectoryForCollisions(first_collision_index);
 
   } else {
@@ -2723,7 +2723,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     // if we are tracking trajectory, copy the setpoint
     if (trajectory_tracking_in_progress_) {
 
-      toggleHover(false);
+      toggleHover(false); // TODO check for deadlock through mutex_des_trajectory_
 
       /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
