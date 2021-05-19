@@ -1766,27 +1766,30 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
       difference_y = des_y_trajectory(i, 0) - filtered_y_trajectory(i - 1, 0);
     }
 
-    double direction_angle  = atan2(difference_y, difference_x);
-    double max_dir_sample_x = abs(max_sample_x * cos(direction_angle));
-    double max_dir_sample_y = abs(max_sample_y * sin(direction_angle));
+    if (!trajectory_tracking_in_progress_) {
 
-    if (max_sample_x > max_dir_sample_x) {
-      max_sample_x = max_dir_sample_x;
+      double direction_angle  = atan2(difference_y, difference_x);
+      double max_dir_sample_x = abs(max_sample_x * cos(direction_angle));
+      double max_dir_sample_y = abs(max_sample_y * sin(direction_angle));
+
+      if (max_sample_x > max_dir_sample_x) {
+        max_sample_x = max_dir_sample_x;
+      }
+      if (max_sample_y > max_dir_sample_y) {
+        max_sample_y = max_dir_sample_y;
+      }
+
+      // saturate the difference
+      if (difference_x > max_sample_x)
+        difference_x = max_sample_x;
+      else if (difference_x < -max_sample_x)
+        difference_x = -max_sample_x;
+
+      if (difference_y > max_sample_y)
+        difference_y = max_sample_y;
+      else if (difference_y < -max_sample_y)
+        difference_y = -max_sample_y;
     }
-    if (max_sample_y > max_dir_sample_y) {
-      max_sample_y = max_dir_sample_y;
-    }
-
-    // saturate the difference
-    if (difference_x > max_sample_x)
-      difference_x = max_sample_x;
-    else if (difference_x < -max_sample_x)
-      difference_x = -max_sample_x;
-
-    if (difference_y > max_sample_y)
-      difference_y = max_sample_y;
-    else if (difference_y < -max_sample_y)
-      difference_y = -max_sample_y;
 
     if (i == 0) {
       filtered_x_trajectory(i, 0) = mpc_x(0, 0) + difference_x;
@@ -1857,11 +1860,14 @@ MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const do
       }
     }
 
-    // saturate the difference
-    if (difference_z > max_sample_z)
-      difference_z = max_sample_z;
-    else if (difference_z < -max_sample_z)
-      difference_z = -max_sample_z;
+    if (!trajectory_tracking_in_progress_) {
+
+      // saturate the difference
+      if (difference_z > max_sample_z)
+        difference_z = max_sample_z;
+      else if (difference_z < -max_sample_z)
+        difference_z = -max_sample_z;
+    }
 
     if (i == 0) {
       filtered_trajectory(i, 0) = current_z + difference_z;
@@ -2058,7 +2064,7 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver z-axis ------------------- |
 
-  if (brake_) {
+  if (brake_ && !trajectory_tracking_in_progress_) {
     mpc_solver_z_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_z_->setVelQ(drs_params.q_vel_no_braking);
@@ -2109,7 +2115,7 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver x-axis ------------------- |
 
-  if (brake_) {
+  if (brake_ && !trajectory_tracking_in_progress_) {
     mpc_solver_x_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
@@ -2137,7 +2143,7 @@ void MpcTracker::calculateMPC() {
 
   // | -------------------- MPC solver y-axis ------------------- |
 
-  if (brake_) {
+  if (brake_ && !trajectory_tracking_in_progress_) {
     mpc_solver_y_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
@@ -2163,7 +2169,7 @@ void MpcTracker::calculateMPC() {
 
   // | ------------------- MPC solver heading ------------------- |
 
-  if (brake_) {
+  if (brake_ && !trajectory_tracking_in_progress_) {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
   } else {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
@@ -2723,7 +2729,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     // if we are tracking trajectory, copy the setpoint
     if (trajectory_tracking_in_progress_) {
 
-      toggleHover(false); // TODO check for deadlock through mutex_des_trajectory_
+      toggleHover(false);  // TODO check for deadlock through mutex_des_trajectory_
 
       /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
