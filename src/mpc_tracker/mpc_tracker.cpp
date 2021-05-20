@@ -2407,6 +2407,12 @@ void MpcTracker::iterateModel(void) {
         problem = true;
       }
 
+      /* if (fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt) > 1.2 * constraints.heading_speed) { */
+      /*   ROS_DEBUG("[MpcTracker]: heading update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x_heading(0), new_mpc_x_heading(0), */
+      /*             fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt), constraints.heading_speed); */
+      /*   problem = true; */
+      /* } */
+
       // velocity
 
       if (fabs((new_mpc_x(1) - mpc_x(1)) / dt) > 1.05 * constraints.horizontal_acceleration) {
