@@ -3459,10 +3459,20 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     prediction_fs_out.header.stamp    = ros::Time::now();
     prediction_fs_out.header.frame_id = uav_state_.header.frame_id;
 
+    ros::Time stamp = prediction_fs_out.header.stamp;
+
     {
       std::scoped_lock lock(mutex_predicted_trajectory_);
 
       for (int i = 0; i < _mpc_horizon_len_; i++) {
+
+        if (i == 0) {
+          stamp += ros::Duration(0.01);
+        } else {
+          stamp += ros::Duration(0.2);
+        }
+
+        prediction_fs_out.stamps.push_back(stamp);
 
         {  // position
           geometry_msgs::Point point;
