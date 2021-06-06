@@ -2396,13 +2396,13 @@ void MpcTracker::iterateModel(void) {
       }
 
       if (((new_mpc_x(8) - mpc_x(8)) / dt) > 1.05 * constraints.vertical_ascending_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
+        ROS_DEBUG("[MpcTracker]: vertical pos z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
                   ((new_mpc_x(8) - mpc_x(8)) / dt), constraints.vertical_ascending_speed);
         problem = true;
       }
 
       if (((new_mpc_x(8) - mpc_x(8)) / dt) < 1.05 * -constraints.vertical_descending_speed) {
-        ROS_DEBUG("[MpcTracker]: horizontal pos z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(8), new_mpc_x(8),
+        ROS_DEBUG("[MpcTracker]: vertical pos z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(8), new_mpc_x(8),
                   ((new_mpc_x(8) - mpc_x(8)) / dt), -constraints.vertical_descending_speed);
         problem = true;
       }
@@ -2428,13 +2428,13 @@ void MpcTracker::iterateModel(void) {
       }
 
       if (((new_mpc_x(9) - mpc_x(9)) / dt) > 1.05 * constraints.vertical_ascending_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(9), new_mpc_x(9),
+        ROS_DEBUG("[MpcTracker]: vertical vel z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(9), new_mpc_x(9),
                   ((new_mpc_x(9) - mpc_x(9)) / dt), constraints.vertical_ascending_acceleration);
         problem = true;
       }
 
       if (((new_mpc_x(9) - mpc_x(9)) / dt) < 1.05 * -constraints.vertical_descending_acceleration) {
-        ROS_DEBUG("[MpcTracker]: horizontal vel z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(9), new_mpc_x(9),
+        ROS_DEBUG("[MpcTracker]: vertical vel z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(9), new_mpc_x(9),
                   ((new_mpc_x(9) - mpc_x(9)) / dt), -constraints.vertical_descending_acceleration);
         problem = true;
       }
@@ -2454,13 +2454,13 @@ void MpcTracker::iterateModel(void) {
       }
 
       if (((new_mpc_x(10) - mpc_x(10)) / dt) > 1.05 * constraints.vertical_ascending_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(10), new_mpc_x(10),
+        ROS_DEBUG("[MpcTracker]: vertical acc z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(10), new_mpc_x(10),
                   ((new_mpc_x(10) - mpc_x(10)) / dt), constraints.vertical_ascending_jerk);
         problem = true;
       }
 
       if (((new_mpc_x(10) - mpc_x(10)) / dt) < 1.05 * -constraints.vertical_descending_jerk) {
-        ROS_DEBUG("[MpcTracker]: horizontal acc z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(10), new_mpc_x(10),
+        ROS_DEBUG("[MpcTracker]: vertical acc z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(10), new_mpc_x(10),
                   ((new_mpc_x(10) - mpc_x(10)) / dt), -constraints.vertical_descending_jerk);
         problem = true;
       }
@@ -2480,13 +2480,13 @@ void MpcTracker::iterateModel(void) {
       }
 
       if (((new_mpc_x(11) - mpc_x(11)) / dt) > 1.05 * constraints.vertical_ascending_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(11), new_mpc_x(11),
+        ROS_DEBUG("[MpcTracker]: vertical jerk z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(11), new_mpc_x(11),
                   ((new_mpc_x(11) - mpc_x(11)) / dt), constraints.vertical_ascending_snap);
         problem = true;
       }
 
       if (((new_mpc_x(11) - mpc_x(11)) / dt) < 1.05 * -constraints.vertical_descending_snap) {
-        ROS_DEBUG("[MpcTracker]: horizontal jerk z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(11), new_mpc_x(11),
+        ROS_DEBUG("[MpcTracker]: vertical jerk z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(11), new_mpc_x(11),
                   ((new_mpc_x(11) - mpc_x(11)) / dt), -constraints.vertical_descending_snap);
         problem = true;
       }
