@@ -225,7 +225,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   if (_version_ != VERSION) {
 
     ROS_ERROR("[LandoffTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
@@ -259,7 +259,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   _tracker_dt_ = 1.0 / double(_main_timer_rate_);

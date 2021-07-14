@@ -147,7 +147,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   if (_version_ != VERSION) {
 
     ROS_ERROR("[JoyTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
@@ -172,7 +172,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   // | ------------------------ profiler ------------------------ |

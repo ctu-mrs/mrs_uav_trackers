@@ -408,7 +408,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   if (_version_ != VERSION) {
 
     ROS_ERROR("[MpcTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
@@ -417,7 +417,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   if (_mpc_rate_ < 10.0) {
     ROS_ERROR("[MpcTracker]: mpc_rate should be >= 10 Hz");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   _dt1_ = 1.0 / _mpc_rate_;
@@ -492,7 +492,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
-    ros::requestShutdown();
+    ros::shutdown();
   }
 
   mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
