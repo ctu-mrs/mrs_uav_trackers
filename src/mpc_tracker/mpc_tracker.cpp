@@ -3221,12 +3221,22 @@ void MpcTracker::publishDiagnostics(void) {
     string_msg.data = "I see: ";
   }
 
-  for (size_t i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
-    if (i == 0) {
-      string_msg.data += diagnostics.avoidance_active_uavs[i];
-    } else {
-      string_msg.data += ", " + diagnostics.avoidance_active_uavs[i];
+  if (diagnostics.avoidance_active_uavs.size() <= 3) {
+
+    for (size_t i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
+      if (i == 0) {
+        string_msg.data += diagnostics.avoidance_active_uavs[i];
+      } else {
+        string_msg.data += ", " + diagnostics.avoidance_active_uavs[i];
+      }
     }
+
+  } else {
+
+    std::stringstream ss;
+    ss << diagnostics.avoidance_active_uavs.size();
+
+    string_msg.data += ss.str() + " UAVs";
   }
 
   try {
