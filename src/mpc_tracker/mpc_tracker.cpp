@@ -3214,11 +3214,11 @@ void MpcTracker::publishDiagnostics(void) {
 
   if (diagnostics.avoidance_active_uavs.empty()) {
 
-    string_msg.data = "I see: NOTHING";
+    string_msg.data = "-id col_avoid I see: NOTHING";
 
   } else {
 
-    string_msg.data = "I see: ";
+    string_msg.data = "-id col_avoid I see: ";
   }
 
   if (diagnostics.avoidance_active_uavs.size() <= 3) {
