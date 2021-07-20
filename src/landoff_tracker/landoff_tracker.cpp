@@ -64,6 +64,8 @@ const char* state_names[7] = {
 
 class LandoffTracker : public mrs_uav_managers::Tracker {
 public:
+  ~LandoffTracker(){};
+
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
   void                          deactivate(void);

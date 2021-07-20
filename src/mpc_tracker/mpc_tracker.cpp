@@ -67,6 +67,8 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_managers::Tracker {
 public:
+  ~MpcTracker(){};
+
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
   void                          deactivate(void);
