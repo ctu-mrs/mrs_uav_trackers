@@ -30,12 +30,18 @@
 
 <library path="lib/libSpeedTracker">
   <class name="mrs_uav_trackers/SpeedTracker" type="mrs_uav_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_managers::Tracker">
-    <description>This is the joystick tracker with bumper.</description>
+    <description>This is the Speed Tracker.</description>
   </class>
 </library>
 
 <library path="lib/libFlipTracker">
   <class name="mrs_uav_trackers/FlipTracker" type="mrs_uav_trackers::flip_tracker::FlipTracker" base_class_type="mrs_uav_managers::Tracker">
-    <description>This is the joystick tracker with bumper.</description>
+    <description>This is the Flip tracker.</description>
+  </class>
+</library>
+
+<library path="lib/libMidairActivationTracker">
+  <class name="mrs_uav_trackers/MidairActivationTracker" type="mrs_uav_trackers::midair_activation_tracker::MidairActivationTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>This is the Midair Activation tracker.</description>
   </class>
 </library>

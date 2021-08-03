@@ -165,6 +165,19 @@ target_link_libraries(FlipTracker
   ${catkin_LIBRARIES}
   )
 
+# Midair activation tracker
+
+add_library(MidairActivationTracker
+  src/midair_activation_tracker/midair_activation_tracker.cpp
+  )
+add_dependencies(MidairActivationTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(MidairActivationTracker
+  ${catkin_LIBRARIES}
+  )
+
 #############
 ## Install ##
 #############
@@ -177,6 +190,7 @@ install(TARGETS
   MatlabTracker
   SpeedTracker
   FlipTracker
+  MidairActivationTracker
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
