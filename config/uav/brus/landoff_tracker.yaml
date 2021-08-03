@@ -1,0 +1,13 @@
+landing_reference: -1.5 # [m], relative "z" reference to the UAV frame during landing
+
+vertical_tracker:
+
+  takeoff_speed: 1.5
+  takeoff_acceleration: 1.5
+
+  landing_speed: 0.5
+  landing_acceleration: 0.3
+
+  # beware, this is for emergency landing only
+  elanding_speed: 1.0
+  elanding_acceleration: 1.0
