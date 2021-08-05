@@ -135,7 +135,6 @@ private:
   bool taking_off_ = false;
   bool landing_    = false;
   bool elanding_   = false;
-  bool in_the_air_ = false;
 
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
@@ -434,11 +433,6 @@ std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mr
 /* //{ deactivate() */
 
 void LandoffTracker::deactivate(void) {
-
-  // when landing_, deactivation means we landned
-  if (landing_ || elanding_) {
-    in_the_air_ = false;
-  }
 
   is_active_                = false;
   landing_                  = false;
@@ -1334,14 +1328,6 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
     return true;
   }
 
-  if (in_the_air_) {
-    ss << "can not takeoff, already in the air!";
-    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
   if (req.goal < 0.5 || req.goal > 10.0) {
 
     ss << "can not takeoff, the goal should be within [0.5, 10.0] m!";
@@ -1379,8 +1365,6 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
   landing_    = false;
   elanding_   = false;
 
-  in_the_air_ = true;
-
   res.success = true;
   res.message = "taking off";
 
@@ -1402,15 +1386,6 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& r
 
   if (!is_active_) {
     ss << "can not land, the tracker is not active";
-    ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
-    res.success = false;
-    res.message = ss.str();
-    return true;
-  }
-
-  if (!in_the_air_) {
-
-    ss << "can not land, we are already on the ground";
     ROS_ERROR_STREAM_THROTTLE(1.0, "[LandoffTracker]: " << ss.str());
     res.success = false;
     res.message = ss.str();
