@@ -176,8 +176,8 @@ private:
   std::mutex        mutex_trajectory_tracking_states_;
 
   // params of the loaded trajectory
-  int    trajectory_size_ = 0;
-  double trajectory_dt_;
+  int    trajectory_size_          = 0;
+  double trajectory_dt_            = 0.2;
   bool   trajectory_track_heading_ = false;
   bool   trajectory_tracking_loop_ = false;
   bool   trajectory_set_           = false;
