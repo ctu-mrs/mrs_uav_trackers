@@ -341,6 +341,10 @@ std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mr
     return std::tuple(false, ss.str());
   }
 
+  // --------------------------------------------------------------
+  // |                      initial condition                     |
+  // --------------------------------------------------------------
+
   {
     std::scoped_lock lock(mutex_goal_);
 
@@ -1198,6 +1202,13 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
         changeStateHorizontal(STOPPING_STATE);
       } else {
         changeState(STOPPING_STATE);
+
+        {
+          std::scoped_lock lock(mutex_state_);
+
+          current_horizontal_speed_ = 0;
+          current_vertical_speed_   = 0;
+        }
       }
     }
   }
@@ -1210,6 +1221,9 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
         state_x_ = goal_x;
         state_y_ = goal_y;
         state_z_ = goal_z;
+
+        current_horizontal_speed_ = 0;
+        current_vertical_speed_   = 0;
       }
       changeState(HOVER_STATE);
 
