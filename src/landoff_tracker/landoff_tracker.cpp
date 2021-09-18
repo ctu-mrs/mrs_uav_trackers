@@ -103,6 +103,7 @@ private:
   // main timer
   void       timerMain(const ros::TimerEvent& event);
   ros::Timer timer_main_;
+  std::mutex mutex_main_timer_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -132,9 +133,9 @@ private:
   void changeStateVertical(States_t new_state);
   void changeState(States_t new_state);
 
-  bool taking_off_ = false;
-  bool landing_    = false;
-  bool elanding_   = false;
+  std::atomic<bool> taking_off_ = false;
+  std::atomic<bool> landing_    = false;
+  std::atomic<bool> elanding_   = false;
 
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
@@ -174,9 +175,9 @@ private:
 
   // | -------------------------- goal -------------------------- |
 
-  double     goal_x_, goal_y_, goal_z_, goal_heading_;
-  bool       have_goal_ = false;
-  std::mutex mutex_goal_;
+  double            goal_x_, goal_y_, goal_z_, goal_heading_;
+  std::atomic<bool> have_goal_ = false;
+  std::mutex        mutex_goal_;
 
   // | ---------------- tracker's internal state ---------------- |
 
@@ -644,6 +645,8 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource(c
 /* //{ hover() */
 const std_srvs::TriggerResponse::ConstPtr LandoffTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr& cmd) {
 
+  std::scoped_lock lock(mutex_main_timer_);
+
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -1079,6 +1082,8 @@ void LandoffTracker::stopVertical(void) {
 
 void LandoffTracker::timerMain(const ros::TimerEvent& event) {
 
+  std::scoped_lock lock(mutex_main_timer_);
+
   if (!is_active_) {
     return;
   }
@@ -1198,9 +1203,12 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
       // This is important, do not modify without testing, otherwise your landing routine may crash into the ground
       // while having large lateral speed
       if (have_goal_) {
+
         changeStateVertical(ACCELERATING_STATE);
         changeStateHorizontal(STOPPING_STATE);
+
       } else {
+
         changeState(STOPPING_STATE);
 
         {
@@ -1215,6 +1223,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
 
   if (current_state_vertical_ == STOPPING_STATE && current_state_horizontal_ == STOPPING_STATE) {
     if (fabs(state_x - goal_x) < 0.1 && fabs(state_y - goal_y) < 0.1 && fabs(state_z - goal_z) < 0.1) {
+
       {
         std::scoped_lock lock(mutex_state_);
 
@@ -1225,6 +1234,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
         current_horizontal_speed_ = 0;
         current_vertical_speed_   = 0;
       }
+
       changeState(HOVER_STATE);
 
       have_goal_ = false;
@@ -1393,6 +1403,8 @@ bool LandoffTracker::callbackTakeoff(mrs_msgs::Vec1::Request& req, mrs_msgs::Vec
 
 bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
+  std::scoped_lock lock(mutex_main_timer_);
+
   std::stringstream ss;
 
   // copy member variables
@@ -1432,6 +1444,8 @@ bool LandoffTracker::callbackLand([[maybe_unused]] std_srvs::Trigger::Request& r
 /* //{ callbackELand() */
 
 bool LandoffTracker::callbackELand([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
+
+  std::scoped_lock lock(mutex_main_timer_);
 
   std::stringstream ss;
 
