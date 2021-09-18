@@ -167,6 +167,7 @@ private:
   std::shared_ptr<VectorXd> des_y_whole_trajectory_;
   std::shared_ptr<VectorXd> des_z_whole_trajectory_;
   std::shared_ptr<VectorXd> des_heading_whole_trajectory_;
+  int                       des_whole_trajectory_id_;
   std::mutex                mutex_des_whole_trajectory_;
 
   // trajectory tracking
@@ -2709,6 +2710,8 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
   {
     std::scoped_lock lock(mutex_des_whole_trajectory_, mutex_des_trajectory_, mutex_trajectory_tracking_states_);
 
+    des_whole_trajectory_id_ = msg.input_id;
+
     auto mpc_x_heading = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_heading_);
 
     trajectory_tracking_in_progress_ = msg.fly_now;
@@ -3311,6 +3314,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
   ros::Duration interval;
+  int           trajectory_id;
 
   // if we are tracking trajectory, copy the setpoint
   if (trajectory_tracking_in_progress_) {
@@ -3334,6 +3338,8 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
       trajectory_size = trajectory_size_;
       trajectory_dt   = trajectory_dt_;
+
+      trajectory_id = des_whole_trajectory_id_;
     }
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
@@ -3395,6 +3401,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
       trajectory_tracking_sub_idx_++;
     }
+  } else {
+
+    std::scoped_lock lock(mutex_des_whole_trajectory_);
+
+    trajectory_id = des_whole_trajectory_id_;
   }
 
   manageConstraints();
@@ -3459,6 +3470,8 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     prediction_fs_out.header.frame_id = uav_state_.header.frame_id;
 
     ros::Time stamp = prediction_fs_out.header.stamp;
+
+    prediction_fs_out.input_id = trajectory_id;
 
     {
       std::scoped_lock lock(mutex_predicted_trajectory_);
