@@ -330,7 +330,6 @@ private:
 
   ros::Timer        timer_hover_;
   void              timerHover(const ros::TimerEvent& event);
-  std::atomic<bool> hover_timer_runnning_ = false;
   std::atomic<bool> hovering_in_progress_ = false;
   void              toggleHover(bool in);
 
@@ -2959,18 +2958,6 @@ void MpcTracker::toggleHover(bool in) {
 
     ROS_DEBUG("[MpcTracker]: stoppping the hover timer");
 
-    while (hover_timer_runnning_) {
-
-      ROS_DEBUG("[MpcTracker]: the hover is in the middle of an iteration, waiting for it to finish");
-      ros::Duration wait(0.001);
-      wait.sleep();
-
-      if (!hover_timer_runnning_) {
-        ROS_DEBUG("[ControlManager]: hover timer finished");
-        break;
-      }
-    }
-
     timer_hover_.stop();
 
     hovering_in_progress_ = false;
@@ -3792,7 +3779,6 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
 
 void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
-  mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
   MatrixXd                 mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
