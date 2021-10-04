@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.2 (2021-10-04)
+------------------
 * added trajectory input id
 * removed broken hover timer run check
 * fixed race cond. stuck bug in landing
