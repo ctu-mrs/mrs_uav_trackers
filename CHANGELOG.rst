@@ -2,6 +2,31 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* added trajectory input id
+* removed broken hover timer run check
+* fixed race cond. stuck bug in landing
+* landoff: added velocity nullifier when stopping and hovering
+* fixed wiggle
+* removed the in-the-air check for landing
+* added brus configs
+* added midair activation
+* added brus simulation configs
+* added destructor implementation to trackers
+* adding -id to diag message
+* added dofec uav config
+* updated mrs_status info from mpc_tracker
+* updated debug prints
+* MpcTracker: updated fullstate prediction
+* added t18 configs
+* added check for heading update (commented)
+* braking and reference filtering not applied when traj. tracking
+* updated debug prints, fixed deadlock
+* MpcTracker: update debug prints
+* added debugging prints for state update
+* Contributors: Dan Hert, Tomas Baca
+
 1.0.1 (2021-05-16)
 ------------------
 * version -> 1.0.1
