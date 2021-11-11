@@ -139,6 +139,19 @@ target_link_libraries(MatlabTracker
   ${catkin_LIBRARIES}
   )
 
+# Lite tracker
+
+add_library(LiteTracker
+  src/lite_tracker/lite_tracker.cpp
+  )
+add_dependencies(LiteTracker
+  ${catkin_EXPORTED_TARGETS}
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  )
+target_link_libraries(LiteTracker
+  ${catkin_LIBRARIES}
+  )
+
 # Speed tracker
 
 add_library(SpeedTracker
