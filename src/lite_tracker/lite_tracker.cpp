@@ -107,41 +107,42 @@ private:
       z = z_in;
     }
 
-    vec3d &operator+(vec3d &a) {
-      x = x + a.x;
-      y = y + a.y;
-      z = z + a.z;
-      return *this;
+    vec3d operator+(vec3d a) {
+      /* x = x + a.x; */
+      /* y = y + a.y; */
+      /* z = z + a.z; */
+      /* return *this; */
+      return {x + a.x, y + a.y, z + a.z};
     }
 
-    vec3d &operator-(vec3d &a) {
-      x = x - a.x;
-      y = y - a.y;
-      z = z - a.z;
-      return *this;
-      /* return {x - a.x, y - a.y, z - a.z}; */
+    vec3d operator-(vec3d a) {
+      /* x = x - a.x; */
+      /* y = y - a.y; */
+      /* z = z - a.z; */
+      /* return *this; */
+      return {x - a.x, y - a.y, z - a.z};
     }
-    vec3d &operator*(double &a) {
-      x = x * a;
-      y = y * a;
-      z = z * a;
-      return *this;
-      /* return {x * a, y * a, z * a}; */
+    vec3d operator*(double a) {
+      /* x = x * a; */
+      /* y = y * a; */
+      /* z = z * a; */
+      /* return *this; */
+      return {x * a, y * a, z * a};
     }
-    vec3d &operator*(vec3d &a) {
-      x = x * a.x;
-      y = y * a.y;
-      z = z * a.z;
-      return *this;
-      /* return {x * a.x, y * a.y, z * a.z}; */
+    vec3d operator*(vec3d a) {
+      /* x = x * a.x; */
+      /* y = y * a.y; */
+      /* z = z * a.z; */
+      /* return *this; */
+      return {x * a.x, y * a.y, z * a.z};
     }
-    vec3d &operator/(double &a) {
-      x = x / a;
-      y = y / a;
-      z = z / a;
-      return *this;
-      /* return {x / a, y / a, z / a}; */
-    }
+    vec3d operator/(double a) {
+      /* x = x / a; */
+      /* y = y / a; */
+      /* z = z / a; */
+      /* return *this; */
+      return {x / a, y / a, z / a};
+    };
   };
 
   /* typedef enum */
@@ -315,7 +316,7 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   reference_direction = normalize(pos_difference);
 
   ROS_INFO_STREAM_THROTTLE(
-      0.5, "[LiteTracker]: reference_direction" << reference_direction.x << " " << reference_direction.y << " " << reference_direction.z << " ");
+      0.5, "[LiteTracker]: reference_direction " << reference_direction.x << " " << reference_direction.y << " " << reference_direction.z << " ");
 
 
   current_velocity.x = current_pos_cmd_.velocity.x;
@@ -323,28 +324,41 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   current_velocity.z = current_pos_cmd_.velocity.z;
 
   distance_to_reference = magnitude(pos_difference);
-  velocity_to_reference = magnitude(reference_direction * current_velocity);
+
+  vec3d tmp = reference_direction * current_velocity;
+  velocity_to_reference = magnitude(tmp);
 
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: distance to reference: " << distance_to_reference);
-  stopping_deceleration = magnitude(reference_direction * max_acc_vec);
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity to reference: " << velocity_to_reference);
+  vec3d tmp2 = (reference_direction * max_acc_vec);
+  stopping_deceleration = magnitude(tmp2);
+  /* stopping_deceleration = magnitude(reference_direction * max_acc_vec); */
   stopping_time         = velocity_to_reference / stopping_deceleration;
-  stopping_distance     = 1 / 2 * stopping_deceleration * pow(stopping_time, 2);
 
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_time: " << stopping_time);
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_deceleration: " << stopping_deceleration);
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: calc: " << 0.5 * stopping_deceleration * pow(stopping_time, 2));
+  stopping_distance     = 0.5 * stopping_deceleration * pow(stopping_time, 2);
+
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_acc_vec" << max_acc_vec.x << " " << max_acc_vec.y << " " << max_acc_vec.z << " ");
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: tmp" << tmp.x << " " << tmp.y << " " << tmp.z << " ");
+
+
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_distance: " << stopping_distance);
 
-  /* double max_safe_vel_xy = max_vel_xy; */
+  double max_safe_vel_xy = max_vel_xy;
 
-  /* if (stopping_distance > distance_to_reference) { */
-  /*   double tmp_stopping_time = sqrt((2 * distance_to_reference) / stopping_deceleration); */
-  /*   max_safe_vel_xy          = tmp_stopping_time * stopping_deceleration; */
-  /*   desired_velocity         = reference_direction * max_safe_vel_xy; */
-  /* } */
+  if (stopping_distance > distance_to_reference) {
+    double tmp_stopping_time = sqrt((2 * distance_to_reference) / stopping_deceleration);
+    max_safe_vel_xy          = tmp_stopping_time * stopping_deceleration;
+    desired_velocity         = reference_direction * max_safe_vel_xy;
+  }
 
-  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_safe_vel_xy: " << max_safe_vel_xy); */
+  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_safe_vel_xy: " << max_safe_vel_xy);
 
-  /* desired_velocity = reference_direction * max_safe_vel_xy; */
-  desired_velocity = reference_direction * max_vel_xy;
+  desired_velocity = reference_direction * max_safe_vel_xy;
+
+  /* desired_velocity = reference_direction * max_vel_xy; */
 
   if (desired_velocity.z > max_vel_z) {
     double velocity_scale_factor = desired_velocity.z / max_vel_z;
@@ -586,6 +600,8 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr LiteTracker::setReference([[maybe
   mrs_msgs::ReferenceSrvResponse res;
   res.success = true;
   res.message = "reference set";
+  ROS_INFO_STREAM("[LiteTracker]: Reference set: x: " << current_reference_.reference.position.x << " y: " << current_reference_.reference.position.y
+                                                      << " z: " << current_reference_.reference.position.z << " hdg: " << current_reference_.reference.heading);
   return mrs_msgs::ReferenceSrvResponse::ConstPtr(new mrs_msgs::ReferenceSrvResponse(res));
 }
 
