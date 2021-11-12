@@ -66,7 +66,6 @@ private:
 
   bool is_initialized_ = false;
   bool is_active_      = false;
-  bool first_iter_     = false;
 
   // | ------------------------ the goal ------------------------ |
 
@@ -108,39 +107,18 @@ private:
     }
 
     vec3d operator+(vec3d a) {
-      /* x = x + a.x; */
-      /* y = y + a.y; */
-      /* z = z + a.z; */
-      /* return *this; */
       return {x + a.x, y + a.y, z + a.z};
     }
-
     vec3d operator-(vec3d a) {
-      /* x = x - a.x; */
-      /* y = y - a.y; */
-      /* z = z - a.z; */
-      /* return *this; */
       return {x - a.x, y - a.y, z - a.z};
     }
     vec3d operator*(double a) {
-      /* x = x * a; */
-      /* y = y * a; */
-      /* z = z * a; */
-      /* return *this; */
       return {x * a, y * a, z * a};
     }
     vec3d operator*(vec3d a) {
-      /* x = x * a.x; */
-      /* y = y * a.y; */
-      /* z = z * a.z; */
-      /* return *this; */
       return {x * a.x, y * a.y, z * a.z};
     }
     vec3d operator/(double a) {
-      /* x = x / a; */
-      /* y = y / a; */
-      /* z = z / a; */
-      /* return *this; */
       return {x / a, y / a, z / a};
     };
   };
@@ -281,11 +259,16 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   }
 
   // ehmmm, fuj fuj fuj TODO repair this POS
-  double dt         = 0.01;
+  double dt = 0.01;
+
   double max_vel_xy = 4;
   double max_vel_z  = 2;
+
   double max_acc_xy = 2;
   double max_acc_z  = 1.0;
+
+  double max_jerk_xy = 2;
+  double max_jerk_z  = 1.0;
 
   vec3d max_vel_vec(max_vel_xy, max_vel_xy, max_vel_z);
   vec3d max_acc_vec(max_acc_xy, max_acc_xy, max_acc_z);
@@ -293,19 +276,26 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   vec3d pos_difference;
   vec3d reference_direction;
   vec3d current_velocity;
+  vec3d current_acceleration;
 
-  double stopping_distance     = 0.0;
-  double stopping_deceleration = 0.0;
-  double stopping_time         = 0.0;
+  /* double stopping_distance     = 0.0; */
+  /* double stopping_deceleration = 0.0; */
+  /* double stopping_time         = 0.0; */
 
-  double distance_to_reference    = 0.0;
-  double velocity_to_reference    = 0.0;
+  /* double distance_to_reference    = 0.0; */
+  /* double velocity_to_reference    = 0.0; */
+
+  vec3d  desired_velocity;
+  vec3d  velocity_error;
+  vec3d  normalized_velocity_error;
   double required_velocity_change = 0.0;
 
-  vec3d desired_velocity;
-  vec3d velocity_error;
-  vec3d normalized_velocity_error;
-  vec3d required_acceleration;
+  vec3d  desired_acceleration;
+  vec3d  acceleration_error;
+  vec3d  normalized_acceleration_error;
+  double required_acceleration_change = 0.0;
+
+  vec3d required_jerk;
 
   pos_difference.x = current_reference_.reference.position.x - current_pos_cmd_.position.x;
   pos_difference.y = current_reference_.reference.position.y - current_pos_cmd_.position.y;
@@ -323,72 +313,92 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   current_velocity.y = current_pos_cmd_.velocity.y;
   current_velocity.z = current_pos_cmd_.velocity.z;
 
-  distance_to_reference = magnitude(pos_difference);
+  current_acceleration.x = current_pos_cmd_.acceleration.x;
+  current_acceleration.y = current_pos_cmd_.acceleration.y;
+  current_acceleration.z = current_pos_cmd_.acceleration.z;
 
-  vec3d tmp = reference_direction * current_velocity;
-  velocity_to_reference = magnitude(tmp);
+  /* distance_to_reference = magnitude(pos_difference); */
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: distance to reference: " << distance_to_reference);
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity to reference: " << velocity_to_reference);
-  vec3d tmp2 = (reference_direction * max_acc_vec);
-  stopping_deceleration = magnitude(tmp2);
-  /* stopping_deceleration = magnitude(reference_direction * max_acc_vec); */
-  stopping_time         = velocity_to_reference / stopping_deceleration;
+  /* vec3d tmp             = reference_direction * current_velocity; */
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_time: " << stopping_time);
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_deceleration: " << stopping_deceleration);
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: calc: " << 0.5 * stopping_deceleration * pow(stopping_time, 2));
-  stopping_distance     = 0.5 * stopping_deceleration * pow(stopping_time, 2);
+  /* velocity_to_reference = magnitude(tmp); */
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_acc_vec" << max_acc_vec.x << " " << max_acc_vec.y << " " << max_acc_vec.z << " ");
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: tmp" << tmp.x << " " << tmp.y << " " << tmp.z << " ");
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: distance to reference: " << distance_to_reference); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity to reference: " << velocity_to_reference); */
+  /* vec3d tmp2            = (reference_direction * max_acc_vec); */
+  /* stopping_deceleration = magnitude(tmp2); */
+  /* /1* stopping_deceleration = magnitude(reference_direction * max_acc_vec); *1/ */
+  /* stopping_time = velocity_to_reference / stopping_deceleration; */
+
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_time: " << stopping_time); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_deceleration: " << stopping_deceleration); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: calc: " << 0.5 * stopping_deceleration * pow(stopping_time, 2)); */
+  /* stopping_distance = 0.5 * stopping_deceleration * pow(stopping_time, 2); */
+
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_acc_vec" << max_acc_vec.x << " " << max_acc_vec.y << " " << max_acc_vec.z << " "); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: tmp" << tmp.x << " " << tmp.y << " " << tmp.z << " "); */
 
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_distance: " << stopping_distance);
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: stopping_distance: " << stopping_distance); */
 
-  double max_safe_vel_xy = max_vel_xy;
+  /* double max_safe_vel_xy = max_vel_xy; */
 
-  if (stopping_distance > distance_to_reference) {
-    double tmp_stopping_time = sqrt((2 * distance_to_reference) / stopping_deceleration);
-    max_safe_vel_xy          = tmp_stopping_time * stopping_deceleration;
-    desired_velocity         = reference_direction * max_safe_vel_xy;
-  }
+  /* if (stopping_distance > distance_to_reference) { */
+  /*   double tmp_stopping_time = sqrt((2 * distance_to_reference) / stopping_deceleration); */
+  /*   max_safe_vel_xy          = tmp_stopping_time * stopping_deceleration; */
+  /*   desired_velocity         = reference_direction * max_safe_vel_xy; */
+  /* } */
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_safe_vel_xy: " << max_safe_vel_xy);
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: max_safe_vel_xy: " << max_safe_vel_xy); */
 
-  desired_velocity = reference_direction * max_safe_vel_xy;
+  /* desired_velocity = reference_direction * max_safe_vel_xy; */
 
-  /* desired_velocity = reference_direction * max_vel_xy; */
+  desired_velocity = reference_direction * max_vel_xy;
 
   if (desired_velocity.z > max_vel_z) {
     double velocity_scale_factor = desired_velocity.z / max_vel_z;
     desired_velocity             = desired_velocity / velocity_scale_factor;
   }
 
-  velocity_error = desired_velocity - current_velocity;
 
+  velocity_error            = desired_velocity - current_velocity;
   normalized_velocity_error = normalize(velocity_error);
   required_velocity_change  = magnitude(velocity_error);
 
 
   if (required_velocity_change > max_acc_xy * dt) {
-    required_acceleration = normalized_velocity_error * max_acc_xy;
+    desired_acceleration = normalized_velocity_error * max_acc_xy;
   } else {
-    required_acceleration = velocity_error;
+    desired_acceleration = velocity_error;
   }
 
-  if (required_acceleration.z > max_acc_z) {
-    double acc_scale_factor = required_acceleration.z / max_acc_z;
-    required_acceleration   = required_acceleration / acc_scale_factor;
+  if (desired_acceleration.z > max_acc_z) {
+    double acc_scale_factor = desired_acceleration.z / max_acc_z;
+    desired_acceleration    = desired_acceleration / acc_scale_factor;
   }
+
+  acceleration_error = desired_acceleration - current_acceleration;
+
+  normalized_acceleration_error = normalize(acceleration_error);
+  required_acceleration_change  = magnitude(acceleration_error);
+
+  if (required_acceleration_change > max_jerk_xy * dt) {
+    required_jerk = normalized_acceleration_error * max_jerk_xy;
+  } else {
+    required_jerk = acceleration_error;
+  }
+
+  if (required_jerk.z > max_jerk_z) {
+    double jerk_scale_factor = required_jerk.z / max_jerk_z;
+    required_jerk            = required_jerk / jerk_scale_factor;
+  }
+
 
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: needed velocity change: " << required_velocity_change);
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity_error" << velocity_error.x << " " << velocity_error.y << " " << velocity_error.z << " ");
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: normalized: velocity_error" << normalized_velocity_error.x << " " << normalized_velocity_error.y << " "
                                                                             << normalized_velocity_error.z << " ");
   ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: xacc:: " << max_acc_xy);
-  ROS_INFO_STREAM_THROTTLE(
-      0.5, "[LiteTracker]: accelerating: " << required_acceleration.x << " " << required_acceleration.y << " " << required_acceleration.z << " ");
 
   /* vis //{ */
   {
@@ -457,18 +467,37 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   /* nav_msgs::OdometryConstPtr goal = sh_goal_.getMsg(); */
 
   // apply calculated acc command:
+  
+  /* position_output_ = current_pos_cmd_; */
 
-  position_output_.acceleration.x = required_acceleration.x;
-  position_output_.acceleration.y = required_acceleration.y;
-  position_output_.acceleration.z = required_acceleration.z;
+  position_output_.jerk.x = required_jerk.x;
+  position_output_.jerk.y = required_jerk.y;
+  position_output_.jerk.z = required_jerk.z;
 
-  position_output_.velocity.x = current_pos_cmd_.velocity.x + required_acceleration.x * dt;
-  position_output_.velocity.y = current_pos_cmd_.velocity.y + required_acceleration.y * dt;
-  position_output_.velocity.z = current_pos_cmd_.velocity.z + required_acceleration.z * dt;
+  position_output_.acceleration.x = current_pos_cmd_.acceleration.x + required_jerk.x * dt;
+  position_output_.acceleration.y = current_pos_cmd_.acceleration.y + required_jerk.y * dt;
+  position_output_.acceleration.z = current_pos_cmd_.acceleration.z + required_jerk.z * dt;
+
+  position_output_.velocity.x = current_pos_cmd_.velocity.x + desired_acceleration.x * dt;
+  position_output_.velocity.y = current_pos_cmd_.velocity.y + desired_acceleration.y * dt;
+  position_output_.velocity.z = current_pos_cmd_.velocity.z + desired_acceleration.z * dt;
 
   position_output_.position.x = current_pos_cmd_.position.x + current_pos_cmd_.velocity.x * dt;
   position_output_.position.y = current_pos_cmd_.position.y + current_pos_cmd_.velocity.y * dt;
   position_output_.position.z = current_pos_cmd_.position.z + current_pos_cmd_.velocity.z * dt;
+
+
+  /* position_output_.acceleration.x = current_pos_cmd_.acceleration.x + required_jerk.x; */
+  /* position_output_.acceleration.y = current_pos_cmd_.acceleration.y + required_jerk.y; */
+  /* position_output_.acceleration.z = current_pos_cmd_.acceleration.z + required_jerk.z; */
+
+  /* position_output_.velocity.x = current_pos_cmd_.velocity.x + desired_acceleration.x * dt; */
+  /* position_output_.velocity.y = current_pos_cmd_.velocity.y + desired_acceleration.y * dt; */
+  /* position_output_.velocity.z = current_pos_cmd_.velocity.z + desired_acceleration.z * dt; */
+
+  /* position_output_.position.x = current_pos_cmd_.position.x + current_pos_cmd_.velocity.x * dt; */
+  /* position_output_.position.y = current_pos_cmd_.position.y + current_pos_cmd_.velocity.y * dt; */
+  /* position_output_.position.z = current_pos_cmd_.position.z + current_pos_cmd_.velocity.z * dt; */
 
   position_output_.heading      = current_pos_cmd_.heading;
   position_output_.heading_rate = 0.0;
@@ -480,6 +509,7 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   position_output_.use_velocity_vertical   = 1;
   position_output_.use_velocity_horizontal = 1;
   position_output_.use_acceleration        = 1;
+  position_output_.use_jerk                = 1;
 
   current_pos_cmd_ = position_output_;
 
