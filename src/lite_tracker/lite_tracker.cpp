@@ -395,9 +395,12 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   velocity_error_direction = normalize(velocity_error);
   required_velocity_change = magnitude(velocity_error);
 
-
   desired_acceleration = getMaximumValue(velocity_error_direction, max_acc_vec);
 
+  double acc_scale_factor = (magnitude(desired_acceleration)*dt)/magnitude(desired_velocity);
+  if (acc_scale_factor > 1) {
+   desired_acceleration =  desired_acceleration/acc_scale_factor;
+  }
 
   acceleration_error           = desired_acceleration - current_acceleration;
   acceleration_error_direction = normalize(acceleration_error);
@@ -405,6 +408,10 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
 
   required_jerk = getMaximumValue(acceleration_error_direction, max_jerk_vec);
 
+  double jerk_scale_factor = (magnitude(required_jerk)*dt)/magnitude(desired_acceleration);
+  if (jerk_scale_factor > 1) {
+   required_jerk =  required_jerk/jerk_scale_factor;
+  }
 
   /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: needed velocity change: " << required_velocity_change); */
   /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity_error" << velocity_error.x << " " << velocity_error.y << " " << velocity_error.z << " "); */
