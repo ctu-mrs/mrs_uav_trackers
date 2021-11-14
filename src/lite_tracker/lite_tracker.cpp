@@ -133,6 +133,7 @@ private:
 
   double             magnitude(LiteTracker::vec3d &vec_in);
   LiteTracker::vec3d normalize(LiteTracker::vec3d &vec_in);
+  LiteTracker::vec3d getMaximumValue(LiteTracker::vec3d &direction, LiteTracker::vec3d &constraints);
 };
 
 //}
@@ -272,27 +273,28 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
 
   vec3d max_vel_vec(max_vel_xy, max_vel_xy, max_vel_z);
   vec3d max_acc_vec(max_acc_xy, max_acc_xy, max_acc_z);
+  vec3d max_jerk_vec(max_jerk_xy, max_jerk_xy, max_jerk_z);
 
   vec3d pos_difference;
   vec3d reference_direction;
   vec3d current_velocity;
   vec3d current_acceleration;
 
-  /* double stopping_distance     = 0.0; */
-  /* double stopping_deceleration = 0.0; */
-  /* double stopping_time         = 0.0; */
+  double stopping_time         = 0.0;
+  double stopping_distance     = 0.0;
+  double stopping_deceleration = 0.0;
 
-  /* double distance_to_reference    = 0.0; */
-  /* double velocity_to_reference    = 0.0; */
+  double distance_to_reference = 0.0;
+  double velocity_to_reference = 0.0;
 
   vec3d  desired_velocity;
   vec3d  velocity_error;
-  vec3d  normalized_velocity_error;
+  vec3d  velocity_error_direction;
   double required_velocity_change = 0.0;
 
   vec3d  desired_acceleration;
   vec3d  acceleration_error;
-  vec3d  normalized_acceleration_error;
+  vec3d  acceleration_error_direction;
   double required_acceleration_change = 0.0;
 
   vec3d required_jerk;
@@ -317,11 +319,8 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   current_acceleration.y = current_pos_cmd_.acceleration.y;
   current_acceleration.z = current_pos_cmd_.acceleration.z;
 
-  /* distance_to_reference = magnitude(pos_difference); */
+  distance_to_reference = magnitude(pos_difference);
 
-  /* vec3d tmp             = reference_direction * current_velocity; */
-
-  /* velocity_to_reference = magnitude(tmp); */
 
   /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: distance to reference: " << distance_to_reference); */
   /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity to reference: " << velocity_to_reference); */
@@ -353,52 +352,63 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
 
   /* desired_velocity = reference_direction * max_safe_vel_xy; */
 
-  desired_velocity = reference_direction * max_vel_xy;
+  /* desired_velocity = reference_direction * max_vel_xy; */
 
-  if (desired_velocity.z > max_vel_z) {
-    double velocity_scale_factor = desired_velocity.z / max_vel_z;
-    desired_velocity             = desired_velocity / velocity_scale_factor;
+  /* if (desired_velocity.z > max_vel_z) { */
+  /*   double velocity_scale_factor = desired_velocity.z / max_vel_z; */
+  /*   desired_velocity             = desired_velocity / velocity_scale_factor; */
+  /* } */
+
+  vec3d velocity_to_reference_vec       = reference_direction * current_velocity;
+  vec3d velocity_to_reference_direction = normalize(velocity_to_reference_vec);
+  velocity_to_reference                 = magnitude(velocity_to_reference_vec);
+  vec3d tmp                             = getMaximumValue(velocity_to_reference_direction, max_vel_vec);
+  stopping_deceleration                 = magnitude(tmp);
+
+  stopping_time = velocity_to_reference / stopping_deceleration;
+
+  /* stopping_distance = (velocity_to_reference * stopping_time) - (0.5 * stopping_deceleration * pow(stopping_time, 2)); */
+
+  /* vec3d  max_safe_vel_vec = max_vel_vec; */
+  /* double safe_vel         = 0.0; */
+
+  /* if (stopping_distance > distance_to_reference) { */
+  /*   double safe_velocity  = (distance_to_reference / stopping_time) - (stopping_deceleration * stopping_time * 0.5); */
+  /*   vec3d max_velocity_to_reference = reference_direction * max_vel_vec; */
+
+  /*   double scaling_factor = magnitude(max_velocity_to_reference) / safe_velocity; */
+  /*   max_safe_vel_vec      = max_vel_vec / scaling_factor; */
+  /*   safe_vel              = magnitude(max_vel_vec) / scaling_factor; */
+  /* } */
+
+
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: safe velocity: " << safe_vel); */
+
+  vec3d  max_safe_vel_vec = max_vel_vec;
+  if (distance_to_reference < 8) {
+    max_safe_vel_vec = max_safe_vel_vec*(distance_to_reference/8);
   }
 
+  desired_velocity = getMaximumValue(reference_direction, max_safe_vel_vec);
 
-  velocity_error            = desired_velocity - current_velocity;
-  normalized_velocity_error = normalize(velocity_error);
-  required_velocity_change  = magnitude(velocity_error);
-
-
-  if (required_velocity_change > max_acc_xy * dt) {
-    desired_acceleration = normalized_velocity_error * max_acc_xy;
-  } else {
-    desired_acceleration = velocity_error;
-  }
-
-  if (desired_acceleration.z > max_acc_z) {
-    double acc_scale_factor = desired_acceleration.z / max_acc_z;
-    desired_acceleration    = desired_acceleration / acc_scale_factor;
-  }
-
-  acceleration_error = desired_acceleration - current_acceleration;
-
-  normalized_acceleration_error = normalize(acceleration_error);
-  required_acceleration_change  = magnitude(acceleration_error);
-
-  if (required_acceleration_change > max_jerk_xy * dt) {
-    required_jerk = normalized_acceleration_error * max_jerk_xy;
-  } else {
-    required_jerk = acceleration_error;
-  }
-
-  if (required_jerk.z > max_jerk_z) {
-    double jerk_scale_factor = required_jerk.z / max_jerk_z;
-    required_jerk            = required_jerk / jerk_scale_factor;
-  }
+  velocity_error           = desired_velocity - current_velocity;
+  velocity_error_direction = normalize(velocity_error);
+  required_velocity_change = magnitude(velocity_error);
 
 
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: needed velocity change: " << required_velocity_change);
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity_error" << velocity_error.x << " " << velocity_error.y << " " << velocity_error.z << " ");
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: normalized: velocity_error" << normalized_velocity_error.x << " " << normalized_velocity_error.y << " "
-                                                                            << normalized_velocity_error.z << " ");
-  ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: xacc:: " << max_acc_xy);
+  desired_acceleration = getMaximumValue(velocity_error_direction, max_acc_vec);
+
+
+  acceleration_error           = desired_acceleration - current_acceleration;
+  acceleration_error_direction = normalize(acceleration_error);
+  required_acceleration_change = magnitude(acceleration_error);
+
+  required_jerk = getMaximumValue(acceleration_error_direction, max_jerk_vec);
+
+
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: needed velocity change: " << required_velocity_change); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: velocity_error" << velocity_error.x << " " << velocity_error.y << " " << velocity_error.z << " "); */
+  /* ROS_INFO_STREAM_THROTTLE(0.5, "[LiteTracker]: xacc:: " << max_acc_xy); */
 
   /* vis //{ */
   {
@@ -467,7 +477,7 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   /* nav_msgs::OdometryConstPtr goal = sh_goal_.getMsg(); */
 
   // apply calculated acc command:
-  
+
   /* position_output_ = current_pos_cmd_; */
 
   position_output_.jerk.x = required_jerk.x;
@@ -689,6 +699,37 @@ LiteTracker::vec3d LiteTracker::normalize(LiteTracker::vec3d &vec_in) {
   }
 
   return normalized_vec;
+}
+
+//}
+
+/* //{ getMaximumValue() */
+
+LiteTracker::vec3d LiteTracker::getMaximumValue(LiteTracker::vec3d &direction, LiteTracker::vec3d &constraints) {
+
+
+  LiteTracker::vec3d maximum_value;
+
+  // assume that X and Y values are the same, therefore Y is not checked
+  if (constraints.x > constraints.z) {
+
+    maximum_value = direction * constraints;
+
+    if (maximum_value.z > constraints.z) {
+      double scale_factor = maximum_value.z / constraints.z;
+      maximum_value       = maximum_value / scale_factor;
+    }
+  } else {
+    // value in Z is higher
+    maximum_value = direction * constraints;
+
+    if (maximum_value.x > constraints.x) {
+      double scale_factor = maximum_value.x / constraints.x;
+      maximum_value       = maximum_value / scale_factor;
+    }
+  }
+
+  return maximum_value;
 }
 
 //}
