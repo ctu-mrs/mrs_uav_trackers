@@ -418,6 +418,7 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   /* ROS_INFO_STREAM("[LiteTracker]: desired_acceleration" << desired_acceleration.x << " " << desired_acceleration.y << " " << desired_acceleration.z << " ");
    */
 
+  /* desired_acceleration = saturate(desired_acceleration, velocity_error, dt); */
   desired_acceleration = saturate_acc(desired_acceleration, velocity_error, dt);
 
   ROS_INFO_STREAM("[LiteTracker]: desired_acceleration after sat " << desired_acceleration.x);
