@@ -285,7 +285,8 @@ bool JoyTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("JoyTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);

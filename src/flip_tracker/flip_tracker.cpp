@@ -347,7 +347,8 @@ const mrs_msgs::PositionCommand::ConstPtr FlipTracker::update(const mrs_msgs::Ua
   auto current_state = mrs_lib::get_mutexed(mutex_current_state_, current_state_);
   auto drs_params    = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("FlipTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);

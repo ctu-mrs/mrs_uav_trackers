@@ -895,7 +895,8 @@ bool MpcTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         uav_state,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   mrs_lib::set_mutexed(mutex_uav_state_, *uav_state, uav_state_);
 
@@ -1486,7 +1487,9 @@ void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackOtherMavTrajectory");
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("callbackOtherMavTrajectory");
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MpcTracker::callbackOtherMavTrajectory", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -1549,7 +1552,9 @@ void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::
 
 void MpcTracker::callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>& sh_ptr) {
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MpcTracker::callbackOtherMavDiagnostics", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   std::scoped_lock lock(mutex_other_uav_diagnostics_);
 
@@ -3281,7 +3286,8 @@ void MpcTracker::timerDiagnostics(const ros::TimerEvent& event) {
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerDiagnostics", _diagnostics_rate_, 0.1, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerDiagnostics", _diagnostics_rate_, 0.1, event);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("MpcTracker::timerDiagnostics", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   publishDiagnostics();
 }
@@ -3309,7 +3315,8 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerMPC", _mpc_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerMPC", _mpc_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("MpcTracker::timerMPC", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   ros::Time     begin = ros::Time::now();
   ros::Time     end;
@@ -3563,7 +3570,9 @@ void MpcTracker::timerTrajectoryTracking(const ros::TimerEvent& event) {
   auto trajectory_size = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
   auto trajectory_dt   = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_dt_);
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerTrajectoryTracking", int(1.0 / trajectory_dt), 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerTrajectoryTracking", int(1.0 / trajectory_dt), 0.01, event);
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MpcTracker::timerTrajectoryTracking", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_trajectory_tracking_states_);
@@ -3617,7 +3626,9 @@ void MpcTracker::timerVelocityTracking(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerVelocityTracking", int(30.0), 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerVelocityTracking", int(30.0), 0.01, event);
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MpcTracker::timerVelocityTracking", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   // stop the timer when timeout
   if ((ros::Time::now() - velocity_reference_time_).toSec() > 0.5) {
@@ -3706,7 +3717,9 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
     }
   }
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerAvoidanceTrajectory", _avoidance_trajectory_rate_, 0.1, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerAvoidanceTrajectory", _avoidance_trajectory_rate_, 0.1, event);
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MpcTracker::timerAvoidanceTrajectory", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   auto uav_state            = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
   auto predicted_trajectory = mrs_lib::get_mutexed(mutex_predicted_trajectory_, predicted_trajectory_);
@@ -3792,9 +3805,10 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
 
 void MpcTracker::timerHover(const ros::TimerEvent& event) {
 
-  MatrixXd                 mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  MatrixXd mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerHover", 10, 0.01, event);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("MpcTracker::timerHover", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   setRelativeGoal(0, 0, 0, 0, false);
 

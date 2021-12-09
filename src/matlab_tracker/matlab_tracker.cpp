@@ -34,7 +34,7 @@ class MatlabTracker : public mrs_uav_managers::Tracker {
 public:
   ~MatlabTracker(){};
 
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_);
+  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -63,7 +63,8 @@ private:
 
   bool is_initialized_ = false;
   bool is_active_      = false;
-  bool first_iter_     = false;
+
+  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
   // | ------------------------ the goal ------------------------ |
 
@@ -89,7 +90,9 @@ private:
 /* //{ initialize() */
 
 void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                               [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_) {
+                               std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+
+  this->common_handlers_ = common_handlers;
 
   ros::NodeHandle nh_(parent_nh, "matlab_tracker");
 
@@ -190,7 +193,8 @@ bool MatlabTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr MatlabTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                                 [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("MatlabTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {

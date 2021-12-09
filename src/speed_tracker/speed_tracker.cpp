@@ -243,7 +243,8 @@ bool SpeedTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr SpeedTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                                [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("SpeedTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -497,7 +498,8 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
   if (!is_initialized_)
     return;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("callbackCommand");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackCommand");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("SpeedTracker::callbackCommand", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
 

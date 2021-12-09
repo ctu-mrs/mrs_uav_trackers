@@ -466,7 +466,8 @@ bool LandoffTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&        uav_state,
                                                                  const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("LandoffTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -1100,7 +1101,8 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   uav_y = uav_state.pose.position.y;
   uav_z = uav_state.pose.position.z;
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("main", _main_timer_rate_, 0.002, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("main", _main_timer_rate_, 0.002, event);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("LandoffTracker::main", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   bool takeoff_saturated = false;
 

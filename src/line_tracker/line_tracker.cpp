@@ -506,7 +506,8 @@ bool LineTracker::resetStatic(void) {
 const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("LineTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -1122,7 +1123,8 @@ void LineTracker::mainTimer(const ros::TimerEvent &event) {
     return;
   }
 
-  mrs_lib::Routine profiler_routine = profiler_.createRoutine("main", _tracker_loop_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("main", _tracker_loop_rate_, 0.01, event);
+  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("LineTracker::main", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   auto [goal_x, goal_y, goal_z]    = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
   auto [state_x, state_y, state_z] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, state_z_);

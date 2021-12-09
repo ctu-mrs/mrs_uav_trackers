@@ -61,6 +61,11 @@ private:
 
   bool is_initialized_ = false;
   bool is_active_      = false;
+
+  // | ------------------------ profiler ------------------------ |
+
+  mrs_lib::Profiler profiler_;
+  bool              _profiler_enabled_ = false;
 };
 
 //}
@@ -70,7 +75,7 @@ private:
 /* //{ initialize() */
 
 void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                                         [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+                                         std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
@@ -88,6 +93,8 @@ void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[may
     ROS_ERROR("[MidairActivationTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
     ros::shutdown();
   }
+
+  param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
   // | --------------------- finish the init -------------------- |
 
@@ -143,6 +150,10 @@ const mrs_msgs::PositionCommand::ConstPtr MidairActivationTracker::update(const 
   if (!is_active_) {
     return mrs_msgs::PositionCommand::Ptr();
   }
+
+  mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer("MidairActivationTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   mrs_msgs::PositionCommand position_cmd;
 
