@@ -43,6 +43,10 @@ public:
   bool                          resetStatic(void);
 
   const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::PositionCommand::ConstPtr update_deprec(const mrs_msgs::UavState::ConstPtr &       uav_state,
+                                                          const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::PositionCommand::ConstPtr update_vel(const mrs_msgs::UavState::ConstPtr &       uav_state,
+                                                       const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -138,6 +142,7 @@ private:
   LiteTracker::vec3d normalize(LiteTracker::vec3d &vec_in);
   LiteTracker::vec3d saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in);
   LiteTracker::vec3d saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in, double dt);
+  LiteTracker::vec3d saturate_vector(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in);
   LiteTracker::vec3d saturate_acc(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in, double dt);
   LiteTracker::vec3d getMaximumValue(LiteTracker::vec3d &direction, LiteTracker::vec3d &constraints);
 };
@@ -253,10 +258,10 @@ bool LiteTracker::resetStatic(void) {
 
 //}
 
-/* //{ update() */
+/* //{ update_deprec() */
 
-const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update_deprec(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                                     [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
@@ -268,8 +273,8 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
   // ehmmm, fuj fuj fuj TODO repair this POS
   double dt = 0.01;
 
-  double max_vel_xy = 6.0;
-  double max_vel_z  = 2.0;
+  double max_vel_xy = 7.0;
+  double max_vel_z  = 3.0;
 
   double max_acc_xy = 3.0;
   double max_acc_z  = 3.0;
@@ -572,6 +577,333 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::Ua
 
 //}
 
+/* //{ update_vel() */
+
+const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update_vel(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                                  [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active_) {
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  // ehmmm, fuj fuj fuj TODO repair this POS
+  double dt = 0.01;
+
+  double max_vel_xy = 2.0;
+  double max_vel_z  = 1.0;
+
+  double max_acc_xy = 1.0;
+  double max_acc_z  = 1.0;
+
+  double max_jerk_xy = 1.0;
+  double max_jerk_z  = 1.0;
+
+  vec3d max_vel_vec(max_vel_xy, max_vel_xy, max_vel_z);
+  vec3d max_acc_vec(max_acc_xy, max_acc_xy, max_acc_z);
+  vec3d max_jerk_vec(max_jerk_xy, max_jerk_xy, max_jerk_z);
+
+  vec3d position_error;
+
+  vec3d position_error_norm;
+
+  vec3d required_velocity;
+
+  /* vec3d reference_direction; */
+  /* vec3d current_velocity; */
+  /* vec3d current_acceleration; */
+
+  /* double stopping_time         = 0.0; */
+  /* double stopping_distance     = 0.0; */
+  /* double stopping_deceleration = 0.0; */
+
+  /* double distance_to_reference = 0.0; */
+  /* double velocity_to_reference = 0.0; */
+
+  /* vec3d  desired_velocity; */
+
+  /* vec3d  desired_velocity; */
+  /* vec3d  velocity_error; */
+  /* vec3d  velocity_error_direction; */
+  /* double required_velocity_change = 0.0; */
+
+  /* vec3d  desired_acceleration; */
+  /* vec3d  acceleration_error; */
+  /* vec3d  acceleration_error_direction; */
+  /* double required_acceleration_change = 0.0; */
+
+  /* vec3d required_jerk; */
+
+  position_error.x = current_reference_.reference.position.x - current_pos_cmd_.position.x;
+  position_error.y = current_reference_.reference.position.y - current_pos_cmd_.position.y;
+  position_error.z = current_reference_.reference.position.z - current_pos_cmd_.position.z;
+
+  position_error_norm = normalize(position_error);
+
+  required_velocity = position_error_norm / dt;
+
+  /* ROS_INFO_STREAM_THROTTLE(0.001, "[LiteTracker]: position_error" << position_error.x << " " << position_error.y << " " << position_error.z << " "); */
+  /* ROS_INFO_STREAM_THROTTLE(0.001, "[LiteTracker]: required_velocity" << required_velocity.x << " " << required_velocity.y << " " << required_velocity.z << "
+   * "); */
+  /* required_velocity = saturate(required_velocity, max_vel_vec); */
+
+  /* ROS_INFO_STREAM_THROTTLE( */
+  /*     0.001, "[LiteTracker]: required_velocity after sat" << required_velocity.x << " " << required_velocity.y << " " << required_velocity.z << " "); */
+
+
+  position_output_.header.stamp    = ros::Time::now();
+  position_output_.header.frame_id = uav_state->header.frame_id;
+
+  /* nav_msgs::OdometryConstPtr goal = sh_goal_.getMsg(); */
+
+  // apply calculated acc command:
+
+  /* position_output_ = current_pos_cmd_; */
+
+  position_output_.jerk.x = 0.0;
+  position_output_.jerk.y = 0.0;
+  position_output_.jerk.z = 0.0;
+
+  position_output_.acceleration.x = 0.0;
+  position_output_.acceleration.y = 0.0;
+  position_output_.acceleration.z = 0.0;
+
+  position_output_.velocity.x = required_velocity.x;
+  position_output_.velocity.y = required_velocity.y;
+  position_output_.velocity.z = required_velocity.z;
+
+  position_output_.position.x = current_pos_cmd_.position.x + position_output_.velocity.x * dt;
+  position_output_.position.y = current_pos_cmd_.position.y + position_output_.velocity.y * dt;
+  position_output_.position.z = current_pos_cmd_.position.z + position_output_.velocity.z * dt;
+
+  /* position_output_.velocity.x = desired_velocity.x; */
+  /* position_output_.velocity.y = desired_velocity.y; */
+  /* position_output_.velocity.z = desired_velocity.z; */
+
+  /* position_output_.position.x = current_pos_cmd_.position.x + position_output_.velocity.x * dt; */
+  /* position_output_.position.y = current_pos_cmd_.position.y + position_output_.velocity.y * dt; */
+  /* position_output_.position.z = current_pos_cmd_.position.z + position_output_.velocity.z * dt; */
+
+  /* position_output_.acceleration.x = current_pos_cmd_.acceleration.x + required_jerk.x; */
+  /* position_output_.acceleration.y = current_pos_cmd_.acceleration.y + required_jerk.y; */
+  /* position_output_.acceleration.z = current_pos_cmd_.acceleration.z + required_jerk.z; */
+
+  /* position_output_.velocity.x = current_pos_cmd_.velocity.x + desired_acceleration.x * dt; */
+  /* position_output_.velocity.y = current_pos_cmd_.velocity.y + desired_acceleration.y * dt; */
+  /* position_output_.velocity.z = current_pos_cmd_.velocity.z + desired_acceleration.z * dt; */
+
+  /* position_output_.position.x = current_pos_cmd_.position.x + current_pos_cmd_.velocity.x * dt; */
+  /* position_output_.position.y = current_pos_cmd_.position.y + current_pos_cmd_.velocity.y * dt; */
+  /* position_output_.position.z = current_pos_cmd_.position.z + current_pos_cmd_.velocity.z * dt; */
+
+  position_output_.heading      = current_pos_cmd_.heading;
+  position_output_.heading_rate = 0.0;
+
+  position_output_.use_heading             = 1;
+  position_output_.use_heading_rate        = 1;
+  position_output_.use_position_vertical   = 1;
+  position_output_.use_position_horizontal = 1;
+  position_output_.use_velocity_vertical   = 1;
+  position_output_.use_velocity_horizontal = 1;
+  position_output_.use_acceleration        = 0;
+  position_output_.use_jerk                = 0;
+
+  current_pos_cmd_ = position_output_;
+
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output_));
+}
+
+//}
+
+/* //{ update() */
+
+const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active_) {
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  // ehmmm, fuj fuj fuj TODO repair this POS
+  double dt = 0.01;
+
+  double max_vel_xy = 7.0;
+  double max_vel_z  = 3.0;
+
+  double max_acc_xy = 3.0;
+  double max_acc_z  = 3.0;
+
+  double max_jerk_xy = 3.0;
+  double max_jerk_z  = 3.0;
+
+  vec3d max_vel_vec(max_vel_xy, max_vel_xy, max_vel_z);
+  vec3d max_acc_vec(max_acc_xy, max_acc_xy, max_acc_z);
+  vec3d max_jerk_vec(max_jerk_xy, max_jerk_xy, max_jerk_z);
+
+  vec3d position_error;
+  vec3d max_constrained_vel_vec;
+  vec3d required_velocity;
+
+  vec3d velocity_error;
+
+  vec3d required_acc;
+
+  vec3d stopping_time;
+  vec3d current_abs_velocity;
+
+  current_abs_velocity.x = fabs(current_pos_cmd_.velocity.x);
+  current_abs_velocity.y = fabs(current_pos_cmd_.velocity.y);
+  current_abs_velocity.z = fabs(current_pos_cmd_.velocity.z);
+
+  /* vec3d reference_direction; */
+  /* vec3d current_velocity; */
+  /* vec3d current_acceleration; */
+
+  /* double stopping_time         = 0.0; */
+  /* double stopping_distance     = 0.0; */
+  /* double stopping_deceleration = 0.0; */
+
+  /* double distance_to_reference = 0.0; */
+  /* double velocity_to_reference = 0.0; */
+
+  /* vec3d  desired_velocity; */
+
+  /* vec3d  desired_velocity; */
+  /* vec3d  velocity_error; */
+  /* vec3d  velocity_error_direction; */
+  /* double required_velocity_change = 0.0; */
+
+  /* vec3d  desired_acceleration; */
+  /* vec3d  acceleration_error; */
+  /* vec3d  acceleration_error_direction; */
+  /* double required_acceleration_change = 0.0; */
+
+  vec3d required_jerk;
+
+  position_error.x = current_reference_.reference.position.x - current_pos_cmd_.position.x;
+  position_error.y = current_reference_.reference.position.y - current_pos_cmd_.position.y;
+  position_error.z = current_reference_.reference.position.z - current_pos_cmd_.position.z;
+
+  required_velocity.x = position_error.x / dt;
+  required_velocity.y = position_error.y / dt;
+  required_velocity.z = position_error.z / dt;
+
+
+  /* ROS_INFO_STREAM_THROTTLE(0.001, "[LiteTracker]: position_error " << position_error.x << " " << position_error.y << " " << position_error.z << " "); */
+  /* ROS_INFO_STREAM_THROTTLE(0.001, */
+  /*                          "[LiteTracker]: required_velocity " << required_velocity.x << " " << required_velocity.y << " " << required_velocity.z << " "); */
+
+
+  required_velocity = saturate(required_velocity, max_vel_vec);
+
+  /* ROS_INFO_STREAM_THROTTLE( */
+  /*     0.001, "[LiteTracker]: required_velocity after sat " << required_velocity.x << " " << required_velocity.y << " " << required_velocity.z << " "); */
+
+  if (position_error.x == 0) {
+    max_constrained_vel_vec.x = 0.0;
+  } else {
+    max_constrained_vel_vec.x = (2 * fabs(position_error.x)) / (sqrt(2 * fabs(position_error.x) / max_acc_xy));
+  }
+
+
+  if (position_error.y == 0) {
+    max_constrained_vel_vec.y = 0.0;
+  } else {
+    max_constrained_vel_vec.y = (2 * fabs(position_error.y)) / (sqrt(2 * fabs(position_error.y) / max_acc_xy));
+  }
+
+
+  if (position_error.z == 0) {
+    max_constrained_vel_vec.z = 0.0;
+  } else {
+    max_constrained_vel_vec.z = (2 * fabs(position_error.z)) / (sqrt(2 * fabs(position_error.z) / max_acc_z));
+  }
+
+  required_velocity = saturate(required_velocity, max_constrained_vel_vec);
+
+  ROS_INFO_STREAM_THROTTLE(
+      0.001, "[LiteTracker]: required_velocity after dos " << required_velocity.x << " " << required_velocity.y << " " << velocity_error.z << " ");
+
+  velocity_error.x = required_velocity.x - current_pos_cmd_.velocity.x;
+  velocity_error.y = required_velocity.y - current_pos_cmd_.velocity.y;
+  velocity_error.z = required_velocity.z - current_pos_cmd_.velocity.z;
+
+  required_acc.x = velocity_error.x / dt;
+  required_acc.y = velocity_error.y / dt;
+  required_acc.z = velocity_error.z / dt;
+
+
+  required_acc = saturate(required_acc, max_acc_vec);
+
+  position_output_.header.stamp    = ros::Time::now();
+  position_output_.header.frame_id = uav_state->header.frame_id;
+
+  /* nav_msgs::OdometryConstPtr goal = sh_goal_.getMsg(); */
+
+  // apply calculated acc command:
+
+  /* position_output_ = current_pos_cmd_; */
+
+  position_output_.jerk.x = 0.0;
+  position_output_.jerk.y = 0.0;
+  position_output_.jerk.z = 0.0;
+
+  position_output_.acceleration.x = required_acc.x;
+  position_output_.acceleration.y = required_acc.y;
+  position_output_.acceleration.z = required_acc.z;
+
+  position_output_.velocity.x = current_pos_cmd_.velocity.x + position_output_.acceleration.x * dt;
+  position_output_.velocity.y = current_pos_cmd_.velocity.y + position_output_.acceleration.y * dt;
+  position_output_.velocity.z = current_pos_cmd_.velocity.z + position_output_.acceleration.z * dt;
+
+  position_output_.position.x = current_pos_cmd_.position.x + position_output_.velocity.x * dt;
+  position_output_.position.y = current_pos_cmd_.position.y + position_output_.velocity.y * dt;
+  position_output_.position.z = current_pos_cmd_.position.z + position_output_.velocity.z * dt;
+
+  /* position_output_.velocity.x = desired_velocity.x; */
+  /* position_output_.velocity.y = desired_velocity.y; */
+  /* position_output_.velocity.z = desired_velocity.z; */
+
+  /* position_output_.position.x = current_pos_cmd_.position.x + position_output_.velocity.x * dt; */
+  /* position_output_.position.y = current_pos_cmd_.position.y + position_output_.velocity.y * dt; */
+  /* position_output_.position.z = current_pos_cmd_.position.z + position_output_.velocity.z * dt; */
+
+  /* position_output_.acceleration.x = current_pos_cmd_.acceleration.x + required_jerk.x; */
+  /* position_output_.acceleration.y = current_pos_cmd_.acceleration.y + required_jerk.y; */
+  /* position_output_.acceleration.z = current_pos_cmd_.acceleration.z + required_jerk.z; */
+
+  /* position_output_.velocity.x = current_pos_cmd_.velocity.x + desired_acceleration.x * dt; */
+  /* position_output_.velocity.y = current_pos_cmd_.velocity.y + desired_acceleration.y * dt; */
+  /* position_output_.velocity.z = current_pos_cmd_.velocity.z + desired_acceleration.z * dt; */
+
+  /* position_output_.position.x = current_pos_cmd_.position.x + current_pos_cmd_.velocity.x * dt; */
+  /* position_output_.position.y = current_pos_cmd_.position.y + current_pos_cmd_.velocity.y * dt; */
+  /* position_output_.position.z = current_pos_cmd_.position.z + current_pos_cmd_.velocity.z * dt; */
+
+  position_output_.heading      = current_pos_cmd_.heading;
+  position_output_.heading_rate = 0.0;
+
+  position_output_.use_heading             = 1;
+  position_output_.use_heading_rate        = 1;
+  position_output_.use_position_vertical   = 1;
+  position_output_.use_position_horizontal = 1;
+  position_output_.use_velocity_vertical   = 1;
+  position_output_.use_velocity_horizontal = 1;
+  position_output_.use_acceleration        = 0;
+  position_output_.use_jerk                = 0;
+
+  current_pos_cmd_ = position_output_;
+
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output_));
+}
+
+//}
+
 /* //{ getStatus() */
 
 const mrs_msgs::TrackerStatus LiteTracker::getStatus() {
@@ -753,14 +1085,22 @@ LiteTracker::vec3d LiteTracker::saturate(LiteTracker::vec3d &vec_in, LiteTracker
 
   LiteTracker::vec3d saturated_vec = vec_in;
 
-  if (fabs(saturated_vec.x) > fabs(maximum_vec_in.x)) {
+  if (saturated_vec.x > maximum_vec_in.x) {
     saturated_vec.x = maximum_vec_in.x;
+  } else if (saturated_vec.x < -maximum_vec_in.x) {
+    saturated_vec.x = -maximum_vec_in.x;
   }
-  if (fabs(saturated_vec.y) > fabs(maximum_vec_in.y)) {
+
+  if (saturated_vec.y > maximum_vec_in.y) {
     saturated_vec.y = maximum_vec_in.y;
+  } else if (saturated_vec.y < -maximum_vec_in.y) {
+    saturated_vec.y = -maximum_vec_in.y;
   }
-  if (fabs(saturated_vec.z) > fabs(maximum_vec_in.z)) {
+
+  if (saturated_vec.z > maximum_vec_in.z) {
     saturated_vec.z = maximum_vec_in.z;
+  } else if (saturated_vec.z < -maximum_vec_in.z) {
+    saturated_vec.z = -maximum_vec_in.z;
   }
 
   return saturated_vec;
@@ -788,6 +1128,31 @@ LiteTracker::vec3d LiteTracker::saturate(LiteTracker::vec3d &vec_in, LiteTracker
   }
 
   return saturated_vec;
+}
+
+//}
+
+/* //{ saturate() */
+
+LiteTracker::vec3d LiteTracker::saturate_vector(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in) {
+
+  ROS_INFO("[LiteTracker]: saturate called");
+
+  double vec_mag = magnitude(vec_in);
+
+  vec3d  in_norm              = normalize(vec_in);
+  vec3d  max_vec_in_direction = in_norm * maximum_vec_in;
+  double max_mag              = magnitude(max_vec_in_direction);
+
+  double scaler = max_mag / vec_mag;
+
+  if (scaler < 1.0) {
+    LiteTracker::vec3d saturated_vec = vec_in;
+    saturated_vec                    = saturated_vec * scaler;
+    return saturated_vec;
+  } else {
+    return vec_in;
+  }
 }
 
 //}
