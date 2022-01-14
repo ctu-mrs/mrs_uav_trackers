@@ -47,6 +47,8 @@ public:
                                                           const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::PositionCommand::ConstPtr update_vel(const mrs_msgs::UavState::ConstPtr &       uav_state,
                                                        const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::PositionCommand::ConstPtr update_acc_bad(const mrs_msgs::UavState::ConstPtr &       uav_state,
+                                                           const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -140,6 +142,7 @@ private:
 
   double             magnitude(LiteTracker::vec3d &vec_in);
   LiteTracker::vec3d normalize(LiteTracker::vec3d &vec_in);
+  LiteTracker::vec3d maximizeNorm(LiteTracker::vec3d &vec_norm, LiteTracker::vec3d &max_vec);
   LiteTracker::vec3d saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in);
   LiteTracker::vec3d saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in, double dt);
   LiteTracker::vec3d saturate_vector(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in);
@@ -254,6 +257,85 @@ void LiteTracker::deactivate(void) {
 bool LiteTracker::resetStatic(void) {
 
   return false;
+}
+
+//}
+
+/* //{ update() */
+
+const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+
+  mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
+
+  if (!is_active_) {
+    return mrs_msgs::PositionCommand::Ptr();
+  }
+
+  // ehmmm, fuj fuj fuj TODO repair this POS
+  double dt = 0.01;
+
+  double max_vel_xy = 2.0;
+  double max_vel_z  = 0.2;
+
+  double max_acc_xy = 1.0;
+  double max_acc_z  = 1.0;
+
+  double max_jerk_xy = 1.0;
+  double max_jerk_z  = 1.0;
+
+  vec3d max_vel_vec(max_vel_xy, max_vel_xy, max_vel_z);
+  vec3d max_acc_vec(max_acc_xy, max_acc_xy, max_acc_z);
+  vec3d max_jerk_vec(max_jerk_xy, max_jerk_xy, max_jerk_z);
+
+  vec3d position_error;
+  vec3d position_error_norm;
+  vec3d required_velocity;
+
+  position_error.x = current_reference_.reference.position.x - current_pos_cmd_.position.x;
+  position_error.y = current_reference_.reference.position.y - current_pos_cmd_.position.y;
+  position_error.z = current_reference_.reference.position.z - current_pos_cmd_.position.z;
+
+  position_error_norm = normalize(position_error);
+
+  required_velocity = maximizeNorm(position_error_norm, max_vel_vec);
+
+  required_velocity = saturate(required_velocity, position_error, dt);
+
+  position_output_.header.stamp    = ros::Time::now();
+  position_output_.header.frame_id = uav_state->header.frame_id;
+
+  position_output_.jerk.x = 0.0;
+  position_output_.jerk.y = 0.0;
+  position_output_.jerk.z = 0.0;
+
+  position_output_.acceleration.x = 0.0;
+  position_output_.acceleration.y = 0.0;
+  position_output_.acceleration.z = 0.0;
+
+  position_output_.velocity.x = required_velocity.x;
+  position_output_.velocity.y = required_velocity.y;
+  position_output_.velocity.z = required_velocity.z;
+
+  position_output_.position.x = current_pos_cmd_.position.x + position_output_.velocity.x * dt;
+  position_output_.position.y = current_pos_cmd_.position.y + position_output_.velocity.y * dt;
+  position_output_.position.z = current_pos_cmd_.position.z + position_output_.velocity.z * dt;
+
+  position_output_.heading      = current_pos_cmd_.heading;
+  position_output_.heading_rate = 0.0;
+
+  position_output_.use_heading             = 1;
+  position_output_.use_heading_rate        = 1;
+  position_output_.use_position_vertical   = 1;
+  position_output_.use_position_horizontal = 1;
+  position_output_.use_velocity_vertical   = 1;
+  position_output_.use_velocity_horizontal = 1;
+  position_output_.use_acceleration        = 0;
+  position_output_.use_jerk                = 0;
+
+  current_pos_cmd_ = position_output_;
+
+  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_output_));
 }
 
 //}
@@ -717,10 +799,10 @@ const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update_vel(const mrs_msgs
 
 //}
 
-/* //{ update() */
+/* //{ update_acc_bad() */
 
-const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+const mrs_msgs::PositionCommand::ConstPtr LiteTracker::update_acc_bad(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+                                                                      [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine profiler_routine = profiler.createRoutine("update");
 
@@ -1079,6 +1161,27 @@ LiteTracker::vec3d LiteTracker::normalize(LiteTracker::vec3d &vec_in) {
 
 //}
 
+/* //{ maximize() */
+
+LiteTracker::vec3d LiteTracker::maximizeNorm(LiteTracker::vec3d &vec_norm, LiteTracker::vec3d &max_vec) {
+
+  LiteTracker::vec3d maximized_vec;
+
+  double maximum_vector_value = std::max({max_vec.x, max_vec.y, max_vec.z});
+ 
+
+  maximized_vec = vec_norm * maximum_vector_value;
+
+  double downscaler = std::min({1.0, maximized_vec.x / max_vec.x, maximized_vec.y / max_vec.y, maximized_vec.z / max_vec.z});
+  if (downscaler > 0 && downscaler < 1.0) {
+    maximized_vec = maximized_vec*downscaler;
+  }
+
+  return maximized_vec;
+}
+
+//}
+
 /* //{ saturate() */
 
 LiteTracker::vec3d LiteTracker::saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in) {
@@ -1113,11 +1216,8 @@ LiteTracker::vec3d LiteTracker::saturate(LiteTracker::vec3d &vec_in, LiteTracker
 LiteTracker::vec3d LiteTracker::saturate(LiteTracker::vec3d &vec_in, LiteTracker::vec3d &maximum_vec_in, double dt) {
 
   LiteTracker::vec3d saturated_vec = vec_in;
-  ROS_INFO("[LiteTracker]: saturate called");
-  ROS_INFO_STREAM("[LiteTracker]: vecin x " << vec_in.x << " max_vec_in x " << maximum_vec_in.x << "  dt_in " << dt << " dt*x " << saturated_vec.x * dt);
 
   if (fabs(saturated_vec.x * dt) > fabs(maximum_vec_in.x)) {
-    ROS_INFO("[LiteTracker]: SATURATING");
     saturated_vec.x = maximum_vec_in.x;
   }
   if (fabs(saturated_vec.y * dt) > fabs(maximum_vec_in.y)) {
