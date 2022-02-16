@@ -29,15 +29,20 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
+set(LIBRARIES
+  MpcTracker LineTracker LandoffTracker JoyTracker MatlabTracker SpeedTracker FlipTracker MidairActivationTracker
+  )
+
 catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_managers mrs_msgs
+  LIBRARIES ${LIBRARIES}
   DEPENDS Eigen
   )
 
-###########
-## Build ##
-###########
+## --------------------------------------------------------------
+## |                            Build                           |
+## --------------------------------------------------------------
 
 include_directories(
   include
@@ -75,7 +80,9 @@ endif()
 
 # MPC Tracker
 
-add_library(MpcTracker src/mpc_tracker/mpc_tracker.cpp)
+add_library(MpcTracker
+  src/mpc_tracker/mpc_tracker.cpp
+  )
 
 add_dependencies(MpcTracker
   ${catkin_EXPORTED_TARGETS}
@@ -92,10 +99,12 @@ target_link_libraries(MpcTracker
 add_library(LineTracker
   src/line_tracker/line_tracker.cpp
   )
+
 add_dependencies(LineTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(LineTracker
   ${catkin_LIBRARIES}
   )
@@ -105,10 +114,12 @@ target_link_libraries(LineTracker
 add_library(LandoffTracker
   src/landoff_tracker/landoff_tracker.cpp
   )
+
 add_dependencies(LandoffTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(LandoffTracker
   ${catkin_LIBRARIES}
   )
@@ -118,10 +129,12 @@ target_link_libraries(LandoffTracker
 add_library(JoyTracker
   src/joy_tracker/joy_tracker.cpp
   )
+
 add_dependencies(JoyTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(JoyTracker
   ${catkin_LIBRARIES}
   )
@@ -131,10 +144,12 @@ target_link_libraries(JoyTracker
 add_library(MatlabTracker
   src/matlab_tracker/matlab_tracker.cpp
   )
+
 add_dependencies(MatlabTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(MatlabTracker
   ${catkin_LIBRARIES}
   )
@@ -144,10 +159,12 @@ target_link_libraries(MatlabTracker
 add_library(SpeedTracker
   src/speed_tracker/speed_tracker.cpp
   )
+
 add_dependencies(SpeedTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(SpeedTracker
   ${catkin_LIBRARIES}
   )
@@ -157,10 +174,12 @@ target_link_libraries(SpeedTracker
 add_library(FlipTracker
   src/flip_tracker/flip_tracker.cpp
   )
+
 add_dependencies(FlipTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(FlipTracker
   ${catkin_LIBRARIES}
   )
@@ -170,39 +189,35 @@ target_link_libraries(FlipTracker
 add_library(MidairActivationTracker
   src/midair_activation_tracker/midair_activation_tracker.cpp
   )
+
 add_dependencies(MidairActivationTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
+
 target_link_libraries(MidairActivationTracker
   ${catkin_LIBRARIES}
   )
 
-#############
-## Install ##
-#############
+## --------------------------------------------------------------
+## |                           Install                          |
+## --------------------------------------------------------------
 
-install(TARGETS
-  MpcTracker
-  LineTracker
-  LandoffTracker
-  JoyTracker
-  MatlabTracker
-  SpeedTracker
-  FlipTracker
-  MidairActivationTracker
+install(TARGETS ${LIBRARIES}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
   )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-  FILES_MATCHING PATTERN "*.h"
+install(DIRECTORY config
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )
 
-install(FILES
-  plugins.xml
-  DESTINATION
-  ${CATKIN_PACKAGE_SHARE_DESTINATION}
+install(FILES ${MPC_CONTROLLER_SOLVER_BIN}
+  DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  )
+
+install(DIRECTORY ./
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  FILES_MATCHING PATTERN "*.xml"
   )
