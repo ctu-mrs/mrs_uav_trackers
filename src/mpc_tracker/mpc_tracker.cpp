@@ -1728,7 +1728,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
   if (!avoiding_collision_) {
 
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
-    collision_free_altitude_ -= 0.02;
+    collision_free_altitude_ -= 2.0 / _mpc_rate_;
 
     if (collision_free_altitude_ < common_handlers_->safety_area.getMinHeight()) {
 
