@@ -58,6 +58,8 @@ public:
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  ros::NodeHandle nh_;
+
   bool callbacks_enabled_ = true;
 
   std::string _version_;
@@ -95,7 +97,7 @@ void MatlabTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]
 
   this->common_handlers_ = common_handlers;
 
-  ros::NodeHandle nh_(parent_nh, "matlab_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "matlab_tracker");
 
   ros::Time::waitForValid();
 

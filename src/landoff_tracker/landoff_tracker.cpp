@@ -214,7 +214,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
 
-  ros::NodeHandle nh_(parent_nh, "landoff_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "landoff_tracker");
 
   ros::Time::waitForValid();
 

@@ -26,6 +26,7 @@
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
+#include <mrs_lib/publisher_handler.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 
@@ -101,11 +102,11 @@ private:
   std::string _uav_name_;
 
   // debugging publishers
-  ros::Publisher pub_diagnostics_;
-  ros::Publisher pub_status_string_;
+  mrs_lib::PublisherHandler<mrs_msgs::MpcTrackerDiagnostics> pub_diagnostics_;
+  mrs_lib::PublisherHandler<std_msgs::String>                pub_status_string_;
 
-  ros::Publisher pub_debug_processed_trajectory_poses_;
-  ros::Publisher pub_debug_processed_trajectory_markers_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>        pub_debug_processed_trajectory_poses_;
+  mrs_lib::PublisherHandler<visualization_msgs::MarkerArray> pub_debug_processed_trajectory_markers_;
 
   mrs_msgs::UavState uav_state_;
   std::mutex         mutex_uav_state_;
@@ -203,10 +204,10 @@ private:
   MatrixXd   predicted_heading_trajectory_;
   std::mutex mutex_predicted_trajectory_;
 
-  ros::Publisher publisher_predicted_trajectory_debugging_;
-  ros::Publisher publisher_mpc_reference_debugging_;
-  ros::Publisher publisher_current_trajectory_point_;
-  ros::Publisher publisher_prediction_full_state_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>         ph_predicted_trajectory_debugging_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>         ph_mpc_reference_debugging_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>       ph_current_trajectory_point_;
+  mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState> ph_prediction_full_state_;
 
   std::atomic<bool> mpc_computed_ = false;
 
@@ -289,7 +290,7 @@ private:
   bool checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   bool checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
 
-  ros::Publisher avoidance_trajectory_publisher_;
+  mrs_lib::PublisherHandler<mrs_msgs::FutureTrajectory> ph_avoidance_trajectory_;
 
   ros::ServiceServer service_server_toggle_avoidance_;
   bool               callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
@@ -370,7 +371,7 @@ private:
 
   // | ------------------------- wiggle ------------------------- |
 
-  ros::ServiceServer service_client_wiggle_;
+  ros::ServiceServer service_server_wiggle_;
   bool               callbackWiggle(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
 
   double wiggle_phase_ = 0;
@@ -396,7 +397,7 @@ private:
 void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] const std::string uav_name,
                             [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
 
-  ros::NodeHandle nh_(parent_nh, "mpc_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "mpc_tracker");
 
   _uav_name_       = uav_name;
   common_handlers_ = common_handlers;
@@ -515,10 +516,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   des_z_filtered_offset_  = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
-  service_client_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
+  service_server_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
 
-  pub_diagnostics_   = nh_.advertise<mrs_msgs::MpcTrackerDiagnostics>("diagnostics_out", 1);
-  pub_status_string_ = nh_.advertise<std_msgs::String>("string_out", 1);
+  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::MpcTrackerDiagnostics>(nh_, "diagnostics_out", 1);
+  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::String>(nh_, "string_out", 1);
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
@@ -549,14 +550,14 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // create publishers for predicted trajectory
 
-  avoidance_trajectory_publisher_           = nh_.advertise<mrs_msgs::FutureTrajectory>("predicted_trajectory", 1);
-  publisher_predicted_trajectory_debugging_ = nh_.advertise<geometry_msgs::PoseArray>("predicted_trajectory_debugging", 1);
-  publisher_mpc_reference_debugging_        = nh_.advertise<geometry_msgs::PoseArray>("mpc_reference_debugging", 1, true);
-  publisher_current_trajectory_point_       = nh_.advertise<geometry_msgs::PoseStamped>("current_trajectory_point_out", 1, true);
-  publisher_prediction_full_state_          = nh_.advertise<mrs_msgs::MpcPredictionFullState>("prediction_full_state", 1, true);
+  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::FutureTrajectory>(nh_, "predicted_trajectory_out", 1);
+  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "predicted_trajectory_debugging_out", 1);
+  ph_mpc_reference_debugging_        = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "mpc_reference_debugging_out", 1, true);
+  ph_current_trajectory_point_       = mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>(nh_, "current_trajectory_point_out", 1, true);
+  ph_prediction_full_state_          = mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState>(nh_, "prediction_full_state_out", 1, true);
 
-  pub_debug_processed_trajectory_poses_   = nh_.advertise<geometry_msgs::PoseArray>("trajectory_processed/poses_out", 1, true);
-  pub_debug_processed_trajectory_markers_ = nh_.advertise<visualization_msgs::MarkerArray>("trajectory_processed/markers_out", 1, true);
+  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "trajectory_processed/poses_out", 1, true);
+  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "trajectory_processed/markers_out", 1, true);
 
   // preallocate predicted trajectory
   predicted_trajectory_         = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
@@ -1102,12 +1103,7 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
     debug_trajectory_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, (*des_heading_whole_trajectory_)(trajectory_tracking_idx));
 
-    try {
-      publisher_current_trajectory_point_.publish(debug_trajectory_point);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_current_trajectory_point_.getTopic().c_str());
-    }
+    ph_current_trajectory_point_.publish(debug_trajectory_point);
   }
 
   return tracker_status;
@@ -2289,12 +2285,7 @@ void MpcTracker::calculateMPC() {
       }
     }
 
-    try {
-      publisher_mpc_reference_debugging_.publish(debug_trajectory_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_mpc_reference_debugging_.getTopic().c_str());
-    }
+    ph_mpc_reference_debugging_.publish(debug_trajectory_out);
   }
 
   //}
@@ -2831,12 +2822,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       }
     }
 
-    try {
-      pub_debug_processed_trajectory_poses_.publish(debug_trajectory_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_debug_processed_trajectory_poses_.getTopic().c_str());
-    }
+    pub_debug_processed_trajectory_poses_.publish(debug_trajectory_out);
 
     visualization_msgs::MarkerArray msg_out;
 
@@ -2877,12 +2863,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
     msg_out.markers.push_back(marker);
 
-    try {
-      pub_debug_processed_trajectory_markers_.publish(msg_out);
-    }
-    catch (...) {
-      ROS_ERROR("exception caught during publishing topic %s", pub_debug_processed_trajectory_markers_.getTopic().c_str());
-    }
+    pub_debug_processed_trajectory_markers_.publish(msg_out);
   }
 
   //}
@@ -3200,12 +3181,7 @@ void MpcTracker::publishDiagnostics(void) {
     ROS_DEBUG_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
-  try {
-    pub_diagnostics_.publish(diagnostics);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_diagnostics_.getTopic().c_str());
-  }
+  pub_diagnostics_.publish(diagnostics);
 
   std_msgs::String string_msg;
 
@@ -3236,12 +3212,7 @@ void MpcTracker::publishDiagnostics(void) {
     string_msg.data += ss.str() + " UAVs";
   }
 
-  try {
-    pub_status_string_.publish(string_msg);
-  }
-  catch (...) {
-    ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", pub_status_string_.getTopic().c_str());
-  }
+  pub_status_string_.publish(string_msg);
 }
 
 //}
@@ -3459,12 +3430,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       }
     }
 
-    try {
-      publisher_predicted_trajectory_debugging_.publish(debug_trajectory_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_predicted_trajectory_debugging_.getTopic().c_str());
-    }
+    ph_predicted_trajectory_debugging_.publish(debug_trajectory_out);
   }
 
   //}
@@ -3544,12 +3510,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       }
     }
 
-    try {
-      publisher_prediction_full_state_.publish(prediction_fs_out);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", publisher_prediction_full_state_.getTopic().c_str());
-    }
+    ph_prediction_full_state_.publish(prediction_fs_out);
   }
 
   //}
@@ -3789,12 +3750,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
       }
     }
 
-    try {
-      avoidance_trajectory_publisher_.publish(avoidance_trajectory);
-    }
-    catch (...) {
-      ROS_ERROR("[MpcTracker]: exception caught during publishing topic %s", avoidance_trajectory_publisher_.getTopic().c_str());
-    }
+    ph_avoidance_trajectory_.publish(avoidance_trajectory);
   }
 }
 

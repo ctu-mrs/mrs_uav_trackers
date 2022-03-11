@@ -71,6 +71,8 @@ public:
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  ros::NodeHandle nh_;
+
   std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
   bool                                                callbacks_enabled_ = true;
 
@@ -134,7 +136,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
 
-  ros::NodeHandle nh_(parent_nh, "joy_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "joy_tracker");
 
   ros::Time::waitForValid();
 

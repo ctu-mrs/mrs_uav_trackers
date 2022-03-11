@@ -16,6 +16,7 @@
 #include <mrs_lib/subscribe_handler.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/publisher_handler.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -73,6 +74,8 @@ public:
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  ros::NodeHandle nh_;
+
   bool callbacks_enabled_ = true;
 
   std::string _version_;
@@ -80,7 +83,7 @@ private:
 
   std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
 
-  ros::Publisher publisher_rviz_marker_;
+  mrs_lib::PublisherHandler<visualization_msgs::MarkerArray> ph_rviz_marker_;
 
   // | ------------------------ uav state ----------------------- |
 
@@ -128,7 +131,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
 
-  ros::NodeHandle nh_(parent_nh, "speed_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "speed_tracker");
 
   ros::Time::waitForValid();
 
@@ -170,7 +173,7 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
 
   // | ----------------------- publishers ----------------------- |
 
-  publisher_rviz_marker_ = nh_.advertise<visualization_msgs::MarkerArray>("rviz_marker_out", 1);
+  ph_rviz_marker_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "rviz_marker_out", 1);
 
   // | --------------------- finish the init -------------------- |
 
@@ -1069,12 +1072,7 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
 
   //}
 
-  try {
-    publisher_rviz_marker_.publish(msg_out);
-  }
-  catch (...) {
-    ROS_ERROR("[SpeedTracker]: exception caught during publishing topic %s", publisher_rviz_marker_.getTopic().c_str());
-  }
+  ph_rviz_marker_.publish(msg_out);
 }
 
 //}

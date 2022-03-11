@@ -50,6 +50,8 @@ public:
   const std_srvs::TriggerResponse::ConstPtr gotoTrajectoryStart(const std_srvs::TriggerRequest::ConstPtr &cmd);
 
 private:
+  ros::NodeHandle nh_;
+
   bool callbacks_enabled_ = true;
 
   std::string _version_;
@@ -80,7 +82,7 @@ void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[may
   _uav_name_             = uav_name;
   this->common_handlers_ = common_handlers;
 
-  ros::NodeHandle nh_(parent_nh, "midair_activation_tracker");
+  nh_ = ros::NodeHandle(parent_nh, "midair_activation_tracker");
 
   ros::Time::waitForValid();
 
