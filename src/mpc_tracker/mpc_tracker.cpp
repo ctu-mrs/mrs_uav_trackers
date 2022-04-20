@@ -2308,7 +2308,7 @@ void MpcTracker::iterateModel(void) {
 
     dt = (ros::Time::now() - model_iteration_last_time_).toSec();
 
-    if (dt > 0.001 && dt < 2.0) {
+    if (dt < 2.0) {
 
       // clang-format off
         A_ << 1, dt, 0.5*dt*dt, 0,         0, 0,  0,         0,         0, 0,  0,         0,
@@ -2372,6 +2372,8 @@ void MpcTracker::iterateModel(void) {
 
     MatrixXd new_mpc_x         = A_ * mpc_x + B_ * mpc_u;
     MatrixXd new_mpc_x_heading = A_heading_ * mpc_x_heading + B_heading_ * mpc_u_heading;
+
+    ROS_INFO_STREAM("[MpcTracker]: u[0] " << mpc_u[0] << " u[1] " << mpc_u[1]);
 
     // | --------------- check the state difference --------------- |
     {
@@ -3301,8 +3303,12 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     VectorXd des_x_whole_trajectory, des_y_whole_trajectory, des_z_whole_trajectory, des_heading_whole_trajectory;
     double   trajectory_dt;
     int      trajectory_size;
+
+    int trajectory_tracking_idx;
+    int trajectory_tracking_sub_idx;
+
     {
-      std::scoped_lock lock(mutex_des_trajectory_, mutex_des_whole_trajectory_);
+      std::scoped_lock lock(mutex_des_trajectory_, mutex_des_whole_trajectory_, mutex_trajectory_tracking_states_);
 
       des_x_trajectory       = des_x_trajectory_;
       des_y_trajectory       = des_y_trajectory_;
@@ -3318,12 +3324,14 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       trajectory_dt   = trajectory_dt_;
 
       trajectory_id = des_whole_trajectory_id_;
+
+      trajectory_tracking_idx     = trajectory_tracking_idx_;
+      trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
+
+      trajectory_tracking_sub_idx_++;
     }
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
-
-    int trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
-    int trajectory_tracking_idx     = trajectory_tracking_idx_;
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
@@ -3373,12 +3381,6 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     //}
 
-    // increase the trajectory subsampling counter
-    {
-      std::scoped_lock lock(mutex_trajectory_tracking_states_);
-
-      trajectory_tracking_sub_idx_++;
-    }
   } else {
 
     std::scoped_lock lock(mutex_des_whole_trajectory_);
