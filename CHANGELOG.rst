@@ -2,6 +2,16 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* refactored against publisher handler
+* fixed avoidance descend for slower mpc rate
+* refactored agains the new transformer
+* + install in cmakelists
+* add configs: simulation/naki
+* add ScopeTimer and its logger to all trackers
+* Contributors: Pavel Petracek, Tomas Baca
+
 1.0.2 (2021-10-04)
 ------------------
 * added trajectory input id
