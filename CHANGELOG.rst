@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.3 (2022-05-09)
+------------------
 * refactored against publisher handler
 * fixed avoidance descend for slower mpc rate
 * refactored agains the new transformer
