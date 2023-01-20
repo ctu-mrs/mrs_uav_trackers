@@ -2,8 +2,8 @@
 Changelog for package mrs_uav_trackers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.0.4 (2023-01-20)
+------------------
 * updated readme, updated ci
 * fixed collision avoidance flags
 * Contributors: Dan Hert, Tomas Baca
