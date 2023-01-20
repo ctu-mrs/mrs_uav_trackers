@@ -1,4 +1,4 @@
-version: "1.0.3.0"
+version: "1.0.4.0"
 
 vertical_tracker:
   vertical_speed: 0.6
