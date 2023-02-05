@@ -49,11 +49,11 @@ public:
   ~JoyTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -206,7 +206,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd) {
 
   std::stringstream ss;
 
@@ -237,7 +237,7 @@ std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::PositionComma
   {
     std::scoped_lock lock(mutex_state_);
 
-    if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
+    if (mrs_msgs::TrackerCommand::Ptr() != last_position_cmd) {
 
       // the last command is usable
       state_z_       = last_position_cmd->position.z;
@@ -284,7 +284,7 @@ bool JoyTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
@@ -304,11 +304,11 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
   if (!sh_joystick_.hasMsg()) {
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
   // | ------------------ get the joystick data ----------------- |
@@ -332,7 +332,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   ROS_INFO_THROTTLE(1.0, "[JoyTracker]: desired vert_speed: %.2f, heading_speed: %.2f, pitch: %.2f, roll: %.2f", desired_vertical_speed, desired_heading_rate,
                     desired_pitch, desired_roll);
 
-  mrs_msgs::PositionCommand position_cmd;
+  mrs_msgs::TrackerCommand position_cmd;
 
   position_cmd.header.stamp    = ros::Time::now();
   position_cmd.header.frame_id = uav_state->header.frame_id;
@@ -354,7 +354,7 @@ const mrs_msgs::PositionCommand::ConstPtr JoyTracker::update(const mrs_msgs::Uav
   position_cmd.orientation     = mrs_lib::AttitudeConverter(desired_roll, desired_pitch, state_heading_);
   position_cmd.use_orientation = true;
 
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
 }
 
 //}

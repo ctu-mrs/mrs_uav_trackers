@@ -71,11 +71,11 @@ public:
   ~MpcTracker(){};
 
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
@@ -628,7 +628,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::PositionCommand::ConstPtr& last_position_cmd) {
+std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd) {
 
   std::stringstream ss;
 
@@ -656,7 +656,7 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::PositionComma
   MatrixXd mpc_x         = MatrixXd::Zero(_mpc_n_states_, 1);
   MatrixXd mpc_x_heading = MatrixXd::Zero(_mpc_n_states_heading_, 1);
 
-  if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
+  if (mrs_msgs::TrackerCommand::Ptr() != last_position_cmd) {
 
     // set the initial condition from the last tracker's cmd
 
@@ -894,7 +894,7 @@ bool MpcTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         uav_state,
+const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         uav_state,
                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
@@ -904,10 +904,10 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
-  mrs_msgs::PositionCommand position_cmd;
+  mrs_msgs::TrackerCommand position_cmd;
 
   if (!mpc_computed_ || mpc_result_invalid_) {
 
@@ -960,7 +960,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
       ROS_WARN_THROTTLE(1.0, "[MpcTracker]: could not calculate the current UAV heading rate");
     }
 
-    return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+    return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
   }
 
   iterateModel();
@@ -1004,7 +1004,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: MPC outputs are not finite!");
 
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
   bool heading_finite = true;
@@ -1030,7 +1030,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
     ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: heading output is not finite!");
 
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
   // set the header
@@ -1039,7 +1039,7 @@ const mrs_msgs::PositionCommand::ConstPtr MpcTracker::update(const mrs_msgs::Uav
 
   // u have to return a position command
   // can set the jerk to 0
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
 }
 
 //}

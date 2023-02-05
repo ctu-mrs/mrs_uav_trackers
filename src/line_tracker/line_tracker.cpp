@@ -65,11 +65,11 @@ public:
   ~LineTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -278,7 +278,7 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> LineTracker::activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> LineTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd) {
 
   std::stringstream ss;
 
@@ -305,7 +305,7 @@ std::tuple<bool, std::string> LineTracker::activate(const mrs_msgs::PositionComm
   {
     std::scoped_lock lock(mutex_goal_, mutex_state_);
 
-    if (mrs_msgs::PositionCommand::Ptr() != last_position_cmd) {
+    if (mrs_msgs::TrackerCommand::Ptr() != last_position_cmd) {
 
       // the last command is usable
       if (last_position_cmd->use_position_horizontal) {
@@ -505,7 +505,7 @@ bool LineTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+const mrs_msgs::TrackerCommand::ConstPtr LineTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                               [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
@@ -524,10 +524,10 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
-  mrs_msgs::PositionCommand position_cmd;
+  mrs_msgs::TrackerCommand position_cmd;
 
   position_cmd.header.stamp    = ros::Time::now();
   position_cmd.header.frame_id = uav_state->header.frame_id;
@@ -558,7 +558,7 @@ const mrs_msgs::PositionCommand::ConstPtr LineTracker::update(const mrs_msgs::Ua
     position_cmd.use_acceleration        = 1;
   }
 
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
 }
 
 //}

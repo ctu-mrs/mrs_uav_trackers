@@ -28,11 +28,11 @@ public:
   ~MidairActivationTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::PositionCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -109,7 +109,7 @@ void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[may
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const mrs_msgs::PositionCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd) {
 
   std::stringstream ss;
 
@@ -145,19 +145,19 @@ bool MidairActivationTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::PositionCommand::ConstPtr MidairActivationTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
+const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
                                                                           [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::PositionCommand::Ptr();
+    return mrs_msgs::TrackerCommand::Ptr();
   }
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
   mrs_lib::ScopeTimer timer =
       mrs_lib::ScopeTimer("MidairActivationTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
-  mrs_msgs::PositionCommand position_cmd;
+  mrs_msgs::TrackerCommand position_cmd;
 
   position_cmd.header.frame_id = uav_state->header.frame_id;
   position_cmd.header.stamp    = ros::Time::now();
@@ -188,7 +188,7 @@ const mrs_msgs::PositionCommand::ConstPtr MidairActivationTracker::update(const 
 
   ROS_WARN_THROTTLE(0.1, "[MidairActivationTracker]: outputting cmd");
 
-  return mrs_msgs::PositionCommand::ConstPtr(new mrs_msgs::PositionCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
 }
 
 //}
