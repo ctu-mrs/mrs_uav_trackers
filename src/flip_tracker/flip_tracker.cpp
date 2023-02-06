@@ -66,11 +66,11 @@ public:
   ~FlipTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -141,7 +141,7 @@ private:
   // | ------------------------ flipping ------------------------ |
 
   mrs_msgs::TrackerCommand activation_cmd_;
-  ros::Time                 state_change_time_;
+  ros::Time                state_change_time_;
 
   States_t   current_state_ = STATE_IDLE;
   std::mutex mutex_current_state_;
@@ -265,7 +265,7 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -275,7 +275,7 @@ std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_m
     return std::tuple(false, ss.str());
   }
 
-  if (last_position_cmd == mrs_msgs::TrackerCommand::Ptr()) {
+  if (last_tracker_cmd == mrs_msgs::TrackerCommand::Ptr()) {
     ss << "last position cmd not valid";
     ROS_ERROR_STREAM("[FlipTracker]: " << ss.str());
     return std::tuple(false, ss.str());
@@ -290,7 +290,7 @@ std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_m
 
   // save the activation cmd
   {
-    activation_cmd_ = *last_position_cmd;
+    activation_cmd_ = *last_tracker_cmd;
 
     activation_cmd_.velocity.x = 0;
     activation_cmd_.velocity.y = 0;
@@ -342,7 +342,7 @@ bool FlipTracker::resetStatic(void) {
 /* //{ update() */
 
 const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                              [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   auto current_state = mrs_lib::get_mutexed(mutex_current_state_, current_state_);
   auto drs_params    = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
@@ -363,9 +363,9 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
     return mrs_msgs::TrackerCommand::Ptr();
   }
 
-  mrs_msgs::TrackerCommand position_cmd = activation_cmd_;
+  mrs_msgs::TrackerCommand tracker_cmd = activation_cmd_;
 
-  position_cmd.header.stamp = ros::Time::now();
+  tracker_cmd.header.stamp = ros::Time::now();
 
   // rotate the drone's z axis
   tf2::Transform uav_state_transform = mrs_lib::AttitudeConverter(uav_state->pose.orientation);
@@ -384,60 +384,60 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
     case STATE_IDLE: {
 
-      position_cmd.use_position_vertical   = true;
-      position_cmd.use_position_horizontal = true;
+      tracker_cmd.use_position_vertical   = true;
+      tracker_cmd.use_position_horizontal = true;
 
-      position_cmd.use_velocity_vertical   = true;
-      position_cmd.use_velocity_horizontal = true;
+      tracker_cmd.use_velocity_vertical   = true;
+      tracker_cmd.use_velocity_horizontal = true;
 
-      position_cmd.use_acceleration = false;
-      position_cmd.use_jerk         = false;
-      position_cmd.use_snap         = false;
+      tracker_cmd.use_acceleration = false;
+      tracker_cmd.use_jerk         = false;
+      tracker_cmd.use_snap         = false;
 
-      position_cmd.use_heading              = true;
-      position_cmd.use_heading_rate         = false;
-      position_cmd.use_heading_acceleration = false;
-      position_cmd.use_heading_jerk         = false;
+      tracker_cmd.use_heading              = true;
+      tracker_cmd.use_heading_rate         = false;
+      tracker_cmd.use_heading_acceleration = false;
+      tracker_cmd.use_heading_jerk         = false;
 
-      position_cmd.use_orientation = false;
+      tracker_cmd.use_orientation = false;
 
-      position_cmd.use_attitude_rate = false;
+      tracker_cmd.use_attitude_rate = false;
 
       break;
     }
 
     case STATE_ACCELERATION: {
 
-      position_cmd.use_position_vertical   = false;
-      position_cmd.use_position_horizontal = true;
+      tracker_cmd.use_position_vertical   = false;
+      tracker_cmd.use_position_horizontal = true;
 
-      position_cmd.use_velocity_vertical   = true;
-      position_cmd.use_velocity_horizontal = true;
+      tracker_cmd.use_velocity_vertical   = true;
+      tracker_cmd.use_velocity_horizontal = true;
 
-      position_cmd.use_acceleration = true;
+      tracker_cmd.use_acceleration = true;
 
-      /* position_cmd.use_acceleration = true; */
+      /* tracker_cmd.use_acceleration = true; */
 
-      position_cmd.use_jerk = false;
+      tracker_cmd.use_jerk = false;
 
-      position_cmd.use_snap = false;
+      tracker_cmd.use_snap = false;
 
-      position_cmd.use_heading              = true;
-      position_cmd.use_heading_rate         = false;
-      position_cmd.use_heading_acceleration = false;
-      position_cmd.use_heading_jerk         = false;
+      tracker_cmd.use_heading              = true;
+      tracker_cmd.use_heading_rate         = false;
+      tracker_cmd.use_heading_acceleration = false;
+      tracker_cmd.use_heading_jerk         = false;
 
-      position_cmd.use_orientation = false;
+      tracker_cmd.use_orientation = false;
 
-      position_cmd.use_attitude_rate = false;
+      tracker_cmd.use_attitude_rate = false;
 
       if (rampup_active_) {
 
         // deactivate the rampup when the times up
         if (fabs((ros::Time::now() - rampup_start_time_).toSec()) >= rampup_duration_) {
 
-          rampup_active_              = false;
-          position_cmd.acceleration.z = z_acceleration_acc_;
+          rampup_active_             = false;
+          tracker_cmd.acceleration.z = z_acceleration_acc_;
 
           ROS_INFO("[FlipTracker]: rampup finished");
 
@@ -449,18 +449,18 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
           rampup_last_time_ = ros::Time::now();
 
-          position_cmd.acceleration.z = rampup_acc_;
+          tracker_cmd.acceleration.z = rampup_acc_;
 
           ROS_INFO_THROTTLE(0.1, "[FlipTracker]: ramping up acceleration, %.4f", rampup_acc_);
         }
 
       } else {
-        position_cmd.acceleration.z = z_acceleration_acc_;
+        tracker_cmd.acceleration.z = z_acceleration_acc_;
       }
 
-      position_cmd.acceleration.z = z_acceleration_acc_;
+      tracker_cmd.acceleration.z = z_acceleration_acc_;
 
-      position_cmd.velocity.z = z_vel_gained_by_flipping_;
+      tracker_cmd.velocity.z = z_vel_gained_by_flipping_;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= 2 * z_acceleration_duration_) {
         ROS_INFO("[FlipTracker]: acceleration timeouted, recovering");
@@ -479,41 +479,41 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
     case STATE_FLIPPING_PULSE: {
 
-      position_cmd.use_position_vertical   = false;
-      position_cmd.use_position_horizontal = false;
+      tracker_cmd.use_position_vertical   = false;
+      tracker_cmd.use_position_horizontal = false;
 
-      position_cmd.use_velocity_vertical   = false;
-      position_cmd.use_velocity_horizontal = false;
+      tracker_cmd.use_velocity_vertical   = false;
+      tracker_cmd.use_velocity_horizontal = false;
 
-      position_cmd.use_acceleration = false;
+      tracker_cmd.use_acceleration = false;
 
-      position_cmd.use_jerk = false;
+      tracker_cmd.use_jerk = false;
 
-      position_cmd.use_snap = false;
+      tracker_cmd.use_snap = false;
 
-      position_cmd.use_heading              = false;
-      position_cmd.use_heading_rate         = false;
-      position_cmd.use_heading_acceleration = false;
-      position_cmd.use_heading_jerk         = false;
+      tracker_cmd.use_heading              = false;
+      tracker_cmd.use_heading_rate         = false;
+      tracker_cmd.use_heading_acceleration = false;
+      tracker_cmd.use_heading_jerk         = false;
 
-      position_cmd.use_orientation = false;
+      tracker_cmd.use_orientation = false;
 
       double direction = drs_params.direction == 0 ? 1.0 : -1.0;
 
       if (drs_params.axis == 0) {
-        position_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+        tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
       } else if (drs_params.axis == 1) {
-        position_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+        tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
       }
 
-      position_cmd.use_attitude_rate = true;
+      tracker_cmd.use_attitude_rate = true;
 
       if (tilt_angle <= M_PI / 2.0) {
-        position_cmd.thrust = hover_thrust * cos(tilt_angle);
+        tracker_cmd.thrust = hover_thrust * cos(tilt_angle);
       } else {
-        position_cmd.thrust = 0;
+        tracker_cmd.thrust = 0;
       }
-      position_cmd.use_thrust = true;
+      tracker_cmd.use_thrust = true;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _pulse_timeout_) {
 
@@ -538,33 +538,33 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
     case STATE_FLIPPING_INTERTIA: {
 
-      position_cmd.use_position_vertical   = false;
-      position_cmd.use_position_horizontal = false;
+      tracker_cmd.use_position_vertical   = false;
+      tracker_cmd.use_position_horizontal = false;
 
-      position_cmd.use_velocity_vertical   = false;
-      position_cmd.use_velocity_horizontal = false;
+      tracker_cmd.use_velocity_vertical   = false;
+      tracker_cmd.use_velocity_horizontal = false;
 
-      position_cmd.use_acceleration = false;
+      tracker_cmd.use_acceleration = false;
 
-      position_cmd.use_jerk = false;
+      tracker_cmd.use_jerk = false;
 
-      position_cmd.use_snap = false;
+      tracker_cmd.use_snap = false;
 
-      position_cmd.use_heading              = false;
-      position_cmd.use_heading_rate         = false;
-      position_cmd.use_heading_acceleration = false;
-      position_cmd.use_heading_jerk         = false;
+      tracker_cmd.use_heading              = false;
+      tracker_cmd.use_heading_rate         = false;
+      tracker_cmd.use_heading_acceleration = false;
+      tracker_cmd.use_heading_jerk         = false;
 
-      position_cmd.use_orientation = false;
+      tracker_cmd.use_orientation = false;
 
-      position_cmd.use_attitude_rate = true;
+      tracker_cmd.use_attitude_rate = true;
 
-      position_cmd.attitude_rate.x = 0;
-      position_cmd.attitude_rate.y = 0;
-      position_cmd.attitude_rate.z = 0;
+      tracker_cmd.attitude_rate.x = 0;
+      tracker_cmd.attitude_rate.y = 0;
+      tracker_cmd.attitude_rate.z = 0;
 
-      position_cmd.thrust     = 0;
-      position_cmd.use_thrust = true;
+      tracker_cmd.thrust     = 0;
+      tracker_cmd.use_thrust = true;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _innertia_timeout_) {
 
@@ -591,24 +591,24 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
       activation_cmd_.position.z = uav_state->pose.position.z;
 
-      position_cmd.use_position_vertical   = false;
-      position_cmd.use_position_horizontal = true;
+      tracker_cmd.use_position_vertical   = false;
+      tracker_cmd.use_position_horizontal = true;
 
-      position_cmd.use_velocity_vertical   = true;
-      position_cmd.use_velocity_horizontal = true;
+      tracker_cmd.use_velocity_vertical   = true;
+      tracker_cmd.use_velocity_horizontal = true;
 
-      position_cmd.use_acceleration = false;
-      position_cmd.use_jerk         = false;
-      position_cmd.use_snap         = false;
+      tracker_cmd.use_acceleration = false;
+      tracker_cmd.use_jerk         = false;
+      tracker_cmd.use_snap         = false;
 
-      position_cmd.use_heading              = true;
-      position_cmd.use_heading_rate         = false;
-      position_cmd.use_heading_acceleration = false;
-      position_cmd.use_heading_jerk         = false;
+      tracker_cmd.use_heading              = true;
+      tracker_cmd.use_heading_rate         = false;
+      tracker_cmd.use_heading_acceleration = false;
+      tracker_cmd.use_heading_jerk         = false;
 
-      position_cmd.use_orientation = false;
+      tracker_cmd.use_orientation = false;
 
-      position_cmd.use_attitude_rate = false;
+      tracker_cmd.use_attitude_rate = false;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _recovery_duration_) {
 
@@ -620,7 +620,7 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
     }
   }
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
 }
 
 //}

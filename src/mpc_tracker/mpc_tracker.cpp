@@ -71,11 +71,11 @@ public:
   ~MpcTracker(){};
 
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
@@ -628,7 +628,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd) {
+std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -656,42 +656,42 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerComman
   MatrixXd mpc_x         = MatrixXd::Zero(_mpc_n_states_, 1);
   MatrixXd mpc_x_heading = MatrixXd::Zero(_mpc_n_states_heading_, 1);
 
-  if (mrs_msgs::TrackerCommand::Ptr() != last_position_cmd) {
+  if (mrs_msgs::TrackerCommand::Ptr() != last_tracker_cmd) {
 
     // set the initial condition from the last tracker's cmd
 
-    if (last_position_cmd->use_position_horizontal) {
-      mpc_x(0, 0) = last_position_cmd->position.x;
-      mpc_x(4, 0) = last_position_cmd->position.y;
+    if (last_tracker_cmd->use_position_horizontal) {
+      mpc_x(0, 0) = last_tracker_cmd->position.x;
+      mpc_x(4, 0) = last_tracker_cmd->position.y;
     } else {
       mpc_x(0, 0) = uav_state.pose.position.x;
       mpc_x(4, 0) = uav_state.pose.position.y;
     }
 
-    if (last_position_cmd->use_position_vertical) {
-      mpc_x(8, 0) = last_position_cmd->position.z;
+    if (last_tracker_cmd->use_position_vertical) {
+      mpc_x(8, 0) = last_tracker_cmd->position.z;
     } else {
       mpc_x(8, 0) = uav_state.pose.position.z;
     }
 
-    if (last_position_cmd->use_velocity_horizontal) {
-      mpc_x(1, 0) = last_position_cmd->velocity.x;
-      mpc_x(5, 0) = last_position_cmd->velocity.y;
+    if (last_tracker_cmd->use_velocity_horizontal) {
+      mpc_x(1, 0) = last_tracker_cmd->velocity.x;
+      mpc_x(5, 0) = last_tracker_cmd->velocity.y;
     } else {
       mpc_x(1, 0) = uav_state.velocity.linear.x;
       mpc_x(5, 0) = uav_state.velocity.linear.y;
     }
 
-    if (last_position_cmd->use_velocity_vertical) {
-      mpc_x(9, 0) = last_position_cmd->velocity.z;
+    if (last_tracker_cmd->use_velocity_vertical) {
+      mpc_x(9, 0) = last_tracker_cmd->velocity.z;
     } else {
       mpc_x(9, 0) = uav_state.velocity.linear.z;
     }
 
-    if (last_position_cmd->use_acceleration) {
-      mpc_x(2, 0)  = last_position_cmd->acceleration.x;
-      mpc_x(6, 0)  = last_position_cmd->acceleration.y;
-      mpc_x(10, 0) = last_position_cmd->acceleration.z;
+    if (last_tracker_cmd->use_acceleration) {
+      mpc_x(2, 0)  = last_tracker_cmd->acceleration.x;
+      mpc_x(6, 0)  = last_tracker_cmd->acceleration.y;
+      mpc_x(10, 0) = last_tracker_cmd->acceleration.z;
     } else {
       mpc_x(2, 0)  = 0;
       mpc_x(6, 0)  = 0;
@@ -703,11 +703,11 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerComman
     mpc_x(7, 0)  = 0;
     mpc_x(11, 0) = 0;
 
-    if (last_position_cmd->use_heading) {
-      mpc_x_heading(0, 0) = last_position_cmd->heading;
-    } else if (last_position_cmd->use_orientation) {
+    if (last_tracker_cmd->use_heading) {
+      mpc_x_heading(0, 0) = last_tracker_cmd->heading;
+    } else if (last_tracker_cmd->use_orientation) {
       try {
-        mpc_x_heading(0, 0) = mrs_lib::AttitudeConverter(last_position_cmd->orientation).getHeading();
+        mpc_x_heading(0, 0) = mrs_lib::AttitudeConverter(last_tracker_cmd->orientation).getHeading();
       }
       catch (...) {
         mpc_x_heading(0, 0) = uav_state_heading;
@@ -716,8 +716,8 @@ std::tuple<bool, std::string> MpcTracker::activate(const mrs_msgs::TrackerComman
       mpc_x_heading(0, 0) = uav_state_heading;
     }
 
-    if (last_position_cmd->use_heading_rate) {
-      mpc_x_heading(1, 0) = last_position_cmd->heading_rate;
+    if (last_tracker_cmd->use_heading_rate) {
+      mpc_x_heading(1, 0) = last_tracker_cmd->heading_rate;
     } else {
       mpc_x_heading(1, 0) = uav_state.velocity.angular.z;
     }
@@ -895,7 +895,7 @@ bool MpcTracker::resetStatic(void) {
 /* //{ update() */
 
 const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavState::ConstPtr&                         uav_state,
-                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
+                                                            [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
   mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
@@ -907,60 +907,60 @@ const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavS
     return mrs_msgs::TrackerCommand::Ptr();
   }
 
-  mrs_msgs::TrackerCommand position_cmd;
+  mrs_msgs::TrackerCommand tracker_cmd;
 
   if (!mpc_computed_ || mpc_result_invalid_) {
 
     ROS_WARN_THROTTLE(0.1, "[MpcTracker]: MPC not ready, returning current odom as the command");
 
     // set the header
-    position_cmd.header.stamp    = uav_state->header.stamp;
-    position_cmd.header.frame_id = uav_state->header.frame_id;
+    tracker_cmd.header.stamp    = uav_state->header.stamp;
+    tracker_cmd.header.frame_id = uav_state->header.frame_id;
 
     // set positions from odom
-    position_cmd.position.x              = uav_state->pose.position.x;
-    position_cmd.position.y              = uav_state->pose.position.y;
-    position_cmd.position.z              = uav_state->pose.position.z;
-    position_cmd.use_position_vertical   = 1;
-    position_cmd.use_position_horizontal = 1;
+    tracker_cmd.position.x              = uav_state->pose.position.x;
+    tracker_cmd.position.y              = uav_state->pose.position.y;
+    tracker_cmd.position.z              = uav_state->pose.position.z;
+    tracker_cmd.use_position_vertical   = 1;
+    tracker_cmd.use_position_horizontal = 1;
 
     // set velocities from odom
-    position_cmd.velocity.x              = uav_state->velocity.linear.x;
-    position_cmd.velocity.y              = uav_state->velocity.linear.y;
-    position_cmd.velocity.z              = uav_state->velocity.linear.z;
-    position_cmd.use_velocity_vertical   = 1;
-    position_cmd.use_velocity_horizontal = 1;
+    tracker_cmd.velocity.x              = uav_state->velocity.linear.x;
+    tracker_cmd.velocity.y              = uav_state->velocity.linear.y;
+    tracker_cmd.velocity.z              = uav_state->velocity.linear.z;
+    tracker_cmd.use_velocity_vertical   = 1;
+    tracker_cmd.use_velocity_horizontal = 1;
 
     // set zero accelerations
-    position_cmd.acceleration.x   = 0;
-    position_cmd.acceleration.y   = 0;
-    position_cmd.acceleration.z   = 0;
-    position_cmd.use_acceleration = 1;
+    tracker_cmd.acceleration.x   = 0;
+    tracker_cmd.acceleration.y   = 0;
+    tracker_cmd.acceleration.z   = 0;
+    tracker_cmd.use_acceleration = 1;
 
     try {
-      position_cmd.heading     = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
-      position_cmd.use_heading = 1;
+      tracker_cmd.heading     = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+      tracker_cmd.use_heading = 1;
     }
     catch (...) {
-      position_cmd.use_heading = 0;
+      tracker_cmd.use_heading = 0;
       ROS_WARN_THROTTLE(1.0, "[MpcTracker]: could not calculate the current UAV heading");
     }
 
     // set zero jerk
-    position_cmd.jerk.x = 0;
-    position_cmd.jerk.y = 0;
-    position_cmd.jerk.z = 0;
+    tracker_cmd.jerk.x = 0;
+    tracker_cmd.jerk.y = 0;
+    tracker_cmd.jerk.z = 0;
 
     try {
-      position_cmd.heading_rate     = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeadingRate(uav_state->velocity.angular);
-      position_cmd.use_heading_rate = 1;
+      tracker_cmd.heading_rate     = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeadingRate(uav_state->velocity.angular);
+      tracker_cmd.use_heading_rate = 1;
     }
     catch (...) {
-      position_cmd.use_heading_rate = 0;
+      tracker_cmd.use_heading_rate = 0;
       ROS_WARN_THROTTLE(1.0, "[MpcTracker]: could not calculate the current UAV heading rate");
     }
 
-    return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
+    return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
   }
 
   iterateModel();
@@ -978,27 +978,27 @@ const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavS
   if (arefinite) {
 
     // set the desired states base on the result of the mpc
-    position_cmd.position.x     = mpc_x(0, 0);
-    position_cmd.velocity.x     = mpc_x(1, 0);
-    position_cmd.acceleration.x = mpc_x(2, 0);
-    position_cmd.jerk.x         = mpc_x(3, 0);
+    tracker_cmd.position.x     = mpc_x(0, 0);
+    tracker_cmd.velocity.x     = mpc_x(1, 0);
+    tracker_cmd.acceleration.x = mpc_x(2, 0);
+    tracker_cmd.jerk.x         = mpc_x(3, 0);
 
-    position_cmd.position.y     = mpc_x(4, 0);
-    position_cmd.velocity.y     = mpc_x(5, 0);
-    position_cmd.acceleration.y = mpc_x(6, 0);
-    position_cmd.jerk.y         = mpc_x(7, 0);
+    tracker_cmd.position.y     = mpc_x(4, 0);
+    tracker_cmd.velocity.y     = mpc_x(5, 0);
+    tracker_cmd.acceleration.y = mpc_x(6, 0);
+    tracker_cmd.jerk.y         = mpc_x(7, 0);
 
-    position_cmd.position.z     = mpc_x(8, 0);
-    position_cmd.velocity.z     = mpc_x(9, 0);
-    position_cmd.acceleration.z = mpc_x(10, 0);
-    position_cmd.jerk.z         = mpc_x(11, 0);
+    tracker_cmd.position.z     = mpc_x(8, 0);
+    tracker_cmd.velocity.z     = mpc_x(9, 0);
+    tracker_cmd.acceleration.z = mpc_x(10, 0);
+    tracker_cmd.jerk.z         = mpc_x(11, 0);
 
-    position_cmd.use_position_vertical   = 1;
-    position_cmd.use_position_horizontal = 1;
-    position_cmd.use_velocity_vertical   = 1;
-    position_cmd.use_velocity_horizontal = 1;
-    position_cmd.use_acceleration        = 1;
-    position_cmd.use_jerk                = 1;
+    tracker_cmd.use_position_vertical   = 1;
+    tracker_cmd.use_position_horizontal = 1;
+    tracker_cmd.use_velocity_vertical   = 1;
+    tracker_cmd.use_velocity_horizontal = 1;
+    tracker_cmd.use_acceleration        = 1;
+    tracker_cmd.use_jerk                = 1;
 
   } else {
 
@@ -1016,15 +1016,15 @@ const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavS
 
   if (heading_finite) {
 
-    position_cmd.heading              = mpc_x_heading(0, 0);
-    position_cmd.heading_rate         = mpc_x_heading(1, 0);
-    position_cmd.heading_acceleration = mpc_x_heading(2, 0);
-    position_cmd.heading_jerk         = mpc_x_heading(3, 0);
+    tracker_cmd.heading              = mpc_x_heading(0, 0);
+    tracker_cmd.heading_rate         = mpc_x_heading(1, 0);
+    tracker_cmd.heading_acceleration = mpc_x_heading(2, 0);
+    tracker_cmd.heading_jerk         = mpc_x_heading(3, 0);
 
-    position_cmd.use_heading              = 1;
-    position_cmd.use_heading_rate         = 1;
-    position_cmd.use_heading_acceleration = 1;
-    position_cmd.use_heading_jerk         = 1;
+    tracker_cmd.use_heading              = 1;
+    tracker_cmd.use_heading_rate         = 1;
+    tracker_cmd.use_heading_acceleration = 1;
+    tracker_cmd.use_heading_jerk         = 1;
 
   } else {
 
@@ -1034,12 +1034,12 @@ const mrs_msgs::TrackerCommand::ConstPtr MpcTracker::update(const mrs_msgs::UavS
   }
 
   // set the header
-  position_cmd.header.stamp    = uav_state->header.stamp;
-  position_cmd.header.frame_id = uav_state->header.frame_id;
+  tracker_cmd.header.stamp    = uav_state->header.stamp;
+  tracker_cmd.header.frame_id = uav_state->header.frame_id;
 
   // u have to return a position command
   // can set the jerk to 0
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
 }
 
 //}

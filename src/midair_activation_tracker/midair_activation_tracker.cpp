@@ -28,11 +28,11 @@ public:
   ~MidairActivationTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -109,7 +109,7 @@ void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[may
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_position_cmd) {
+std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -146,7 +146,7 @@ bool MidairActivationTracker::resetStatic(void) {
 /* //{ update() */
 
 const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                                          [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+                                                                         [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
@@ -157,38 +157,38 @@ const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const m
   mrs_lib::ScopeTimer timer =
       mrs_lib::ScopeTimer("MidairActivationTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
-  mrs_msgs::TrackerCommand position_cmd;
+  mrs_msgs::TrackerCommand tracker_cmd;
 
-  position_cmd.header.frame_id = uav_state->header.frame_id;
-  position_cmd.header.stamp    = ros::Time::now();
+  tracker_cmd.header.frame_id = uav_state->header.frame_id;
+  tracker_cmd.header.stamp    = ros::Time::now();
 
-  position_cmd.position.x = uav_state->pose.position.x;
-  position_cmd.position.y = uav_state->pose.position.y;
-  position_cmd.position.z = uav_state->pose.position.z;
+  tracker_cmd.position.x = uav_state->pose.position.x;
+  tracker_cmd.position.y = uav_state->pose.position.y;
+  tracker_cmd.position.z = uav_state->pose.position.z;
 
-  position_cmd.velocity.x = uav_state->velocity.linear.x;
-  position_cmd.velocity.y = uav_state->velocity.linear.y;
-  position_cmd.velocity.z = uav_state->velocity.linear.z;
+  tracker_cmd.velocity.x = uav_state->velocity.linear.x;
+  tracker_cmd.velocity.y = uav_state->velocity.linear.y;
+  tracker_cmd.velocity.z = uav_state->velocity.linear.z;
 
   try {
-    position_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
   }
   catch (...) {
-    position_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
+    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
     ROS_WARN_THROTTLE(1.0, "[MidairActivationTracker]: could not get heading");
   }
 
-  position_cmd.use_position_vertical   = true;
-  position_cmd.use_position_horizontal = true;
+  tracker_cmd.use_position_vertical   = true;
+  tracker_cmd.use_position_horizontal = true;
 
-  position_cmd.use_velocity_vertical   = true;
-  position_cmd.use_velocity_horizontal = true;
+  tracker_cmd.use_velocity_vertical   = true;
+  tracker_cmd.use_velocity_horizontal = true;
 
-  position_cmd.use_heading = true;
+  tracker_cmd.use_heading = true;
 
   ROS_WARN_THROTTLE(0.1, "[MidairActivationTracker]: outputting cmd");
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_cmd));
+  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
 }
 
 //}

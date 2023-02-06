@@ -67,11 +67,11 @@ public:
   ~LandoffTracker(){};
 
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd);
+  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
@@ -316,7 +316,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr& last_position_cmd) {
+std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -464,7 +464,7 @@ bool LandoffTracker::resetStatic(void) {
 /* //{ update() */
 
 const mrs_msgs::TrackerCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&        uav_state,
-                                                                 const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
+                                                                const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("LandoffTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
