@@ -30,7 +30,7 @@ set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 set(LIBRARIES
-  MpcTracker LineTracker LandoffTracker JoyTracker MatlabTracker SpeedTracker FlipTracker MidairActivationTracker
+  MpcTracker LineTracker LandoffTracker JoyTracker SpeedTracker FlipTracker MidairActivationTracker
   )
 
 catkin_package(
@@ -136,21 +136,6 @@ add_dependencies(JoyTracker
   )
 
 target_link_libraries(JoyTracker
-  ${catkin_LIBRARIES}
-  )
-
-# Matlab tracker
-
-add_library(MatlabTracker
-  src/matlab_tracker/matlab_tracker.cpp
-  )
-
-add_dependencies(MatlabTracker
-  ${catkin_EXPORTED_TARGETS}
-  ${${PROJECT_NAME}_EXPORTED_TARGETS}
-  )
-
-target_link_libraries(MatlabTracker
   ${catkin_LIBRARIES}
   )
 

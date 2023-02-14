@@ -20,7 +20,6 @@
 #include <mrs_uav_trackers/flip_trackerConfig.h>
 
 #include <mrs_msgs/String.h>
-#include <mrs_msgs/AttitudeCommand.h>
 #include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <visualization_msgs/Marker.h>
@@ -66,11 +65,11 @@ public:
   ~FlipTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd);
+  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -265,7 +264,7 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd) {
+std::tuple<bool, std::string> FlipTracker::activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -275,7 +274,7 @@ std::tuple<bool, std::string> FlipTracker::activate([[maybe_unused]] const mrs_m
     return std::tuple(false, ss.str());
   }
 
-  if (last_tracker_cmd == mrs_msgs::TrackerCommand::Ptr()) {
+  if (!last_tracker_cmd) {
     ss << "last position cmd not valid";
     ROS_ERROR_STREAM("[FlipTracker]: " << ss.str());
     return std::tuple(false, ss.str());
@@ -341,8 +340,8 @@ bool FlipTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                             [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+std::optional<mrs_msgs::TrackerCommand> FlipTracker::update(const mrs_msgs::UavState &                                          uav_state,
+                                                            [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   auto current_state = mrs_lib::get_mutexed(mutex_current_state_, current_state_);
   auto drs_params    = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
@@ -353,14 +352,14 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *uav_state;
+    uav_state_ = uav_state;
 
     got_uav_state_ = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::TrackerCommand::Ptr();
+    return {};
   }
 
   mrs_msgs::TrackerCommand tracker_cmd = activation_cmd_;
@@ -368,7 +367,7 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
   tracker_cmd.header.stamp = ros::Time::now();
 
   // rotate the drone's z axis
-  tf2::Transform uav_state_transform = mrs_lib::AttitudeConverter(uav_state->pose.orientation);
+  tf2::Transform uav_state_transform = mrs_lib::AttitudeConverter(uav_state.pose.orientation);
   tf2::Vector3   uav_z_in_world      = uav_state_transform * tf2::Vector3(0, 0, 1);
 
   // calculate the angle between the drone's z axis and the world's z axis
@@ -468,7 +467,7 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
         state_change_time_ = ros::Time::now();
       }
 
-      if (uav_state->velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
+      if (uav_state.velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
         ROS_INFO("[FlipTracker]: z vel exceeded %.2f, flipping", z_vel_gained_by_flipping_);
         mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_PULSE, current_state_);
         state_change_time_ = ros::Time::now();
@@ -589,7 +588,7 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
 
     case STATE_RECOVERY: {
 
-      activation_cmd_.position.z = uav_state->pose.position.z;
+      activation_cmd_.position.z = uav_state.pose.position.z;
 
       tracker_cmd.use_position_vertical   = false;
       tracker_cmd.use_position_horizontal = true;
@@ -620,7 +619,7 @@ const mrs_msgs::TrackerCommand::ConstPtr FlipTracker::update(const mrs_msgs::Uav
     }
   }
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
+  return {tracker_cmd};
 }
 
 //}

@@ -16,12 +16,6 @@
   </class>
 </library>
 
-<library path="lib/libMatlabTracker">
-  <class name="mrs_uav_trackers/MatlabTracker" type="mrs_uav_trackers::matlab_tracker::MatlabTracker" base_class_type="mrs_uav_managers::Tracker">
-    <description>This is the Matlab tracker.</description>
-  </class>
-</library>
-
 <library path="lib/libMpcTracker">
   <class name="mrs_uav_trackers/MpcTracker" type="mrs_uav_trackers::mpc_tracker::MpcTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is MPC tracker.</description>

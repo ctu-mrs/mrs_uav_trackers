@@ -49,11 +49,11 @@ public:
   ~JoyTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd);
+  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -206,7 +206,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd) {
+std::tuple<bool, std::string> JoyTracker::activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -237,7 +237,7 @@ std::tuple<bool, std::string> JoyTracker::activate(const mrs_msgs::TrackerComman
   {
     std::scoped_lock lock(mutex_state_);
 
-    if (mrs_msgs::TrackerCommand::Ptr() != last_tracker_cmd) {
+    if (last_tracker_cmd) {
 
       // the last command is usable
       state_z_       = last_tracker_cmd->position.z;
@@ -284,8 +284,8 @@ bool JoyTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                            [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+std::optional<mrs_msgs::TrackerCommand> JoyTracker::update(const mrs_msgs::UavState &                                          uav_state,
+                                                           [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
   mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("JoyTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
@@ -293,7 +293,7 @@ const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavS
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *uav_state;
+    uav_state_ = uav_state;
 
     got_uav_state_ = true;
   }
@@ -304,11 +304,11 @@ const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavS
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::TrackerCommand::Ptr();
+    return {};
   }
 
   if (!sh_joystick_.hasMsg()) {
-    return mrs_msgs::TrackerCommand::Ptr();
+    return {};
   }
 
   // | ------------------ get the joystick data ----------------- |
@@ -335,14 +335,14 @@ const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavS
   mrs_msgs::TrackerCommand tracker_cmd;
 
   tracker_cmd.header.stamp    = ros::Time::now();
-  tracker_cmd.header.frame_id = uav_state->header.frame_id;
+  tracker_cmd.header.frame_id = uav_state.header.frame_id;
 
   tracker_cmd.use_position_vertical = true;
   tracker_cmd.position.z            = state_z_;
 
   // filling these anyway to allow visualization of the reference
-  tracker_cmd.position.x = uav_state->pose.position.x;
-  tracker_cmd.position.y = uav_state->pose.position.y;
+  tracker_cmd.position.x = uav_state.pose.position.x;
+  tracker_cmd.position.y = uav_state.pose.position.y;
 
   tracker_cmd.use_velocity_vertical = true;
   tracker_cmd.velocity.z            = desired_vertical_speed;
@@ -354,7 +354,7 @@ const mrs_msgs::TrackerCommand::ConstPtr JoyTracker::update(const mrs_msgs::UavS
   tracker_cmd.orientation     = mrs_lib::AttitudeConverter(desired_roll, desired_pitch, state_heading_);
   tracker_cmd.use_orientation = true;
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
+  return {tracker_cmd};
 }
 
 //}

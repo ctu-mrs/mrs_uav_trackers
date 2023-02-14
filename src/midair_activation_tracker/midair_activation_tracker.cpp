@@ -28,11 +28,11 @@ public:
   ~MidairActivationTracker(){};
 
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd);
+  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr &uav_state, const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd);
+  std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
@@ -109,7 +109,7 @@ void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[may
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr &last_tracker_cmd) {
+std::tuple<bool, std::string> MidairActivationTracker::activate([[maybe_unused]] const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -145,12 +145,12 @@ bool MidairActivationTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const mrs_msgs::UavState::ConstPtr &                        uav_state,
-                                                                         [[maybe_unused]] const mrs_msgs::AttitudeCommand::ConstPtr &last_attitude_cmd) {
+std::optional<mrs_msgs::TrackerCommand> MidairActivationTracker::update(
+    const mrs_msgs::UavState &uav_state, [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::TrackerCommand::Ptr();
+    return {};
   }
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
@@ -159,22 +159,22 @@ const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const m
 
   mrs_msgs::TrackerCommand tracker_cmd;
 
-  tracker_cmd.header.frame_id = uav_state->header.frame_id;
+  tracker_cmd.header.frame_id = uav_state.header.frame_id;
   tracker_cmd.header.stamp    = ros::Time::now();
 
-  tracker_cmd.position.x = uav_state->pose.position.x;
-  tracker_cmd.position.y = uav_state->pose.position.y;
-  tracker_cmd.position.z = uav_state->pose.position.z;
+  tracker_cmd.position.x = uav_state.pose.position.x;
+  tracker_cmd.position.y = uav_state.pose.position.y;
+  tracker_cmd.position.z = uav_state.pose.position.z;
 
-  tracker_cmd.velocity.x = uav_state->velocity.linear.x;
-  tracker_cmd.velocity.y = uav_state->velocity.linear.y;
-  tracker_cmd.velocity.z = uav_state->velocity.linear.z;
+  tracker_cmd.velocity.x = uav_state.velocity.linear.x;
+  tracker_cmd.velocity.y = uav_state.velocity.linear.y;
+  tracker_cmd.velocity.z = uav_state.velocity.linear.z;
 
   try {
-    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getHeading();
+    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state->pose.orientation).getYaw();
+    tracker_cmd.heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getYaw();
     ROS_WARN_THROTTLE(1.0, "[MidairActivationTracker]: could not get heading");
   }
 
@@ -188,7 +188,7 @@ const mrs_msgs::TrackerCommand::ConstPtr MidairActivationTracker::update(const m
 
   ROS_WARN_THROTTLE(0.1, "[MidairActivationTracker]: outputting cmd");
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(tracker_cmd));
+  return {tracker_cmd};
 }
 
 //}

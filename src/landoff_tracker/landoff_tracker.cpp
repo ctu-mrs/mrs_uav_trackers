@@ -67,11 +67,11 @@ public:
   ~LandoffTracker(){};
 
   void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
-  std::tuple<bool, std::string> activate(const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd);
+  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand>& last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  const mrs_msgs::TrackerCommand::ConstPtr  update(const mrs_msgs::UavState::ConstPtr& uav_state, const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd);
+  std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState& uav_state, const mrs_uav_managers::Controller::ControlOutput& last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
   const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
@@ -91,8 +91,8 @@ public:
 private:
   bool callbacks_enabled_ = true;
 
-  mrs_msgs::AttitudeCommand last_attitude_cmd_;
-  std::mutex                mutex_last_attitude_cmd_;
+  mrs_uav_managers::Controller::ControlOutput last_control_output_;
+  std::mutex                                  mutex_last_control_output_;
 
   std::string     _version_;
   ros::NodeHandle nh_;
@@ -316,7 +316,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mrs_msgs::TrackerCommand::ConstPtr& last_tracker_cmd) {
+std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const std::optional<mrs_msgs::TrackerCommand>& last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -463,8 +463,8 @@ bool LandoffTracker::resetStatic(void) {
 
 /* //{ update() */
 
-const mrs_msgs::TrackerCommand::ConstPtr LandoffTracker::update(const mrs_msgs::UavState::ConstPtr&        uav_state,
-                                                                const mrs_msgs::AttitudeCommand::ConstPtr& last_attitude_cmd) {
+std::optional<mrs_msgs::TrackerCommand> LandoffTracker::update(const mrs_msgs::UavState&                                           uav_state,
+                                                               [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("LandoffTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
@@ -472,14 +472,14 @@ const mrs_msgs::TrackerCommand::ConstPtr LandoffTracker::update(const mrs_msgs::
   {
     std::scoped_lock lock(mutex_uav_state_);
 
-    uav_state_ = *uav_state;
+    uav_state_ = uav_state;
 
     got_uav_state_ = true;
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
-    return mrs_msgs::TrackerCommand::Ptr();
+    return {};
   }
 
   position_output_.header.stamp    = ros::Time::now();
@@ -507,9 +507,9 @@ const mrs_msgs::TrackerCommand::ConstPtr LandoffTracker::update(const mrs_msgs::
   }
 
   {
-    std::scoped_lock lock(mutex_last_attitude_cmd_);
+    std::scoped_lock lock(mutex_last_control_output_);
 
-    last_attitude_cmd_ = *last_attitude_cmd;
+    last_control_output_ = last_control_output;
   }
 
   if (_takeoff_disable_lateral_gains_ && taking_off_ && uav_state_.pose.position.z < _takeoff_disable_lateral_gains_height_) {
@@ -524,7 +524,7 @@ const mrs_msgs::TrackerCommand::ConstPtr LandoffTracker::update(const mrs_msgs::
     position_output_.disable_antiwindups = false;
   }
 
-  return mrs_msgs::TrackerCommand::ConstPtr(new mrs_msgs::TrackerCommand(position_output_));
+  return {position_output_};
 }
 
 //}
@@ -1094,7 +1094,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   auto [state_x, state_y, state_z, current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(
       mutex_state_, state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
   auto [goal_x, goal_y, goal_z] = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
-  auto last_attitude_cmd        = mrs_lib::get_mutexed(mutex_last_attitude_cmd_, last_attitude_cmd_);
+  auto last_control_output      = mrs_lib::get_mutexed(mutex_last_control_output_, last_control_output_);
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1135,7 +1135,7 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
     }
 
     // saturate while ramping up during takeoff
-    if (last_attitude_cmd.ramping_up) {
+    if (last_control_output.diagnostics.ramping_up) {
 
       ROS_INFO_THROTTLE(1.0, "[LandoffTracker]: waiting for the controller to rampup");
       takeoff_saturated = true;
