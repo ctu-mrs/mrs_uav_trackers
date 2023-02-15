@@ -74,7 +74,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState& uav_state, const mrs_uav_managers::Controller::ControlOutput& last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd);
@@ -580,7 +580,7 @@ const std_srvs::SetBoolResponse::ConstPtr LandoffTracker::enableCallbacks(const 
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
 
   std::scoped_lock lock(mutex_goal_, mutex_state_);
 
@@ -598,7 +598,7 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource(c
   }
 
   try {
-    new_heading = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getHeading();
+    new_heading = mrs_lib::AttitudeConverter(new_uav_state.pose.orientation).getHeading();
   }
   catch (...) {
     ROS_ERROR_THROTTLE(1.0, "[LandoffTracker]: could not calculate the new UAV heading");
@@ -616,9 +616,9 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource(c
 
   // | --------- recalculate the goal to new coordinates -------- |
 
-  double dx       = new_uav_state->pose.position.x - uav_state.pose.position.x;
-  double dy       = new_uav_state->pose.position.y - uav_state.pose.position.y;
-  double dz       = new_uav_state->pose.position.z - uav_state.pose.position.z;
+  double dx       = new_uav_state.pose.position.x - uav_state.pose.position.x;
+  double dy       = new_uav_state.pose.position.y - uav_state.pose.position.y;
+  double dz       = new_uav_state.pose.position.z - uav_state.pose.position.z;
   double dheading = new_heading - old_heading;
 
   goal_x_ += dx;

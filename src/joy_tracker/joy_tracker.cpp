@@ -56,7 +56,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr &new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
@@ -403,7 +403,7 @@ const std_srvs::SetBoolResponse::ConstPtr JoyTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState::ConstPtr &new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
   return std_srvs::TriggerResponse::Ptr();
 }
 

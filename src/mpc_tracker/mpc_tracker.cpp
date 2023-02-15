@@ -79,7 +79,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState& uav_state, const mrs_uav_managers::Controller::ControlOutput& last_control_output);
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr& cmd);
   const mrs_msgs::TrackerStatus             getStatus();
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr& cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr& cmd);
@@ -1140,7 +1140,7 @@ const std_srvs::SetBoolResponse::ConstPtr MpcTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const mrs_msgs::UavState::ConstPtr& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const mrs_msgs::UavState& new_uav_state) {
 
   odometry_reset_in_progress_ = true;
   mpc_result_invalid_         = true;
@@ -1152,9 +1152,9 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
       "[MpcTracker]: start of odmetry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: "
       "%.2f], "
       "new odom [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
-      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), new_uav_state->pose.position.x, new_uav_state->pose.position.y,
-      new_uav_state->pose.position.z, new_uav_state->velocity.linear.x, new_uav_state->velocity.linear.y, new_uav_state->velocity.linear.z,
-      new_uav_state->acceleration.linear.x, new_uav_state->acceleration.linear.y, new_uav_state->acceleration.linear.z);
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), new_uav_state.pose.position.x, new_uav_state.pose.position.y,
+      new_uav_state.pose.position.z, new_uav_state.velocity.linear.x, new_uav_state.velocity.linear.y, new_uav_state.velocity.linear.z,
+      new_uav_state.acceleration.linear.x, new_uav_state.acceleration.linear.y, new_uav_state.acceleration.linear.z);
 
   timer_mpc_iteration_.stop();
   ROS_INFO("[MpcTracker]: mpc timer stopped");
@@ -1186,7 +1186,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
   }
 
   try {
-    new_heading = mrs_lib::AttitudeConverter(new_uav_state->pose.orientation).getHeading();
+    new_heading = mrs_lib::AttitudeConverter(new_uav_state.pose.orientation).getHeading();
   }
   catch (...) {
     ROS_ERROR_THROTTLE(1.0, "[LineTracker]: could not calculate the new UAV heading");
@@ -1203,9 +1203,9 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
   }
 
   // calculate the difference of position
-  dx       = new_uav_state->pose.position.x - uav_state_.pose.position.x;
-  dy       = new_uav_state->pose.position.y - uav_state_.pose.position.y;
-  dz       = new_uav_state->pose.position.z - uav_state_.pose.position.z;
+  dx       = new_uav_state.pose.position.x - uav_state_.pose.position.x;
+  dy       = new_uav_state.pose.position.y - uav_state_.pose.position.y;
+  dz       = new_uav_state.pose.position.z - uav_state_.pose.position.z;
   dheading = new_heading - old_heading;
 
   ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dheading %f", dx, dy, dz, dheading);
@@ -1220,8 +1220,8 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
         Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
         temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
-        (*des_x_whole_trajectory_)(i) = new_uav_state->pose.position.x + temp_vec[0];
-        (*des_y_whole_trajectory_)(i) = new_uav_state->pose.position.y + temp_vec[1];
+        (*des_x_whole_trajectory_)(i) = new_uav_state.pose.position.x + temp_vec[0];
+        (*des_y_whole_trajectory_)(i) = new_uav_state.pose.position.y + temp_vec[1];
         (*des_z_whole_trajectory_)(i) += dz;
         (*des_heading_whole_trajectory_)(i) += dheading;
       }
@@ -1232,8 +1232,8 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
       Eigen::Vector2d temp_vec(des_x_trajectory_(i) - uav_state_.pose.position.x, des_y_trajectory_(i) - uav_state_.pose.position.y);
       temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
-      des_x_trajectory_(i, 0) = new_uav_state->pose.position.x + temp_vec[0];
-      des_y_trajectory_(i, 0) = new_uav_state->pose.position.y + temp_vec[1];
+      des_x_trajectory_(i, 0) = new_uav_state.pose.position.x + temp_vec[0];
+      des_y_trajectory_(i, 0) = new_uav_state.pose.position.y + temp_vec[1];
       des_z_trajectory_(i, 0) += dz;
       des_heading_trajectory_(i, 0) += dheading;
     }
@@ -1242,15 +1242,15 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     {
       Eigen::Vector2d temp_vec(mpc_x_(0, 0) - uav_state_.pose.position.x, mpc_x_(4, 0) - uav_state_.pose.position.y);
       temp_vec     = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
-      mpc_x_(0, 0) = new_uav_state->pose.position.x + temp_vec[0];
-      mpc_x_(4, 0) = new_uav_state->pose.position.y + temp_vec[1];
+      mpc_x_(0, 0) = new_uav_state.pose.position.x + temp_vec[0];
+      mpc_x_(4, 0) = new_uav_state.pose.position.y + temp_vec[1];
       mpc_x_(8, 0) += dz;
     }
 
     // update the velocity
     {
-      mpc_x_(1, 0) = new_uav_state->velocity.linear.x;
-      mpc_x_(5, 0) = new_uav_state->velocity.linear.y;
+      mpc_x_(1, 0) = new_uav_state.velocity.linear.x;
+      mpc_x_(5, 0) = new_uav_state.velocity.linear.y;
       // we leave the z velocity as it was in the original frame
     }
 
@@ -1263,7 +1263,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
 
     // update the heading and its derivative
     mpc_x_heading_(0, 0) += dheading;
-    mpc_x_heading_(1, 0) = new_uav_state->velocity.angular.x;
+    mpc_x_heading_(1, 0) = new_uav_state.velocity.angular.x;
   }
 
   ROS_INFO(
