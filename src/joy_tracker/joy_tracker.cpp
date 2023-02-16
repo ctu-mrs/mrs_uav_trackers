@@ -56,7 +56,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
@@ -112,11 +112,11 @@ private:
   int    _channel_pitch_;
   int    _channel_roll_;
   int    _channel_heading_;
-  int    _channel_thrust_;
+  int    _channel_throttle_;
   double _channel_mult_pitch_;
   double _channel_mult_roll_;
   double _channel_mult_heading_;
-  double _channel_mult_thrust_;
+  double _channel_mult_throttle_;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -166,13 +166,13 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   param_loader.loadParam("channels/pitch", _channel_pitch_);
   param_loader.loadParam("channels/roll", _channel_roll_);
   param_loader.loadParam("channels/heading", _channel_heading_);
-  param_loader.loadParam("channels/thrust", _channel_thrust_);
+  param_loader.loadParam("channels/throttle", _channel_throttle_);
 
   // load channel multipliers
   param_loader.loadParam("channel_multipliers/pitch", _channel_mult_pitch_);
   param_loader.loadParam("channel_multipliers/roll", _channel_mult_roll_);
   param_loader.loadParam("channel_multipliers/heading", _channel_mult_heading_);
-  param_loader.loadParam("channel_multipliers/thrust", _channel_mult_thrust_);
+  param_loader.loadParam("channel_multipliers/throttle", _channel_mult_throttle_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
@@ -315,7 +315,7 @@ std::optional<mrs_msgs::TrackerCommand> JoyTracker::update(const mrs_msgs::UavSt
 
   sensor_msgs::JoyConstPtr joy_data = sh_joystick_.getMsg();
 
-  double desired_vertical_speed = _channel_mult_thrust_ * joy_data->axes[_channel_thrust_] * _vertical_speed_;
+  double desired_vertical_speed = _channel_mult_throttle_ * joy_data->axes[_channel_throttle_] * _vertical_speed_;
   double desired_heading_rate   = _channel_mult_heading_ * joy_data->axes[_channel_heading_] * _heading_rate_;
   double desired_pitch          = _channel_mult_pitch_ * joy_data->axes[_channel_pitch_] * _max_tilt_;
   double desired_roll           = _channel_mult_roll_ * joy_data->axes[_channel_roll_] * _max_tilt_;
@@ -403,7 +403,7 @@ const std_srvs::SetBoolResponse::ConstPtr JoyTracker::enableCallbacks(const std_
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr JoyTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
   return std_srvs::TriggerResponse::Ptr();
 }
 

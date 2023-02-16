@@ -10,9 +10,9 @@ phases:
 
   z_acceleration:
 
-    mode: 0 # 0 = acceleration, 1 = thrust
+    mode: 0 # 0 = acceleration, 1 = throttle
     acceleration: 2.0 # [m/s^2]
-    thrust: 0.8 # [-]
+    throttle: 0.8 # [-]
 
     velocity_gain_from_rot: 1.0 # [-]*PI
 

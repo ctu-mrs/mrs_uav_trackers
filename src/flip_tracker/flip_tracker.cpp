@@ -72,7 +72,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
@@ -208,7 +208,7 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
   param_loader.loadParam("phases/z_acceleration/mode", drs_params_.z_mode);
   param_loader.loadParam("phases/z_acceleration/acceleration", drs_params_.z_acceleration);
-  param_loader.loadParam("phases/z_acceleration/thrust", drs_params_.z_thrust);
+  param_loader.loadParam("phases/z_acceleration/throttle", drs_params_.z_throttle);
   param_loader.loadParam("phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
   param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
   param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
@@ -508,11 +508,11 @@ std::optional<mrs_msgs::TrackerCommand> FlipTracker::update(const mrs_msgs::UavS
       tracker_cmd.use_attitude_rate = true;
 
       if (tilt_angle <= M_PI / 2.0) {
-        tracker_cmd.thrust = hover_throttle * cos(tilt_angle);
+        tracker_cmd.throttle = hover_throttle * cos(tilt_angle);
       } else {
-        tracker_cmd.thrust = 0;
+        tracker_cmd.throttle = 0;
       }
-      tracker_cmd.use_thrust = true;
+      tracker_cmd.use_throttle = true;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _pulse_timeout_) {
 
@@ -562,8 +562,8 @@ std::optional<mrs_msgs::TrackerCommand> FlipTracker::update(const mrs_msgs::UavS
       tracker_cmd.attitude_rate.y = 0;
       tracker_cmd.attitude_rate.z = 0;
 
-      tracker_cmd.thrust     = 0;
-      tracker_cmd.use_thrust = true;
+      tracker_cmd.throttle     = 0;
+      tracker_cmd.use_throttle = true;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _innertia_timeout_) {
 
@@ -668,7 +668,7 @@ const std_srvs::SetBoolResponse::ConstPtr FlipTracker::enableCallbacks(const std
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr FlipTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr FlipTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
 
   return std_srvs::TriggerResponse::Ptr();
 }
@@ -837,8 +837,8 @@ bool FlipTracker::callbackFlip([[maybe_unused]] std_srvs::Trigger::Request &req,
     z_acceleration_acc_ = drs_params.z_acceleration;
     ROS_INFO("[FlipTracker]: accelerating with %.2f m/s^2", z_acceleration_acc_);
   } else if (drs_params.z_mode == 1) {
-    z_acceleration_acc_ = (mrs_lib::quadratic_throttle_model::throttleToForce(common_handlers_->throttle_model, drs_params.z_thrust) / mass) - g;
-    ROS_INFO("[FlipTracker]: accelerating with thrust %.2f => %.2f m/s^2", drs_params.z_thrust, z_acceleration_acc_);
+    z_acceleration_acc_ = (mrs_lib::quadratic_throttle_model::throttleToForce(common_handlers_->throttle_model, drs_params.z_throttle) / mass) - g;
+    ROS_INFO("[FlipTracker]: accelerating with throttle %.2f => %.2f m/s^2", drs_params.z_throttle, z_acceleration_acc_);
   } else {
     std::stringstream ss;
     ss << "invalid acceleration mode";

@@ -978,7 +978,7 @@ void LandoffTracker::accelerateVertical(void) {
   //
   // It does not apply if landing or elanding, cause,
   // it could potentially stop in mid air if odometry jumps (this happened),
-  // Instead, landing and elanding is stopped by sensing the thrust.
+  // Instead, landing and elanding is stopped by sensing the throttle.
   if (!elanding_ && !landing_) {
     if (fabs(state_z + stop_dist_z - goal_z) < (2 * (used_speed * _tracker_dt_))) {
 
