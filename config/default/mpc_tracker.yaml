@@ -3,7 +3,7 @@ version: "1.0.4.0"
 mpc_rate: 100.0 # rate of MPC calculation, >= 10 Hz
 
 diagnostics: # diagnostics publisher
-  rate: 30                             # [Hz]
+  rate: 10                             # [Hz]
   position_tracking_threshold: 1.0     # [m] distance considered as "in place"
   orientation_tracking_threshold: 0.3  # [rad] orientation error considered as fine during tracking
 

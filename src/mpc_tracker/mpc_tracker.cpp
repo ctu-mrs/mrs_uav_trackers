@@ -425,6 +425,12 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
+  if (!(common_handlers_->control_output_modalities.actuators || common_handlers_->control_output_modalities.control_group ||
+        common_handlers_->control_output_modalities.attitude_rate || common_handlers_->control_output_modalities.attitude)) {
+    ROS_INFO("[MpcTracker]: overriding MPC rate to 10 Hz due to output modalities");
+    _mpc_rate_ = 10.0;
+  }
+
   _dt1_ = 1.0 / _mpc_rate_;
 
   param_loader.loadParam("braking/enabled", drs_params_.braking_enabled);
