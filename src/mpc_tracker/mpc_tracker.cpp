@@ -306,7 +306,7 @@ private:
   // | --------------------- MPC calculation -------------------- |
 
   ros::Timer        timer_mpc_iteration_;
-  std::atomic<bool> mpc_timer_enabled_ = false;
+  std::atomic<bool> mpc_synchronous_ = false;
 
   std::atomic<bool> mpc_timer_running_ = false;
   void              timerMPC(const ros::TimerEvent& event);
@@ -370,7 +370,7 @@ private:
 
   void manageConstraints(void);
   void calculateMPC(void);
-  void iterateModel(void);
+  void iterateModel(const double& dt);
 
   // | ------------------------ profiler ------------------------ |
 
@@ -617,7 +617,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   timer_avoidance_trajectory_ = nh_.createTimer(ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this);
   timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
-  timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this, false, false);
+  timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_asynchronous_rate_), &MpcTracker::timerMPC, this, false, false);
   timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
   timer_velocity_tracking_    = nh_.createTimer(ros::Rate(30.0), &MpcTracker::timerVelocityTracking, this, false, false);
   timer_hover_                = nh_.createTimer(ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
@@ -793,6 +793,8 @@ std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs:
 
   is_active_ = true;
 
+  timer_mpc_iteration_.start();
+
   return std::tuple(true, ss.str());
 }
 
@@ -818,6 +820,8 @@ void MpcTracker::deactivate(void) {
   }
 
   ROS_INFO("[MpcTracker]: deactivated");
+
+  timer_mpc_iteration_.stop();
 
   publishDiagnostics();
 }
@@ -905,6 +909,12 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
   mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer("MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
+  auto old_uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+
+  // calculate dt
+  double dt = (uav_state.header.stamp - old_uav_state.header.stamp).toSec();
+
+  // save the uav state
   mrs_lib::set_mutexed(mutex_uav_state_, uav_state, uav_state_);
 
   // up to this part the update() method is evaluated even when the tracker is not active
@@ -914,7 +924,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   mrs_msgs::TrackerCommand tracker_cmd;
 
-  if (!mpc_computed_ || mpc_result_invalid_) {
+  if (!mpc_synchronous_ && (!mpc_computed_ || mpc_result_invalid_)) {
 
     ROS_WARN_THROTTLE(0.1, "[MpcTracker]: MPC not ready, returning current odom as the command");
 
@@ -970,11 +980,35 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   ros::TimerEvent event;
 
-  if (_mpc_synchronous_rate_limit_) {
+  if (mpc_synchronous_) {
+    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in SYNCHRONOUS mode");
     timerMPC(event);
+  } else {
+    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in USYNCHRONOUS mode");
   }
 
-  iterateModel();
+  if (dt > 0) {
+    iterateModel(dt);
+  }
+
+  if (dt > 0) {
+
+    double rate = 1.0 / dt;
+
+    if (mpc_synchronous_) {
+      if (rate > _mpc_synchronous_rate_limit_) {
+        mpc_synchronous_ = false;
+        ROS_INFO("[MpcTracker]: detecting high rate of UAV state (%.1f Hz > %.1f Hz), switching to asynchronous mode.", rate, _mpc_synchronous_rate_limit_);
+        timer_mpc_iteration_.start();
+      }
+    } else {
+      if (rate <= _mpc_synchronous_rate_limit_) {
+        mpc_synchronous_ = true;
+        ROS_INFO("[MpcTracker]: detecting low rate of UAV state (%.1f Hz < %.1f Hz), switching to synchronous mode.", rate, _mpc_synchronous_rate_limit_);
+        timer_mpc_iteration_.stop();
+      }
+    }
+  }
 
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
 
@@ -1734,8 +1768,10 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
   }
   if (!avoiding_collision_) {
 
+    auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
-    collision_free_altitude_ -= 2.0 / _mpc_rate_;
+    collision_free_altitude_ -= 2.0 / (1.0 / dt1);
 
     if (collision_free_altitude_ < common_handlers_->safety_area.getMinHeight()) {
 
@@ -1961,7 +1997,7 @@ void MpcTracker::calculateMPC() {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
-  ROS_INFO_STREAM("[MpcTracker]: mpc iteration dt = " << dt1);
+  ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: MPC calculateion dt = " << dt1);
 
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
@@ -2155,8 +2191,6 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
-  ROS_INFO_STREAM("[MpcTracker]: setting dt1 = " << dt1);
-
   mpc_solver_x_->setDt(dt1);
   mpc_solver_x_->setInitialState(initial_x);
   mpc_solver_x_->loadReference(des_x_filtered);
@@ -2324,7 +2358,7 @@ void MpcTracker::calculateMPC() {
 
 /* iterateModel() //{ */
 
-void MpcTracker::iterateModel(void) {
+void MpcTracker::iterateModel(const double& dt) {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
@@ -2335,14 +2369,12 @@ void MpcTracker::iterateModel(void) {
 
   } else {
 
-    double last_dt = (ros::Time::now() - model_iteration_last_time_).toSec();
-
-    dt1 = last_dt;
+    dt1 = 0.9 * dt1 + 0.1 * dt;
 
     mrs_lib::set_mutexed(mutex_dt1_, dt1, dt1_);
     timer_mpc_iteration_.setPeriod(ros::Duration(dt1));
 
-    ROS_INFO_STREAM("[MpcTracker]: iterating model, dt = " << dt1);
+    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: iterating model, dt = " << dt1);
 
     // clang-format off
     A_ << 1, dt1, 0.5*dt1*dt1, 0,           0, 0,   0,           0,           0, 0,   0,           0,
@@ -3308,7 +3340,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     return;
   }
 
-  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerMPC", _mpc_rate_, 0.01, event);
+  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerMPC", 1.0 / dt1, 0.01, event);
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("MpcTracker::timerMPC", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   ros::Time     begin = ros::Time::now();
