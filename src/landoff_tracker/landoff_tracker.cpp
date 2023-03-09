@@ -586,7 +586,8 @@ const std_srvs::TriggerResponse::ConstPtr LandoffTracker::switchOdometrySource([
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  double old_heading, new_heading;
+  double old_heading  = 0;
+  double new_heading  = 0;
   bool   got_headings = true;
 
   try {

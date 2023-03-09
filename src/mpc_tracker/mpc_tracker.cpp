@@ -1216,9 +1216,9 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
   }
 
   // | --------- recalculate the goal to new coordinates -------- |
-  double dx, dy, dz, dheading;
 
-  double old_heading, new_heading;
+  double old_heading  = 0;
+  double new_heading  = 0;
   bool   got_headings = true;
 
   try {
@@ -1247,10 +1247,10 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
   }
 
   // calculate the difference of position
-  dx       = new_uav_state.pose.position.x - uav_state_.pose.position.x;
-  dy       = new_uav_state.pose.position.y - uav_state_.pose.position.y;
-  dz       = new_uav_state.pose.position.z - uav_state_.pose.position.z;
-  dheading = new_heading - old_heading;
+  double dx       = new_uav_state.pose.position.x - uav_state_.pose.position.x;
+  double dy       = new_uav_state.pose.position.y - uav_state_.pose.position.y;
+  double dz       = new_uav_state.pose.position.z - uav_state_.pose.position.z;
+  double dheading = new_heading - old_heading;
 
   ROS_INFO("[MpcTracker]: dx %f dy %f dz %f dheading %f", dx, dy, dz, dheading);
 
