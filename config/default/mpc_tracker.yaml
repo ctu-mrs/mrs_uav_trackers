@@ -1,6 +1,13 @@
 version: "1.0.4.0"
 
-mpc_rate: 100.0 # rate of MPC calculation, >= 10 Hz
+mpc_loop:
+
+  # when incoming uav_state rate is lower than this,
+  # the MPC execution will be synchronized with the update() method
+  synchronous_rate_limit: 30.0 # Hz
+
+  # the rate of the asynchronous MPC loop
+  asynchronous_loop_rate: 100.0 # rate of MPC calculation, >= 10 Hz
 
 diagnostics: # diagnostics publisher
   rate: 10                             # [Hz]

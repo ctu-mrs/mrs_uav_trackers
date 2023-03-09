@@ -137,9 +137,12 @@ private:
   double _diag_pos_tracking_thr_;
   double _diag_heading_tracking_thr_;
 
-  double _mpc_rate_;
+  double _mpc_synchronous_rate_limit_;
+  double _mpc_asynchronous_rate_;
 
-  double _dt1_;
+  double     dt1_;
+  std::mutex mutex_dt1_;
+
   double _dt2_;
 
   MatrixXd          _mat_A_;  // system matrix for virtual UAV
@@ -210,7 +213,8 @@ private:
   mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>       ph_current_trajectory_point_;
   mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState> ph_prediction_full_state_;
 
-  std::atomic<bool> mpc_computed_ = false;
+  /* std::atomic<bool> mpc_computed_ = false; */
+  std::atomic<bool> mpc_computed_ = true;
 
   bool brake_ = false;
 
@@ -302,6 +306,8 @@ private:
   // | --------------------- MPC calculation -------------------- |
 
   ros::Timer        timer_mpc_iteration_;
+  std::atomic<bool> mpc_timer_enabled_ = false;
+
   std::atomic<bool> mpc_timer_running_ = false;
   void              timerMPC(const ros::TimerEvent& event);
 
@@ -418,20 +424,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   param_loader.loadParam("enable_profiler", _profiler_enabled_);
 
-  param_loader.loadParam("mpc_rate", _mpc_rate_);
+  param_loader.loadParam("mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
+  param_loader.loadParam("mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
 
-  if (_mpc_rate_ < 10.0) {
-    ROS_ERROR("[MpcTracker]: mpc_rate should be >= 10 Hz");
-    ros::shutdown();
-  }
-
-  if (!(common_handlers_->control_output_modalities.actuators || common_handlers_->control_output_modalities.control_group ||
-        common_handlers_->control_output_modalities.attitude_rate || common_handlers_->control_output_modalities.attitude)) {
-    ROS_INFO("[MpcTracker]: overriding MPC rate to 10 Hz due to output modalities");
-    _mpc_rate_ = 10.0;
-  }
-
-  _dt1_ = 1.0 / _mpc_rate_;
+  dt1_ = 1.0 / _mpc_asynchronous_rate_;
 
   param_loader.loadParam("braking/enabled", drs_params_.braking_enabled);
   param_loader.loadParam("braking/q_vel_braking", drs_params_.q_vel_braking);
@@ -506,10 +502,12 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     ros::shutdown();
   }
 
-  mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 0);
-  mpc_solver_y_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, _dt1_, _dt2_, 1);
-  mpc_solver_z_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, _dt1_, _dt2_, 2);
-  mpc_solver_heading_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, _dt1_, _dt2_, 0);
+  ROS_INFO_STREAM("[MpcTracker]: initializing solvers with dt1 = " << dt1_);
+
+  mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 0);
+  mpc_solver_y_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 1);
+  mpc_solver_z_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, dt1_, _dt2_, 2);
+  mpc_solver_heading_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(_mpc_n_states_, 1);
   mpc_x_heading_ = MatrixXd::Zero(_mpc_n_states_heading_, 1);
@@ -619,7 +617,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   timer_avoidance_trajectory_ = nh_.createTimer(ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this);
   timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
-  timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this);
+  timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_rate_), &MpcTracker::timerMPC, this, false, false);
   timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
   timer_velocity_tracking_    = nh_.createTimer(ros::Rate(30.0), &MpcTracker::timerVelocityTracking, this, false, false);
   timer_hover_                = nh_.createTimer(ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
@@ -968,6 +966,12 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
     }
 
     return {tracker_cmd};
+  }
+
+  ros::TimerEvent event;
+
+  if (_mpc_synchronous_rate_limit_) {
+    timerMPC(event);
   }
 
   iterateModel();
@@ -1751,6 +1755,8 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x,
                                                              double max_speed_y) {
 
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
   auto mpc_x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto trajectory_dt = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_dt_);
 
@@ -1765,8 +1771,8 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
   for (int i = 0; i < _mpc_horizon_len_; i++) {
 
     if (i == 0) {
-      max_sample_x = max_speed_x * _dt1_;
-      max_sample_y = max_speed_y * _dt1_;
+      max_sample_x = max_speed_x * dt1;
+      max_sample_y = max_speed_y * dt1;
       difference_x = des_x_trajectory(i, 0) - mpc_x(0, 0);
       difference_y = des_y_trajectory(i, 0) - mpc_x(4, 0);
     } else {
@@ -1822,7 +1828,7 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
       filtered_y_trajectory(i, 0) += wiggle_amplitude * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
     }
 
-    wiggle_phase_ += wiggle_frequency_ * _dt1_ * 2 * M_PI;
+    wiggle_phase_ += wiggle_frequency_ * dt1 * 2 * M_PI;
 
     if (wiggle_phase_ > M_PI) {
       wiggle_phase_ -= 2 * M_PI;
@@ -1840,6 +1846,8 @@ MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const do
 
   auto mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
   double difference_z;
   double max_sample_z;
 
@@ -1854,9 +1862,9 @@ MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const do
       difference_z = des_z_trajectory(i, 0) - current_z;
 
       if (difference_z > 0) {
-        max_sample_z = max_ascending_speed * _dt1_;
+        max_sample_z = max_ascending_speed * dt1;
       } else {
-        max_sample_z = max_descending_speed * _dt1_;
+        max_sample_z = max_descending_speed * dt1;
       }
 
     } else {
@@ -1950,6 +1958,10 @@ void MpcTracker::manageConstraints() {
 /* //{ calculateMPC() */
 
 void MpcTracker::calculateMPC() {
+
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
+  ROS_INFO_STREAM("[MpcTracker]: mpc iteration dt = " << dt1);
 
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
@@ -2091,6 +2103,7 @@ void MpcTracker::calculateMPC() {
   initial_z(2, 0) = mpc_x(10, 0);
   initial_z(3, 0) = mpc_x(11, 0);
 
+  mpc_solver_z_->setDt(dt1);
   mpc_solver_z_->setInitialState(initial_z);
   mpc_solver_z_->loadReference(des_z_filtered_offset_);
   mpc_solver_z_->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
@@ -2142,6 +2155,9 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
+  ROS_INFO_STREAM("[MpcTracker]: setting dt1 = " << dt1);
+
+  mpc_solver_x_->setDt(dt1);
   mpc_solver_x_->setInitialState(initial_x);
   mpc_solver_x_->loadReference(des_x_filtered);
   mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
@@ -2170,6 +2186,7 @@ void MpcTracker::calculateMPC() {
   initial_y(2, 0) = mpc_x(6, 0);
   initial_y(3, 0) = mpc_x(7, 0);
 
+  mpc_solver_y_->setDt(dt1);
   mpc_solver_y_->setInitialState(initial_y);
   mpc_solver_y_->loadReference(des_y_filtered);
   mpc_solver_y_->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
@@ -2189,6 +2206,7 @@ void MpcTracker::calculateMPC() {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
   }
 
+  mpc_solver_heading_->setDt(dt1);
   mpc_solver_heading_->setInitialState(mpc_x_heading);
   mpc_solver_heading_->loadReference(des_heading_trajectory);
   mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
@@ -2249,7 +2267,7 @@ void MpcTracker::calculateMPC() {
   }
 
   double mpc_solver_time = (ros::Time::now() - time_begin).toSec();
-  if (mpc_solver_time > _dt1_ || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
+  if (mpc_solver_time > dt1 || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
     ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_
                                                                            << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z
                                                                            << "/" << _max_iters_z_ << " iters heading: " << iters_heading << "/"
@@ -2308,7 +2326,7 @@ void MpcTracker::calculateMPC() {
 
 void MpcTracker::iterateModel(void) {
 
-  double dt = _dt1_;
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
   if (model_first_iteration_) {
 
@@ -2317,62 +2335,51 @@ void MpcTracker::iterateModel(void) {
 
   } else {
 
-    dt = (ros::Time::now() - model_iteration_last_time_).toSec();
+    double last_dt = (ros::Time::now() - model_iteration_last_time_).toSec();
 
-    if (dt > 0.001 && dt < 2.0) {
+    dt1 = last_dt;
 
-      // clang-format off
-        A_ << 1, dt, 0.5*dt*dt, 0,         0, 0,  0,         0,         0, 0,  0,         0,
-              0, 1,  dt,        0.5*dt*dt, 0, 0,  0,         0,         0, 0,  0,         0,
-              0, 0,  1,         dt,        0, 0,  0,         0,         0, 0,  0,         0,
-              0, 0,  0,         1,         0, 0,  0,         0,         0, 0,  0,         0,
-              0, 0,  0,         0,         1, dt, 0.5*dt*dt, 0,         0, 0,  0,         0,
-              0, 0,  0,         0,         0, 1,  dt,        0.5*dt*dt, 0, 0,  0,         0,
-              0, 0,  0,         0,         0, 0,  1,         dt,        0, 0,  0,         0,
-              0, 0,  0,         0,         0, 0,  0,         1,         0, 0,  0,         0,
-              0, 0,  0,         0,         0, 0,  0,         0,         1, dt, 0.5*dt*dt, 0,
-              0, 0,  0,         0,         0, 0,  0,         0,         0, 1,  dt,        0.5*dt*dt,
-              0, 0,  0,         0,         0, 0,  0,         0,         0, 0,  1,         dt,
-              0, 0,  0,         0,         0, 0,  0,         0,         0, 0,  0,         1;
+    mrs_lib::set_mutexed(mutex_dt1_, dt1, dt1_);
+    timer_mpc_iteration_.setPeriod(ros::Duration(dt1));
 
-        B_ << 0,  0,  0,
-              0,  0,  0,
-              0,  0,  0,
-              dt, 0,  0,
-              0,  0,  0,
-              0,  0,  0,
-              0,  0,  0,
-              0,  dt, 0,
-              0,  0,  0,
-              0,  0,  0,
-              0,  0,  0,
-              0,  0,  dt;
+    ROS_INFO_STREAM("[MpcTracker]: iterating model, dt = " << dt1);
 
-        A_heading_ << 1, dt, 0.5*dt*dt, 0,
-                      0, 1,  dt,        0.5*dt*dt,
-                      0, 0,  1,         dt,
-                      0, 0,  0,         1;
+    // clang-format off
+    A_ << 1, dt1, 0.5*dt1*dt1, 0,           0, 0,   0,           0,           0, 0,   0,           0,
+          0, 1,   dt1,         0.5*dt1*dt1, 0, 0,   0,           0,           0, 0,   0,           0,
+          0, 0,   1,           dt1,         0, 0,   0,           0,           0, 0,   0,           0,
+          0, 0,   0,           1,           0, 0,   0,           0,           0, 0,   0,           0,
+          0, 0,   0,           0,           1, dt1, 0.5*dt1*dt1, 0,           0, 0,   0,           0,
+          0, 0,   0,           0,           0, 1,   dt1,         0.5*dt1*dt1, 0, 0,   0,           0,
+          0, 0,   0,           0,           0, 0,   1,           dt1,         0, 0,   0,           0,
+          0, 0,   0,           0,           0, 0,   0,           1,           0, 0,   0,           0,
+          0, 0,   0,           0,           0, 0,   0,           0,           1, dt1, 0.5*dt1*dt1, 0,
+          0, 0,   0,           0,           0, 0,   0,           0,           0, 1,   dt1,         0.5*dt1*dt1,
+          0, 0,   0,           0,           0, 0,   0,           0,           0, 0,   1,           dt1,
+          0, 0,   0,           0,           0, 0,   0,           0,           0, 0,   0,           1;
 
-        B_heading_ << 0,
-                      0,
-                      0,
-                      dt;
+      B_ << 0,   0,   0,
+            0,   0,   0,
+            0,   0,   0,
+            dt1, 0,   0,
+            0,   0,   0,
+            0,   0,   0,
+            0,   0,   0,
+            0,   dt1, 0,
+            0,   0,   0,
+            0,   0,   0,
+            0,   0,   0,
+            0,   0,   dt1;
 
-      // clang-format on
-    } else {
+      A_heading_ << 1, dt1, 0.5*dt1*dt1, 0,
+                    0, 1,   dt1,         0.5*dt1*dt1,
+                    0, 0,   1,           dt1,
+                    0, 0,   0,           1;
 
-      // fallback for weird dt
-
-      A_ = _mat_A_;
-      B_ = _mat_B_;
-
-      A_heading_ = _mat_A_heading_;
-      B_heading_ = _mat_B_heading_;
-
-      ROS_WARN_THROTTLE(1.0, "[MpcTracker]: using fallback calculation of the system matrices, dt = %.3f is weird!", dt);
-
-      dt = _dt1_;
-    }
+      B_heading_ << 0,
+                    0,
+                    0,
+                    dt1;
 
     model_iteration_last_time_ = ros::Time::now();
   }
@@ -2392,111 +2399,111 @@ void MpcTracker::iterateModel(void) {
 
       // position
 
-      if (fabs((new_mpc_x(0) - mpc_x(0)) / dt) > 1.05 * constraints.horizontal_speed) {
+      if (fabs((new_mpc_x(0) - mpc_x(0)) / dt1) > 1.05 * constraints.horizontal_speed) {
         ROS_DEBUG("[MpcTracker]: horizontal pos x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(0), new_mpc_x(0),
-                  fabs((new_mpc_x(0) - mpc_x(0)) / dt), constraints.horizontal_speed);
+                  fabs((new_mpc_x(0) - mpc_x(0)) / dt1), constraints.horizontal_speed);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(4) - mpc_x(4)) / dt) > 1.05 * constraints.horizontal_speed) {
+      if (fabs((new_mpc_x(4) - mpc_x(4)) / dt1) > 1.05 * constraints.horizontal_speed) {
         ROS_DEBUG("[MpcTracker]: horizontal pos y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(4), new_mpc_x(4),
-                  fabs((new_mpc_x(4) - mpc_x(4)) / dt), constraints.horizontal_speed);
+                  fabs((new_mpc_x(4) - mpc_x(4)) / dt1), constraints.horizontal_speed);
         problem = true;
       }
 
-      if (((new_mpc_x(8) - mpc_x(8)) / dt) > 1.05 * constraints.vertical_ascending_speed) {
+      if (((new_mpc_x(8) - mpc_x(8)) / dt1) > 1.05 * constraints.vertical_ascending_speed) {
         ROS_DEBUG("[MpcTracker]: vertical pos z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
-                  ((new_mpc_x(8) - mpc_x(8)) / dt), constraints.vertical_ascending_speed);
+                  ((new_mpc_x(8) - mpc_x(8)) / dt1), constraints.vertical_ascending_speed);
         problem = true;
       }
 
-      if (((new_mpc_x(8) - mpc_x(8)) / dt) < 1.05 * -constraints.vertical_descending_speed) {
+      if (((new_mpc_x(8) - mpc_x(8)) / dt1) < 1.05 * -constraints.vertical_descending_speed) {
         ROS_DEBUG("[MpcTracker]: vertical pos z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(8), new_mpc_x(8),
-                  ((new_mpc_x(8) - mpc_x(8)) / dt), -constraints.vertical_descending_speed);
+                  ((new_mpc_x(8) - mpc_x(8)) / dt1), -constraints.vertical_descending_speed);
         problem = true;
       }
 
-      /* if (fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt) > 1.2 * constraints.heading_speed) { */
+      /* if (fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt1) > 1.2 * constraints.heading_speed) { */
       /*   ROS_DEBUG("[MpcTracker]: heading update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x_heading(0), new_mpc_x_heading(0), */
-      /*             fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt), constraints.heading_speed); */
+      /*             fabs(radians::diff(new_mpc_x_heading(0), mpc_x_heading(0)) / dt1), constraints.heading_speed); */
       /*   problem = true; */
       /* } */
 
       // velocity
 
-      if (fabs((new_mpc_x(1) - mpc_x(1)) / dt) > 1.05 * constraints.horizontal_acceleration) {
+      if (fabs((new_mpc_x(1) - mpc_x(1)) / dt1) > 1.05 * constraints.horizontal_acceleration) {
         ROS_DEBUG("[MpcTracker]: horizontal vel x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(1), new_mpc_x(1),
-                  fabs((new_mpc_x(1) - mpc_x(1)) / dt), constraints.horizontal_acceleration);
+                  fabs((new_mpc_x(1) - mpc_x(1)) / dt1), constraints.horizontal_acceleration);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(5) - mpc_x(5)) / dt) > 1.05 * constraints.horizontal_acceleration) {
+      if (fabs((new_mpc_x(5) - mpc_x(5)) / dt1) > 1.05 * constraints.horizontal_acceleration) {
         ROS_DEBUG("[MpcTracker]: horizontal vel y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(5), new_mpc_x(5),
-                  fabs((new_mpc_x(5) - mpc_x(5)) / dt), constraints.horizontal_acceleration);
+                  fabs((new_mpc_x(5) - mpc_x(5)) / dt1), constraints.horizontal_acceleration);
         problem = true;
       }
 
-      if (((new_mpc_x(9) - mpc_x(9)) / dt) > 1.05 * constraints.vertical_ascending_acceleration) {
+      if (((new_mpc_x(9) - mpc_x(9)) / dt1) > 1.05 * constraints.vertical_ascending_acceleration) {
         ROS_DEBUG("[MpcTracker]: vertical vel z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(9), new_mpc_x(9),
-                  ((new_mpc_x(9) - mpc_x(9)) / dt), constraints.vertical_ascending_acceleration);
+                  ((new_mpc_x(9) - mpc_x(9)) / dt1), constraints.vertical_ascending_acceleration);
         problem = true;
       }
 
-      if (((new_mpc_x(9) - mpc_x(9)) / dt) < 1.05 * -constraints.vertical_descending_acceleration) {
+      if (((new_mpc_x(9) - mpc_x(9)) / dt1) < 1.05 * -constraints.vertical_descending_acceleration) {
         ROS_DEBUG("[MpcTracker]: vertical vel z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(9), new_mpc_x(9),
-                  ((new_mpc_x(9) - mpc_x(9)) / dt), -constraints.vertical_descending_acceleration);
+                  ((new_mpc_x(9) - mpc_x(9)) / dt1), -constraints.vertical_descending_acceleration);
         problem = true;
       }
 
       // acceleration
 
-      if (fabs((new_mpc_x(2) - mpc_x(2)) / dt) > 1.05 * constraints.horizontal_jerk) {
+      if (fabs((new_mpc_x(2) - mpc_x(2)) / dt1) > 1.05 * constraints.horizontal_jerk) {
         ROS_DEBUG("[MpcTracker]: horizontal acc x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(2), new_mpc_x(2),
-                  fabs((new_mpc_x(2) - mpc_x(2)) / dt), constraints.horizontal_jerk);
+                  fabs((new_mpc_x(2) - mpc_x(2)) / dt1), constraints.horizontal_jerk);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(6) - mpc_x(6)) / dt) > 1.05 * constraints.horizontal_jerk) {
+      if (fabs((new_mpc_x(6) - mpc_x(6)) / dt1) > 1.05 * constraints.horizontal_jerk) {
         ROS_DEBUG("[MpcTracker]: horizontal acc y update violates constraints: %.2f -> %2.f, = %.2f > %.2f", mpc_x(6), new_mpc_x(6),
-                  fabs((new_mpc_x(6) - mpc_x(6)) / dt), constraints.horizontal_jerk);
+                  fabs((new_mpc_x(6) - mpc_x(6)) / dt1), constraints.horizontal_jerk);
         problem = true;
       }
 
-      if (((new_mpc_x(10) - mpc_x(10)) / dt) > 1.05 * constraints.vertical_ascending_jerk) {
+      if (((new_mpc_x(10) - mpc_x(10)) / dt1) > 1.05 * constraints.vertical_ascending_jerk) {
         ROS_DEBUG("[MpcTracker]: vertical acc z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(10), new_mpc_x(10),
-                  ((new_mpc_x(10) - mpc_x(10)) / dt), constraints.vertical_ascending_jerk);
+                  ((new_mpc_x(10) - mpc_x(10)) / dt1), constraints.vertical_ascending_jerk);
         problem = true;
       }
 
-      if (((new_mpc_x(10) - mpc_x(10)) / dt) < 1.05 * -constraints.vertical_descending_jerk) {
+      if (((new_mpc_x(10) - mpc_x(10)) / dt1) < 1.05 * -constraints.vertical_descending_jerk) {
         ROS_DEBUG("[MpcTracker]: vertical acc z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(10), new_mpc_x(10),
-                  ((new_mpc_x(10) - mpc_x(10)) / dt), -constraints.vertical_descending_jerk);
+                  ((new_mpc_x(10) - mpc_x(10)) / dt1), -constraints.vertical_descending_jerk);
         problem = true;
       }
 
       // jerk
 
-      if (fabs((new_mpc_x(3) - mpc_x(3)) / dt) > 1.05 * constraints.horizontal_snap) {
+      if (fabs((new_mpc_x(3) - mpc_x(3)) / dt1) > 1.05 * constraints.horizontal_snap) {
         ROS_DEBUG("[MpcTracker]: horizontal jerk x update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(3), new_mpc_x(3),
-                  fabs((new_mpc_x(3) - mpc_x(3)) / dt), constraints.horizontal_snap);
+                  fabs((new_mpc_x(3) - mpc_x(3)) / dt1), constraints.horizontal_snap);
         problem = true;
       }
 
-      if (fabs((new_mpc_x(7) - mpc_x(7)) / dt) > 1.05 * constraints.horizontal_snap) {
+      if (fabs((new_mpc_x(7) - mpc_x(7)) / dt1) > 1.05 * constraints.horizontal_snap) {
         ROS_DEBUG("[MpcTracker]: horizontal jerk y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(7), new_mpc_x(7),
-                  fabs((new_mpc_x(7) - mpc_x(7)) / dt), constraints.horizontal_snap);
+                  fabs((new_mpc_x(7) - mpc_x(7)) / dt1), constraints.horizontal_snap);
         problem = true;
       }
 
-      if (((new_mpc_x(11) - mpc_x(11)) / dt) > 1.05 * constraints.vertical_ascending_snap) {
+      if (((new_mpc_x(11) - mpc_x(11)) / dt1) > 1.05 * constraints.vertical_ascending_snap) {
         ROS_DEBUG("[MpcTracker]: vertical jerk z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(11), new_mpc_x(11),
-                  ((new_mpc_x(11) - mpc_x(11)) / dt), constraints.vertical_ascending_snap);
+                  ((new_mpc_x(11) - mpc_x(11)) / dt1), constraints.vertical_ascending_snap);
         problem = true;
       }
 
-      if (((new_mpc_x(11) - mpc_x(11)) / dt) < 1.05 * -constraints.vertical_descending_snap) {
+      if (((new_mpc_x(11) - mpc_x(11)) / dt1) < 1.05 * -constraints.vertical_descending_snap) {
         ROS_DEBUG("[MpcTracker]: vertical jerk z update violates constraints: %.2f -> %2.f = %.2f, < %.2f", mpc_x(11), new_mpc_x(11),
-                  ((new_mpc_x(11) - mpc_x(11)) / dt), -constraints.vertical_descending_snap);
+                  ((new_mpc_x(11) - mpc_x(11)) / dt1), -constraints.vertical_descending_snap);
         problem = true;
       }
 
@@ -2526,6 +2533,8 @@ void MpcTracker::iterateModel(void) {
 // method for setting desired trajectory
 std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::TrajectoryReference msg) {
 
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
   // copy the member variables
   auto x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
@@ -2538,9 +2547,9 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
   if (msg.dt <= 1e-4) {
     trajectory_dt = 0.2;
     ROS_WARN_THROTTLE(10.0, "[MpcTracker]: the trajectory dt was not specified, assuming its the old 0.2 s");
-  } else if (msg.dt < _dt1_) {
+  } else if (msg.dt < dt1) {
     trajectory_dt = 0.2;
-    ss << std::setprecision(3) << "the trajectory dt (" << msg.dt << " s) is too small (smaller than the tracker's internal step size: " << _dt1_ << " s)";
+    ss << std::setprecision(3) << "the trajectory dt (" << msg.dt << " s) is too small (smaller than the tracker's internal step size: " << dt1 << " s)";
     ROS_ERROR_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
     return std::tuple(false, ss.str(), false);
   } else {
@@ -2590,10 +2599,10 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
       trajectory_sample_offset = int(floor(trajectory_time_offset / trajectory_dt));
 
       // and get the subsample offset, which will be used to initialize the interpolator
-      trajectory_subsample_offset = int(floor(fmod(trajectory_time_offset, trajectory_dt) / _dt1_));
+      trajectory_subsample_offset = int(floor(fmod(trajectory_time_offset, trajectory_dt) / dt1));
 
       ROS_DEBUG_THROTTLE(0.1, "[MpcTracker]: received trajectory with timestamp in the past by %.3f s",
-                         trajectory_dt * trajectory_sample_offset + _dt1_ * trajectory_subsample_offset);
+                         trajectory_dt * trajectory_sample_offset + dt1 * trajectory_subsample_offset);
 
       // if the offset is larger than the number of points in the trajectory
       // the trajectory can not be used
@@ -2752,7 +2761,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
       for (int i = 0; i < _mpc_horizon_len_; i++) {
 
-        double first_time = _dt1_ + i * _dt2_ + trajectory_subsample_offset * _dt1_;
+        double first_time = dt1 + i * _dt2_ + trajectory_subsample_offset * dt1;
 
         int first_idx  = floor(first_time / trajectory_dt);
         int second_idx = first_idx + 1;
@@ -3285,6 +3294,8 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     return;
   }
 
+  auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
   mrs_lib::AtomicScopeFlag unset_running(mpc_timer_running_);
 
   bool started_with_invalid = mpc_result_invalid_;
@@ -3338,7 +3349,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
-      double first_time = _dt1_ + i * _dt2_ + trajectory_tracking_sub_idx * _dt1_;
+      double first_time = dt1 + i * _dt2_ + trajectory_tracking_sub_idx * dt1;
 
       int first_idx  = trajectory_tracking_idx + int(floor(first_time / trajectory_dt));
       int second_idx = first_idx + 1;
@@ -3405,9 +3416,9 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
   interval = end - begin;
 
   // | ----------------- acumulate the MPC delay ---------------- |
-  if (interval.toSec() > _dt1_) {
+  if (interval.toSec() > dt1) {
 
-    mpc_total_delay_ += interval.toSec() - _dt1_;
+    mpc_total_delay_ += interval.toSec() - dt1;
     double perc_slower = 100.0 * mpc_total_delay_ / (ros::Time::now() - mpc_start_time_).toSec();
 
     if (perc_slower >= 1.0) {

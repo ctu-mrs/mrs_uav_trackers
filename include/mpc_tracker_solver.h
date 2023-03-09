@@ -23,6 +23,7 @@ public:
   int    solveMPC();
   void   getStates(Eigen::MatrixXd &future_traj);
   double getFirstControlInput();
+  void   setDt(const double &dt);
 
 private:
   static const int _horizon_len_ = 40;
