@@ -15,7 +15,7 @@
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
 #include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/MpcPredictionFullState.h>
-#include <mrs_msgs/OdometryDiag.h>
+#include <mrs_msgs/EstimationDiagnostics.h>
 #include <mrs_msgs/VelocityReference.h>
 #include <mrs_msgs/VelocityReferenceSrv.h>
 
@@ -297,7 +297,7 @@ private:
   ros::ServiceServer service_server_toggle_avoidance_;
   bool               callbackToggleCollisionAvoidance(std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
 
-  mrs_lib::SubscribeHandler<mrs_msgs::OdometryDiag> sh_odom_diag_;
+  mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics> sh_estimation_diag_;
 
   // | --------------------- MPC calculation -------------------- |
 
@@ -596,7 +596,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
         mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
   }
 
-  sh_odom_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::OdometryDiag>(shopts, "odometry_diagnostics_in");
+  sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "estimation_diagnostics_in");
 
   // | --------------- dynamic reconfigure server --------------- |
 
@@ -3667,16 +3667,16 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
     return;
   }
 
-  if (!sh_odom_diag_.hasMsg()) {
+  if (!sh_estimation_diag_.hasMsg()) {
     return;
   } else {
     // we won't try to transform and publish the avoidance prediction if we cannot transform it
 
-    auto                     odom_diag      = sh_odom_diag_.getMsg();
-    std::vector<std::string> lat_estimators = odom_diag.get()->available_lat_estimators;
+    auto                     estimation_diag      = sh_estimation_diag_.getMsg();
+    std::vector<std::string> state_estimators = estimation_diag.get()->switchable_state_estimators;
 
-    bool got_gps_est = std::find(lat_estimators.begin(), lat_estimators.end(), "GPS") != lat_estimators.end();
-    bool got_rtk_est = std::find(lat_estimators.begin(), lat_estimators.end(), "RTK") != lat_estimators.end();
+    bool got_gps_est = std::find(state_estimators.begin(), state_estimators.end(), "gps_garmin") != state_estimators.end() || std::find(state_estimators.begin(), state_estimators.end(), "gps_baro") != state_estimators.end();
+    bool got_rtk_est = std::find(state_estimators.begin(), state_estimators.end(), "rtk") != state_estimators.end();
 
     if (!got_gps_est && !got_rtk_est) {
       return;
