@@ -49,8 +49,6 @@ namespace speed_tracker
 
 class SpeedTracker : public mrs_uav_managers::Tracker {
 public:
-  ~SpeedTracker(){};
-
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);

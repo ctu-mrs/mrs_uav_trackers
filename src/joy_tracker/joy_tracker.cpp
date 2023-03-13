@@ -46,8 +46,6 @@ namespace joy_tracker
 
 class JoyTracker : public mrs_uav_managers::Tracker {
 public:
-  ~JoyTracker(){};
-
   void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
