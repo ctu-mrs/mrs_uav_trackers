@@ -791,7 +791,9 @@ std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs:
 
   is_active_ = true;
 
-  timer_mpc_iteration_.start();
+  if (!mpc_synchronous_) {
+    timer_mpc_iteration_.start();
+  }
 
   return std::tuple(true, ss.str());
 }
@@ -1314,7 +1316,10 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
       x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0));
 
   ROS_INFO("[MpcTracker]: starting the MPC timer");
-  timer_mpc_iteration_.start();
+
+  if (!mpc_synchronous_) {
+    timer_mpc_iteration_.start();
+  }
 
   odometry_reset_in_progress_ = false;
 
