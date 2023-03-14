@@ -138,6 +138,8 @@ private:
   double _mpc_synchronous_rate_limit_;
   double _mpc_asynchronous_rate_;
 
+  double update_rate_ = 100.0;
+
   double     dt1_;
   std::mutex mutex_dt1_;
 
@@ -229,8 +231,7 @@ private:
 
   // | ----------- measuring the "MPC realtime factor" ---------- |
 
-  ros::Time mpc_start_time_;
-  double    mpc_total_delay_ = 0;
+  double mpc_rtf_ = 0.0;
 
   // | ------------------- collision avoidance ------------------ |
 
@@ -768,9 +769,6 @@ std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs:
 
   timer_trajectory_tracking_.stop();
 
-  mpc_start_time_  = ros::Time::now();
-  mpc_total_delay_ = 0;
-
   ss << "activated";
   ROS_INFO_STREAM("[MpcTracker]: " << ss.str());
 
@@ -885,9 +883,6 @@ bool MpcTracker::resetStatic(void) {
 
     timer_trajectory_tracking_.stop();
 
-    mpc_start_time_  = ros::Time::now();
-    mpc_total_delay_ = 0;
-
     ROS_INFO("[MpcTracker]: reseted");
   }
 
@@ -916,6 +911,25 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   // save the uav state
   mrs_lib::set_mutexed(mutex_uav_state_, uav_state, uav_state_);
+
+  if (dt > 0) {
+
+    double rate = 1.0 / dt;
+
+    update_rate_ = 0.9 * update_rate_ + 0.1 * rate;
+
+    if (mpc_synchronous_ && (update_rate_ > _mpc_synchronous_rate_limit_)) {
+      mpc_synchronous_ = false;
+      ROS_INFO("[MpcTracker]: detecting high update date (%.1f Hz > %.1f Hz), switching to asynchronous mode.", rate, _mpc_synchronous_rate_limit_);
+      if (is_active_) {
+        timer_mpc_iteration_.start();
+      }
+    } else if (!mpc_synchronous_ && (update_rate_ <= _mpc_synchronous_rate_limit_)) {
+      mpc_synchronous_ = true;
+      ROS_INFO("[MpcTracker]: detecting low update rate (%.1f Hz < %.1f Hz), switching to synchronous mode.", rate, _mpc_synchronous_rate_limit_);
+      timer_mpc_iteration_.stop();
+    }
+  }
 
   // up to this part the update() method is evaluated even when the tracker is not active
   if (!is_active_) {
@@ -984,30 +998,11 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
     ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in SYNCHRONOUS mode");
     timerMPC(event);
   } else {
-    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in USYNCHRONOUS mode");
+    ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in ASYNCHRONOUS mode");
   }
 
   if (dt > 0) {
     iterateModel(dt);
-  }
-
-  if (dt > 0) {
-
-    double rate = 1.0 / dt;
-
-    if (mpc_synchronous_) {
-      if (rate > _mpc_synchronous_rate_limit_) {
-        mpc_synchronous_ = false;
-        ROS_INFO("[MpcTracker]: detecting high rate of UAV state (%.1f Hz > %.1f Hz), switching to asynchronous mode.", rate, _mpc_synchronous_rate_limit_);
-        timer_mpc_iteration_.start();
-      }
-    } else {
-      if (rate <= _mpc_synchronous_rate_limit_) {
-        mpc_synchronous_ = true;
-        ROS_INFO("[MpcTracker]: detecting low rate of UAV state (%.1f Hz < %.1f Hz), switching to synchronous mode.", rate, _mpc_synchronous_rate_limit_);
-        timer_mpc_iteration_.stop();
-      }
-    }
   }
 
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
@@ -1085,7 +1080,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
   // u have to return a position command
   // can set the jerk to 0
   return {tracker_cmd};
-}
+}  // namespace mpc_tracker
 
 //}
 
@@ -2375,7 +2370,7 @@ void MpcTracker::iterateModel(const double& dt) {
     dt1 = 0.9 * dt1 + 0.1 * dt;
 
     mrs_lib::set_mutexed(mutex_dt1_, dt1, dt1_);
-    timer_mpc_iteration_.setPeriod(ros::Duration(dt1));
+    timer_mpc_iteration_.setPeriod(ros::Duration(dt1), false);
 
     ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: iterating model, dt = " << dt1);
 
@@ -3450,15 +3445,12 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
   end      = ros::Time::now();
   interval = end - begin;
 
-  // | ----------------- acumulate the MPC delay ---------------- |
-  if (interval.toSec() > dt1) {
+  // | ------------------ calculate the MPC RTF ----------------- |
 
-    mpc_total_delay_ += interval.toSec() - dt1;
-    double perc_slower = 100.0 * mpc_total_delay_ / (ros::Time::now() - mpc_start_time_).toSec();
+  mpc_rtf_ = 0.99 * mpc_rtf_ + 0.01 * (interval.toSec()/dt1);
 
-    if (perc_slower >= 1.0) {
-      ROS_WARN_THROTTLE(10.0, "[MpcTracker] MPC is Running %.2f%% slower than it should", perc_slower);
-    }
+  if (mpc_rtf_ >= 1.0) {
+    ROS_WARN_THROTTLE(5.0, "[MpcTracker] MPC Real Time Factor (%.3f) is slow", mpc_rtf_);
   }
 
   mpc_computed_ = true;
