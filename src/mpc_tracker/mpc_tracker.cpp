@@ -13,7 +13,6 @@
 #include <mrs_msgs/FuturePoint.h>
 #include <mrs_msgs/FutureTrajectory.h>
 #include <mrs_msgs/MpcTrackerDiagnostics.h>
-#include <mrs_msgs/EstimatorType.h>
 #include <mrs_msgs/MpcPredictionFullState.h>
 #include <mrs_msgs/EstimationDiagnostics.h>
 #include <mrs_msgs/VelocityReference.h>
@@ -2016,7 +2015,7 @@ void MpcTracker::calculateMPC() {
   double lowest_z              = std::numeric_limits<double>::max();
 
   if (collision_avoidance_enabled_ &&
-      (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS || uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK)) {
+      (uav_state.estimator_horizontal == "gps_garmin" || uav_state.estimator_horizontal == "gps_baro" || uav_state.estimator_horizontal == "rtk")) {
 
     // determine the lowest point in our trajectory
     for (int i = 0; i < _mpc_horizon_len_; i++) {
@@ -3227,7 +3226,7 @@ void MpcTracker::publishDiagnostics(void) {
   if (ss.str().length() > 0) {
     ROS_DEBUG_STREAM_THROTTLE(5.0, "[MpcTracker]: getting avoidance trajectories: " << ss.str());
   } else if (collision_avoidance_enabled_ &&
-             (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS || uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK)) {
+      (uav_state.estimator_horizontal == "gps_garmin" || uav_state.estimator_horizontal == "gps_baro" || uav_state.estimator_horizontal == "rtk")) {
     ROS_DEBUG_THROTTLE(10.0, "[MpcTracker]: missing avoidance trajectories!");
   }
 
@@ -3742,9 +3741,7 @@ void MpcTracker::timerAvoidanceTrajectory(const ros::TimerEvent& event) {
     avoidance_trajectory.stamp               = ros::Time::now();
     avoidance_trajectory.uav_name            = _uav_name_;
     avoidance_trajectory.priority            = avoidance_this_uav_priority_;
-    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::GPS ||
-                                                                                uav_state.estimator_horizontal.type == mrs_msgs::EstimatorType::RTK);
-
+    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (uav_state.estimator_horizontal == "gps_garmin" || uav_state.estimator_horizontal == "gps_baro" || uav_state.estimator_horizontal == "rtk");
     avoidance_trajectory.points.clear();
     avoidance_trajectory.stamp               = ros::Time::now();
     avoidance_trajectory.uav_name            = _uav_name_;
