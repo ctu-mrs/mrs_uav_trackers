@@ -2014,8 +2014,7 @@ void MpcTracker::calculateMPC() {
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
 
-  if (collision_avoidance_enabled_ &&
-      (uav_state.estimator_horizontal == "lat_gps" || uav_state.estimator_horizontal == "lat_rtk")) {
+  if (collision_avoidance_enabled_ && (uav_state.estimator_horizontal == "lat_gps" || uav_state.estimator_horizontal == "lat_rtk")) {
 
     // determine the lowest point in our trajectory
     for (int i = 0; i < _mpc_horizon_len_; i++) {
@@ -2370,8 +2369,6 @@ void MpcTracker::iterateModel(const double& dt) {
 
     mrs_lib::set_mutexed(mutex_dt1_, dt1, dt1_);
     timer_mpc_iteration_.setPeriod(ros::Duration(dt1), false);
-
-    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: iterating model, dt = " << dt1);
 
     // clang-format off
     A_ << 1, dt1, 0.5*dt1*dt1, 0,           0, 0,   0,           0,           0, 0,   0,           0,
