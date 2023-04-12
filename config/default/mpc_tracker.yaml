@@ -27,7 +27,9 @@ wiggle:
 # mrs collision avoidance
 collision_avoidance:
 
-  enabled: true
+  enabled:           true # disabling this will stop this UAV to react to others, but it will still transmit data to others
+  enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
+
   trajectory_timeout: 1.0 # [s]
   radius: 3.0 # [m]
   inflation_radius: 1.0 # [m] if a collision is detected in (radius + inflation radius) the uav will start to slow down. Do not set this variable lower than 0.5

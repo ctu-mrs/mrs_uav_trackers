@@ -234,7 +234,8 @@ private:
   // | ------------------- collision avoidance ------------------ |
 
   // configurable params
-  bool collision_avoidance_enabled_ = false;
+  bool collision_avoidance_enabled_           = false;
+  bool collision_avoidance_enabled_passively_ = true;
 
   // TODO what is this?
   double    coef_scaler = 0;
@@ -481,6 +482,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // collision avoidance
   param_loader.loadParam("collision_avoidance/enabled", collision_avoidance_enabled_);
+  param_loader.loadParam("collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
   param_loader.loadParam("network/robot_names", _avoidance_other_uav_names_);
   param_loader.loadParam("predicted_trajectory_topic", _avoidance_trajectory_topic_name_);
   param_loader.loadParam("diagnostics_topic", _avoidance_diagnostics_topic_name_);
@@ -581,20 +583,23 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   shopts.transport_hints    = ros::TransportHints().tcpNoDelay();
 
   // create subscribers on other drones diagnostics
-  for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
+  if (collision_avoidance_enabled_ || collision_avoidance_enabled_passively_) {
 
-    std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_trajectory_topic_name_;
-    std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_diagnostics_topic_name_;
+    for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
 
-    ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
+      std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_trajectory_topic_name_;
+      std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_diagnostics_topic_name_;
 
-    other_uav_trajectory_subscribers_.push_back(
-        mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>(shopts, prediction_topic_name, &MpcTracker::callbackOtherMavTrajectory, this));
+      ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
-    ROS_INFO("[MpcTracker]: subscribing to %s", diag_topic_name.c_str());
+      other_uav_trajectory_subscribers_.push_back(
+          mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>(shopts, prediction_topic_name, &MpcTracker::callbackOtherMavTrajectory, this));
 
-    other_uav_diag_subscribers_.push_back(
-        mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
+      ROS_INFO("[MpcTracker]: subscribing to %s", diag_topic_name.c_str());
+
+      other_uav_diag_subscribers_.push_back(
+          mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>(shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
+    }
   }
 
   sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "estimation_diagnostics_in");
@@ -612,7 +617,8 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // | ------------------------- timers ------------------------- |
 
-  timer_avoidance_trajectory_ = nh_.createTimer(ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this);
+  timer_avoidance_trajectory_ = nh_.createTimer(ros::Rate(_avoidance_trajectory_rate_), &MpcTracker::timerAvoidanceTrajectory, this, false,
+                                                collision_avoidance_enabled_ || collision_avoidance_enabled_passively_);
   timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
   timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_asynchronous_rate_), &MpcTracker::timerMPC, this, false, false);
   timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
