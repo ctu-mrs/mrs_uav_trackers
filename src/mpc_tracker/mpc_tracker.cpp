@@ -194,8 +194,8 @@ private:
   std::mutex mutex_mpc_u_;
 
   // current state of the dynamical system
-  MatrixXd   mpc_x_;          // current state of the uav
-  MatrixXd   mpc_x_heading_;  // current heading of the uav
+  MatrixXd   mpc_x_;          // translation state
+  MatrixXd   mpc_x_heading_;  // heading state
   std::mutex mutex_mpc_x_;
 
   // odometry reset
@@ -212,8 +212,7 @@ private:
   mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>       ph_current_trajectory_point_;
   mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState> ph_prediction_full_state_;
 
-  /* std::atomic<bool> mpc_computed_ = false; */
-  std::atomic<bool> mpc_computed_ = true;
+  std::atomic<bool> mpc_computed_ = false;
 
   bool brake_ = false;
 
@@ -1041,7 +1040,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   } else {
 
-    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: MPC outputs are not finite!");
+    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: MPC translation outputs are not finite!");
 
     return {};
   }
@@ -1067,7 +1066,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   } else {
 
-    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: heading output is not finite!");
+    ROS_ERROR_THROTTLE(1.0, "[MpcTracker]: MPC heading output is not finite!");
 
     return {};
   }
@@ -2166,7 +2165,7 @@ void MpcTracker::calculateMPC() {
 
   // unwrap the heading reference
 
-  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading_(0));
+  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading(0));
 
   for (int i = 1; i < _mpc_horizon_len_; i++) {
     des_heading_trajectory(i, 0) = sradians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
@@ -2655,6 +2654,12 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
         }
       }
     }
+
+  } else { // not fly_now
+
+      trajectory_tracking_in_progress_ = false;
+
+      timer_trajectory_tracking_.stop();
   }
 
   //}
@@ -2988,6 +2993,9 @@ void MpcTracker::setRelativeGoal(const double pos_x, const double pos_y, const d
 /* toggleHover() //{ */
 
 void MpcTracker::toggleHover(bool in) {
+
+  // DON'T PUT MUTEX LOCK IN THIS FUNCTION
+  // it is called under mutex elsewhere
 
   if (in == false && hovering_in_progress_) {
 
@@ -3565,9 +3573,10 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
   //}
 
   if (started_with_invalid) {
+
     mpc_result_invalid_ = false;
-    ROS_INFO("[MpcTracker]: calculated first MPC result after invalidation, x %.2f, y %.2f, hor1x %.2f, hor1y %.2f", mpc_x_(0, 0), mpc_x_(4, 0),
-             des_x_trajectory_(0, 0), des_y_trajectory_(0, 0));
+
+    ROS_INFO("[MpcTracker]: calculated the first MPC result after invalidation");
   }
 }
 
