@@ -95,16 +95,16 @@ mpc_solver:
   dt2: 0.2
 
   xy:
-    verbose: false
-    max_n_iterations: 25 # default: 25
+    verbose: true
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
 
   z:
-    verbose: false
-    max_n_iterations: 25 # default: 25
+    verbose: true
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
 
   heading:
-    verbose: false
-    max_n_iterations: 25 # default: 25
+    verbose: true
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
