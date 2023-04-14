@@ -30,7 +30,7 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 
-#include <mpc_tracker_solver.h>
+#include <mpc_tracker.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mrs_uav_trackers/mpc_trackerConfig.h>
@@ -3463,8 +3463,6 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     ROS_WARN_THROTTLE(5.0, "[MpcTracker] MPC Real Time Factor (%.3f) is slow", mpc_rtf_);
   }
 
-  mpc_computed_ = true;
-
   /* publish predicted future //{ */
 
   {
@@ -3581,6 +3579,7 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
   if (started_with_invalid) {
 
     mpc_result_invalid_ = false;
+    mpc_computed_ = true;
 
     ROS_INFO("[MpcTracker]: calculated the first MPC result after invalidation");
   }
