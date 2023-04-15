@@ -2193,20 +2193,16 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
+  mpc_solver_x_->setDt(dt1);
+  mpc_solver_x_->setInitialState(initial_x);
+  mpc_solver_x_->loadReference(des_x_filtered);
+  mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
+  iters_x += mpc_solver_x_->solveMPC();
+
   {
-    mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("mpc x");
+    std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    mpc_solver_x_->setDt(dt1);
-    mpc_solver_x_->setInitialState(initial_x);
-    mpc_solver_x_->loadReference(des_x_filtered);
-    mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
-    iters_x += mpc_solver_x_->solveMPC();
-
-    {
-      std::scoped_lock lock(mutex_predicted_trajectory_);
-
-      mpc_solver_x_->getStates(predicted_trajectory_);
-    }
+    mpc_solver_x_->getStates(predicted_trajectory_);
   }
 
   mpc_u(0) = mpc_solver_x_->getFirstControlInput();
