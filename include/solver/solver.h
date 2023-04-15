@@ -5,6 +5,17 @@
 #include <math.h>
 #define pm(A, m, n) printmatrix(#A, A, m, n, 1)
 
+/* Next function is from numerical recipes in C. */
+#define IA 16807
+#define IM 2147483647
+#define AM (1.0 / IM)
+#define IQ 127773
+#define IR 2836
+#define NTAB 32
+#define NDIV (1 + (IM - 1) / NTAB)
+#define EPS 1.2e-7
+#define RNMX (1.0 - EPS)
+
 namespace mrs_mpc_solvers
 {
 
@@ -256,6 +267,15 @@ public:
   Params    params;
   Workspace work;
   Settings  settings;
+
+  long    global_seed = 1;
+  clock_t tic_timestart;
+
+  long iy = 0;
+  long iv[NTAB];
+
+  int   iset = 0;
+  float gset;
 
   /* Function definitions in ldl.c: */
   void   ldl_solve(double *target, double *var);

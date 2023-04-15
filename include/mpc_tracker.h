@@ -29,9 +29,9 @@ public:
 private:
   QPSolver qp_solver_;
 
-  static const int _horizon_len_ = 40;
-  int              _dim_;
-  std::string      _name_;
+  const int   _horizon_len_ = 40;
+  int         _dim_;
+  std::string _name_;
 
   std::vector<double> myQ_;
 };

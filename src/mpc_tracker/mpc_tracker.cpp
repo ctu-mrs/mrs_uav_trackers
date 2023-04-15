@@ -29,6 +29,7 @@
 #include <mrs_lib/publisher_handler.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
+#include <mrs_lib/scope_timer.h>
 
 #include <mpc_tracker.h>
 
@@ -2192,16 +2193,20 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
-  mpc_solver_x_->setDt(dt1);
-  mpc_solver_x_->setInitialState(initial_x);
-  mpc_solver_x_->loadReference(des_x_filtered);
-  mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
-  iters_x += mpc_solver_x_->solveMPC();
-
   {
-    std::scoped_lock lock(mutex_predicted_trajectory_);
+    mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("mpc x");
 
-    mpc_solver_x_->getStates(predicted_trajectory_);
+    mpc_solver_x_->setDt(dt1);
+    mpc_solver_x_->setInitialState(initial_x);
+    mpc_solver_x_->loadReference(des_x_filtered);
+    mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
+    iters_x += mpc_solver_x_->solveMPC();
+
+    {
+      std::scoped_lock lock(mutex_predicted_trajectory_);
+
+      mpc_solver_x_->getStates(predicted_trajectory_);
+    }
   }
 
   mpc_u(0) = mpc_solver_x_->getFirstControlInput();
@@ -3576,10 +3581,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
   //}
 
+  mpc_computed_ = true;
+
   if (started_with_invalid) {
 
     mpc_result_invalid_ = false;
-    mpc_computed_ = true;
 
     ROS_INFO("[MpcTracker]: calculated the first MPC result after invalidation");
   }
