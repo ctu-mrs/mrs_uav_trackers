@@ -137,6 +137,8 @@ private:
   std::atomic<bool> landing_    = false;
   std::atomic<bool> elanding_   = false;
 
+  std::atomic<bool> cause_failsafe_ = false;
+
   void stopHorizontalMotion(void);
   void stopVerticalMotion(void);
   void accelerateVertical(void);
@@ -412,10 +414,11 @@ std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const mr
     goal_z_ = state_z_ + vertical_stop_dist;
   }
 
-  landing_    = false;
-  taking_off_ = false;
-  is_active_  = true;
-  have_goal_  = false;
+  landing_        = false;
+  taking_off_     = false;
+  is_active_      = true;
+  have_goal_      = false;
+  cause_failsafe_ = false;
 
   timer_main_.start();
 
@@ -478,7 +481,7 @@ const mrs_msgs::PositionCommand::ConstPtr LandoffTracker::update(const mrs_msgs:
   }
 
   // up to this part the update() method is evaluated even when the tracker is not active
-  if (!is_active_) {
+  if (!is_active_ || cause_failsafe_) {
     return mrs_msgs::PositionCommand::Ptr();
   }
 
@@ -1055,8 +1058,25 @@ void LandoffTracker::stopHorizontal(void) {
   {
     std::scoped_lock lock(mutex_state_, mutex_goal_);
 
-    state_x_                         = 0.95 * state_x_ + 0.05 * goal_x_;
-    state_y_                         = 0.95 * state_y_ + 0.05 * goal_y_;
+    double new_state_x = 0.95 * state_x_ + 0.05 * goal_x_;
+    double new_state_y = 0.95 * state_y_ + 0.05 * goal_y_;
+
+    double dist_x = new_state_x - state_x_;
+    double dist_y = new_state_y - state_y_;
+
+    double dt = 1.0 / _main_timer_rate_;
+
+    if (std::abs(dist_x / dt) > 1.0) {
+      dist_x = mrs_lib::signum(dist_x) * (1.0 * dt);
+    }
+
+    if (std::abs(dist_y / dt) > 1.0) {
+      dist_y = mrs_lib::signum(dist_y) * (1.0 * dt);
+    }
+
+    state_x_ += dist_x;
+    state_y_ += dist_y;
+
     current_horizontal_acceleration_ = 0;
   }
 }
@@ -1070,7 +1090,18 @@ void LandoffTracker::stopVertical(void) {
   {
     std::scoped_lock lock(mutex_state_, mutex_goal_);
 
-    state_z_                       = 0.95 * state_z_ + 0.05 * goal_z_;
+    double new_state_z = 0.95 * state_z_ + 0.05 * goal_z_;
+
+    double dist_z = new_state_z - state_z_;
+
+    double dt = 1.0 / _main_timer_rate_;
+
+    if (std::abs(dist_z / dt) > 1.0) {
+      dist_z = mrs_lib::signum(dist_z) * (1.0 * dt);
+    }
+
+    state_z_ += dist_z;
+
     current_vertical_acceleration_ = 0;
   }
 }
@@ -1224,14 +1255,26 @@ void LandoffTracker::timerMain(const ros::TimerEvent& event) {
   }
 
   if (current_state_vertical_ == STOPPING_STATE && current_state_horizontal_ == STOPPING_STATE) {
-    if (fabs(state_x - goal_x) < 0.1 && fabs(state_y - goal_y) < 0.1 && fabs(state_z - goal_z) < 0.1) {
+
+    if (fabs(state_x - goal_x) > 1.0 || fabs(state_y - goal_y) > 1.0 || fabs(state_z - goal_z) > 1.0) {
+
+      ROS_ERROR("[LandoffTracker]: distance to the goal is too large when STOPPING, this could have been caused by a race condition!");
+      ROS_ERROR("[LandoffTracker]: call for Tomas!!");
+
+      cause_failsafe_ = true;
+
+      changeState(HOVER_STATE);
+
+    } else if (fabs(state_x - goal_x) < 0.1 && fabs(state_y - goal_y) < 0.1 && fabs(state_z - goal_z) < 0.1) {
 
       {
         std::scoped_lock lock(mutex_state_);
 
-        state_x_ = goal_x;
-        state_y_ = goal_y;
-        state_z_ = goal_z;
+        if (!taking_off_) {
+          state_x_ = goal_x;
+          state_y_ = goal_y;
+          state_z_ = goal_z;
+        }
 
         current_horizontal_speed_ = 0;
         current_vertical_speed_   = 0;
