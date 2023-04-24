@@ -89,15 +89,15 @@ mpc_solver:
 
   xy:
     verbose: false
-    max_n_iterations: 25 # default: 25
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
 
   z:
     verbose: false
-    max_n_iterations: 25 # default: 25
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
 
   heading:
     verbose: false
-    max_n_iterations: 25 # default: 25
+    max_n_iterations: 40
     Q: [5000, 0, 0, 0]
