@@ -118,7 +118,7 @@ private:
   bool   is_active_      = false;
 
   bool   _takeoff_disable_lateral_gains_ = false;
-  double _takeoff_disable_lateral_gains_height_;
+  double _takeoff_disable_lateral_gains_z_;
 
   // | --------------- the tracker's state machine -------------- |
 
@@ -257,7 +257,7 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
   param_loader.loadParam("max_position_difference", _max_position_difference_);
 
   param_loader.loadParam("takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
-  param_loader.loadParam("takeoff_disable_lateral_gains_height", _takeoff_disable_lateral_gains_height_);
+  param_loader.loadParam("takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
@@ -513,7 +513,7 @@ std::optional<mrs_msgs::TrackerCommand> LandoffTracker::update(const mrs_msgs::U
     last_control_output_ = last_control_output;
   }
 
-  if (_takeoff_disable_lateral_gains_ && taking_off_ && uav_state_.pose.position.z < _takeoff_disable_lateral_gains_height_) {
+  if (_takeoff_disable_lateral_gains_ && taking_off_ && uav_state_.pose.position.z < _takeoff_disable_lateral_gains_z_) {
     position_output_.disable_position_gains = true;
   } else {
     position_output_.disable_position_gains = false;

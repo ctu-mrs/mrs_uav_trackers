@@ -57,7 +57,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
@@ -304,8 +304,8 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
     tracker_cmd.use_velocity_vertical   = false;
   }
 
-  if (command.use_height) {
-    tracker_cmd.position.z            = command.height;
+  if (command.use_z) {
+    tracker_cmd.position.z            = command.z;
     tracker_cmd.use_position_vertical = true;
   } else {
     tracker_cmd.position.z            = uav_state.pose.position.z;
@@ -394,7 +394,7 @@ const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const st
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
 
   return std_srvs::TriggerResponse::Ptr();
 }
@@ -807,29 +807,29 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
     }
   }
 
-  // check the feasibility of the height
+  // check the feasibility of the z
   {
-    double height_derivative = (transformed_command.height - old_command.height) / dt;
+    double z_derivative = (transformed_command.z - old_command.z) / dt;
 
-    if (height_derivative > constraints.vertical_ascending_speed) {
+    if (z_derivative > constraints.vertical_ascending_speed) {
 
-      transformed_command.height = old_command.height + constraints.vertical_ascending_speed * dt;
+      transformed_command.z = old_command.z + constraints.vertical_ascending_speed * dt;
 
-    } else if (height_derivative < -constraints.vertical_ascending_speed) {
+    } else if (z_derivative < -constraints.vertical_ascending_speed) {
 
-      transformed_command.height = old_command.height - constraints.vertical_descending_speed * dt;
+      transformed_command.z = old_command.z - constraints.vertical_descending_speed * dt;
     }
 
-    // saturate the desired height using the safety area
+    // saturate the desired z using the safety area
     if (common_handlers_->safety_area.use_safety_area) {
 
-      if (transformed_command.height > common_handlers_->safety_area.getMaxHeight()) {
+      if (transformed_command.z > common_handlers_->safety_area.getMaxZ()) {
 
-        transformed_command.height = common_handlers_->safety_area.getMaxHeight();
+        transformed_command.z = common_handlers_->safety_area.getMaxZ();
 
-      } else if (transformed_command.height < common_handlers_->safety_area.getMinHeight()) {
+      } else if (transformed_command.z < common_handlers_->safety_area.getMinZ()) {
 
-        transformed_command.height = common_handlers_->safety_area.getMinHeight();
+        transformed_command.z = common_handlers_->safety_area.getMinZ();
       }
     }
   }
@@ -855,7 +855,7 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
       return;
     }
 
-    transformed_command.height = uav_state_.pose.position.z;
+    transformed_command.z = uav_state_.pose.position.z;
   }
 
   {

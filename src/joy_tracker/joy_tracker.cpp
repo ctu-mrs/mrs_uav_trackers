@@ -318,7 +318,7 @@ std::optional<mrs_msgs::TrackerCommand> JoyTracker::update(const mrs_msgs::UavSt
   double desired_pitch          = _channel_mult_pitch_ * joy_data->axes[_channel_pitch_] * _max_tilt_;
   double desired_roll           = _channel_mult_roll_ * joy_data->axes[_channel_roll_] * _max_tilt_;
 
-  // | --------------------- height tracking -------------------- |
+  // | ----------------------- z tracking ----------------------- |
 
   state_z_ += desired_vertical_speed * dt;
 

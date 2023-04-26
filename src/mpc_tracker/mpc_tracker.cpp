@@ -247,11 +247,11 @@ private:
   // params
   double                   _avoidance_trajectory_rate_;
   double                   _avoidance_radius_threshold_;
-  double                   _avoidance_height_correction_;
+  double                   _avoidance_z_correction_;
   std::string              _avoidance_trajectory_topic_name_;
   std::string              _avoidance_diagnostics_topic_name_;
   std::vector<std::string> _avoidance_other_uav_names_;
-  double                   _avoidance_height_threshold_;
+  double                   _avoidance_z_threshold_;
 
   // how old can the other UAV trajectory be (since receive time)
   double _collision_trajectory_timeout_;
@@ -488,9 +488,9 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   param_loader.loadParam("predicted_trajectory_topic", _avoidance_trajectory_topic_name_);
   param_loader.loadParam("diagnostics_topic", _avoidance_diagnostics_topic_name_);
   param_loader.loadParam("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
-  param_loader.loadParam("collision_avoidance/correction", _avoidance_height_correction_);
+  param_loader.loadParam("collision_avoidance/correction", _avoidance_z_correction_);
   param_loader.loadParam("collision_avoidance/radius", _avoidance_radius_threshold_);
-  param_loader.loadParam("collision_avoidance/altitude_threshold", _avoidance_height_threshold_);
+  param_loader.loadParam("collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
   param_loader.loadParam("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
   param_loader.loadParam("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
   param_loader.loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
@@ -569,7 +569,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   predicted_trajectory_         = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
   predicted_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
 
-  collision_free_altitude_ = common_handlers_->safety_area.getMinHeight();
+  collision_free_altitude_ = common_handlers_->safety_area.getMinZ();
 
   // collision avoidance toggle service
   service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance_in", &MpcTracker::callbackToggleCollisionAvoidance, this);
@@ -1681,7 +1681,7 @@ void MpcTracker::dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig&
 
 bool MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_height_threshold_) {
+  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ && fabs(az - bz) < _avoidance_z_threshold_) {
 
     return true;
 
@@ -1697,7 +1697,7 @@ bool MpcTracker::checkCollision(const double ax, const double ay, const double a
 
 bool MpcTracker::checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
 
-  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_height_threshold_ + 1.0) {
+  if (mrs_lib::geometry::dist(vec2_t(ax, ay), vec2_t(bx, by)) < _avoidance_radius_threshold_ + 1.0 && fabs(az - bz) < _avoidance_z_threshold_ + 1.0) {
 
     return true;
 
@@ -1743,7 +1743,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
             // we should be avoiding
             avoiding_collision_      = true;
-            double tmp_safe_altitude = u->second.points[v].z + _avoidance_height_correction_;
+            double tmp_safe_altitude = u->second.points[v].z + _avoidance_z_correction_;
 
             if (tmp_safe_altitude > collision_free_altitude_ && v <= _avoidance_collision_start_climbing_) {
               collision_free_altitude_ = tmp_safe_altitude;
@@ -1776,9 +1776,9 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude_ -= 2.0 / (1.0 / dt1);
 
-    if (collision_free_altitude_ < common_handlers_->safety_area.getMinHeight()) {
+    if (collision_free_altitude_ < common_handlers_->safety_area.getMinZ()) {
 
-      collision_free_altitude_ = common_handlers_->safety_area.getMinHeight();
+      collision_free_altitude_ = common_handlers_->safety_area.getMinZ();
     }
   }
 
@@ -2034,7 +2034,7 @@ void MpcTracker::calculateMPC() {
 
   } else {
 
-    minimum_collison_free_altitude_ = common_handlers_->safety_area.getMinHeight();
+    minimum_collison_free_altitude_ = common_handlers_->safety_area.getMinZ();
   }
 
   double max_speed_x = constraints.horizontal_speed;
