@@ -556,11 +556,15 @@ std::optional<mrs_msgs::TrackerCommand> FlipTracker::update(const mrs_msgs::UavS
 
       tracker_cmd.use_attitude_rate = true;
 
-      tracker_cmd.attitude_rate.x = 0;
-      tracker_cmd.attitude_rate.y = 0;
-      tracker_cmd.attitude_rate.z = 0;
+      double direction = drs_params.direction == 0 ? 1.0 : -1.0;
 
-      tracker_cmd.throttle     = 0;
+      if (drs_params.axis == 0) {
+        tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+      } else if (drs_params.axis == 1) {
+        tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+      }
+
+      tracker_cmd.throttle     = hover_throttle;
       tracker_cmd.use_throttle = true;
 
       if ((ros::Time::now() - state_change_time_).toSec() >= _innertia_timeout_) {
