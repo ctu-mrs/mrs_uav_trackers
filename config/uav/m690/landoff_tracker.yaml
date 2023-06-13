@@ -7,5 +7,5 @@ vertical_tracker:
   landing_acceleration: 0.3
 
   # beware, this is for emergency landing only
-  elanding_speed: 1.0
+  elanding_speed: 0.5
   elanding_acceleration: 1.0
