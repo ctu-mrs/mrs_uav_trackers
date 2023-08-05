@@ -1,8 +1,7 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 
@@ -46,7 +45,9 @@ namespace joy_tracker
 
 class JoyTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -71,10 +72,11 @@ public:
 private:
   ros::NodeHandle nh_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
-  bool                                                callbacks_enabled_ = true;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
-  std::string _version_;
+  bool callbacks_enabled_ = true;
+
   std::string _uav_name_;
 
   bool is_initialized_ = false;
@@ -128,58 +130,76 @@ private:
 
 /* //{ initialize() */
 
-void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool JoyTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                            std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "joy_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
   // --------------------------------------------------------------
-  // |                       load parameters                      |
+  // |                     loading parameters                     |
   // --------------------------------------------------------------
+
+  // | -------------------- load param files -------------------- |
+
+  bool success = true;
+
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/joy_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/joy_tracker.yaml");
+
+  if (!success) {
+    return false;
+  }
+
+  // | ---------------- load parent's parameters ---------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[JoyTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | ---------------- load plugin's parameters ---------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
 
-  param_loader.loadParam("version", _version_);
+  const std::string yaml_prefix = "mrs_uav_trackers/joy_tracker/";
 
-  if (_version_ != VERSION) {
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
 
-    ROS_ERROR("[JoyTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
-  }
+  param_loader.loadParam(yaml_prefix + "max_tilt", _max_tilt_);
 
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
-
-  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
-
-  param_loader.loadParam("max_tilt", _max_tilt_);
-
-  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
 
   // load channels
-  param_loader.loadParam("channels/pitch", _channel_pitch_);
-  param_loader.loadParam("channels/roll", _channel_roll_);
-  param_loader.loadParam("channels/heading", _channel_heading_);
-  param_loader.loadParam("channels/throttle", _channel_throttle_);
+  param_loader.loadParam(yaml_prefix + "channels/pitch", _channel_pitch_);
+  param_loader.loadParam(yaml_prefix + "channels/roll", _channel_roll_);
+  param_loader.loadParam(yaml_prefix + "channels/heading", _channel_heading_);
+  param_loader.loadParam(yaml_prefix + "channels/throttle", _channel_throttle_);
 
   // load channel multipliers
-  param_loader.loadParam("channel_multipliers/pitch", _channel_mult_pitch_);
-  param_loader.loadParam("channel_multipliers/roll", _channel_mult_roll_);
-  param_loader.loadParam("channel_multipliers/heading", _channel_mult_heading_);
-  param_loader.loadParam("channel_multipliers/throttle", _channel_mult_throttle_);
+  param_loader.loadParam(yaml_prefix + "channel_multipliers/pitch", _channel_mult_pitch_);
+  param_loader.loadParam(yaml_prefix + "channel_multipliers/roll", _channel_mult_roll_);
+  param_loader.loadParam(yaml_prefix + "channel_multipliers/heading", _channel_mult_heading_);
+  param_loader.loadParam(yaml_prefix + "channel_multipliers/throttle", _channel_mult_throttle_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler_ = mrs_lib::Profiler(nh_, "JoyTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "JoyTracker", _profiler_enabled_);
 
   // | ----------------------- subscribers ---------------------- |
 
@@ -189,7 +209,7 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
   shopts.queue_size      = 1;
   shopts.transport_hints = ros::TransportHints().tcpNoDelay();
 
-  sh_joystick_ = mrs_lib::SubscribeHandler<sensor_msgs::Joy>(shopts, "joystick_in");
+  sh_joystick_ = mrs_lib::SubscribeHandler<sensor_msgs::Joy>(shopts, "joystick");
 
   // | --------------------- finish the init -------------------- |
 
@@ -197,7 +217,9 @@ void JoyTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] c
 
   is_initialized_ = true;
 
-  ROS_INFO("[JoyTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[JoyTracker]: initialized");
+
+  return true;
 }
 
 //}

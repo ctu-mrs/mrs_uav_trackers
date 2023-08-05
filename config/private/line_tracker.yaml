@@ -1,0 +1,17 @@
+mrs_uav_trackers:
+
+  line_tracker:
+
+    tracker_loop_rate: 100 # [Hz]
+
+    horizontal_tracker:
+      horizontal_speed: 3.0
+      horizontal_acceleration: 1.0
+
+    vertical_tracker:
+      vertical_speed: 1.0
+      vertical_acceleration: 1.0
+
+    heading_tracker:
+      heading_gain: 1.0
+      heading_rate: 0.5

@@ -1,11 +1,7 @@
-#define VERSION "1.0.4.0"
-
-#define FLIPPING_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
-#define INNERTIA_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 
@@ -39,6 +35,9 @@ using sradians = mrs_lib::geometry::sradians;
 
 /* defines //{ */
 
+#define FLIPPING_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
+#define INNERTIA_PULSE_STOP_TILT ((2.0 / 3.0) * M_PI)
+
 typedef enum
 {
 
@@ -62,7 +61,9 @@ namespace flip_tracker
 
 class FlipTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -89,10 +90,10 @@ private:
 
   bool callbacks_enabled_ = true;
 
-  std::string _version_;
   std::string _uav_name_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   // | --------------------- service server --------------------- |
 
@@ -184,56 +185,76 @@ private:
 
 /* //{ initialize() */
 
-void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                             [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool FlipTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                             std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "flip_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
-  // | --------------------- load the params -------------------- |
+  // --------------------------------------------------------------
+  // |                     loading parameters                     |
+  // --------------------------------------------------------------
+
+  // | -------------------- load param files -------------------- |
+
+  bool success = true;
+
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/flip_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/flip_tracker.yaml");
+
+  if (!success) {
+    return false;
+  }
+
+  // | --------------- loading parent's parameters -------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[FlipTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | --------------- loading plugin's parameters -------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "FlipTracker");
 
-  param_loader.loadParam("version", _version_);
+  const std::string yaml_prefix = "mrs_uav_trackers/flip_tracker/";
 
-  param_loader.loadParam("activation_limits/max_velocity", _activation_max_velocity_);
-  param_loader.loadParam("activation_limits/max_acceleration", _activation_max_acceleration_);
-  param_loader.loadParam("activation_limits/max_heading_rate", _activation_max_heading_rate_);
+  param_loader.loadParam(yaml_prefix + "activation_limits/max_velocity", _activation_max_velocity_);
+  param_loader.loadParam(yaml_prefix + "activation_limits/max_acceleration", _activation_max_acceleration_);
+  param_loader.loadParam(yaml_prefix + "activation_limits/max_heading_rate", _activation_max_heading_rate_);
 
-  param_loader.loadParam("phases/z_acceleration/mode", drs_params_.z_mode);
-  param_loader.loadParam("phases/z_acceleration/acceleration", drs_params_.z_acceleration);
-  param_loader.loadParam("phases/z_acceleration/throttle", drs_params_.z_throttle);
-  param_loader.loadParam("phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
-  param_loader.loadParam("phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
-  param_loader.loadParam("phases/flipping_pulse/axis", drs_params_.axis);
-  param_loader.loadParam("phases/flipping_pulse/direction", drs_params_.direction);
-  param_loader.loadParam("phases/flipping_pulse/timeout_factor", _pulse_timeout_factor_);
+  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/mode", drs_params_.z_mode);
+  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/acceleration", drs_params_.z_acceleration);
+  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/throttle", drs_params_.z_throttle);
+  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
+  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
+  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/axis", drs_params_.axis);
+  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/direction", drs_params_.direction);
+  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/timeout_factor", _pulse_timeout_factor_);
 
-  param_loader.loadParam("rampup/speed", _rampup_speed_);
+  param_loader.loadParam(yaml_prefix + "rampup/speed", _rampup_speed_);
 
-  param_loader.loadParam("phases/recovery/duration", _recovery_duration_);
-  param_loader.loadParam("phases/innertia/timeout_factor", _innertia_timeout_factor_);
+  param_loader.loadParam(yaml_prefix + "phases/recovery/duration", _recovery_duration_);
+  param_loader.loadParam(yaml_prefix + "phases/innertia/timeout_factor", _innertia_timeout_factor_);
 
   _pulse_timeout_ = _pulse_timeout_factor_ * (FLIPPING_PULSE_STOP_TILT / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing pulse timeout: %.4f s", _pulse_timeout_);
   _innertia_timeout_ = _innertia_timeout_factor_ * (((M_PI - FLIPPING_PULSE_STOP_TILT) + (M_PI - INNERTIA_PULSE_STOP_TILT)) / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing inertia timeout: %.4f s", _innertia_timeout_);
 
-  if (_version_ != VERSION) {
-
-    ROS_ERROR("[FlipTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
-  }
-
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
-
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[FlipTracker]: could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   // | --------------- dynamic reconfigure server --------------- |
@@ -245,17 +266,19 @@ void FlipTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
   // | --------------------- service servers -------------------- |
 
-  service_server_flip_ = nh_.advertiseService("flip_in", &FlipTracker::callbackFlip, this);
+  service_server_flip_ = nh_.advertiseService("flip", &FlipTracker::callbackFlip, this);
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler_ = mrs_lib::Profiler(nh_, "FlipTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "FlipTracker", _profiler_enabled_);
 
   // | --------------------- finish the init -------------------- |
 
   is_initialized_ = true;
 
-  ROS_INFO("[FlipTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[FlipTracker]: initialized");
+
+  return true;
 }
 
 //}

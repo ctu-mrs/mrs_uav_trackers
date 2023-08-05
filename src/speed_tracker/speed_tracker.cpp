@@ -1,5 +1,3 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
@@ -49,7 +47,9 @@ namespace speed_tracker
 
 class SpeedTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -76,10 +76,10 @@ private:
 
   bool callbacks_enabled_ = true;
 
-  std::string _version_;
   std::string _uav_name_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   mrs_lib::PublisherHandler<visualization_msgs::MarkerArray> ph_rviz_marker_;
 
@@ -123,40 +123,60 @@ private:
 
 /* //{ initialize() */
 
-void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                              [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                              std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "speed_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
-  // | --------------------- load the params -------------------- |
+  // --------------------------------------------------------------
+  // |                     loading parameters                     |
+  // --------------------------------------------------------------
+
+  // | -------------------- load param files -------------------- |
+
+  bool success = true;
+
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/speed_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/speed_tracker.yaml");
+
+  if (!success) {
+    return false;
+  }
+
+  // | ---------------- load parent's parameters ---------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[SpeedTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | ---------------- load plugin's parameters ---------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
 
-  param_loader.loadParam("version", _version_);
+  const std::string yaml_prefix = "mrs_uav_trackers/speed_tracker/";
 
-  if (_version_ != VERSION) {
-
-    ROS_ERROR("[SpeedTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
-  }
-
-  param_loader.loadParam("command_timeout", _external_command_timeout_);
-
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[SpeedTracker]: could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler_ = mrs_lib::Profiler(nh_, "SpeedTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "SpeedTracker", _profiler_enabled_);
 
   // | ----------------------- subscribers ---------------------- |
 
@@ -167,17 +187,19 @@ void SpeedTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]]
   shopts.autostart       = true;
   shopts.transport_hints = ros::TransportHints().tcpNoDelay();
 
-  sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand>(shopts, "command_in", &SpeedTracker::callbackCommand, this);
+  sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand>(shopts, "command", &SpeedTracker::callbackCommand, this);
 
   // | ----------------------- publishers ----------------------- |
 
-  ph_rviz_marker_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "rviz_marker_out", 1);
+  ph_rviz_marker_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "rviz_marker", 1);
 
   // | --------------------- finish the init -------------------- |
 
   is_initialized_ = true;
 
-  ROS_INFO("[SpeedTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[SpeedTracker]: initialized");
+
+  return true;
 }
 
 //}

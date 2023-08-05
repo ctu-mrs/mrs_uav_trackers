@@ -15,7 +15,7 @@
   <depend>pluginlib</depend>
   <depend>roscpp</depend>
   <depend>geometry_msgs</depend>
-  <depend>nav_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>tf</depend>
   <depend>mrs_msgs</depend>
   <depend>mrs_lib</depend>

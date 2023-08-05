@@ -1,8 +1,7 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 #include <mrs_uav_managers/controller.h>
@@ -69,7 +68,9 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand>& last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -92,12 +93,13 @@ public:
   const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr setConstraints(const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr& cmd);
 
 private:
-  ros::NodeHandle                                     nh_;
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  ros::NodeHandle nh_;
+
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   std::atomic<bool> callbacks_enabled_ = true;
 
-  std::string _version_;
   std::string _uav_name_;
 
   // debugging publishers
@@ -208,10 +210,12 @@ private:
   MatrixXd   predicted_heading_trajectory_;
   std::mutex mutex_predicted_trajectory_;
 
-  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>         ph_predicted_trajectory_debugging_;
-  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>         ph_mpc_reference_debugging_;
-  mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>       ph_current_trajectory_point_;
-  mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState> ph_prediction_full_state_;
+  mrs_msgs::MpcPredictionFullState prediction_full_state_;
+  std::mutex                       mutex_prediction_full_state_;
+
+  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>   ph_predicted_trajectory_debugging_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseArray>   ph_mpc_reference_debugging_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseStamped> ph_current_trajectory_point_;
 
   std::atomic<bool> mpc_computed_ = false;
 
@@ -248,7 +252,6 @@ private:
   double                   _avoidance_trajectory_rate_;
   double                   _avoidance_radius_threshold_;
   double                   _avoidance_z_correction_;
-  std::string              _avoidance_trajectory_topic_name_;
   std::string              _avoidance_diagnostics_topic_name_;
   std::vector<std::string> _avoidance_other_uav_names_;
   double                   _avoidance_z_threshold_;
@@ -401,61 +404,84 @@ private:
 
 /* //{ initialize() */
 
-void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] const std::string uav_name,
-                            [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                            std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  nh_ = ros::NodeHandle(parent_nh, "mpc_tracker");
+  nh_ = nh;
 
-  _uav_name_       = uav_name;
-  common_handlers_ = common_handlers;
+  common_handlers_  = common_handlers;
+  private_handlers_ = private_handlers;
+
+  _uav_name_ = common_handlers->uav_name;
 
   ros::Time::waitForValid();
 
-  mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+  // --------------------------------------------------------------
+  // |                     loading parameters                     |
+  // --------------------------------------------------------------
 
-  param_loader.loadParam("version", _version_);
+  // | -------------------- load param files -------------------- |
 
-  if (_version_ != VERSION) {
+  bool success = true;
 
-    ROS_ERROR("[MpcTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_core") + "/config/uav_names.yaml");
+
+  if (!success) {
+    return false;
   }
 
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  // | --------------- loading parent's parameters -------------- |
 
-  param_loader.loadParam("mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
-  param_loader.loadParam("mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[MpcTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | --------------- loading plugin's parameters -------------- |
+
+  mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+
+  const std::string yaml_prefix = "mrs_uav_trackers/mpc_tracker/";
+
+  param_loader.loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
+  param_loader.loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
 
   dt1_ = 1.0 / _mpc_asynchronous_rate_;
 
-  param_loader.loadParam("braking/enabled", drs_params_.braking_enabled);
-  param_loader.loadParam("braking/q_vel_braking", drs_params_.q_vel_braking);
-  param_loader.loadParam("braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
+  param_loader.loadParam(yaml_prefix + "braking/enabled", drs_params_.braking_enabled);
+  param_loader.loadParam(yaml_prefix + "braking/q_vel_braking", drs_params_.q_vel_braking);
+  param_loader.loadParam(yaml_prefix + "braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
 
-  param_loader.loadParam("model/translation/n_states", _mpc_n_states_);
-  param_loader.loadParam("model/translation/n_inputs", _mpc_m_states_);
-  param_loader.loadMatrixStatic("model/translation/A", _mat_A_, _mpc_n_states_, _mpc_n_states_);
-  param_loader.loadMatrixStatic("model/translation/B", _mat_B_, _mpc_n_states_, _mpc_m_states_);
+  param_loader.loadParam(yaml_prefix + "model/translation/n_states", _mpc_n_states_);
+  param_loader.loadParam(yaml_prefix + "model/translation/n_inputs", _mpc_m_states_);
+  param_loader.loadMatrixStatic(yaml_prefix + "model/translation/A", _mat_A_, _mpc_n_states_, _mpc_n_states_);
+  param_loader.loadMatrixStatic(yaml_prefix + "model/translation/B", _mat_B_, _mpc_n_states_, _mpc_m_states_);
 
   A_ = _mat_A_;
   B_ = _mat_B_;
 
-  param_loader.loadParam("model/heading/n_states", _mpc_n_states_heading_);
-  param_loader.loadParam("model/heading/n_inputs", _mpc_n_inputs_heading_);
-  param_loader.loadMatrixStatic("model/heading/A", _mat_A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
-  param_loader.loadMatrixStatic("model/heading/B", _mat_B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+  param_loader.loadParam(yaml_prefix + "model/heading/n_states", _mpc_n_states_heading_);
+  param_loader.loadParam(yaml_prefix + "model/heading/n_inputs", _mpc_n_inputs_heading_);
+  param_loader.loadMatrixStatic(yaml_prefix + "model/heading/A", _mat_A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
+  param_loader.loadMatrixStatic(yaml_prefix + "model/heading/B", _mat_B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
 
   A_heading_ = _mat_A_heading_;
   B_heading_ = _mat_B_heading_;
 
   // load the MPC parameters
-  param_loader.loadParam("mpc_solver/horizon_len", _mpc_horizon_len_);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/horizon_len", _mpc_horizon_len_);
 
-  param_loader.loadParam("mpc_solver/dt2", _dt2_);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/dt2", _dt2_);
 
-  param_loader.loadParam("diagnostics/rate", _diagnostics_rate_);
-  param_loader.loadParam("diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
-  param_loader.loadParam("diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
+  param_loader.loadParam(yaml_prefix + "diagnostics/rate", _diagnostics_rate_);
+  param_loader.loadParam(yaml_prefix + "diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
+  param_loader.loadParam(yaml_prefix + "diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
 
   bool verbose_xy      = false;
   bool verbose_z       = false;
@@ -465,41 +491,38 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   std::vector<double> z_Q;
   std::vector<double> heading_Q;
 
-  param_loader.loadParam("mpc_solver/xy/verbose", verbose_xy);
-  param_loader.loadParam("mpc_solver/xy/max_n_iterations", _max_iters_xy_);
-  param_loader.loadParam("mpc_solver/xy/Q", xy_Q);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/verbose", verbose_xy);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/max_n_iterations", _max_iters_xy_);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/Q", xy_Q);
 
-  param_loader.loadParam("mpc_solver/z/verbose", verbose_z);
-  param_loader.loadParam("mpc_solver/z/max_n_iterations", _max_iters_z_);
-  param_loader.loadParam("mpc_solver/z/Q", z_Q);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/z/verbose", verbose_z);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/z/max_n_iterations", _max_iters_z_);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/z/Q", z_Q);
 
-  param_loader.loadParam("mpc_solver/heading/verbose", verbose_heading);
-  param_loader.loadParam("mpc_solver/heading/max_n_iterations", _max_iters_heading_);
-  param_loader.loadParam("mpc_solver/heading/Q", heading_Q);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/verbose", verbose_heading);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/max_n_iterations", _max_iters_heading_);
+  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/Q", heading_Q);
 
-  param_loader.loadParam("wiggle/enabled", drs_params_.wiggle_enabled);
-  param_loader.loadParam("wiggle/amplitude", drs_params_.wiggle_amplitude);
-  param_loader.loadParam("wiggle/frequency", drs_params_.wiggle_frequency);
+  param_loader.loadParam(yaml_prefix + "wiggle/enabled", drs_params_.wiggle_enabled);
+  param_loader.loadParam(yaml_prefix + "wiggle/amplitude", drs_params_.wiggle_amplitude);
+  param_loader.loadParam(yaml_prefix + "wiggle/frequency", drs_params_.wiggle_frequency);
 
-  // collision avoidance
-  param_loader.loadParam("collision_avoidance/enabled", collision_avoidance_enabled_);
-  param_loader.loadParam("collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/enabled", collision_avoidance_enabled_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/correction", _avoidance_z_correction_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/radius", _avoidance_radius_threshold_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
+  param_loader.loadParam(yaml_prefix + "collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
   param_loader.loadParam("network/robot_names", _avoidance_other_uav_names_);
-  param_loader.loadParam("predicted_trajectory_topic", _avoidance_trajectory_topic_name_);
-  param_loader.loadParam("diagnostics_topic", _avoidance_diagnostics_topic_name_);
-  param_loader.loadParam("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
-  param_loader.loadParam("collision_avoidance/correction", _avoidance_z_correction_);
-  param_loader.loadParam("collision_avoidance/radius", _avoidance_radius_threshold_);
-  param_loader.loadParam("collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
-  param_loader.loadParam("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
-  param_loader.loadParam("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
-  param_loader.loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
-  param_loader.loadParam("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
-  param_loader.loadParam("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   ROS_INFO_STREAM("[MpcTracker]: initializing solvers with dt1 = " << dt1_);
@@ -522,10 +545,10 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   des_z_filtered_offset_  = MatrixXd::Zero(_mpc_horizon_len_, 1);
   des_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_, 1);
 
-  service_server_wiggle_ = nh_.advertiseService("wiggle_in", &MpcTracker::callbackWiggle, this);
+  service_server_wiggle_ = nh_.advertiseService("wiggle", &MpcTracker::callbackWiggle, this);
 
-  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::MpcTrackerDiagnostics>(nh_, "diagnostics_out", 1);
-  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::String>(nh_, "string_out", 1);
+  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::MpcTrackerDiagnostics>(nh_, "diagnostics", 1);
+  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::String>(nh_, "string", 1);
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
@@ -556,14 +579,13 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // create publishers for predicted trajectory
 
-  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::FutureTrajectory>(nh_, "predicted_trajectory_out", 1);
-  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "predicted_trajectory_debugging_out", 1);
-  ph_mpc_reference_debugging_        = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "mpc_reference_debugging_out", 1, true);
-  ph_current_trajectory_point_       = mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>(nh_, "current_trajectory_point_out", 1, true);
-  ph_prediction_full_state_          = mrs_lib::PublisherHandler<mrs_msgs::MpcPredictionFullState>(nh_, "prediction_full_state_out", 1, true);
+  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::FutureTrajectory>(nh_, "predicted_trajectory", 1);
+  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "predicted_trajectory_debugging", 1);
+  ph_mpc_reference_debugging_        = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "mpc_reference_debugging", 1, true);
+  ph_current_trajectory_point_       = mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>(nh_, "current_trajectory_point", 1, true);
 
-  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "trajectory_processed/poses_out", 1, true);
-  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "trajectory_processed/markers_out", 1, true);
+  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "trajectory_processed/poses", 1, true);
+  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "trajectory_processed/markers", 1, true);
 
   // preallocate predicted trajectory
   predicted_trajectory_         = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
@@ -572,7 +594,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
   collision_free_altitude_ = common_handlers_->safety_area.getMinZ();
 
   // collision avoidance toggle service
-  service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance_in", &MpcTracker::callbackToggleCollisionAvoidance, this);
+  service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
 
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh                 = nh_;
@@ -588,8 +610,8 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
     for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
 
-      std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_trajectory_topic_name_;
-      std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + std::string("/") + _avoidance_diagnostics_topic_name_;
+      std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + "/control_manager/mpc_tracker/predicted_trajectory";
+      std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + "/control_manager/mpc_tracker/diagnostics";
 
       ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
@@ -603,7 +625,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
     }
   }
 
-  sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "estimation_diagnostics_in");
+  sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "estimation_diagnostics");
 
   // | --------------- dynamic reconfigure server --------------- |
 
@@ -614,7 +636,7 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler = mrs_lib::Profiler(nh_, "MpcTracker", _profiler_enabled_);
+  profiler = mrs_lib::Profiler(common_handlers->parent_nh, "MpcTracker", _profiler_enabled_);
 
   // | ------------------------- timers ------------------------- |
 
@@ -630,7 +652,9 @@ void MpcTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] c
 
   is_initialized_ = true;
 
-  ROS_INFO("[MpcTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[MpcTracker]: initialized");
+
+  return true;
 }
 
 //}
@@ -1011,6 +1035,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
   }
 
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
+  auto prediction_full_state  = mrs_lib::get_mutexed(mutex_prediction_full_state_, prediction_full_state_);
 
   // check whether all outputs are finite
   bool arefinite = true;
@@ -1038,12 +1063,15 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
     tracker_cmd.acceleration.z = mpc_x(10, 0);
     tracker_cmd.jerk.z         = mpc_x(11, 0);
 
-    tracker_cmd.use_position_vertical   = 1;
-    tracker_cmd.use_position_horizontal = 1;
-    tracker_cmd.use_velocity_vertical   = 1;
-    tracker_cmd.use_velocity_horizontal = 1;
-    tracker_cmd.use_acceleration        = 1;
-    tracker_cmd.use_jerk                = 1;
+    tracker_cmd.full_state_prediction = prediction_full_state;
+
+    tracker_cmd.use_position_vertical     = 1;
+    tracker_cmd.use_position_horizontal   = 1;
+    tracker_cmd.use_velocity_vertical     = 1;
+    tracker_cmd.use_velocity_horizontal   = 1;
+    tracker_cmd.use_acceleration          = 1;
+    tracker_cmd.use_jerk                  = 1;
+    tracker_cmd.use_full_state_prediction = 1;
 
   } else {
 
@@ -3572,7 +3600,10 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
       }
     }
 
-    ph_prediction_full_state_.publish(prediction_fs_out);
+    {
+      std::scoped_lock lock(mutex_prediction_full_state_);
+      prediction_full_state_ = prediction_fs_out;
+    }
   }
 
   //}

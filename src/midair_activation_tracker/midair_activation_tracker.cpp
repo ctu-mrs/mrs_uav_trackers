@@ -1,8 +1,7 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 
@@ -25,7 +24,9 @@ namespace midair_activation_tracker
 
 class MidairActivationTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -33,7 +34,7 @@ public:
   std::optional<mrs_msgs::TrackerCommand>   update(const mrs_msgs::UavState &uav_state, const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::TrackerStatus             getStatus();
   const std_srvs::SetBoolResponse::ConstPtr enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd);
-  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState& new_uav_state);
+  const std_srvs::TriggerResponse::ConstPtr switchOdometrySource(const mrs_msgs::UavState &new_uav_state);
 
   const mrs_msgs::ReferenceSrvResponse::ConstPtr           setReference(const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd);
   const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr   setVelocityReference(const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd);
@@ -52,10 +53,10 @@ private:
 
   bool callbacks_enabled_ = true;
 
-  std::string _version_;
   std::string _uav_name_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   // | ---------------- the tracker's inner state --------------- |
 
@@ -74,33 +75,66 @@ private:
 
 /* //{ initialize() */
 
-void MidairActivationTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                                         std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool MidairActivationTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                                         std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "midair_activation_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
-  mrs_lib::ParamLoader param_loader(nh_, "MidairActivationTracker");
+  // --------------------------------------------------------------
+  // |                     loading parameters                     |
+  // --------------------------------------------------------------
 
-  param_loader.loadParam("version", _version_);
+  // | -------------------- load param files -------------------- |
 
-  if (_version_ != VERSION) {
+  bool success = true;
 
-    ROS_ERROR("[MidairActivationTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/midair_activation_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/midair_activation_tracker.yaml");
+
+  if (!success) {
+    return false;
   }
 
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  // | ---------------- load parent's parameters ---------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[MidairActivationTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | ---------------- load plugin's parameters ---------------- |
+
+  mrs_lib::ParamLoader param_loader(nh_, "MidairActivationTracker");
+
+  const std::string yaml_prefix = "mrs_uav_trackers/midair_activation_tracker/";
+
+  if (!param_loader.loadedSuccessfully()) {
+    ROS_ERROR("[MidairActivationTracker]: could not load all parameters!");
+    return false;
+  }
+
+  // | ------------------------ profiler ------------------------ |
+
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "MidairActivationTracker", _profiler_enabled_);
 
   // | --------------------- finish the init -------------------- |
 
   is_initialized_ = true;
 
-  ROS_INFO("[MidairActivationTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[MidairActivationTracker]: initialized");
+
+  return true;
 }
 
 //}
@@ -221,7 +255,7 @@ const std_srvs::SetBoolResponse::ConstPtr MidairActivationTracker::enableCallbac
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr MidairActivationTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState& new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr MidairActivationTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
 
   return std_srvs::TriggerResponse::Ptr();
 }

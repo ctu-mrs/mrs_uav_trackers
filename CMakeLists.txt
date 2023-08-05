@@ -1,17 +1,21 @@
 cmake_minimum_required(VERSION 3.1.2)
 project(mrs_uav_trackers)
 
-find_package(catkin REQUIRED COMPONENTS
+set(CATKIN_DEPENDENCIES
   cmake_modules
+  roscpp
+  rospy
   geometry_msgs
   tf
   std_msgs
-  roscpp
-  rospy
   mrs_lib
   mrs_msgs
   mrs_uav_managers
   dynamic_reconfigure
+  )
+
+find_package(catkin REQUIRED COMPONENTS
+  ${CATKIN_DEPENDENCIES}
   )
 
 generate_dynamic_reconfigure_options(
@@ -202,7 +206,16 @@ install(FILES ${MPC_CONTROLLER_SOLVER_BIN}
   DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   )
 
-install(DIRECTORY ./
+install(DIRECTORY scripts/
+  USE_SOURCE_PERMISSIONS
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+install(DIRECTORY scripts
+  USE_SOURCE_PERMISSIONS
   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
-  FILES_MATCHING PATTERN "*.xml"
+  )
+
+install(FILES plugins.xml
+  DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
   )

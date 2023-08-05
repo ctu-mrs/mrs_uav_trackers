@@ -1,0 +1,38 @@
+mrs_uav_trackers:
+
+  flip_tracker:
+
+    activation_limits:
+
+      max_velocity: 0.7 # [m/s], per axis
+      max_acceleration: 1.0 # [m/s^2], per axis
+      max_heading_rate: 0.3 # [rad/s]
+
+    phases:
+
+      z_acceleration:
+
+        mode: 0 # 0 = acceleration, 1 = throttle
+        acceleration: 2.0 # [m/s^2]
+        throttle: 0.8 # [-]
+
+        velocity_gain_from_rot: 1.0 # [-]*PI
+
+      flipping_pulse:
+
+        attitude_rate: 10.0 # [rad/s]
+        axis: 0 # [0 = X, 1 = Y, 2 = Z]
+        direction: 0 # [0 = positive, 1 = negative]
+        timeout_factor: 3.0 # [how many times the expected duration]
+
+      innertia:
+
+        timeout_factor: 3.0 # [how many times the expected duration]
+
+      recovery:
+
+        duration: 2.0 # [s]
+
+    rampup:
+
+      speed: 20.0 # m/s^3

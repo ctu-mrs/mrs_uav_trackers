@@ -1,8 +1,7 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 
@@ -64,7 +63,9 @@ const char* state_names[7] = {
 
 class LandoffTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle& parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand>& last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -92,11 +93,11 @@ private:
   mrs_uav_managers::Controller::ControlOutput last_control_output_;
   std::mutex                                  mutex_last_control_output_;
 
-  std::string     _version_;
   ros::NodeHandle nh_;
   std::string     _uav_name_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   // main timer
   void       timerMain(const ros::TimerEvent& event);
@@ -208,60 +209,80 @@ private:
 
 /* //{ initialize() */
 
-void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused]] const std::string uav_name,
-                                [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool LandoffTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                                std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "landoff_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
-  // | --------------------- load parameters -------------------- |
+  // --------------------------------------------------------------
+  // |                     loading parameters                     |
+  // --------------------------------------------------------------
+
+  // | -------------------- load param files -------------------- |
+
+  bool success = true;
+
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/landoff_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/landoff_tracker.yaml");
+
+  if (!success) {
+    return false;
+  }
+
+  // | --------------- loading parent's parameters -------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | --------------- loading plugin's parameters -------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
 
-  param_loader.loadParam("version", _version_);
+  const std::string yaml_prefix = "mrs_uav_trackers/landoff_tracker/";
 
-  if (_version_ != VERSION) {
+  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-    ROS_ERROR("[LandoffTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
-  }
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/takeoff_speed", _takeoff_speed_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
 
-  param_loader.loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/landing_speed", _landing_speed_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/landing_acceleration", _landing_acceleration_);
 
-  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/elanding_speed", _elanding_speed_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/elanding_acceleration", _elanding_acceleration_);
 
-  param_loader.loadParam("vertical_tracker/takeoff_speed", _takeoff_speed_);
-  param_loader.loadParam("vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
+  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.loadParam("vertical_tracker/landing_speed", _landing_speed_);
-  param_loader.loadParam("vertical_tracker/landing_acceleration", _landing_acceleration_);
+  param_loader.loadParam(yaml_prefix + "main_timer_rate", _main_timer_rate_);
 
-  param_loader.loadParam("vertical_tracker/elanding_speed", _elanding_speed_);
-  param_loader.loadParam("vertical_tracker/elanding_acceleration", _elanding_acceleration_);
+  param_loader.loadParam(yaml_prefix + "landing_reference", _landing_reference_);
 
-  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
-  param_loader.loadParam("heading_tracker/heading_gain", _heading_gain_);
+  param_loader.loadParam(yaml_prefix + "max_position_difference", _max_position_difference_);
 
-  param_loader.loadParam("main_timer_rate", _main_timer_rate_);
-
-  param_loader.loadParam("landing_reference", _landing_reference_);
-
-  param_loader.loadParam("max_position_difference", _max_position_difference_);
-
-  param_loader.loadParam("takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
-  param_loader.loadParam("takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
+  param_loader.loadParam(yaml_prefix + "takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
+  param_loader.loadParam(yaml_prefix + "takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   _tracker_dt_ = 1.0 / double(_main_timer_rate_);
@@ -293,13 +314,13 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler_ = mrs_lib::Profiler(nh_, "LandoffTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "LandoffTracker", _profiler_enabled_);
 
   // | ------------------------ services ------------------------ |
 
-  service_takeoff_ = nh_.advertiseService("takeoff_in", &LandoffTracker::callbackTakeoff, this);
-  service_land_    = nh_.advertiseService("land_in", &LandoffTracker::callbackLand, this);
-  service_eland_   = nh_.advertiseService("eland_in", &LandoffTracker::callbackELand, this);
+  service_takeoff_ = nh_.advertiseService("takeoff", &LandoffTracker::callbackTakeoff, this);
+  service_land_    = nh_.advertiseService("land", &LandoffTracker::callbackLand, this);
+  service_eland_   = nh_.advertiseService("eland", &LandoffTracker::callbackELand, this);
 
   // | ------------------------- timers ------------------------- |
 
@@ -309,7 +330,9 @@ void LandoffTracker::initialize(const ros::NodeHandle& parent_nh, [[maybe_unused
 
   is_initialized_ = true;
 
-  ROS_INFO("[LandoffTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[LandoffTracker]: initialized");
+
+  return true;
 }
 
 //}

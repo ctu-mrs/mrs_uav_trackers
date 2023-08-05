@@ -1,8 +1,7 @@
-#define VERSION "1.0.4.0"
-
 /* includes //{ */
 
 #include <ros/ros.h>
+#include <ros/package.h>
 
 #include <mrs_uav_managers/tracker.h>
 
@@ -62,7 +61,9 @@ const char *state_names[5] = {
 
 class LineTracker : public mrs_uav_managers::Tracker {
 public:
-  void initialize(const ros::NodeHandle &parent_nh, const std::string uav_name, std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers);
+  bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -87,11 +88,11 @@ public:
 private:
   ros::NodeHandle nh_;
 
-  std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
+  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
 
   bool callbacks_enabled_ = true;
 
-  std::string _version_;
   std::string _uav_name_;
 
   void       mainTimer(const ros::TimerEvent &event);
@@ -185,43 +186,60 @@ private:
 
 /* //{ initialize() */
 
-void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] const std::string uav_name,
-                             [[maybe_unused]] std::shared_ptr<mrs_uav_managers::CommonHandlers_t> common_handlers) {
+bool LineTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                             std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
-  _uav_name_             = uav_name;
-  this->common_handlers_ = common_handlers;
+  this->common_handlers_  = common_handlers;
+  this->private_handlers_ = private_handlers;
 
-  nh_ = ros::NodeHandle(parent_nh, "line_tracker");
+  _uav_name_ = common_handlers->uav_name;
+
+  nh_ = nh;
 
   ros::Time::waitForValid();
 
   // --------------------------------------------------------------
-  // |                       load parameters                      |
+  // |                     loading parameters                     |
   // --------------------------------------------------------------
 
+  // | -------------------- load param files -------------------- |
+
+  bool success = true;
+
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/line_tracker.yaml");
+  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/line_tracker.yaml");
+
+  if (!success) {
+    return false;
+  }
+
+  // | ---------------- load parent's parameters ---------------- |
+
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
+
+  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  if (!param_loader_parent.loadedSuccessfully()) {
+    ROS_ERROR("[LineTracker]: Could not load all parameters!");
+    return false;
+  }
+
+  // | ---------------- load plugin's parameters ---------------- |
 
   mrs_lib::ParamLoader param_loader(nh_, "LineTracker");
 
-  param_loader.loadParam("version", _version_);
+  const std::string yaml_prefix = "mrs_uav_trackers/line_tracker/";
 
-  if (_version_ != VERSION) {
+  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-    ROS_ERROR("[LineTracker]: the version of the binary (%s) does not match the config file (%s), please build me!", VERSION, _version_.c_str());
-    ros::shutdown();
-  }
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
+  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.loadParam("enable_profiler", _profiler_enabled_);
+  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
+  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
-
-  param_loader.loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
-
-  param_loader.loadParam("heading_tracker/heading_rate", _heading_rate_);
-  param_loader.loadParam("heading_tracker/heading_gain", _heading_gain_);
-
-  param_loader.loadParam("tracker_loop_rate", _tracker_loop_rate_);
+  param_loader.loadParam(yaml_prefix + "tracker_loop_rate", _tracker_loop_rate_);
 
   _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
 
@@ -251,10 +269,10 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
   previous_state_horizontal_ = IDLE_STATE;
 
   // --------------------------------------------------------------
-  // |                          profiler_                          |
+  // |                          profiler                          |
   // --------------------------------------------------------------
 
-  profiler_ = mrs_lib::Profiler(nh_, "LineTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "LineTracker", _profiler_enabled_);
 
   // --------------------------------------------------------------
   // |                           timers                           |
@@ -264,12 +282,14 @@ void LineTracker::initialize(const ros::NodeHandle &parent_nh, [[maybe_unused]] 
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[LineTracker]: could not load all parameters!");
-    ros::shutdown();
+    return false;
   }
 
   is_initialized_ = true;
 
-  ROS_INFO("[LineTracker]: initialized, version %s", VERSION);
+  ROS_INFO("[LineTracker]: initialized");
+
+  return true;
 }
 
 //}

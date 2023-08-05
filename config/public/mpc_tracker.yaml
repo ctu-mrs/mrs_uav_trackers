@@ -1,0 +1,16 @@
+mrs_uav_trackers:
+
+  mpc_tracker:
+
+    wiggle:
+      enabled: false
+      amplitude: 0.5 # [m]
+      frequency: 0.2 # [Hz]
+
+    # mrs collision avoidance
+    collision_avoidance:
+
+      enabled:           true # disabling this will stop this UAV to react to others, but it will still transmit data to others
+      enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
+      radius: 3.0 # [m]
+      correction: 3.0 # [m]

@@ -1,0 +1,27 @@
+mrs_uav_trackers:
+
+  joy_tracker:
+
+    vertical_tracker:
+      vertical_speed: 0.6
+
+    max_tilt: 0.50 # [rad]
+
+    heading_tracker:
+      heading_rate: 1.0
+
+    # channel numbers, indices in array
+    channels:
+
+      pitch: 1 # []
+      roll: 3 # []
+      heading: 0 # []
+      throttle: 4 # []
+
+    # multipliers for scaling and reversing the channels
+    channel_multipliers:
+
+      pitch: 1.0 # []
+      roll: -1.0 # []
+      heading: 1.0 # []
+      throttle: 1.0 # []
