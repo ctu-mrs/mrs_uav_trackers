@@ -12,13 +12,15 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>pluginlib</depend>
+  <depend>cmake_modules</depend>
   <depend>roscpp</depend>
+  <depend>rospy</depend>
+  <depend>pluginlib</depend>
   <depend>geometry_msgs</depend>
-  <depend>std_msgs</depend>
   <depend>tf</depend>
-  <depend>mrs_msgs</depend>
+  <depend>std_msgs</depend>
   <depend>mrs_lib</depend>
+  <depend>mrs_msgs</depend>
   <depend>mrs_uav_managers</depend>
   <depend>dynamic_reconfigure</depend>
 

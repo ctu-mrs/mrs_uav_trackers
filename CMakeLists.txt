@@ -39,7 +39,7 @@ set(LIBRARIES
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS geometry_msgs tf mrs_lib mrs_uav_managers mrs_msgs
+  CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
   LIBRARIES ${LIBRARIES}
   DEPENDS Eigen
   )
