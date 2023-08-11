@@ -1,40 +1,40 @@
-<library path="lib/libLandoffTracker">
+<library path="lib/libMrsUavTrackers_LandoffTracker">
   <class name="mrs_uav_trackers/LandoffTracker" type="mrs_uav_trackers::landoff_tracker::LandoffTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is Landing+Takeoff tracker.</description>
   </class>
 </library>
 
-<library path="lib/libLineTracker">
+<library path="lib/libMrsUavTrackers_LineTracker">
   <class name="mrs_uav_trackers/LineTracker" type="mrs_uav_trackers::line_tracker::LineTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is Line tracker.</description>
   </class>
 </library>
 
-<library path="lib/libJoyTracker">
+<library path="lib/libMrsUavTrackers_JoyTracker">
   <class name="mrs_uav_trackers/JoyTracker" type="mrs_uav_trackers::joy_tracker::JoyTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the joystick tracker.</description>
   </class>
 </library>
 
-<library path="lib/libMpcTracker">
+<library path="lib/libMrsUavTrackers_MpcTracker">
   <class name="mrs_uav_trackers/MpcTracker" type="mrs_uav_trackers::mpc_tracker::MpcTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is MPC tracker.</description>
   </class>
 </library>
 
-<library path="lib/libSpeedTracker">
+<library path="lib/libMrsUavTrackers_SpeedTracker">
   <class name="mrs_uav_trackers/SpeedTracker" type="mrs_uav_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the Speed Tracker.</description>
   </class>
 </library>
 
-<library path="lib/libFlipTracker">
+<library path="lib/libMrsUavTrackers_FlipTracker">
   <class name="mrs_uav_trackers/FlipTracker" type="mrs_uav_trackers::flip_tracker::FlipTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the Flip tracker.</description>
   </class>
 </library>
 
-<library path="lib/libMidairActivationTracker">
+<library path="lib/libMrsUavTrackers_MidairActivationTracker">
   <class name="mrs_uav_trackers/MidairActivationTracker" type="mrs_uav_trackers::midair_activation_tracker::MidairActivationTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the Midair Activation tracker.</description>
   </class>

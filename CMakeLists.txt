@@ -1,5 +1,10 @@
-cmake_minimum_required(VERSION 3.1.2)
+cmake_minimum_required(VERSION 3.5)
 project(mrs_uav_trackers)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
 
 set(CATKIN_DEPENDENCIES
   cmake_modules
@@ -23,18 +28,19 @@ generate_dynamic_reconfigure_options(
   cfg/flip_tracker.cfg
   )
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-
 # include Eigen3
 find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
 set(LIBRARIES
-  MpcTracker LineTracker LandoffTracker JoyTracker SpeedTracker FlipTracker MidairActivationTracker
+  MrsUavTrackers_MpcTracker
+  MrsUavTrackers_LineTracker
+  MrsUavTrackers_LandoffTracker
+  MrsUavTrackers_JoyTracker
+  MrsUavTrackers_SpeedTracker
+  MrsUavTrackers_FlipTracker
+  MrsUavTrackers_MidairActivationTracker
   )
 
 catkin_package(
@@ -84,107 +90,107 @@ endif()
 
 # MPC Tracker
 
-add_library(MpcTracker
+add_library(MrsUavTrackers_MpcTracker
   src/mpc_tracker/mpc_tracker.cpp
   )
 
-add_dependencies(MpcTracker
+add_dependencies(MrsUavTrackers_MpcTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(MpcTracker
+target_link_libraries(MrsUavTrackers_MpcTracker
   ${catkin_LIBRARIES}
   ${MPC_CONTROLLER_SOLVER_BIN}
   )
 
 # Line Tracker
 
-add_library(LineTracker
+add_library(MrsUavTrackers_LineTracker
   src/line_tracker/line_tracker.cpp
   )
 
-add_dependencies(LineTracker
+add_dependencies(MrsUavTrackers_LineTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(LineTracker
+target_link_libraries(MrsUavTrackers_LineTracker
   ${catkin_LIBRARIES}
   )
 
 # Landoff Tracker
 
-add_library(LandoffTracker
+add_library(MrsUavTrackers_LandoffTracker
   src/landoff_tracker/landoff_tracker.cpp
   )
 
-add_dependencies(LandoffTracker
+add_dependencies(MrsUavTrackers_LandoffTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(LandoffTracker
+target_link_libraries(MrsUavTrackers_LandoffTracker
   ${catkin_LIBRARIES}
   )
 
 # Joy Tracker
 
-add_library(JoyTracker
+add_library(MrsUavTrackers_JoyTracker
   src/joy_tracker/joy_tracker.cpp
   )
 
-add_dependencies(JoyTracker
+add_dependencies(MrsUavTrackers_JoyTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(JoyTracker
+target_link_libraries(MrsUavTrackers_JoyTracker
   ${catkin_LIBRARIES}
   )
 
 # Speed tracker
 
-add_library(SpeedTracker
+add_library(MrsUavTrackers_SpeedTracker
   src/speed_tracker/speed_tracker.cpp
   )
 
-add_dependencies(SpeedTracker
+add_dependencies(MrsUavTrackers_SpeedTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(SpeedTracker
+target_link_libraries(MrsUavTrackers_SpeedTracker
   ${catkin_LIBRARIES}
   )
 
 # Flip tracker
 
-add_library(FlipTracker
+add_library(MrsUavTrackers_FlipTracker
   src/flip_tracker/flip_tracker.cpp
   )
 
-add_dependencies(FlipTracker
+add_dependencies(MrsUavTrackers_FlipTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(FlipTracker
+target_link_libraries(MrsUavTrackers_FlipTracker
   ${catkin_LIBRARIES}
   )
 
 # Midair activation tracker
 
-add_library(MidairActivationTracker
+add_library(MrsUavTrackers_MidairActivationTracker
   src/midair_activation_tracker/midair_activation_tracker.cpp
   )
 
-add_dependencies(MidairActivationTracker
+add_dependencies(MrsUavTrackers_MidairActivationTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(MidairActivationTracker
+target_link_libraries(MrsUavTrackers_MidairActivationTracker
   ${catkin_LIBRARIES}
   )
 
