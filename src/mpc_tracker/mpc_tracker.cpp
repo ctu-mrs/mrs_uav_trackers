@@ -282,14 +282,14 @@ private:
   std::atomic<bool> future_was_predicted_ = false;
 
   // subscribing to the other UAV future trajectories
-  void callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>& sh_ptr);
+  void callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::ConstPtr msg);
 
   std::vector<mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>> other_uav_trajectory_subscribers_;
   std::map<std::string, mrs_msgs::FutureTrajectory>                  other_uav_avoidance_trajectories_;
   std::mutex                                                         mutex_other_uav_avoidance_trajectories_;
 
   // subscribing to the other UAV diagnostics'
-  void callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>& sh_ptr);
+  void callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnostics::ConstPtr msg);
 
   std::vector<mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>> other_uav_diag_subscribers_;
   std::map<std::string, mrs_msgs::MpcTrackerDiagnostics>                  other_uav_diagnostics_;
@@ -1554,7 +1554,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr MpcTracker::setTrajecto
 
 /* //{ callbackOtherMavTrajectory() */
 
-void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::FutureTrajectory>& sh_ptr) {
+void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::ConstPtr msg) {
 
   if (!is_initialized_) {
     return;
@@ -1566,7 +1566,7 @@ void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  mrs_msgs::FutureTrajectory trajectory = *sh_ptr.getMsg();
+  mrs_msgs::FutureTrajectory trajectory = *msg;
 
   // the times might not be synchronized, so just remember the time of receiving it
   trajectory.stamp = ros::Time::now();
@@ -1623,7 +1623,7 @@ void MpcTracker::callbackOtherMavTrajectory(mrs_lib::SubscribeHandler<mrs_msgs::
 
 /* //{ callbackOtherMavDiagnostics() */
 
-void MpcTracker::callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs::MpcTrackerDiagnostics>& sh_ptr) {
+void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnostics::ConstPtr msg) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
   mrs_lib::ScopeTimer timer =
@@ -1631,7 +1631,7 @@ void MpcTracker::callbackOtherMavDiagnostics(mrs_lib::SubscribeHandler<mrs_msgs:
 
   std::scoped_lock lock(mutex_other_uav_diagnostics_);
 
-  mrs_msgs::MpcTrackerDiagnostics diagnostics = *sh_ptr.getMsg();
+  mrs_msgs::MpcTrackerDiagnostics diagnostics = *msg;
 
   // fill in the current time
   // the other uav's time might not be synchronized with ours

@@ -104,7 +104,7 @@ private:
 
   mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> sh_command_;
 
-  void callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> &sh_ptr);
+  void callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr msg);
 
   // stores the post-processed and transformed command
   mrs_msgs::SpeedTrackerCommand command_;
@@ -516,7 +516,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajec
 
 /* callbackCommand() //{ */
 
-void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> &sh_ptr) {
+void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr msg) {
 
   if (!is_initialized_)
     return;
@@ -524,7 +524,7 @@ void SpeedTracker::callbackCommand(mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrac
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackCommand");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("SpeedTracker::callbackCommand", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
-  mrs_msgs::SpeedTrackerCommandConstPtr external_command = sh_ptr.getMsg();
+  mrs_msgs::SpeedTrackerCommandConstPtr external_command = msg;
 
   double dt;
   if (first_iteration_) {
