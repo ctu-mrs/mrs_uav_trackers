@@ -426,7 +426,6 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
   success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
   success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_core") + "/config/uav_names.yaml");
 
   if (!success) {
     return false;
@@ -437,6 +436,8 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
   param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+
+  param_loader_parent.loadParam("network/robot_names", _avoidance_other_uav_names_);
 
   if (!param_loader_parent.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: Could not load all parameters!");
@@ -518,7 +519,6 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
   param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
   param_loader.loadParam(yaml_prefix + "collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
-  param_loader.loadParam("network/robot_names", _avoidance_other_uav_names_);
 
   if (!param_loader.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
@@ -625,7 +625,7 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
     }
   }
 
-  sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "estimation_diagnostics");
+  sh_estimation_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, std::string("/") + _uav_name_ + "/estimation_manager/diagnostics");
 
   // | --------------- dynamic reconfigure server --------------- |
 
