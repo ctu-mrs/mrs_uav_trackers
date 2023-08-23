@@ -12,5 +12,5 @@ mrs_uav_trackers:
 
       enabled:           true # disabling this will stop this UAV to react to others, but it will still transmit data to others
       enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
-      radius: 3.0 # [m]
+      radius: 5.0 # [m]
       correction: 3.0 # [m]
