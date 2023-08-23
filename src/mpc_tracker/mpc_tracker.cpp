@@ -1037,6 +1037,8 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   if (dt > 0) {
     iterateModel(dt);
+  } else {
+    ROS_WARN_THROTTLE(1.0, "[MpcTracker]: dt !> 0, not iterating the model");
   }
 
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
