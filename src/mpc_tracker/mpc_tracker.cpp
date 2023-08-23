@@ -453,6 +453,11 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   param_loader.loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
   param_loader.loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
 
+  if (_mpc_asynchronous_rate_ < 15) {
+    ROS_ERROR("[MpcTracker]: the asynchronous_loop_rate must be > 15 Hz");
+    return false;
+  }
+
   dt1_ = 1.0 / _mpc_asynchronous_rate_;
 
   param_loader.loadParam(yaml_prefix + "braking/enabled", drs_params_.braking_enabled);
