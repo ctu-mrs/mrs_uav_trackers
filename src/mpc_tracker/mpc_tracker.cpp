@@ -223,10 +223,12 @@ private:
 
   // | ----------------------- MPC solver ----------------------- |
 
-  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_x_;
   std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_y_;
+  std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_x_;
   std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_z_;
   std::shared_ptr<mrs_mpc_solvers::mpc_tracker::Solver> mpc_solver_heading_;
+
+  std::mutex mutex_mpc_calculation_;
 
   int _max_iters_xy_;
   int _max_iters_z_;
@@ -532,10 +534,11 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
   ROS_INFO_STREAM("[MpcTracker]: initializing solvers with dt1 = " << dt1_);
 
-  mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 0);
-  mpc_solver_y_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 1);
-  mpc_solver_z_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_z, _max_iters_z_, z_Q, dt1_, _dt2_, 2);
-  mpc_solver_heading_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker", verbose_heading, _max_iters_heading_, heading_Q, dt1_, _dt2_, 0);
+  mpc_solver_y_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_y", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 1);
+  mpc_solver_x_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_x", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 0);
+  mpc_solver_z_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_z", verbose_z, _max_iters_z_, z_Q, dt1_, _dt2_, 2);
+  mpc_solver_heading_ =
+      std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_hdg", verbose_heading, _max_iters_heading_, heading_Q, dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(_mpc_n_states_, 1);
   mpc_x_heading_ = MatrixXd::Zero(_mpc_n_states_heading_, 1);
@@ -2033,6 +2036,8 @@ void MpcTracker::manageConstraints() {
 
 void MpcTracker::calculateMPC() {
 
+  std::scoped_lock lock(mutex_mpc_calculation_);
+
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
   ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: MPC calculateion dt = " << dt1);
@@ -2169,7 +2174,7 @@ void MpcTracker::calculateMPC() {
     mpc_solver_z_->setVelQ(drs_params.q_vel_no_braking);
   }
 
-  MatrixXd initial_z = MatrixXd::Zero(_mpc_n_states_, 1);
+  MatrixXd initial_z = MatrixXd::Zero(4, 1);
 
   initial_z(0, 0) = mpc_x(8, 0);
   initial_z(1, 0) = mpc_x(9, 0);
@@ -2221,7 +2226,7 @@ void MpcTracker::calculateMPC() {
     mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
   }
 
-  MatrixXd initial_x = MatrixXd::Zero(_mpc_n_states_, 1);
+  MatrixXd initial_x = MatrixXd::Zero(4, 1);
 
   initial_x(0, 0) = mpc_x(0, 0);
   initial_x(1, 0) = mpc_x(1, 0);
@@ -2250,7 +2255,7 @@ void MpcTracker::calculateMPC() {
     mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
   }
 
-  MatrixXd initial_y = MatrixXd::Zero(_mpc_n_states_, 1);
+  MatrixXd initial_y = MatrixXd::Zero(4, 1);
 
   initial_y(0, 0) = mpc_x(4, 0);
   initial_y(1, 0) = mpc_x(5, 0);

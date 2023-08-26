@@ -3,7 +3,6 @@
 
 #include <ros/ros.h>
 #include <eigen3/Eigen/Eigen>
-#include "solver/solver.h"
 
 namespace mrs_mpc_solvers
 {
@@ -27,11 +26,9 @@ public:
   void   setDt(const double &dt);
 
 private:
-  QPSolver qp_solver_;
-
-  const int   _horizon_len_ = 40;
-  int         _dim_;
-  std::string _name_;
+  static const int _horizon_len_ = 40;
+  int              _dim_;
+  std::string      _name_;
 
   std::vector<double> myQ_;
 };
