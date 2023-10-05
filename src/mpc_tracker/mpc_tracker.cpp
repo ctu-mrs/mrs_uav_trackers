@@ -599,7 +599,7 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   predicted_trajectory_         = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
   predicted_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
 
-  collision_free_altitude_ = common_handlers_->safety_area.getMinZ();
+  collision_free_altitude_ = common_handlers_->safety_area.getMinZ("");
 
   // collision avoidance toggle service
   service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
@@ -1814,7 +1814,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude_ -= 2.0 / (1.0 / dt1);
 
-    double safety_area_min_z = common_handlers_->safety_area.getMinZ();
+    double safety_area_min_z = common_handlers_->safety_area.getMinZ("");
 
     if (collision_free_altitude_ < safety_area_min_z) {
 
@@ -2076,7 +2076,7 @@ void MpcTracker::calculateMPC() {
 
   } else {
 
-    minimum_collison_free_altitude_ = common_handlers_->safety_area.getMinZ();
+    minimum_collison_free_altitude_ = common_handlers_->safety_area.getMinZ("");
   }
 
   double max_speed_x = constraints.horizontal_speed;

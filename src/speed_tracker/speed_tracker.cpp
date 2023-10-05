@@ -845,13 +845,13 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
     // saturate the desired z using the safety area
     if (common_handlers_->safety_area.use_safety_area) {
 
-      if (transformed_command.z > common_handlers_->safety_area.getMaxZ()) {
+      if (transformed_command.z > common_handlers_->safety_area.getMaxZ("")) {
 
-        transformed_command.z = common_handlers_->safety_area.getMaxZ();
+        transformed_command.z = common_handlers_->safety_area.getMaxZ("");
 
-      } else if (transformed_command.z < common_handlers_->safety_area.getMinZ()) {
+      } else if (transformed_command.z < common_handlers_->safety_area.getMinZ("")) {
 
-        transformed_command.z = common_handlers_->safety_area.getMinZ();
+        transformed_command.z = common_handlers_->safety_area.getMinZ("");
       }
     }
   }
