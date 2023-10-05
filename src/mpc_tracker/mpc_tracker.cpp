@@ -599,7 +599,7 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   predicted_trajectory_         = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
   predicted_heading_trajectory_ = MatrixXd::Zero(_mpc_horizon_len_ * _mpc_n_states_, 1);
 
-  collision_free_altitude_ = common_handlers_->safety_area.getMinZ("");
+  collision_free_altitude_ = std::numeric_limits<float>::lowest();
 
   // collision avoidance toggle service
   service_server_toggle_avoidance_ = nh_.advertiseService("collision_avoidance", &MpcTracker::callbackToggleCollisionAvoidance, this);
