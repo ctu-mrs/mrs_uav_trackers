@@ -1814,9 +1814,11 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude_ -= 2.0 / (1.0 / dt1);
 
-    if (collision_free_altitude_ < common_handlers_->safety_area.getMinZ()) {
+    double safety_area_min_z = common_handlers_->safety_area.getMinZ();
 
-      collision_free_altitude_ = common_handlers_->safety_area.getMinZ();
+    if (collision_free_altitude_ < safety_area_min_z) {
+
+      collision_free_altitude_ = safety_area_min_z;
     }
   }
 
