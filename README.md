@@ -2,8 +2,9 @@
 
 ![](.fig/thumbnail.jpg)
 
-| Build status | [![Build Status](https://github.com/ctu-mrs/mrs_uav_trackers/workflows/Noetic/badge.svg)](https://github.com/ctu-mrs/mrs_uav_trackers/actions) |
-|--------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+> :warning: **Attention please: This page is outdated.**
+>
+> The MRS UAV System 1.5 is being released and this page needs updating. Plase, keep in mind that the information on this page might not ve valid.
 
 ## Purpose of a tracker within the MRS control pipeline
 
@@ -24,12 +25,6 @@
   * can smoothly track trajectories
   * can efficiently stop a UAV from any previous motion
   * can be activated in mid-flight while in motion
-* "Speed tracker"
-  * subscribes a [custom message](https://ctu-mrs.github.io/mrs_msgs/msg/SpeedTrackerCommand.html) containing a desired speed/acceleration, z, and heading
-  * forwards the commands to the controllers unchanged
-  * can not follow trajectories or react to references
-  * should be activated only in hover
-  * check the [tutorial](https://ctu-mrs.github.io/docs/system/speed_tracker.html)
 * "Landoff tracker"
   * particular variant of *Line Tracker* used only for landing and takeoff
   * can not fly to the desired reference nor follow a trajectory
@@ -40,8 +35,6 @@
   * provides control using a ROS-compatible joysticks
   * subscribes to `/joy` topic
   * tracks *z* and *heading*, the desired tilt is provided directly by a joystick
-* "Matlab Tracker"
-  * similar to *Speed tracker*, but the subscribed topic is a standard (not custom) ROS message since Matlab can not publish custom messages
 * "Line tracker"
   * very simple tracker used mostly for debugging and testing
   * can fly to reference points
@@ -60,28 +53,4 @@ Loaded trackers can be switched by the [control manager](https://github.com/ctu-
 
 ## Loading trackers to [control manager](https://github.com/ctu-mrs/mrs_uav_managers)
 
-Trackers are defined in `trackers.yaml` ([example](https://github.com/ctu-mrs/mrs_uav_managers/blob/master/config/default/trackers.yaml)).
-Each entry such as
-```yaml
-MpcTracker:
-  address: "mrs_uav_trackers/MpcTracker"
-```
-creates an instance of a tracker; in this case, `mrs_uav_trackers/MpcTracker` is loaded under the *alias* `MpcTracker`.
-Multiple instances are allowed and are used to introduce the same tracker with various configurations that can be switched in mid-flight.
-Once the controller alias is defined within `trackers.yaml`, it needs to be part of the *trackers* list within `control_manager.yaml` ([example](https://github.com/ctu-mrs/mrs_uav_managers/blob/master/config/default/control_manager.yaml)) config:
-```yaml
-# - list of names of dynamically loaded trackers
-trackers : [
-  "MpcTracker",
-  "LineTracker",
-  "LandoffTracker",
-  "JoyTracker",
-  "NullTracker",
-  "SpeedTracker",
-]
-```
-Only the trackers within this list are actually loaded.
-Switching to a tracker with the alias *MpcTracker* is done by calling a service:
-```bash
-rosservice call /uav1/control_manager/switch_tracker SpeedTracker
-```
+An example tracker plugin is provided [here](https://github.com/ctu-mrs/example_tracker_plugin).
