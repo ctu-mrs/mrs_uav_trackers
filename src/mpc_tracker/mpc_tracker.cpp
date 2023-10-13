@@ -21,7 +21,6 @@
 
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/utils.h>
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscribe_handler.h>
@@ -422,24 +421,11 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | --------------- loading parent's parameters -------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
   param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
-
-  param_loader_parent.loadParam("network/robot_names", _avoidance_other_uav_names_);
 
   if (!param_loader_parent.loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: Could not load all parameters!");
@@ -448,12 +434,15 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
   // | --------------- loading plugin's parameters -------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "MpcTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/mpc_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
-  param_loader.loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
+  private_handlers->param_loader->loadParam("network/robot_names", _avoidance_other_uav_names_);
+
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
 
   if (_mpc_asynchronous_rate_ < 15) {
     ROS_ERROR("[MpcTracker]: the asynchronous_loop_rate must be > 15 Hz");
@@ -462,34 +451,34 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
   dt1_ = 1.0 / _mpc_asynchronous_rate_;
 
-  param_loader.loadParam(yaml_prefix + "braking/enabled", drs_params_.braking_enabled);
-  param_loader.loadParam(yaml_prefix + "braking/q_vel_braking", drs_params_.q_vel_braking);
-  param_loader.loadParam(yaml_prefix + "braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
+  private_handlers->param_loader->loadParam(yaml_prefix + "braking/enabled", drs_params_.braking_enabled);
+  private_handlers->param_loader->loadParam(yaml_prefix + "braking/q_vel_braking", drs_params_.q_vel_braking);
+  private_handlers->param_loader->loadParam(yaml_prefix + "braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
 
-  param_loader.loadParam(yaml_prefix + "model/translation/n_states", _mpc_n_states_);
-  param_loader.loadParam(yaml_prefix + "model/translation/n_inputs", _mpc_m_states_);
-  param_loader.loadMatrixStatic(yaml_prefix + "model/translation/A", _mat_A_, _mpc_n_states_, _mpc_n_states_);
-  param_loader.loadMatrixStatic(yaml_prefix + "model/translation/B", _mat_B_, _mpc_n_states_, _mpc_m_states_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "model/translation/n_states", _mpc_n_states_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "model/translation/n_inputs", _mpc_m_states_);
+  private_handlers->param_loader->loadMatrixStatic(yaml_prefix + "model/translation/A", _mat_A_, _mpc_n_states_, _mpc_n_states_);
+  private_handlers->param_loader->loadMatrixStatic(yaml_prefix + "model/translation/B", _mat_B_, _mpc_n_states_, _mpc_m_states_);
 
   A_ = _mat_A_;
   B_ = _mat_B_;
 
-  param_loader.loadParam(yaml_prefix + "model/heading/n_states", _mpc_n_states_heading_);
-  param_loader.loadParam(yaml_prefix + "model/heading/n_inputs", _mpc_n_inputs_heading_);
-  param_loader.loadMatrixStatic(yaml_prefix + "model/heading/A", _mat_A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
-  param_loader.loadMatrixStatic(yaml_prefix + "model/heading/B", _mat_B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "model/heading/n_states", _mpc_n_states_heading_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "model/heading/n_inputs", _mpc_n_inputs_heading_);
+  private_handlers->param_loader->loadMatrixStatic(yaml_prefix + "model/heading/A", _mat_A_heading_, _mpc_n_states_heading_, _mpc_n_states_heading_);
+  private_handlers->param_loader->loadMatrixStatic(yaml_prefix + "model/heading/B", _mat_B_heading_, _mpc_n_states_heading_, _mpc_n_inputs_heading_);
 
   A_heading_ = _mat_A_heading_;
   B_heading_ = _mat_B_heading_;
 
   // load the MPC parameters
-  param_loader.loadParam(yaml_prefix + "mpc_solver/horizon_len", _mpc_horizon_len_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/horizon_len", _mpc_horizon_len_);
 
-  param_loader.loadParam(yaml_prefix + "mpc_solver/dt2", _dt2_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/dt2", _dt2_);
 
-  param_loader.loadParam(yaml_prefix + "diagnostics/rate", _diagnostics_rate_);
-  param_loader.loadParam(yaml_prefix + "diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
-  param_loader.loadParam(yaml_prefix + "diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/rate", _diagnostics_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
 
   bool verbose_xy      = false;
   bool verbose_z       = false;
@@ -499,35 +488,35 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   std::vector<double> z_Q;
   std::vector<double> heading_Q;
 
-  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/verbose", verbose_xy);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/max_n_iterations", _max_iters_xy_);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/xy/Q", xy_Q);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/verbose", verbose_xy);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/max_n_iterations", _max_iters_xy_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/Q", xy_Q);
 
-  param_loader.loadParam(yaml_prefix + "mpc_solver/z/verbose", verbose_z);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/z/max_n_iterations", _max_iters_z_);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/z/Q", z_Q);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/verbose", verbose_z);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/max_n_iterations", _max_iters_z_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/Q", z_Q);
 
-  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/verbose", verbose_heading);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/max_n_iterations", _max_iters_heading_);
-  param_loader.loadParam(yaml_prefix + "mpc_solver/heading/Q", heading_Q);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/verbose", verbose_heading);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/max_n_iterations", _max_iters_heading_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/Q", heading_Q);
 
-  param_loader.loadParam(yaml_prefix + "wiggle/enabled", drs_params_.wiggle_enabled);
-  param_loader.loadParam(yaml_prefix + "wiggle/amplitude", drs_params_.wiggle_amplitude);
-  param_loader.loadParam(yaml_prefix + "wiggle/frequency", drs_params_.wiggle_frequency);
+  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/enabled", drs_params_.wiggle_enabled);
+  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/amplitude", drs_params_.wiggle_amplitude);
+  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/frequency", drs_params_.wiggle_frequency);
 
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/enabled", collision_avoidance_enabled_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/correction", _avoidance_z_correction_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/radius", _avoidance_radius_threshold_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
-  param_loader.loadParam(yaml_prefix + "collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/enabled", collision_avoidance_enabled_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/correction", _avoidance_z_correction_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/radius", _avoidance_radius_threshold_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[MpcTracker]: could not load all parameters!");
     return false;
   }

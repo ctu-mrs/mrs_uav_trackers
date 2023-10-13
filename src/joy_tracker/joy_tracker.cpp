@@ -8,7 +8,6 @@
 #include <nav_msgs/Odometry.h>
 #include <sensor_msgs/Joy.h>
 
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
@@ -146,18 +145,7 @@ bool JoyTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_m
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/joy_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/joy_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | ---------------- load parent's parameters ---------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
@@ -170,29 +158,30 @@ bool JoyTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_m
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "JoyTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/joy_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/joy_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/joy_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
 
-  param_loader.loadParam(yaml_prefix + "max_tilt", _max_tilt_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "max_tilt", _max_tilt_);
 
-  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
 
   // load channels
-  param_loader.loadParam(yaml_prefix + "channels/pitch", _channel_pitch_);
-  param_loader.loadParam(yaml_prefix + "channels/roll", _channel_roll_);
-  param_loader.loadParam(yaml_prefix + "channels/heading", _channel_heading_);
-  param_loader.loadParam(yaml_prefix + "channels/throttle", _channel_throttle_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channels/pitch", _channel_pitch_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channels/roll", _channel_roll_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channels/heading", _channel_heading_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channels/throttle", _channel_throttle_);
 
   // load channel multipliers
-  param_loader.loadParam(yaml_prefix + "channel_multipliers/pitch", _channel_mult_pitch_);
-  param_loader.loadParam(yaml_prefix + "channel_multipliers/roll", _channel_mult_roll_);
-  param_loader.loadParam(yaml_prefix + "channel_multipliers/heading", _channel_mult_heading_);
-  param_loader.loadParam(yaml_prefix + "channel_multipliers/throttle", _channel_mult_throttle_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channel_multipliers/pitch", _channel_mult_pitch_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channel_multipliers/roll", _channel_mult_roll_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channel_multipliers/heading", _channel_mult_heading_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "channel_multipliers/throttle", _channel_mult_throttle_);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[JoyTracker]: could not load all parameters!");
     return false;
   }

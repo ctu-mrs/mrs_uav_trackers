@@ -7,7 +7,6 @@
 #include <mrs_msgs/SpeedTrackerCommand.h>
 #include <mrs_msgs/VelocityReferenceSrv.h>
 
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
@@ -139,17 +138,6 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/speed_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/speed_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
   // | ---------------- load parent's parameters ---------------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
@@ -163,13 +151,14 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "SpeedTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/speed_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/speed_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/speed_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[SpeedTracker]: could not load all parameters!");
     return false;
   }

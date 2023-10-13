@@ -5,7 +5,6 @@
 
 #include <mrs_uav_managers/tracker.h>
 
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
@@ -202,18 +201,7 @@ bool LineTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/line_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/line_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | ---------------- load parent's parameters ---------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
@@ -226,20 +214,21 @@ bool LineTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "LineTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/line_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/line_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/line_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
-  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.loadParam(yaml_prefix + "tracker_loop_rate", _tracker_loop_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "tracker_loop_rate", _tracker_loop_rate_);
 
   _tracker_dt_ = 1.0 / double(_tracker_loop_rate_);
 
@@ -280,7 +269,7 @@ bool LineTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
 
   main_timer_ = nh_.createTimer(ros::Rate(_tracker_loop_rate_), &LineTracker::mainTimer, this);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[LineTracker]: could not load all parameters!");
     return false;
   }

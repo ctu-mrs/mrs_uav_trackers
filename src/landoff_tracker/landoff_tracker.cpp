@@ -9,7 +9,6 @@
 #include <mrs_msgs/UavState.h>
 #include <mrs_msgs/VelocityReferenceSrv.h>
 
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
@@ -225,18 +224,7 @@ bool LandoffTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_u
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/landoff_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/landoff_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | --------------- loading parent's parameters -------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
@@ -249,38 +237,39 @@ bool LandoffTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_u
 
   // | --------------- loading plugin's parameters -------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "LandoffTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/landoff_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/landoff_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/landoff_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  param_loader.loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/takeoff_speed", _takeoff_speed_);
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/takeoff_speed", _takeoff_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/landing_speed", _landing_speed_);
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/landing_acceleration", _landing_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/landing_speed", _landing_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/landing_acceleration", _landing_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/elanding_speed", _elanding_speed_);
-  param_loader.loadParam(yaml_prefix + "vertical_tracker/elanding_acceleration", _elanding_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/elanding_speed", _elanding_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/elanding_acceleration", _elanding_acceleration_);
 
-  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
-  param_loader.loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
 
-  param_loader.loadParam(yaml_prefix + "main_timer_rate", _main_timer_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "main_timer_rate", _main_timer_rate_);
 
-  param_loader.loadParam(yaml_prefix + "landing_reference", _landing_reference_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "landing_reference", _landing_reference_);
 
-  param_loader.loadParam(yaml_prefix + "max_position_difference", _max_position_difference_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "max_position_difference", _max_position_difference_);
 
-  param_loader.loadParam(yaml_prefix + "takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
-  param_loader.loadParam(yaml_prefix + "takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[LandoffTracker]: Could not load all parameters!");
     return false;
   }

@@ -5,7 +5,6 @@
 
 #include <mrs_uav_managers/tracker.h>
 
-#include <mrs_lib/param_loader.h>
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/mutex.h>
 #include <mrs_lib/attitude_converter.h>
@@ -201,18 +200,7 @@ bool FlipTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/flip_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/flip_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | --------------- loading parent's parameters -------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
@@ -225,34 +213,35 @@ bool FlipTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
 
   // | --------------- loading plugin's parameters -------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "FlipTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/flip_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/flip_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/flip_tracker/";
 
-  param_loader.loadParam(yaml_prefix + "activation_limits/max_velocity", _activation_max_velocity_);
-  param_loader.loadParam(yaml_prefix + "activation_limits/max_acceleration", _activation_max_acceleration_);
-  param_loader.loadParam(yaml_prefix + "activation_limits/max_heading_rate", _activation_max_heading_rate_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "activation_limits/max_velocity", _activation_max_velocity_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "activation_limits/max_acceleration", _activation_max_acceleration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "activation_limits/max_heading_rate", _activation_max_heading_rate_);
 
-  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/mode", drs_params_.z_mode);
-  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/acceleration", drs_params_.z_acceleration);
-  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/throttle", drs_params_.z_throttle);
-  param_loader.loadParam(yaml_prefix + "phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
-  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
-  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/axis", drs_params_.axis);
-  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/direction", drs_params_.direction);
-  param_loader.loadParam(yaml_prefix + "phases/flipping_pulse/timeout_factor", _pulse_timeout_factor_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/z_acceleration/mode", drs_params_.z_mode);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/z_acceleration/acceleration", drs_params_.z_acceleration);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/z_acceleration/throttle", drs_params_.z_throttle);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/z_acceleration/velocity_gain_from_rot", drs_params_.velocity_gain_from_rot);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/flipping_pulse/attitude_rate", drs_params_.attitude_rate);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/flipping_pulse/axis", drs_params_.axis);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/flipping_pulse/direction", drs_params_.direction);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/flipping_pulse/timeout_factor", _pulse_timeout_factor_);
 
-  param_loader.loadParam(yaml_prefix + "rampup/speed", _rampup_speed_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "rampup/speed", _rampup_speed_);
 
-  param_loader.loadParam(yaml_prefix + "phases/recovery/duration", _recovery_duration_);
-  param_loader.loadParam(yaml_prefix + "phases/innertia/timeout_factor", _innertia_timeout_factor_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/recovery/duration", _recovery_duration_);
+  private_handlers->param_loader->loadParam(yaml_prefix + "phases/innertia/timeout_factor", _innertia_timeout_factor_);
 
   _pulse_timeout_ = _pulse_timeout_factor_ * (FLIPPING_PULSE_STOP_TILT / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing pulse timeout: %.4f s", _pulse_timeout_);
   _innertia_timeout_ = _innertia_timeout_factor_ * (((M_PI - FLIPPING_PULSE_STOP_TILT) + (M_PI - INNERTIA_PULSE_STOP_TILT)) / drs_params_.attitude_rate);
   ROS_INFO("[FlipTracker]: initializing inertia timeout: %.4f s", _innertia_timeout_);
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[FlipTracker]: could not load all parameters!");
     return false;
   }

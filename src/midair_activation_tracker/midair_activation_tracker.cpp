@@ -10,7 +10,6 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
-#include <mrs_lib/param_loader.h>
 
 //}
 
@@ -91,18 +90,7 @@ bool MidairActivationTracker::initialize(const ros::NodeHandle &nh, std::shared_
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
-  // | -------------------- load param files -------------------- |
-
-  bool success = true;
-
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/midair_activation_tracker.yaml");
-  success *= private_handlers->loadConfigFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/midair_activation_tracker.yaml");
-
-  if (!success) {
-    return false;
-  }
-
-  // | ---------------- load parent's parameters ---------------- |
+  // | ---------- loading params using the parent's nh ---------- |
 
   mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_nh, "ControlManager");
 
@@ -115,11 +103,12 @@ bool MidairActivationTracker::initialize(const ros::NodeHandle &nh, std::shared_
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  mrs_lib::ParamLoader param_loader(nh_, "MidairActivationTracker");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/midair_activation_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/midair_activation_tracker.yaml");
 
   const std::string yaml_prefix = "mrs_uav_trackers/midair_activation_tracker/";
 
-  if (!param_loader.loadedSuccessfully()) {
+  if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[MidairActivationTracker]: could not load all parameters!");
     return false;
   }
