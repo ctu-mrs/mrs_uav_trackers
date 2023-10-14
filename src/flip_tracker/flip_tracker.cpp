@@ -425,8 +425,6 @@ std::optional<mrs_msgs::TrackerCommand> FlipTracker::update(const mrs_msgs::UavS
 
       tracker_cmd.use_acceleration = true;
 
-      /* tracker_cmd.use_acceleration = true; */
-
       tracker_cmd.use_jerk = false;
 
       tracker_cmd.use_snap = false;
