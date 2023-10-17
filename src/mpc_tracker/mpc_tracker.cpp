@@ -2031,7 +2031,7 @@ void MpcTracker::calculateMPC() {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
-  ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: MPC calculateion dt = " << dt1);
+  ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: MPC calculation dt = " << dt1);
 
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_filtered_, constraints_filtered_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
@@ -2472,7 +2472,7 @@ void MpcTracker::iterateModel(const double& dt) {
         ROS_DEBUG("[MpcTracker]: horizontal pos y update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(4), new_mpc_x(4),
                   fabs((new_mpc_x(4) - mpc_x(4)) / dt1), constraints.horizontal_speed);
         problem = true;
-      }
+    }
 
       if (((new_mpc_x(8) - mpc_x(8)) / dt1) > 1.05 * constraints.vertical_ascending_speed) {
         ROS_DEBUG("[MpcTracker]: vertical pos z update violates constraints: %.2f -> %2.f = %.2f, > %.2f", mpc_x(8), new_mpc_x(8),
