@@ -173,7 +173,7 @@ private:
   std::shared_ptr<VectorXd> des_y_whole_trajectory_;
   std::shared_ptr<VectorXd> des_z_whole_trajectory_;
   std::shared_ptr<VectorXd> des_heading_whole_trajectory_;
-  int                       des_whole_trajectory_id_;
+  int                       des_whole_trajectory_id_ = 0;
   std::mutex                mutex_des_whole_trajectory_;
 
   // trajectory tracking
