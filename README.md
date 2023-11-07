@@ -53,4 +53,4 @@ Loaded trackers can be switched by the [control manager](https://github.com/ctu-
 
 ## Loading trackers to [control manager](https://github.com/ctu-mrs/mrs_uav_managers)
 
-An example tracker plugin is provided [here](https://github.com/ctu-mrs/example_tracker_plugin).
+An example tracker plugin is provided [here](https://github.com/ctu-mrs/mrs_core_examples).
