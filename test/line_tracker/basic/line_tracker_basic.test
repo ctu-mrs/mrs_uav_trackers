@@ -1,0 +1,7 @@
+<launch>
+
+  <include file="$(find mrs_uav_trackers)/test/line_tracker/basic/launch/mrs_uav_system.launch" />
+
+  <test pkg="mrs_uav_trackers" type="LineTracker_basic" test-name="line_tracker_basic" time-limit="60.0" />
+
+</launch>

@@ -195,6 +195,19 @@ target_link_libraries(MrsUavTrackers_MidairActivationTracker
   )
 
 ## --------------------------------------------------------------
+## |                           Testing                          |
+## --------------------------------------------------------------
+
+if(CATKIN_ENABLE_TESTING)
+
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
+
+  add_subdirectory(test)
+
+endif()
+
+## --------------------------------------------------------------
 ## |                           Install                          |
 ## --------------------------------------------------------------
 

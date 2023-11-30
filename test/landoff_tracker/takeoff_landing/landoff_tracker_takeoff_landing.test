@@ -1,0 +1,7 @@
+<launch>
+
+  <include file="$(find mrs_uav_trackers)/test/landoff_tracker/takeoff_landing/launch/mrs_uav_system.launch" />
+
+  <test pkg="mrs_uav_trackers" type="LandoffTracker_takeoff_landing" test-name="landoff_tracker_takoeff_landing" time-limit="90.0" />
+
+</launch>
