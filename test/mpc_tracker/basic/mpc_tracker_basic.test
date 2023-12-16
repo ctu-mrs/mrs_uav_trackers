@@ -1,7 +1,0 @@
-<launch>
-
-  <include file="$(find mrs_uav_trackers)/test/mpc_tracker/basic/launch/mrs_uav_system.launch" />
-
-  <test pkg="mrs_uav_trackers" type="MpcTracker_basic" test-name="mpc_tracker_basic" time-limit="60.0" />
-
-</launch>

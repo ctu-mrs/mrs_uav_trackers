@@ -28,11 +28,13 @@ private:
 
   mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics> sh_control_manager_diag_;
   mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>     sh_estim_manager_diag_;
+  mrs_lib::SubscribeHandler<std_msgs::Bool>                      sh_can_takeoff;
 
   mrs_lib::ServiceClientHandler<std_srvs::SetBool> sch_arming_;
-  mrs_lib::ServiceClientHandler<std_srvs::Trigger> sch_midair_;
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger> sch_offboard_;
 
-  mrs_lib::ServiceClientHandler<mrs_msgs::Vec4> sch_goto_;
+  mrs_lib::ServiceClientHandler<mrs_msgs::Vec4>    sch_goto_;
+  mrs_lib::ServiceClientHandler<std_srvs::Trigger> sch_land_;
 };
 
 //}
@@ -67,14 +69,16 @@ Tester::Tester() {
 
   sh_control_manager_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "/" + uav_name + "/control_manager/diagnostics");
   sh_estim_manager_diag_   = mrs_lib::SubscribeHandler<mrs_msgs::EstimationDiagnostics>(shopts, "/" + uav_name + "/estimation_manager/diagnostics");
+  sh_can_takeoff           = mrs_lib::SubscribeHandler<std_msgs::Bool>(shopts, "/" + uav_name + "/automatic_start/can_takeoff");
 
   ROS_INFO("[%s]: subscribers initialized", ros::this_node::getName().c_str());
 
   // | --------------------- service clients -------------------- |
 
-  sch_arming_ = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "/" + uav_name + "/hw_api/arming");
-  sch_midair_ = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "/" + uav_name + "/uav_manager/midair_activation");
+  sch_arming_   = mrs_lib::ServiceClientHandler<std_srvs::SetBool>(nh_, "/" + uav_name + "/hw_api/arming");
+  sch_offboard_ = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "/" + uav_name + "/hw_api/offboard");
 
+  sch_land_ = mrs_lib::ServiceClientHandler<std_srvs::Trigger>(nh_, "/" + uav_name + "/uav_manager/land");
   sch_goto_ = mrs_lib::ServiceClientHandler<mrs_msgs::Vec4>(nh_, "/" + uav_name + "/control_manager/goto");
 
   ROS_INFO("[%s]: service client initialized", ros::this_node::getName().c_str());
@@ -125,28 +129,41 @@ bool Tester::test() {
 
   ros::Duration(0.2).sleep();
 
-  // | -------------------- midair activation ------------------- |
+  // | -------------------- trigger offboard -------------------- |
 
-  ROS_INFO("[%s]: activating the drone 'in mid air'", ros::this_node::getName().c_str());
+  ROS_INFO("[%s]: triggering offboard", ros::this_node::getName().c_str());
 
   {
     std_srvs::Trigger trigger;
 
     {
-      bool service_call = sch_midair_.call(trigger);
+      bool service_call = sch_offboard_.call(trigger);
 
       if (!service_call || !trigger.response.success) {
-        ROS_ERROR("[%s]: midair activation service call failed", ros::this_node::getName().c_str());
+        ROS_ERROR("[%s]: offboard service call failed", ros::this_node::getName().c_str());
         return false;
       }
     }
   }
 
-  // | ----------------- sleep before the action ---------------- |
+  // | -------------- wait for the takeoff finished ------------- |
+
+  while (ros::ok()) {
+
+    ROS_INFO_THROTTLE(1.0, "[%s]: waiting for the takeoff to finish", ros::this_node::getName().c_str());
+
+    if (sh_control_manager_diag_.getMsg()->flying_normally) {
+
+      ROS_INFO("[%s]: finished", ros::this_node::getName().c_str());
+      break;
+    }
+
+    ros::Duration(0.01).sleep();
+  }
 
   ros::Duration(1.0).sleep();
 
-  // | ------------------------ test goto ----------------------- |
+  // | -------------------------- goto -------------------------- |
 
   mrs_msgs::Vec4 goto_cmd;
 
@@ -168,8 +185,6 @@ bool Tester::test() {
     }
   }
 
-  ros::Duration(1.0).sleep();
-
   // | ------------------- check if we are ok ------------------- |
 
   while (ros::ok()) {
@@ -182,7 +197,48 @@ bool Tester::test() {
     }
 
     if (!sh_control_manager_diag_.getMsg()->tracker_status.have_goal) {
-      ROS_INFO("[%s]: finished", ros::this_node::getName().c_str());
+      ROS_INFO("[%s]: goto finished", ros::this_node::getName().c_str());
+      break;
+    }
+  }
+
+  ros::Duration(1.0).sleep();
+
+  // | ---------------------- call landing ---------------------- |
+
+  {
+    std_srvs::Trigger trigger;
+
+    {
+      bool service_call = sch_land_.call(trigger);
+
+      if (!service_call || !trigger.response.success) {
+        ROS_ERROR("[%s]: land service call failed", ros::this_node::getName().c_str());
+        return false;
+      }
+    }
+  }
+
+  // | ----------------- wait for LandoffTracker ---------------- |
+
+  while (ros::ok()) {
+
+    ROS_INFO_THROTTLE(1.0, "[%s]: waiting for LandoffTracker", ros::this_node::getName().c_str());
+
+    if (sh_control_manager_diag_.getMsg()->active_tracker == "LandoffTracker") {
+      ROS_INFO("[%s]: LandoffTracker detected", ros::this_node::getName().c_str());
+      break;
+    }
+  }
+
+  // | -------------------- wait for landing -------------------- |
+
+  while (ros::ok()) {
+
+    ROS_INFO_THROTTLE(1.0, "[%s]: waiting for landing", ros::this_node::getName().c_str());
+
+    if (sh_control_manager_diag_.getMsg()->output_enabled == false) {
+      ROS_INFO("[%s]: landing detected", ros::this_node::getName().c_str());
       return true;
     }
   }
@@ -194,7 +250,7 @@ bool Tester::test() {
 
 std::shared_ptr<Tester> tester_;
 
-TEST(TESTSuite, LineTracker_basic) {
+TEST(TESTSuite, landing_takeoff) {
 
   bool result = tester_->test();
 
@@ -207,7 +263,7 @@ TEST(TESTSuite, LineTracker_basic) {
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
-  ros::init(argc, argv, "LineTracker_basic");
+  ros::init(argc, argv, "landoff_tracker_landing_takeoff");
 
   tester_ = std::make_shared<Tester>();
 

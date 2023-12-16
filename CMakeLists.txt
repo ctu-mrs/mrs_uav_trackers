@@ -24,6 +24,7 @@ set(CATKIN_DEPENDENCIES
   mrs_msgs
   mrs_uav_managers
   dynamic_reconfigure
+  mrs_uav_testing
   )
 
 find_package(catkin REQUIRED COMPONENTS

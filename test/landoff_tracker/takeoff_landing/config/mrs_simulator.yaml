@@ -1,0 +1,14 @@
+individual_takeoff_platform:
+  enabled: false
+
+uav_names: [
+  "uav1",
+]
+
+uav1:
+  type: "x500"
+  spawn:
+    x: 10.0
+    y: 20.0
+    z: 0.0
+    heading: 1.2
