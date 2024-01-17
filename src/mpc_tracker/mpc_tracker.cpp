@@ -176,10 +176,12 @@ private:
   int                       des_whole_trajectory_id_ = 0;
   std::mutex                mutex_des_whole_trajectory_;
 
+  int  getCurrentTrajectoryIdx();
+  void increaseCurrentTrajectoryTime(const double dt);
+
   // trajectory tracking
   std::atomic<bool> trajectory_tracking_in_progress_ = false;
-  int               trajectory_tracking_sub_idx_     = 0;  // increases with every iteration of the simulated model
-  int               trajectory_tracking_idx_         = 0;  // while tracking, this is the current index in the des_*_whole trajectory
+  double            trajectory_current_time_;
   std::mutex        mutex_trajectory_tracking_states_;
 
   // params of the loaded trajectory
@@ -313,11 +315,6 @@ private:
 
   std::atomic<bool> mpc_timer_running_ = false;
   void              timerMPC(const ros::TimerEvent& event);
-
-  // | ------------------- trajectory tracking ------------------ |
-
-  ros::Timer timer_trajectory_tracking_;
-  void       timerTrajectoryTracking(const ros::TimerEvent& event);
 
   // | -------------------- velocity tracking ------------------- |
 
@@ -641,7 +638,6 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
                                                 collision_avoidance_enabled_ || collision_avoidance_enabled_passively_);
   timer_diagnostics_          = nh_.createTimer(ros::Rate(_diagnostics_rate_), &MpcTracker::timerDiagnostics, this);
   timer_mpc_iteration_        = nh_.createTimer(ros::Rate(_mpc_asynchronous_rate_), &MpcTracker::timerMPC, this, false, false);
-  timer_trajectory_tracking_  = nh_.createTimer(ros::Rate(1.0), &MpcTracker::timerTrajectoryTracking, this, false, false);
   timer_velocity_tracking_    = nh_.createTimer(ros::Rate(30.0), &MpcTracker::timerVelocityTracking, this, false, false);
   timer_hover_                = nh_.createTimer(ros::Rate(10.0), &MpcTracker::timerHover, this, false, false);
 
@@ -793,8 +789,6 @@ std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs:
 
   trajectory_tracking_in_progress_ = false;
 
-  timer_trajectory_tracking_.stop();
-
   ss << "activated";
   ROS_INFO_STREAM("[MpcTracker]: " << ss.str());
 
@@ -834,13 +828,10 @@ void MpcTracker::deactivate(void) {
   trajectory_tracking_in_progress_ = false;
   model_first_iteration_           = true;
 
-  timer_trajectory_tracking_.stop();
-
   {
     std::scoped_lock lock(mutex_trajectory_tracking_states_);
 
-    trajectory_tracking_idx_     = 0;
-    trajectory_tracking_sub_idx_ = 0;
+    trajectory_current_time_ = 0;
   }
 
   ROS_INFO("[MpcTracker]: deactivated");
@@ -907,8 +898,6 @@ bool MpcTracker::resetStatic(void) {
 
     trajectory_tracking_in_progress_ = false;
 
-    timer_trajectory_tracking_.stop();
-
     ROS_INFO("[MpcTracker]: reseted");
   }
 
@@ -932,7 +921,7 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   auto old_uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  // calculate dt
+  // the time from the last update call
   double dt = (uav_state.header.stamp - old_uav_state.header.stamp).toSec();
 
   // save the uav state
@@ -1120,9 +1109,8 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
 const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
-  auto [mpc_x, mpc_x_heading]  = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
-  auto trajectory_size         = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
-  auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
+  auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
+  auto trajectory_size        = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
 
   double des_x, des_y, des_z, des_heading;
   {
@@ -1146,6 +1134,8 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
   bool have_nonzero_velocity = fabs(mpc_x(1, 0)) > 0.1 || fabs(mpc_x(5, 0)) > 0.1 || fabs(mpc_x(9, 0)) > 0.1 || fabs(mpc_x_heading(1, 0)) > 0.1;
 
   tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_heading_error || have_nonzero_velocity;
+
+  int trajectory_tracking_idx = getCurrentTrajectoryIdx();
 
   tracker_status.trajectory_length = trajectory_size;
   tracker_status.trajectory_idx    = trajectory_tracking_idx;
@@ -2696,8 +2686,6 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
   } else { // not fly_now
 
       trajectory_tracking_in_progress_ = false;
-
-      timer_trajectory_tracking_.stop();
   }
 
   //}
@@ -2738,14 +2726,15 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     double first_x = des_x_whole_trajectory(0);
     double first_y = des_y_whole_trajectory(0);
     double first_z = des_z_whole_trajectory(0);
+    double first_hdg = des_heading_whole_trajectory(0);
 
     double last_x = des_x_whole_trajectory(trajectory_size - 1);
     double last_y = des_y_whole_trajectory(trajectory_size - 1);
     double last_z = des_z_whole_trajectory(trajectory_size - 1);
+    double last_hdg = des_heading_whole_trajectory(trajectory_size - 1);
 
     // check whether the trajectory is loopable
-    // TODO should check heading aswell
-    if (mrs_lib::geometry::dist(vec3_t(first_x, first_y, first_z), vec3_t(last_x, last_y, last_z)) < 3.141592653) {
+    if (mrs_lib::geometry::dist(vec3_t(first_x, first_y, first_z), vec3_t(last_x, last_y, last_z)) < 1.0 && abs(sradians::diff(first_hdg, last_hdg)) < 0.2) {
 
       ROS_INFO_THROTTLE(1.0, "[MpcTracker]: looping enabled");
       loop = true;
@@ -2824,7 +2813,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     // if we are tracking trajectory, copy the setpoint
     if (trajectory_tracking_in_progress_) {
 
-      toggleHover(false);  // TODO check for deadlock through mutex_des_trajectory_
+      toggleHover(false);
 
       /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
@@ -2868,21 +2857,14 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
     }
 
     trajectory_size_             = trajectory_size;
-    trajectory_tracking_idx_     = 0;
-    trajectory_tracking_sub_idx_ = trajectory_subsample_offset;
+    trajectory_current_time_     = 0;
     trajectory_set_              = true;
     trajectory_tracking_loop_    = loop;
     trajectory_dt_               = trajectory_dt;
     trajectory_count_++;
-
-    timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt));
   }
 
   //}
-
-  if (trajectory_tracking_in_progress_) {
-    timer_trajectory_tracking_.start();
-  }
 
   ROS_INFO_THROTTLE(1, "[MpcTracker]: finished setting trajectory with length %d", trajectory_size);
 
@@ -2993,7 +2975,6 @@ void MpcTracker::setGoal(const double pos_x, const double pos_y, const double po
   }
 
   trajectory_tracking_in_progress_ = false;
-  timer_trajectory_tracking_.stop();
 
   setSinglePointReference(pos_x, pos_y, pos_z, desired_heading);
 
@@ -3019,7 +3000,6 @@ void MpcTracker::setRelativeGoal(const double pos_x, const double pos_y, const d
   }
 
   trajectory_tracking_in_progress_ = false;
-  timer_trajectory_tracking_.stop();
 
   setSinglePointReference(abs_x, abs_y, abs_z, abs_heading);
 
@@ -3031,9 +3011,6 @@ void MpcTracker::setRelativeGoal(const double pos_x, const double pos_y, const d
 /* toggleHover() //{ */
 
 void MpcTracker::toggleHover(bool in) {
-
-  // DON'T PUT MUTEX LOCK IN THIS FUNCTION
-  // it is called under mutex elsewhere
 
   if (in == false && hovering_in_progress_) {
 
@@ -3071,12 +3048,8 @@ std::tuple<bool, std::string> MpcTracker::startTrajectoryTrackingImpl(void) {
       std::scoped_lock lock(mutex_des_trajectory_);
 
       trajectory_tracking_in_progress_ = true;
-      trajectory_tracking_idx_         = 0;
-      trajectory_tracking_sub_idx_     = 0;
+      trajectory_current_time_ = 0;
     }
-
-    timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
-    timer_trajectory_tracking_.start();
 
     publishDiagnostics();
 
@@ -3106,7 +3079,7 @@ std::tuple<bool, std::string> MpcTracker::resumeTrajectoryTrackingImpl(void) {
 
     toggleHover(false);
 
-    auto trajectory_tracking_idx = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_tracking_idx_);
+    int trajectory_tracking_idx = getCurrentTrajectoryIdx();
 
     if (trajectory_tracking_idx < (trajectory_size_ - 1)) {
 
@@ -3115,9 +3088,6 @@ std::tuple<bool, std::string> MpcTracker::resumeTrajectoryTrackingImpl(void) {
 
         trajectory_tracking_in_progress_ = true;
       }
-
-      timer_trajectory_tracking_.setPeriod(ros::Duration(trajectory_dt_));
-      timer_trajectory_tracking_.start();
 
       ss << "trajectory tracking resumed";
       ROS_INFO_STREAM_THROTTLE(1.0, "[MpcTracker]: " << ss.str());
@@ -3154,7 +3124,6 @@ std::tuple<bool, std::string> MpcTracker::stopTrajectoryTrackingImpl(void) {
   if (trajectory_tracking_in_progress_) {
 
     trajectory_tracking_in_progress_ = false;
-    timer_trajectory_tracking_.stop();
 
     toggleHover(true);
 
@@ -3185,7 +3154,6 @@ std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
     toggleHover(false);
 
     trajectory_tracking_in_progress_ = false;
-    timer_trajectory_tracking_.stop();
 
     {
       std::scoped_lock lock(mutex_des_whole_trajectory_);
@@ -3337,6 +3305,52 @@ void MpcTracker::debugPrintMPCResult(const double throttle) {
 
 //}
 
+/* getCurrentTrajectoryIdx() //{ */
+
+int MpcTracker::getCurrentTrajectoryIdx() {
+
+  auto trajectory_current_time = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time_);
+  auto trajectory_dt   = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_dt_);
+
+  return floor(trajectory_current_time / trajectory_dt);
+}
+
+//}
+
+/* increaseCurrentTrajectoryTime() //{ */
+
+void MpcTracker::increaseCurrentTrajectoryTime(const double dt) {
+
+  auto trajectory_current_time = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time_);
+  auto [trajectory_size, trajectory_dt] = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_, trajectory_dt_);
+
+  trajectory_current_time += dt;
+
+  const double trajectory_duration = trajectory_size * trajectory_dt;
+
+  // if the tracking idx hits the end of the trajectory
+  if (trajectory_current_time >= trajectory_duration) {
+
+    if (trajectory_tracking_loop_) {
+
+      // reset the idx
+      trajectory_current_time -= trajectory_duration;
+
+      ROS_INFO("[MpcTracker]: trajectory looped");
+
+    } else {
+
+      trajectory_tracking_in_progress_ = false;
+
+      ROS_INFO("[MpcTracker]: done tracking trajectory");
+    }
+  }
+
+  mrs_lib::set_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time, trajectory_current_time_);
+}
+
+//}
+
 // --------------------------------------------------------------
 // |                           timers                           |
 // --------------------------------------------------------------
@@ -3416,14 +3430,17 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
-    int trajectory_tracking_sub_idx = trajectory_tracking_sub_idx_;
-    int trajectory_tracking_idx     = trajectory_tracking_idx_;
+    const double dt_from_last_update = (event.current_real - event.last_real).toSec();
+
+    increaseCurrentTrajectoryTime(dt_from_last_update);
+
+    auto trajectory_current_time = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time_);
 
     for (int i = 0; i < _mpc_horizon_len_; i++) {
 
-      double first_time = dt1 + i * _dt2_ + trajectory_tracking_sub_idx * dt1;
+      double first_time = trajectory_current_time + double(i) * _dt2_;
 
-      int first_idx  = trajectory_tracking_idx + int(floor(first_time / trajectory_dt));
+      int first_idx  = int(floor(first_time / trajectory_dt));
       int second_idx = first_idx + 1;
 
       double interp_coeff = std::fmod(first_time / trajectory_dt, 1.0);
@@ -3467,12 +3484,6 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     //}
 
-    // increase the trajectory subsampling counter
-    {
-      std::scoped_lock lock(mutex_trajectory_tracking_states_);
-
-      trajectory_tracking_sub_idx_++;
-    }
   } else {
 
     std::scoped_lock lock(mutex_des_whole_trajectory_);
@@ -3619,57 +3630,6 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     ROS_INFO("[MpcTracker]: calculated the first MPC result after invalidation");
   }
-}
-
-//}
-
-/* timerTrajectoryTracking() //{ */
-
-void MpcTracker::timerTrajectoryTracking(const ros::TimerEvent& event) {
-
-  auto trajectory_size = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_size_);
-  auto trajectory_dt   = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_dt_);
-
-  mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerTrajectoryTracking", int(1.0 / trajectory_dt), 0.01, event);
-  mrs_lib::ScopeTimer timer =
-      mrs_lib::ScopeTimer("MpcTracker::timerTrajectoryTracking", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
-
-  {
-    std::scoped_lock lock(mutex_trajectory_tracking_states_);
-
-    // do a step of the main tracking idx
-
-    // reset the subsampling counter
-    trajectory_tracking_sub_idx_ = 0;
-
-    // INCREMENT THE TRACKING IDX
-    trajectory_tracking_idx_++;
-
-    // if the tracking idx hits the end of the trajectory
-    if (trajectory_tracking_idx_ == trajectory_size) {
-
-      if (trajectory_tracking_loop_) {
-
-        // reset the idx
-        trajectory_tracking_idx_ = 0;
-
-        ROS_INFO("[MpcTracker]: trajectory looped");
-
-      } else {
-
-        trajectory_tracking_in_progress_ = false;
-
-        // set the idx to the last idx of the trajectory
-        trajectory_tracking_idx_ = trajectory_size - 1;
-
-        timer_trajectory_tracking_.stop();
-
-        ROS_INFO("[MpcTracker]: done tracking trajectory");
-      }
-    }
-  }
-
-  publishDiagnostics();
 }
 
 //}
