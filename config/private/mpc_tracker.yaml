@@ -37,9 +37,6 @@ mrs_uav_trackers:
 
       translation:
 
-        n_states: 12
-        n_inputs: 3
-
         A: [1, 0.01, 0.00005,       0, 0,   0,        0,       0, 0,    0,       0,       0,
             0,    1,    0.01, 0.00005, 0,   0,        0,       0, 0,    0,       0,       0,
             0,    0,       1,    0.01, 0,   0,        0,       0, 0,    0,       0,       0,
@@ -68,9 +65,6 @@ mrs_uav_trackers:
 
       heading:
 
-        n_states: 4
-        n_inputs: 1
-
         A: [1, 0.01, 0.00005,       0,
             0,    1,    0.01, 0.00005,
             0,    0,       1,    0.01,
@@ -82,8 +76,6 @@ mrs_uav_trackers:
             0.01]
 
     mpc_solver:
-
-      horizon_len: 40 # Horizon length is hardcoded in solver code, this value is used in other parts of the code
 
       # dt1: 0.01 # dt1 is set as 1/main_rate
       dt2: 0.2
