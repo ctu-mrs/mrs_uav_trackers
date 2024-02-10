@@ -2329,14 +2329,14 @@ void MpcTracker::calculateMPC() {
 
   // | ------------- breaking for the next iteration ------------ |
 
-  if (drs_params.braking_enabled &&
-      (fabs(des_x_filtered(8) - des_x_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1 && fabs(des_x_filtered(30) - des_x_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1) &&
-      (fabs(des_y_filtered(8) - des_y_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1 && fabs(des_y_filtered(30) - des_y_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1) &&
-      (fabs(des_z_filtered(8) - des_z_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1 && fabs(des_z_filtered(30) - des_z_filtered(MPC_HORIZON_LENGTH - 1)) <= 1e-1) &&
-      (fabs(radians::diff(des_heading_trajectory(10), des_heading_trajectory(MPC_HORIZON_LENGTH - 1))) <= 0.1 &&
-       fabs(radians::diff(des_heading_trajectory(30), des_heading_trajectory(MPC_HORIZON_LENGTH - 1))) <= 0.1)) {
+  if (drs_params.braking_enabled && (std::abs(des_x_filtered(MPC_HORIZON_LENGTH - 6) - des_x_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(des_y_filtered(MPC_HORIZON_LENGTH - 6) - des_y_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(des_z_filtered(MPC_HORIZON_LENGTH - 6) - des_z_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(radians::diff(des_heading_trajectory(MPC_HORIZON_LENGTH - 6), des_heading_trajectory(MPC_HORIZON_LENGTH - 1))) <= 0.1)) {
+
     brake_ = true;
     ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: braking");
+
   } else {
     brake_ = false;
   }
