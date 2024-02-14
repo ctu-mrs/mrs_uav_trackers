@@ -312,6 +312,7 @@ private:
 
   ros::Timer        timer_mpc_iteration_;
   std::atomic<bool> mpc_synchronous_ = false;
+  ros::TimerEvent   synchronous_timer_event_;
 
   std::atomic<bool> mpc_timer_running_ = false;
   void              timerMPC(const ros::TimerEvent& event);
@@ -1001,11 +1002,20 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
     return {tracker_cmd};
   }
 
-  ros::TimerEvent event;
-
   if (mpc_synchronous_) {
+
     ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in SYNCHRONOUS mode");
-    timerMPC(event);
+
+    if (synchronous_timer_event_.last_real.toSec() > 0) {
+      synchronous_timer_event_.last_real = synchronous_timer_event_.current_real;
+    } else {
+      synchronous_timer_event_.last_real = ros::Time::now();
+    }
+
+    synchronous_timer_event_.current_real = ros::Time::now();
+
+    timerMPC(synchronous_timer_event_);
+
   } else {
     ROS_DEBUG_THROTTLE(1.0, "[MpcTracker]: running in ASYNCHRONOUS mode");
   }
