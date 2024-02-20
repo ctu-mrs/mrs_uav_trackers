@@ -1,0 +1,49 @@
+<launch>
+
+  <arg name="this_path" default="$(dirname)" />
+
+  <arg name="UAV_TYPE" default="x500" />
+
+    <!-- automatically deduce the test name -->
+  <arg name="test_name" default="$(eval arg('this_path').split('/')[-1])" />
+
+    <!-- automatically deduce the package name -->
+  <arg name="import_eval" default="eval('_' + '_import_' + '_')"/>
+  <arg name="package_eval" default="eval(arg('import_eval') + '(\'rospkg\')').get_package_name(arg('this_path'))" />
+  <arg name="package" default="$(eval eval(arg('package_eval')))" />
+
+  <include file="$(find mrs_uav_testing)/launch/mrs_simulator.launch">
+    <arg name="mrs_simulator_config" default="$(dirname)/config/mrs_simulator.yaml" />
+  </include>
+
+  <include file="$(find mrs_multirotor_simulator)/launch/hw_api.launch">
+    <arg name="UAV_NAME" default="uav1" />
+    <arg name="custom_config" default="$(dirname)/config/hw_api.yaml" />
+  </include>
+
+  <include file="$(find mrs_multirotor_simulator)/launch/hw_api.launch">
+    <arg name="UAV_NAME" default="uav2" />
+    <arg name="custom_config" default="$(dirname)/config/hw_api.yaml" />
+  </include>
+
+  <include file="$(find mrs_uav_testing)/launch/mrs_uav_system.launch">
+    <arg name="automatic_start" default="false" />
+    <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
+    <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
+    <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
+    <arg name="UAV_NAME" default="uav1" />
+  </include>
+
+  <include file="$(find mrs_uav_testing)/launch/mrs_uav_system.launch">
+    <arg name="automatic_start" default="false" />
+    <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
+    <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
+    <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
+    <arg name="UAV_NAME" default="uav2" />
+  </include>
+
+  <test pkg="$(arg package)" type="test_$(arg test_name)" test-name="$(arg test_name)" time-limit="60.0">
+    <param name="test" value="$(arg test_name)" />
+  </test>
+
+</launch>

@@ -1,0 +1,27 @@
+collisions:
+  enabled: false
+  crash: true
+
+individual_takeoff_platform:
+  enabled: true
+
+uav_names: [
+  "uav1",
+  "uav2",
+]
+
+uav1:
+  type: "x500"
+  spawn:
+    x: 0.0
+    y: 0.0
+    z: 5.0
+    heading: 0.0
+
+uav2:
+  type: "x500"
+  spawn:
+    x: 5.0
+    y: 0.0
+    z: 5.0
+    heading: 0.0
