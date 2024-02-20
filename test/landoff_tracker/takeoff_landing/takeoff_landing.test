@@ -15,7 +15,7 @@
 
   <include file="$(find mrs_uav_testing)/launch/mrs_simulator.launch">
     <arg name="UAV_NAME" default="$(arg UAV_NAME)" />
-    <arg name="mrs_simulator_config" default="$(dirname)/config/mrs_simulator.yaml" />
+    <arg name="custom_config" default="$(dirname)/config/mrs_simulator.yaml" />
   </include>
 
   <include file="$(find mrs_multirotor_simulator)/launch/hw_api.launch">
