@@ -12,18 +12,20 @@
   <arg name="package_eval" default="eval(arg('import_eval') + '(\'rospkg\')').get_package_name(arg('this_path'))" />
   <arg name="package" default="$(eval eval(arg('package_eval')))" />
 
+  <arg name="modality" default="velocity_hdg" />
+
   <include file="$(find mrs_uav_testing)/launch/mrs_simulator.launch">
     <arg name="mrs_simulator_config" default="$(dirname)/config/mrs_simulator.yaml" />
   </include>
 
   <include file="$(find mrs_multirotor_simulator)/launch/hw_api.launch">
     <arg name="UAV_NAME" default="uav1" />
-    <arg name="custom_config" default="$(dirname)/config/hw_api.yaml" />
+    <arg name="custom_config" default="$(dirname)/config/hw_api_$(arg modality).yaml" />
   </include>
 
   <include file="$(find mrs_multirotor_simulator)/launch/hw_api.launch">
     <arg name="UAV_NAME" default="uav2" />
-    <arg name="custom_config" default="$(dirname)/config/hw_api.yaml" />
+    <arg name="custom_config" default="$(dirname)/config/hw_api_$(arg modality).yaml" />
   </include>
 
   <include file="$(find mrs_uav_testing)/launch/mrs_uav_system.launch">
@@ -31,6 +33,7 @@
     <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
     <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
     <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
+    <arg name="network_config" default="$(dirname)/config/network_config.yaml" />
     <arg name="UAV_NAME" default="uav1" />
   </include>
 
@@ -39,6 +42,7 @@
     <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
     <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
     <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
+    <arg name="network_config" default="$(dirname)/config/network_config.yaml" />
     <arg name="UAV_NAME" default="uav2" />
   </include>
 

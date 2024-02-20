@@ -13,16 +13,4 @@ add_dependencies(test_${TEST_NAME}
   ${catkin_EXPORTED_TARGETS}
   )
 
-set(MODALITIES
-  attitude_rate
-  velocity_hdg
-  )
-
-foreach(MODALITY ${MODALITIES})
-
-  add_rostest(${TEST_NAME}.test
-    ARGS
-    modality:=${MODALITY}
-    )
-
-endforeach()
+add_rostest(${TEST_NAME}.test)

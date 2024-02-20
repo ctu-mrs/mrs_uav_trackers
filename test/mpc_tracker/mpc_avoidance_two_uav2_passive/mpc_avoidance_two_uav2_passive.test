@@ -29,7 +29,7 @@
   <include file="$(find mrs_uav_testing)/launch/mrs_uav_system.launch">
     <arg name="automatic_start" default="false" />
     <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
-    <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
+    <arg name="custom_config" default="$(dirname)/config/custom_config_uav1.yaml" />
     <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
     <arg name="network_config" default="$(dirname)/config/network_config.yaml" />
     <arg name="UAV_NAME" default="uav1" />
@@ -38,7 +38,7 @@
   <include file="$(find mrs_uav_testing)/launch/mrs_uav_system.launch">
     <arg name="automatic_start" default="false" />
     <arg name="platform_config" default="$(find mrs_multirotor_simulator)/config/mrs_uav_system/$(arg UAV_TYPE).yaml" />
-    <arg name="custom_config" default="$(dirname)/config/custom_config.yaml" />
+    <arg name="custom_config" default="$(dirname)/config/custom_config_uav2.yaml" />
     <arg name="world_config" default="$(dirname)/config/world_config.yaml" />
     <arg name="network_config" default="$(dirname)/config/network_config.yaml" />
     <arg name="UAV_NAME" default="uav2" />
