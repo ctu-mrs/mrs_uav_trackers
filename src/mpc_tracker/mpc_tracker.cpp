@@ -1231,7 +1231,7 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     wait.sleep();
 
     if (!mpc_timer_running_) {
-      ROS_DEBUG("[ControlManager]: mpc timer finished");
+      ROS_DEBUG("[MpcTracker]: mpc timer finished");
       break;
     }
   }
