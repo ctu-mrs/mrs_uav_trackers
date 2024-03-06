@@ -1790,6 +1790,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
     }
     u++;
   }
+
   if (!avoiding_collision_) {
 
     auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
@@ -1797,7 +1798,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
     // we are not avoiding any collisions, so we slowly reduce the collision avoidance offset to return to normal flight
     collision_free_altitude_ -= 2.0 / (1.0 / dt1);
 
-    double safety_area_min_z = common_handlers_->safety_area.getMinZ("");
+    double safety_area_min_z = std::numeric_limits<double>::lowest();
 
     if (collision_free_altitude_ < safety_area_min_z) {
 
@@ -2059,7 +2060,7 @@ void MpcTracker::calculateMPC() {
 
   } else {
 
-    minimum_collison_free_altitude_ = common_handlers_->safety_area.getMinZ("");
+    minimum_collison_free_altitude_ = std::numeric_limits<double>::lowest();
   }
 
   double max_speed_x = constraints.horizontal_speed;
