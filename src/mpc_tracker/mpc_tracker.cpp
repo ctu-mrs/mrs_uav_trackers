@@ -3347,7 +3347,7 @@ void MpcTracker::increaseCurrentTrajectoryTime(const double dt) {
 
       trajectory_tracking_in_progress_ = false;
 
-      ROS_INFO("[MpcTracker]: done tracking trajectory");
+      ROS_INFO("[MpcTracker]: done tracking trajectory, current time in trajectory=%f, trajectory_duration=%f", trajectory_current_time, trajectory_duration);
     }
   }
 
@@ -3437,7 +3437,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     const double dt_from_last_update = (event.current_real - event.last_real).toSec();
 
-    increaseCurrentTrajectoryTime(dt_from_last_update);
+    if (dt_from_last_update > 0.0 && dt_from_last_update < 1.0) {
+      increaseCurrentTrajectoryTime(dt_from_last_update);
+    } else {
+      ROS_WARN_THROTTLE(1.0, "[MpcTracker]: timerMpc(): dt from the last update is not normal, not iterating trajectory, dt=%.4f", dt_from_last_update);
+    }
 
     auto trajectory_current_time = mrs_lib::get_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time_);
 
@@ -3469,6 +3473,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
         if (first_idx >= trajectory_size) {
           first_idx = trajectory_size - 1;
         }
+      }
+
+      if (first_idx < 0 || first_idx > (trajectory_size-1) || second_idx < 0 || second_idx > (trajectory_size-1)) {
+        ROS_ERROR_THROTTLE(0.1, "[MpcTracker]: trying to index out range when interpolating the trajectory! first_idx=%d, second_idx=%d, trajectory_size=%d", first_idx, second_idx, trajectory_size);
+        continue;
       }
 
       des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory[first_idx] + interp_coeff * des_x_whole_trajectory[second_idx];
