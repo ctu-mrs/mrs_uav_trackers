@@ -599,8 +599,8 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
     for (int i = 0; i < int(_avoidance_other_uav_names_.size()); i++) {
 
-      std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_[i] + "/control_manager/mpc_tracker/predicted_trajectory";
-      std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_[i] + "/control_manager/mpc_tracker/diagnostics";
+      std::string prediction_topic_name = std::string("/") + _avoidance_other_uav_names_.at(i) + "/control_manager/mpc_tracker/predicted_trajectory";
+      std::string diag_topic_name       = std::string("/") + _avoidance_other_uav_names_.at(i) + "/control_manager/mpc_tracker/diagnostics";
 
       ROS_INFO("[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
@@ -1285,8 +1285,8 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
         Eigen::Vector2d temp_vec((*des_x_whole_trajectory_)(i)-uav_state_.pose.position.x, (*des_y_whole_trajectory_)(i)-uav_state_.pose.position.y);
         temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
-        (*des_x_whole_trajectory_)(i) = new_uav_state.pose.position.x + temp_vec[0];
-        (*des_y_whole_trajectory_)(i) = new_uav_state.pose.position.y + temp_vec[1];
+        (*des_x_whole_trajectory_)(i) = new_uav_state.pose.position.x + temp_vec(0);
+        (*des_y_whole_trajectory_)(i) = new_uav_state.pose.position.y + temp_vec(1);
         (*des_z_whole_trajectory_)(i) += dz;
         (*des_heading_whole_trajectory_)(i) += dheading;
       }
@@ -1297,8 +1297,8 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
       Eigen::Vector2d temp_vec(des_x_trajectory_(i) - uav_state_.pose.position.x, des_y_trajectory_(i) - uav_state_.pose.position.y);
       temp_vec = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
 
-      des_x_trajectory_(i, 0) = new_uav_state.pose.position.x + temp_vec[0];
-      des_y_trajectory_(i, 0) = new_uav_state.pose.position.y + temp_vec[1];
+      des_x_trajectory_(i, 0) = new_uav_state.pose.position.x + temp_vec(0);
+      des_y_trajectory_(i, 0) = new_uav_state.pose.position.y + temp_vec(1);
       des_z_trajectory_(i, 0) += dz;
       des_heading_trajectory_(i, 0) += dheading;
     }
@@ -1307,8 +1307,8 @@ const std_srvs::TriggerResponse::ConstPtr MpcTracker::switchOdometrySource(const
     {
       Eigen::Vector2d temp_vec(mpc_x_(0, 0) - uav_state_.pose.position.x, mpc_x_(4, 0) - uav_state_.pose.position.y);
       temp_vec     = Eigen::Rotation2D<double>(dheading).toRotationMatrix() * temp_vec;
-      mpc_x_(0, 0) = new_uav_state.pose.position.x + temp_vec[0];
-      mpc_x_(4, 0) = new_uav_state.pose.position.y + temp_vec[1];
+      mpc_x_(0, 0) = new_uav_state.pose.position.x + temp_vec(0);
+      mpc_x_(4, 0) = new_uav_state.pose.position.y + temp_vec(1);
       mpc_x_(8, 0) += dz;
     }
 
@@ -1582,18 +1582,18 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::Co
 
     geometry_msgs::PoseStamped original_pose;
 
-    original_pose.pose.position.x = trajectory.points[i].x;
-    original_pose.pose.position.y = trajectory.points[i].y;
-    original_pose.pose.position.z = trajectory.points[i].z;
+    original_pose.pose.position.x = trajectory.points.at(i).x;
+    original_pose.pose.position.y = trajectory.points.at(i).y;
+    original_pose.pose.position.z = trajectory.points.at(i).z;
 
     original_pose.pose.orientation = mrs_lib::AttitudeConverter(0, 0, 0);
 
     auto res = common_handlers_->transformer->transform(original_pose, tf);
 
     if (res) {
-      trajectory.points[i].x = res.value().pose.position.x;
-      trajectory.points[i].y = res.value().pose.position.y;
-      trajectory.points[i].z = res.value().pose.position.z;
+      trajectory.points.at(i).x = res.value().pose.position.x;
+      trajectory.points.at(i).y = res.value().pose.position.y;
+      trajectory.points.at(i).z = res.value().pose.position.z;
     } else {
 
       std::string message = "[MpcTracker]: could not transform point of other uav future trajectory!";
@@ -1608,7 +1608,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::Co
     std::scoped_lock lock(mutex_other_uav_avoidance_trajectories_);
 
     // update the diagnostics
-    other_uav_avoidance_trajectories_[trajectory.uav_name] = trajectory;
+    other_uav_avoidance_trajectories_.at(trajectory.uav_name) = trajectory;
   }
 }
 
@@ -1631,7 +1631,7 @@ void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosti
   diagnostics.header.stamp = ros::Time::now();
 
   // update the diagnostics
-  other_uav_diagnostics_[diagnostics.uav_name] = diagnostics;
+  other_uav_diagnostics_.at(diagnostics.uav_name) = diagnostics;
 }
 
 //}
@@ -1751,7 +1751,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
         // check all points of the trajectory for possible collisions
         if (checkCollision(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0),
-                           predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+                           predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y, u->second.points.at(v).z)) {
 
           // collision is detected
           int other_uav_priority = INT_MAX;
@@ -1764,7 +1764,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
             // we should be avoiding
             avoiding_collision_      = true;
-            double tmp_safe_altitude = u->second.points[v].z + _avoidance_z_correction_;
+            double tmp_safe_altitude = u->second.points.at(v).z + _avoidance_z_correction_;
 
             if (tmp_safe_altitude > collision_free_altitude_ && v <= _avoidance_collision_start_climbing_) {
               collision_free_altitude_ = tmp_safe_altitude;
@@ -1779,7 +1779,8 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
         }
 
         if (checkCollisionInflated(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0),
-                                   predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points[v].x, u->second.points[v].y, u->second.points[v].z)) {
+                                   predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y,
+                                   u->second.points.at(v).z)) {
 
           // collision is detected
           if (first_collision_index > v) {
@@ -2714,10 +2715,10 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
 
   for (int i = 0; i < trajectory_size; i++) {
 
-    des_x_whole_trajectory(i)       = msg.points[trajectory_sample_offset + i].position.x;
-    des_y_whole_trajectory(i)       = msg.points[trajectory_sample_offset + i].position.y;
-    des_z_whole_trajectory(i)       = msg.points[trajectory_sample_offset + i].position.z;
-    des_heading_whole_trajectory(i) = msg.points[trajectory_sample_offset + i].heading;
+    des_x_whole_trajectory(i)       = msg.points.at(trajectory_sample_offset + i).position.x;
+    des_y_whole_trajectory(i)       = msg.points.at(trajectory_sample_offset + i).position.y;
+    des_z_whole_trajectory(i)       = msg.points.at(trajectory_sample_offset + i).position.z;
+    des_heading_whole_trajectory(i) = msg.points.at(trajectory_sample_offset + i).heading;
   }
 
   //}
@@ -3163,7 +3164,7 @@ std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
     {
       std::scoped_lock lock(mutex_des_whole_trajectory_);
 
-      setGoal((*des_x_whole_trajectory_)[0], (*des_y_whole_trajectory_)[0], (*des_z_whole_trajectory_)[0], (*des_heading_whole_trajectory_)[0],
+      setGoal((*des_x_whole_trajectory_)(0), (*des_y_whole_trajectory_)(0), (*des_z_whole_trajectory_)(0), (*des_heading_whole_trajectory_)(0),
               trajectory_track_heading_);
     }
 
@@ -3263,9 +3264,9 @@ void MpcTracker::publishDiagnostics(void) {
 
     for (size_t i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
       if (i == 0) {
-        string_msg.data += diagnostics.avoidance_active_uavs[i];
+        string_msg.data += diagnostics.avoidance_active_uavs.at(i);
       } else {
-        string_msg.data += ", " + diagnostics.avoidance_active_uavs[i];
+        string_msg.data += ", " + diagnostics.avoidance_active_uavs.at(i);
       }
     }
 
@@ -3351,7 +3352,9 @@ void MpcTracker::increaseCurrentTrajectoryTime(const double dt) {
     }
   }
 
-  mrs_lib::set_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time, trajectory_current_time_);
+  if (trajectory_tracking_in_progress_) {
+    mrs_lib::set_mutexed(mutex_trajectory_tracking_states_, trajectory_current_time, trajectory_current_time_);
+  }
 }
 
 //}
@@ -3480,11 +3483,11 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
         continue;
       }
 
-      des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory[first_idx] + interp_coeff * des_x_whole_trajectory[second_idx];
-      des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory[first_idx] + interp_coeff * des_y_whole_trajectory[second_idx];
-      des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory[first_idx] + interp_coeff * des_z_whole_trajectory[second_idx];
+      des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+      des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+      des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
-      des_heading_trajectory(i, 0) = sradians::interp(des_heading_whole_trajectory[first_idx], des_heading_whole_trajectory[second_idx], interp_coeff);
+      des_heading_trajectory(i, 0) = sradians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), interp_coeff);
     }
 
     {
