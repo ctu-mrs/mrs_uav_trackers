@@ -1608,7 +1608,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::Co
     std::scoped_lock lock(mutex_other_uav_avoidance_trajectories_);
 
     // update the diagnostics
-    other_uav_avoidance_trajectories_.at(trajectory.uav_name) = trajectory;
+    other_uav_avoidance_trajectories_.emplace(trajectory.uav_name, trajectory);
   }
 }
 
@@ -1622,16 +1622,17 @@ void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosti
   mrs_lib::ScopeTimer timer =
       mrs_lib::ScopeTimer("MpcTracker::callbackOtherMavDiagnostics", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
-  std::scoped_lock lock(mutex_other_uav_diagnostics_);
-
   mrs_msgs::MpcTrackerDiagnostics diagnostics = *msg;
 
   // fill in the current time
   // the other uav's time might not be synchronized with ours
   diagnostics.header.stamp = ros::Time::now();
 
-  // update the diagnostics
-  other_uav_diagnostics_.at(diagnostics.uav_name) = diagnostics;
+  {
+    std::scoped_lock lock(mutex_other_uav_diagnostics_);
+
+    other_uav_diagnostics_.emplace(diagnostics.uav_name, diagnostics);
+  }
 }
 
 //}
