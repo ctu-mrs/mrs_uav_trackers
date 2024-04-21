@@ -1608,7 +1608,7 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::FutureTrajectory::Co
     std::scoped_lock lock(mutex_other_uav_avoidance_trajectories_);
 
     // update the diagnostics
-    other_uav_avoidance_trajectories_.emplace(trajectory.uav_name, trajectory);
+    other_uav_avoidance_trajectories_[trajectory.uav_name] = trajectory;
   }
 }
 
@@ -1631,7 +1631,7 @@ void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::MpcTrackerDiagnosti
   {
     std::scoped_lock lock(mutex_other_uav_diagnostics_);
 
-    other_uav_diagnostics_.emplace(diagnostics.uav_name, diagnostics);
+    other_uav_diagnostics_[diagnostics.uav_name] = diagnostics;
   }
 }
 
@@ -1790,6 +1790,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
         }
       }
     }
+
     u++;
   }
 
