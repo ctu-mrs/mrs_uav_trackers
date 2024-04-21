@@ -64,7 +64,7 @@ bool Tester::test() {
   }
 
   {
-    auto [success, message] = uh1->gotoRel(10, 0, 0, 0);
+    auto [success, message] = uh1->gotoRel(20, 0, 0, 0);
 
     if (success) {
       ROS_ERROR("[%s]: goto succeeded: '%s'", ros::this_node::getName().c_str(), message.c_str());

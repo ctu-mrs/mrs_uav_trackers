@@ -44,6 +44,9 @@
     <arg name="UAV_NAME" default="uav2" />
   </include>
 
+  <!-- <node pkg="rviz" type="rviz" name="rviz1" args="-d $(dirname)/rviz1.rviz" /> -->
+  <!-- <node pkg="rviz" type="rviz" name="rviz2" args="-d $(dirname)/rviz2.rviz" /> -->
+
   <test pkg="$(arg package)" type="test_$(arg test_name)" test-name="$(arg test_name)" time-limit="60.0">
     <param name="test" value="$(arg test_name)" />
   </test>
