@@ -56,7 +56,7 @@ typedef enum
 
 } States_t;
 
-const char* state_names[7] = {
+const std::array<const char*, 7> state_names = {
 
     "IDLING", "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
@@ -820,7 +820,7 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
     }
   }
 
-  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal_], state_names[current_state_horizontal_]);
+  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names.at(previous_state_horizontal_), state_names.at(current_state_horizontal_));
 }
 
 //}
@@ -844,7 +844,7 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     }
   }
 
-  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical_], state_names[current_state_vertical_]);
+  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names.at(previous_state_vertical_), state_names.at(current_state_vertical_));
 }
 
 //}
