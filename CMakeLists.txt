@@ -6,12 +6,17 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_definitions(-Wall)
 add_definitions(-Wextra)
+add_definitions(-fsanitize=address)
+add_link_options(-fsanitize=address)
 
 if(COVERAGE)
   message(WARNING "building with --coverage, the performance might be limited")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
 endif()
+
+add_definitions(-fsanitize=address)
+add_link_options(-fsanitize=address)
 
 set(CATKIN_DEPENDENCIES
   cmake_modules
@@ -25,6 +30,7 @@ set(CATKIN_DEPENDENCIES
   mrs_uav_managers
   dynamic_reconfigure
   mrs_uav_testing
+  mrs_mpc_solvers
   )
 
 find_package(catkin REQUIRED COMPONENTS
@@ -80,21 +86,21 @@ execute_process(COMMAND
   OUTPUT_STRIP_TRAILING_WHITESPACE
   )
 
-# deduce the library path based on the system architecture
-if(${CMAKE_DEB_HOST_ARCH} MATCHES "armhf")
-  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for armhf")
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "i386")
-  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for i386")
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "x64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "amd64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "arm64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/arm64/libMpcTrackerSolver.so)
-else()
-  MESSAGE(FATAL_ERROR ${CMAKE_DEB_HOST_ARCH})
-  MESSAGE(FATAL_ERROR "MpcTrackerSolver.so has not been selected, check CMakeLists.txt.")
-endif()
+# # deduce the library path based on the system architecture
+# if(${CMAKE_DEB_HOST_ARCH} MATCHES "armhf")
+#   MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for armhf")
+# elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "i386")
+#   MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for i386")
+# elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "x64")
+#   set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
+# elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "amd64")
+#   set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
+# elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "arm64")
+#   set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/arm64/libMpcTrackerSolver.so)
+# else()
+#   MESSAGE(FATAL_ERROR ${CMAKE_DEB_HOST_ARCH})
+#   MESSAGE(FATAL_ERROR "MpcTrackerSolver.so has not been selected, check CMakeLists.txt.")
+# endif()
 
 # MPC Tracker
 

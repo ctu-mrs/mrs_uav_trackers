@@ -29,7 +29,7 @@
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/scope_timer.h>
 
-#include <mpc_tracker.h>
+#include <mrs_mpc_solvers/tracker/mpc_tracker.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <mrs_uav_trackers/mpc_trackerConfig.h>

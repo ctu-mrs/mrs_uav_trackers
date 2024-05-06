@@ -24,6 +24,7 @@
   <depend>mrs_uav_managers</depend>
   <depend>dynamic_reconfigure</depend>
   <depend>mrs_uav_testing</depend>
+  <depend>mrs_mpc_solvers</depend>
 
   <export>
     <mrs_uav_managers plugin="${prefix}/plugins.xml" />
