@@ -551,8 +551,17 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
-  bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
-  bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+  const bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
+  const bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+
+  if (idling)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
+  else if (taking_off_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_TAKEOFF;
+  else if (hovering)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_HOVER;
+  else if (landing_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_LAND;
 
   tracker_status.have_goal = landing_ || taking_off_ || !(hovering || idling);
 

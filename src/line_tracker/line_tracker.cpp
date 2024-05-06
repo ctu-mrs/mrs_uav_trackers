@@ -579,7 +579,12 @@ const mrs_msgs::TrackerStatus LineTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
-  bool idling = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+  const bool idling = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+
+  if (idling)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
+  else
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_REFERENCE;
 
   tracker_status.have_goal = !idling;
 

@@ -370,6 +370,11 @@ const mrs_msgs::TrackerStatus SpeedTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
+  if (!tracker_status.active || first_iteration_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
+  else
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_REFERENCE;
+
   return tracker_status;
 }
 
