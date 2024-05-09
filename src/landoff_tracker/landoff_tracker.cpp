@@ -56,7 +56,7 @@ typedef enum
 
 } States_t;
 
-const char* state_names[7] = {
+const std::array<const char*, 7> state_names = {
 
     "IDLING", "LANDED", "STOPPING_MOTION", "HOVERING", "ACCELERATING", "DECELERATING", "STOPPING"};
 
@@ -551,8 +551,17 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
-  bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
-  bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+  const bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
+  const bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
+
+  if (idling)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
+  else if (taking_off_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_TAKEOFF;
+  else if (hovering)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_HOVER;
+  else if (landing_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_LAND;
 
   tracker_status.have_goal = landing_ || taking_off_ || !(hovering || idling);
 
@@ -820,7 +829,7 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
     }
   }
 
-  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names[previous_state_horizontal_], state_names[current_state_horizontal_]);
+  ROS_INFO("[LandoffTracker]: Switching horizontal state %s -> %s", state_names.at(previous_state_horizontal_), state_names.at(current_state_horizontal_));
 }
 
 //}
@@ -844,7 +853,7 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     }
   }
 
-  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names[previous_state_vertical_], state_names[current_state_vertical_]);
+  ROS_INFO("[LandoffTracker]: Switching vertical state %s -> %s", state_names.at(previous_state_vertical_), state_names.at(current_state_vertical_));
 }
 
 //}

@@ -1139,6 +1139,16 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
 
   tracker_status.have_goal = trajectory_tracking_in_progress_ || hovering_in_progress_ || have_position_error || have_heading_error || have_nonzero_velocity;
 
+  if (!is_active_)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
+  else if (tracker_status.tracking_trajectory)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_TRAJECTORY;
+  else if (tracker_status.have_goal)
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_REFERENCE;
+  else
+    tracker_status.state = mrs_msgs::TrackerStatus::STATE_HOVER;
+
+
   int trajectory_tracking_idx = getCurrentTrajectoryIdx();
 
   tracker_status.trajectory_length = trajectory_size;
