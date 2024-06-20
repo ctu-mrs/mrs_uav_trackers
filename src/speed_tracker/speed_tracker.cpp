@@ -472,7 +472,25 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[m
 
 const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
-  return std_srvs::TriggerResponse::Ptr();
+  ROS_WARN("[SpeedTracker]: initiating hover");
+
+  getting_cmd_ = false;
+
+  mrs_msgs::String srv;
+  srv.request.value = _backup_tracker_;
+
+  switch_tracker_future_ = sch_switch_tracker_.callAsync(srv);
+
+  switch_tracker_called_ = true;
+
+  std::stringstream ss;
+  ss << "initiating hover";
+
+  std_srvs::TriggerResponse res;
+  res.success = true;
+  res.message = ss.str();
+
+  return std_srvs::TriggerResponse::ConstPtr(new std_srvs::TriggerResponse(res));
 }
 
 //}
