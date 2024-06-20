@@ -109,6 +109,7 @@ private:
   mrs_msgs::SpeedTrackerCommand command_;
   std::mutex                    mutex_command_;
   ros::Time                     last_command_time_;
+  std::atomic<bool>             getting_cmd_ = false;
 
   // | ------------------------ profiler ------------------------ |
 
@@ -205,22 +206,33 @@ std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const std:
     return std::tuple(false, ss.str());
   }
 
-  if (!sh_command_.hasMsg()) {
-    ss << "missing command";
-    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
-    return std::tuple(false, ss.str());
+  if (!getting_cmd_) {
+
+    std::scoped_lock lock(mutex_command_);
+
+    command_.header.stamp    = ros::Time(0);
+    command_.header.frame_id = last_tracker_cmd->header.frame_id;
+
+    command_.use_velocity     = true;
+    command_.use_acceleration = false;
+    command_.use_force        = false;
+    command_.use_z            = false;
+    command_.use_heading_rate = false;
+
+    command_.velocity.x = 0;
+    command_.velocity.y = 0;
+    command_.velocity.z = 0;
+
+    if (last_tracker_cmd->use_heading) {
+      command_.heading     = last_tracker_cmd->heading;
+      command_.use_heading = true;
+    } else {
+      command_.use_heading = false;
+    }
   }
 
-  ros::Time external_command_time = sh_command_.lastMsgTime();
-
-  // timeout the external command
-  if ((ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
-    ss << "the command is too old";
-    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
-    return std::tuple(false, ss.str());
-  }
-
-  is_active_ = true;
+  is_active_       = true;
+  first_iteration_ = true;
 
   ss << "activated";
   ROS_INFO_STREAM("[SpeedTracker]: " << ss.str());
@@ -234,7 +246,8 @@ std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const std:
 
 void SpeedTracker::deactivate(void) {
 
-  is_active_ = false;
+  is_active_   = false;
+  getting_cmd_ = false;
 
   ROS_INFO("[SpeedTracker]: deactivated");
 }
@@ -277,17 +290,17 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
     return {};
   }
 
-  // up to this part the update() method is evaluated even when the tracker is not active
-  if (!is_active_) {
-    return {};
-  }
-
   ros::Time external_command_time = sh_command_.lastMsgTime();
 
   // timeout the external command
-  if (sh_command_.hasMsg() && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
-    ROS_ERROR("[SpeedTracker]: command timeouted, returning nil");
-    first_iteration_ = true;
+  if (getting_cmd_ && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
+    ROS_WARN("[SpeedTracker]: command timeouted");
+    getting_cmd_ = false;
+    return {};
+  }
+
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active_) {
     return {};
   }
 
@@ -521,6 +534,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
   mrs_msgs::SpeedTrackerCommandConstPtr external_command = msg;
 
   double dt;
+
   if (first_iteration_) {
 
     last_command_time_ = ros::Time::now();
@@ -533,6 +547,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
     }
 
     return;
+
   } else {
     dt                 = (ros::Time::now() - last_command_time_).toSec();
     last_command_time_ = ros::Time::now();
@@ -542,6 +557,8 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
       return;
     }
   }
+
+  getting_cmd_ = true;
 
   mrs_msgs::SpeedTrackerCommand transformed_command = *external_command;
 
