@@ -98,9 +98,9 @@ private:
 
   // | ---------------- the tracker's inner state --------------- |
 
-  bool is_initialized_  = false;
-  bool is_active_       = false;
-  bool first_iteration_ = true;
+  std::atomic<bool> is_initialized_  = false;
+  std::atomic<bool> is_active_       = false;
+  std::atomic<bool> first_iteration_ = true;
 
   double _external_command_timeout_;
 
@@ -564,6 +564,9 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajec
 void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr msg) {
 
   if (!is_initialized_)
+    return;
+
+  if (!is_active_)
     return;
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackCommand");
