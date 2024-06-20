@@ -1,0 +1,6 @@
+mrs_uav_trackers:
+
+  speed_tracker:
+
+    # which tracker should be activate when timeout occurs
+    backup_tracker: "MpcTracker"

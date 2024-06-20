@@ -14,9 +14,12 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/publisher_handler.h>
+#include <mrs_lib/service_client_handler.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+
+#include <mrs_msgs/String.h>
 
 //}
 
@@ -115,6 +118,16 @@ private:
 
   mrs_lib::Profiler profiler_;
   bool              _profiler_enabled_ = false;
+
+  // | --------------------- service clients -------------------- |
+
+  mrs_lib::ServiceClientHandler<mrs_msgs::String> sch_switch_tracker_;
+
+  std::string _backup_tracker_;
+
+  std::future<mrs_msgs::String> switch_tracker_future_;
+
+  std::atomic<bool> switch_tracker_called_ = false;
 };
 
 //}
@@ -159,6 +172,8 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
 
   private_handlers->param_loader->loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
 
+  private_handlers->param_loader->loadParam(yaml_prefix + "backup_tracker", _backup_tracker_);
+
   if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[SpeedTracker]: could not load all parameters!");
     return false;
@@ -182,6 +197,10 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
   // | ----------------------- publishers ----------------------- |
 
   ph_rviz_marker_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "rviz_marker", 1);
+
+  // | --------------------- service clients -------------------- |
+
+  sch_switch_tracker_ = mrs_lib::ServiceClientHandler<mrs_msgs::String>(common_handlers->parent_nh, "switch_tracker");
 
   // | --------------------- finish the init -------------------- |
 
@@ -290,18 +309,37 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
     return {};
   }
 
+  // up to this part the update() method is evaluated even when the tracker is not active
+  if (!is_active_) {
+    return {};
+  }
+
   ros::Time external_command_time = sh_command_.lastMsgTime();
 
   // timeout the external command
   if (getting_cmd_ && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
+
     ROS_WARN("[SpeedTracker]: command timeouted");
     getting_cmd_ = false;
-    return {};
+
+    mrs_msgs::String srv;
+    srv.request.value = _backup_tracker_;
+
+    switch_tracker_future_ = sch_switch_tracker_.callAsync(srv);
+
+    switch_tracker_called_ = true;
   }
 
-  // up to this part the update() method is evaluated even when the tracker is not active
-  if (!is_active_) {
-    return {};
+  if (switch_tracker_called_ && switch_tracker_future_.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready) {
+
+    switch_tracker_called_ = false;
+
+    if (!switch_tracker_future_.get().response.success) {
+      ROS_ERROR("[SpeedTracker]: failed to switch to backup tracker");
+      return {};
+    }
+
+    switch_tracker_future_ = std::future<mrs_msgs::String>();
   }
 
   auto command = mrs_lib::get_mutexed(mutex_command_, command_);
