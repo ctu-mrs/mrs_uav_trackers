@@ -119,6 +119,8 @@ private:
   mrs_msgs::UavState uav_state_;
   std::mutex         mutex_uav_state_;
 
+  ros::Time time_last_update_;
+
   bool is_active_      = false;
   bool is_initialized_ = false;
 
@@ -217,6 +219,7 @@ private:
   mrs_lib::PublisherHandler<geometry_msgs::PoseArray>   ph_predicted_trajectory_debugging_;
   mrs_lib::PublisherHandler<geometry_msgs::PoseArray>   ph_mpc_reference_debugging_;
   mrs_lib::PublisherHandler<geometry_msgs::PoseStamped> ph_current_trajectory_point_;
+  mrs_lib::PublisherHandler<geometry_msgs::PoseStamped> ph_first_reference_point_;
 
   std::atomic<bool> mpc_computed_ = false;
 
@@ -415,6 +418,8 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
 
   ros::Time::waitForValid();
 
+  time_last_update_ = ros::Time(0);
+
   // --------------------------------------------------------------
   // |                     loading parameters                     |
   // --------------------------------------------------------------
@@ -572,6 +577,7 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "predicted_trajectory_debugging", 1);
   ph_mpc_reference_debugging_        = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "mpc_reference_debugging", 1, true);
   ph_current_trajectory_point_       = mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>(nh_, "current_trajectory_point", 1, true);
+  ph_first_reference_point_          = mrs_lib::PublisherHandler<geometry_msgs::PoseStamped>(nh_, "first_reference_point", 1, true);
 
   pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::PoseArray>(nh_, "trajectory_processed/poses", 1, true);
   pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::MarkerArray>(nh_, "trajectory_processed/markers", 1, true);
@@ -823,6 +829,8 @@ void MpcTracker::deactivate(void) {
   trajectory_tracking_in_progress_ = false;
   model_first_iteration_           = true;
 
+  time_last_update_ = ros::Time(0);
+
   {
     std::scoped_lock lock(mutex_trajectory_tracking_states_);
 
@@ -916,11 +924,17 @@ std::optional<mrs_msgs::TrackerCommand> MpcTracker::update(const mrs_msgs::UavSt
 
   auto old_uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  // the time from the last update call
-  double dt = (uav_state.header.stamp - old_uav_state.header.stamp).toSec();
-
   // save the uav state
   mrs_lib::set_mutexed(mutex_uav_state_, uav_state, uav_state_);
+
+  // the time from the last update call
+  double dt = 0.01;
+
+  if (time_last_update_.isValid()) {
+    dt = (ros::Time::now() - time_last_update_).toSec();
+  }
+
+  time_last_update_ = ros::Time::now();
 
   if (dt > 0) {
 
@@ -1167,20 +1181,6 @@ const mrs_msgs::TrackerStatus MpcTracker::getStatus() {
     tracker_status.trajectory_reference.reference.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
     tracker_status.trajectory_reference.reference.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
     tracker_status.trajectory_reference.reference.heading    = (*des_heading_whole_trajectory_)(trajectory_tracking_idx);
-
-    // | ---------- publish the current trajectory point ---------- |
-
-    geometry_msgs::PoseStamped debug_trajectory_point;
-    debug_trajectory_point.header.stamp    = ros::Time::now();
-    debug_trajectory_point.header.frame_id = uav_state_.header.frame_id;
-
-    debug_trajectory_point.pose.position.x = (*des_x_whole_trajectory_)(trajectory_tracking_idx);
-    debug_trajectory_point.pose.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
-    debug_trajectory_point.pose.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
-
-    debug_trajectory_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, (*des_heading_whole_trajectory_)(trajectory_tracking_idx));
-
-    ph_current_trajectory_point_.publish(debug_trajectory_point);
   }
 
   return tracker_status;
@@ -1844,6 +1844,10 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
   double max_sample_x;
   double max_sample_y;
 
+  if (std::hypot(mpc_x(0, 0) - des_x_trajectory(0, 0), mpc_x(4, 0) - des_y_trajectory(0, 0)) < 2.0) {
+    return {des_x_trajectory, des_y_trajectory};
+  }
+
   for (int i = 0; i < MPC_HORIZON_LENGTH; i++) {
 
     if (i == 0) {
@@ -2209,14 +2213,6 @@ void MpcTracker::calculateMPC() {
 
   auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
 
-  // unwrap the heading reference
-
-  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading(0));
-
-  for (int i = 1; i < MPC_HORIZON_LENGTH; i++) {
-    des_heading_trajectory(i, 0) = sradians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
-  }
-
   // | -------------------- MPC solver x-axis ------------------- |
 
   if (brake_ && !trajectory_tracking_in_progress_) {
@@ -2235,6 +2231,7 @@ void MpcTracker::calculateMPC() {
   mpc_solver_x_->setDt(dt1);
   mpc_solver_x_->setInitialState(initial_x);
   mpc_solver_x_->loadReference(des_x_filtered);
+
   mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
   iters_x += mpc_solver_x_->solveMPC();
 
@@ -2275,6 +2272,14 @@ void MpcTracker::calculateMPC() {
 
   // | ------------------- MPC solver heading ------------------- |
 
+  // unwrap the heading reference
+
+  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading(0));
+
+  for (int i = 1; i < MPC_HORIZON_LENGTH; i++) {
+    des_heading_trajectory(i, 0) = sradians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
+  }
+
   if (brake_ && !trajectory_tracking_in_progress_) {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
   } else {
@@ -2293,6 +2298,20 @@ void MpcTracker::calculateMPC() {
     mpc_solver_heading_->getStates(predicted_heading_trajectory_);
   }
   mpc_u_heading = mpc_solver_heading_->getFirstControlInput();
+
+  {
+    geometry_msgs::PoseStamped point;
+    point.header.stamp    = ros::Time::now();
+    point.header.frame_id = uav_state_.header.frame_id;
+
+    point.pose.position.x = des_x_filtered(0, 0);
+    point.pose.position.y = des_y_filtered(0, 0);
+    point.pose.position.z = des_z_filtered(0, 0);
+
+    point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, des_heading_trajectory(0, 0));
+
+    ph_first_reference_point_.publish(point);
+  }
 
   {
     bool saturating = false;
@@ -2864,9 +2883,9 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::T
           }
         }
 
-        des_x_trajectory_(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
-        des_y_trajectory_(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
-        des_z_trajectory_(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
+        des_x_trajectory_(i, 0) = (1.0 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+        des_y_trajectory_(i, 0) = (1.0 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+        des_z_trajectory_(i, 0) = (1.0 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
         des_heading_trajectory_(i, 0) = sradians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), interp_coeff);
       }
@@ -3462,9 +3481,12 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
 
     for (int i = 0; i < MPC_HORIZON_LENGTH; i++) {
 
-      double first_time = trajectory_current_time + double(i) * _dt2_;
+      auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
+      double first_time = trajectory_current_time + dt1 + i * _dt2_;
 
       int first_idx  = int(floor(first_time / trajectory_dt));
+
       int second_idx = first_idx + 1;
 
       double interp_coeff = std::fmod(first_time / trajectory_dt, 1.0);
@@ -3495,9 +3517,9 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
         continue;
       }
 
-      des_x_trajectory(i, 0) = (1 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
-      des_y_trajectory(i, 0) = (1 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
-      des_z_trajectory(i, 0) = (1 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
+      des_x_trajectory(i, 0) = (1.0 - interp_coeff) * des_x_whole_trajectory(first_idx) + interp_coeff * des_x_whole_trajectory(second_idx);
+      des_y_trajectory(i, 0) = (1.0 - interp_coeff) * des_y_whole_trajectory(first_idx) + interp_coeff * des_y_whole_trajectory(second_idx);
+      des_z_trajectory(i, 0) = (1.0 - interp_coeff) * des_z_whole_trajectory(first_idx) + interp_coeff * des_z_whole_trajectory(second_idx);
 
       des_heading_trajectory(i, 0) = sradians::interp(des_heading_whole_trajectory(first_idx), des_heading_whole_trajectory(second_idx), interp_coeff);
     }
@@ -3512,6 +3534,22 @@ void MpcTracker::timerMPC(const ros::TimerEvent& event) {
     }
 
     //}
+
+    // | ---------- publish the current trajectory point ---------- |
+
+    int trajectory_tracking_idx = getCurrentTrajectoryIdx();
+
+    geometry_msgs::PoseStamped debug_trajectory_point;
+    debug_trajectory_point.header.stamp    = ros::Time::now();
+    debug_trajectory_point.header.frame_id = uav_state_.header.frame_id;
+
+    debug_trajectory_point.pose.position.x = (*des_x_whole_trajectory_)(trajectory_tracking_idx);
+    debug_trajectory_point.pose.position.y = (*des_y_whole_trajectory_)(trajectory_tracking_idx);
+    debug_trajectory_point.pose.position.z = (*des_z_whole_trajectory_)(trajectory_tracking_idx);
+
+    debug_trajectory_point.pose.orientation = mrs_lib::AttitudeConverter(0, 0, (*des_heading_whole_trajectory_)(trajectory_tracking_idx));
+
+    ph_current_trajectory_point_.publish(debug_trajectory_point);
 
   } else {
 
