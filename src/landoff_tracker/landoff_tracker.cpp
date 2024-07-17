@@ -103,6 +103,8 @@ private:
   ros::Timer timer_main_;
   std::mutex mutex_main_timer_;
 
+  std::atomic<bool> activate_as_the_first_tracker = false;
+
   // | ------------------------ uav state ----------------------- |
 
   mrs_msgs::UavState uav_state_;
@@ -339,6 +341,8 @@ std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const st
     return std::tuple(false, ss.str());
   }
 
+  activate_as_the_first_tracker = !last_tracker_cmd.has_value();
+
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -554,14 +558,24 @@ const mrs_msgs::TrackerStatus LandoffTracker::getStatus() {
   const bool hovering = current_state_vertical_ == HOVER_STATE && current_state_horizontal_ == HOVER_STATE;
   const bool idling   = current_state_vertical_ == IDLE_STATE && current_state_horizontal_ == IDLE_STATE;
 
-  if (idling)
+  // the (hovering && activate_as_the_first_tracker) part of the condition makes sure that the IDLE will be
+  // reported even when hovering on the ground, just before the takeoff service is called
+  if (idling || (hovering && activate_as_the_first_tracker)) {
+
     tracker_status.state = mrs_msgs::TrackerStatus::STATE_IDLE;
-  else if (taking_off_)
+
+  } else if (taking_off_) {
+
     tracker_status.state = mrs_msgs::TrackerStatus::STATE_TAKEOFF;
-  else if (hovering)
+
+  } else if (hovering) {
+
     tracker_status.state = mrs_msgs::TrackerStatus::STATE_HOVER;
-  else if (landing_)
+
+  } else if (landing_) {
+
     tracker_status.state = mrs_msgs::TrackerStatus::STATE_LAND;
+  }
 
   tracker_status.have_goal = landing_ || taking_off_ || !(hovering || idling);
 
