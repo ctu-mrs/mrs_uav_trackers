@@ -46,7 +46,7 @@ set(LIBRARIES
   MrsUavTrackers_LineTracker
   MrsUavTrackers_LandoffTracker
   MrsUavTrackers_JoyTracker
-  MrsUavTrackers_SpeedTracker
+  MrsUavTrackers_PassthroughTracker
   MrsUavTrackers_FlipTracker
   MrsUavTrackers_MidairActivationTracker
   )
@@ -157,18 +157,18 @@ target_link_libraries(MrsUavTrackers_JoyTracker
   ${catkin_LIBRARIES}
   )
 
-# Speed tracker
+# Passthrough tracker
 
-add_library(MrsUavTrackers_SpeedTracker
-  src/speed_tracker/speed_tracker.cpp
+add_library(MrsUavTrackers_PassthroughTracker
+  src/passthrough_tracker/passthrough_tracker.cpp
   )
 
-add_dependencies(MrsUavTrackers_SpeedTracker
+add_dependencies(MrsUavTrackers_PassthroughTracker
   ${catkin_EXPORTED_TARGETS}
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   )
 
-target_link_libraries(MrsUavTrackers_SpeedTracker
+target_link_libraries(MrsUavTrackers_PassthroughTracker
   ${catkin_LIBRARIES}
   )
 

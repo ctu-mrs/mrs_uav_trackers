@@ -4,7 +4,7 @@
 
 #include <mrs_uav_managers/tracker.h>
 
-#include <mrs_msgs/SpeedTrackerCommand.h>
+#include <mrs_msgs/PassthroughTrackerCommand.h>
 #include <mrs_msgs/VelocityReferenceSrv.h>
 
 #include <mrs_lib/profiler.h>
@@ -42,12 +42,12 @@ using sradians = mrs_lib::geometry::sradians;
 namespace mrs_uav_trackers
 {
 
-namespace speed_tracker
+namespace passthrough_tracker
 {
 
-/* //{ class SpeedTracker */
+/* //{ class PassthroughTracker */
 
-class SpeedTracker : public mrs_uav_managers::Tracker {
+class PassthroughTracker : public mrs_uav_managers::Tracker {
 public:
   bool initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
                   std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
@@ -104,12 +104,12 @@ private:
 
   double _external_command_timeout_;
 
-  mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand> sh_command_;
+  mrs_lib::SubscribeHandler<mrs_msgs::PassthroughTrackerCommand> sh_command_;
 
-  void callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr msg);
+  void callbackCommand(const mrs_msgs::PassthroughTrackerCommand::ConstPtr msg);
 
   // stores the post-processed and transformed command
-  mrs_msgs::SpeedTrackerCommand command_;
+  mrs_msgs::PassthroughTrackerCommand command_;
   std::mutex                    mutex_command_;
   ros::Time                     last_command_time_;
   std::atomic<bool>             getting_cmd_ = false;
@@ -136,7 +136,7 @@ private:
 
 /* //{ initialize() */
 
-bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+bool PassthroughTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
                               std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
   this->common_handlers_  = common_handlers;
@@ -159,40 +159,40 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
   param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
 
   if (!param_loader_parent.loadedSuccessfully()) {
-    ROS_ERROR("[SpeedTracker]: Could not load all parameters!");
+    ROS_ERROR("[PassthroughTracker]: Could not load all parameters!");
     return false;
   }
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/speed_tracker.yaml");
-  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/speed_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/passthrough_tracker.yaml");
+  private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/passthrough_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/speed_tracker/";
+  const std::string yaml_prefix = "mrs_uav_trackers/passthrough_tracker/";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
 
   private_handlers->param_loader->loadParam(yaml_prefix + "backup_tracker", _backup_tracker_);
 
   if (!private_handlers->param_loader->loadedSuccessfully()) {
-    ROS_ERROR("[SpeedTracker]: could not load all parameters!");
+    ROS_ERROR("[PassthroughTracker]: could not load all parameters!");
     return false;
   }
 
   // | ------------------------ profiler ------------------------ |
 
-  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "SpeedTracker", _profiler_enabled_);
+  profiler_ = mrs_lib::Profiler(common_handlers->parent_nh, "PassthroughTracker", _profiler_enabled_);
 
   // | ----------------------- subscribers ---------------------- |
 
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh              = nh_;
-  shopts.node_name       = "SpeedTracker";
+  shopts.node_name       = "PassthroughTracker";
   shopts.threadsafe      = true;
   shopts.autostart       = true;
   shopts.transport_hints = ros::TransportHints().tcpNoDelay();
 
-  sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::SpeedTrackerCommand>(shopts, "command", &SpeedTracker::callbackCommand, this);
+  sh_command_ = mrs_lib::SubscribeHandler<mrs_msgs::PassthroughTrackerCommand>(shopts, "command", &PassthroughTracker::callbackCommand, this);
 
   // | ----------------------- publishers ----------------------- |
 
@@ -206,7 +206,7 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
 
   is_initialized_ = true;
 
-  ROS_INFO("[SpeedTracker]: initialized");
+  ROS_INFO("[PassthroughTracker]: initialized");
 
   return true;
 }
@@ -215,13 +215,13 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd) {
+std::tuple<bool, std::string> PassthroughTracker::activate([[maybe_unused]] const std::optional<mrs_msgs::TrackerCommand> &last_tracker_cmd) {
 
   std::stringstream ss;
 
   if (!got_uav_state_) {
     ss << "odometry not set";
-    ROS_ERROR_STREAM("[SpeedTracker]: " << ss.str());
+    ROS_ERROR_STREAM("[PassthroughTracker]: " << ss.str());
     return std::tuple(false, ss.str());
   }
 
@@ -254,7 +254,7 @@ std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const std:
   first_iteration_ = true;
 
   ss << "activated";
-  ROS_INFO_STREAM("[SpeedTracker]: " << ss.str());
+  ROS_INFO_STREAM("[PassthroughTracker]: " << ss.str());
 
   return std::tuple(true, ss.str());
 }
@@ -263,19 +263,19 @@ std::tuple<bool, std::string> SpeedTracker::activate([[maybe_unused]] const std:
 
 /* //{ deactivate() */
 
-void SpeedTracker::deactivate(void) {
+void PassthroughTracker::deactivate(void) {
 
   is_active_   = false;
   getting_cmd_ = false;
 
-  ROS_INFO("[SpeedTracker]: deactivated");
+  ROS_INFO("[PassthroughTracker]: deactivated");
 }
 
 //}
 
 /* //{ resetStatic() */
 
-bool SpeedTracker::resetStatic(void) {
+bool PassthroughTracker::resetStatic(void) {
 
   return false;
 }
@@ -284,11 +284,11 @@ bool SpeedTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::UavState &                                          uav_state,
+std::optional<mrs_msgs::TrackerCommand> PassthroughTracker::update(const mrs_msgs::UavState &                                          uav_state,
                                                              [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
-  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("SpeedTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("PassthroughTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -304,7 +304,7 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
     uav_heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[SpeedTracker]: could not calculate UAV heading");
+    ROS_ERROR_THROTTLE(1.0, "[PassthroughTracker]: could not calculate UAV heading");
 
     return {};
   }
@@ -319,7 +319,7 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
   // timeout the external command
   if (getting_cmd_ && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
 
-    ROS_WARN("[SpeedTracker]: command timeouted");
+    ROS_WARN("[PassthroughTracker]: command timeouted");
     getting_cmd_ = false;
 
     mrs_msgs::String srv;
@@ -335,7 +335,7 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
     switch_tracker_called_ = false;
 
     if (!switch_tracker_future_.get().response.success) {
-      ROS_ERROR("[SpeedTracker]: failed to switch to backup tracker");
+      ROS_ERROR("[PassthroughTracker]: failed to switch to backup tracker");
       return {};
     }
 
@@ -414,7 +414,7 @@ std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::Uav
 
 /* //{ getStatus() */
 
-const mrs_msgs::TrackerStatus SpeedTracker::getStatus() {
+const mrs_msgs::TrackerStatus PassthroughTracker::getStatus() {
 
   mrs_msgs::TrackerStatus tracker_status;
 
@@ -433,7 +433,7 @@ const mrs_msgs::TrackerStatus SpeedTracker::getStatus() {
 
 /* //{ enableCallbacks() */
 
-const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
+const std_srvs::SetBoolResponse::ConstPtr PassthroughTracker::enableCallbacks(const std_srvs::SetBoolRequest::ConstPtr &cmd) {
 
   std_srvs::SetBoolResponse res;
   std::stringstream         ss;
@@ -443,12 +443,12 @@ const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const st
     callbacks_enabled_ = cmd->data;
 
     ss << "callbacks " << (callbacks_enabled_ ? "enabled" : "disabled");
-    ROS_INFO_STREAM_THROTTLE(1.0, "[SpeedTracker]: " << ss.str());
+    ROS_INFO_STREAM_THROTTLE(1.0, "[PassthroughTracker]: " << ss.str());
 
   } else {
 
     ss << "callbacks were already " << (callbacks_enabled_ ? "enabled" : "disabled");
-    ROS_WARN_STREAM_THROTTLE(1.0, "[SpeedTracker]: " << ss.str());
+    ROS_WARN_STREAM_THROTTLE(1.0, "[PassthroughTracker]: " << ss.str());
   }
 
   res.message = ss.str();
@@ -461,7 +461,7 @@ const std_srvs::SetBoolResponse::ConstPtr SpeedTracker::enableCallbacks(const st
 
 /* switchOdometrySource() //{ */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::UavState &new_uav_state) {
 
   return std_srvs::TriggerResponse::Ptr();
 }
@@ -470,9 +470,9 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::switchOdometrySource([[m
 
 /* //{ hover() */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::hover([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
 
-  ROS_WARN("[SpeedTracker]: initiating hover");
+  ROS_WARN("[PassthroughTracker]: initiating hover");
 
   getting_cmd_ = false;
 
@@ -497,7 +497,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::hover([[maybe_unused]] c
 
 /* //{ startTrajectoryTracking() */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::startTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::startTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
 
@@ -505,7 +505,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::startTrajectoryTracking(
 
 /* //{ stopTrajectoryTracking() */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::stopTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::stopTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
 
@@ -513,7 +513,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::stopTrajectoryTracking([
 
 /* //{ resumeTrajectoryTracking() */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::resumeTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::resumeTrajectoryTracking([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
 
@@ -521,7 +521,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::resumeTrajectoryTracking
 
 /* //{ gotoTrajectoryStart() */
 
-const std_srvs::TriggerResponse::ConstPtr SpeedTracker::gotoTrajectoryStart([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
+const std_srvs::TriggerResponse::ConstPtr PassthroughTracker::gotoTrajectoryStart([[maybe_unused]] const std_srvs::TriggerRequest::ConstPtr &cmd) {
   return std_srvs::TriggerResponse::Ptr();
 }
 
@@ -529,7 +529,7 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::gotoTrajectoryStart([[ma
 
 /* //{ setConstraints() */
 
-const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr PassthroughTracker::setConstraints([
     [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
 
   {
@@ -550,7 +550,7 @@ const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr SpeedTracker::setConstr
 
 /* //{ setReference() */
 
-const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::setReference([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::ReferenceSrvResponse::ConstPtr PassthroughTracker::setReference([[maybe_unused]] const mrs_msgs::ReferenceSrvRequest::ConstPtr &cmd) {
 
   return mrs_msgs::ReferenceSrvResponse::Ptr();
 }
@@ -559,7 +559,7 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::setReference([[mayb
 
 /* //{ setVelocityReference() */
 
-const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr SpeedTracker::setVelocityReference([
+const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr PassthroughTracker::setVelocityReference([
     [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
 }
@@ -568,7 +568,7 @@ const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr SpeedTracker::setVelocity
 
 /* //{ setTrajectoryReference() */
 
-const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajectoryReference([
+const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr PassthroughTracker::setTrajectoryReference([
     [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
 }
@@ -579,7 +579,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajec
 
 /* callbackCommand() //{ */
 
-void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr msg) {
+void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerCommand::ConstPtr msg) {
 
   if (!is_initialized_)
     return;
@@ -588,9 +588,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
     return;
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackCommand");
-  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("SpeedTracker::callbackCommand", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("PassthroughTracker::callbackCommand", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
-  mrs_msgs::SpeedTrackerCommandConstPtr external_command = msg;
+  mrs_msgs::PassthroughTrackerCommandConstPtr external_command = msg;
 
   double dt;
 
@@ -612,14 +612,14 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
     last_command_time_ = ros::Time::now();
 
     if (dt <= 1e-4) {
-      ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: the command dt is %.5f, returning", dt);
+      ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: the command dt is %.5f, returning", dt);
       return;
     }
   }
 
   getting_cmd_ = true;
 
-  mrs_msgs::SpeedTrackerCommand transformed_command = *external_command;
+  mrs_msgs::PassthroughTrackerCommand transformed_command = *external_command;
 
   auto old_command = mrs_lib::get_mutexed(mutex_command_, command_);
   auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
@@ -631,7 +631,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
     uav_heading = mrs_lib::AttitudeConverter(uav_state_.pose.orientation).getHeading();
   }
   catch (...) {
-    ROS_ERROR_THROTTLE(1.0, "[SpeedTracker]: could not calculate UAV heading");
+    ROS_ERROR_THROTTLE(1.0, "[PassthroughTracker]: could not calculate UAV heading");
     return;
   }
 
@@ -683,7 +683,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
       // exceeding the maximum acceleration
       if (hor_speed_derivative.norm() > constraints.horizontal_acceleration) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting speed change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting speed change rate");
         double direction = atan2(hor_speed_derivative[1], hor_speed_derivative[0]);
 
         transformed_command.velocity.x = old_command.velocity.x + cos(direction) * constraints.horizontal_acceleration * dt;
@@ -719,12 +719,12 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
       if (vert_speed_derivative > constraints.vertical_ascending_acceleration) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical ascending speed change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical ascending speed change rate");
         transformed_command.velocity.z = old_command.velocity.z + constraints.vertical_ascending_acceleration * dt;
 
       } else if (vert_speed_derivative < -constraints.vertical_descending_acceleration) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical descending speed change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical descending speed change rate");
         transformed_command.velocity.z = old_command.velocity.z - constraints.vertical_descending_acceleration * dt;
       }
     }
@@ -751,12 +751,12 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
       // saturate the change in the desired heading
       if (des_hdg_rate > constraints.heading_speed) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting change of the desired heading using constraints");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting change of the desired heading using constraints");
         transformed_command.heading = old_command.heading + constraints.heading_speed * dt;
 
       } else if (des_hdg_rate < -constraints.heading_speed) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting change of the desired heading using constraints");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting change of the desired heading using constraints");
         transformed_command.heading = old_command.heading - constraints.heading_speed * dt;
 
       } else {
@@ -828,7 +828,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
       // exceeding the maximum acceleration
       if (hor_acc_derivative.norm() > constraints.horizontal_jerk) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting acceleration change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting acceleration change rate");
         double direction = atan2(hor_acc_derivative[1], hor_acc_derivative[0]);
 
         transformed_command.acceleration.x = old_command.acceleration.x + cos(direction) * constraints.horizontal_jerk * dt;
@@ -864,12 +864,12 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
       if (vert_acc_derivative > constraints.vertical_ascending_jerk) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical ascending acceleration change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical ascending acceleration change rate");
         transformed_command.acceleration.z = old_command.acceleration.z + constraints.vertical_ascending_jerk * dt;
 
       } else if (vert_acc_derivative < -constraints.vertical_descending_jerk) {
 
-        ROS_WARN_THROTTLE(1.0, "[SpeedTracker]: limitting vertical descending acceleration change rate");
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical descending acceleration change rate");
         transformed_command.acceleration.z = old_command.acceleration.z - constraints.vertical_descending_jerk * dt;
       }
     }
@@ -957,9 +957,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
   }
 
   if (!is_active_) {
-    ROS_INFO_ONCE("[SpeedTracker]: getting command");
+    ROS_INFO_ONCE("[PassthroughTracker]: getting command");
   } else {
-    ROS_INFO_THROTTLE(5.0, "[SpeedTracker]: getting command");
+    ROS_INFO_THROTTLE(5.0, "[PassthroughTracker]: getting command");
   }
 
   // --------------------------------------------------------------
@@ -982,7 +982,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
     marker.header.frame_id = uav_state_.header.frame_id;
     marker.header.stamp    = ros::Time::now();
-    marker.ns              = "speed_tracker";
+    marker.ns              = "passthrough_tracker";
     marker.id              = id++;
     marker.type            = visualization_msgs::Marker::ARROW;
     marker.action          = visualization_msgs::Marker::ADD;
@@ -1045,7 +1045,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
     marker.header.frame_id = uav_state_.header.frame_id;
     marker.header.stamp    = ros::Time::now();
-    marker.ns              = "speed_tracker";
+    marker.ns              = "passthrough_tracker";
     marker.id              = id++;
     marker.type            = visualization_msgs::Marker::ARROW;
     marker.action          = visualization_msgs::Marker::ADD;
@@ -1108,7 +1108,7 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
     marker.header.frame_id = uav_state_.header.frame_id;
     marker.header.stamp    = ros::Time::now();
-    marker.ns              = "speed_tracker";
+    marker.ns              = "passthrough_tracker";
     marker.id              = id++;
     marker.type            = visualization_msgs::Marker::ARROW;
     marker.action          = visualization_msgs::Marker::ADD;
@@ -1167,9 +1167,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
 //}
 
-}  // namespace speed_tracker
+}  // namespace passthrough_tracker
 
 }  // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::speed_tracker::SpeedTracker, mrs_uav_managers::Tracker)
+PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::passthrough_tracker::PassthroughTracker, mrs_uav_managers::Tracker)

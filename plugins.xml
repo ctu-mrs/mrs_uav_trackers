@@ -22,8 +22,8 @@
   </class>
 </library>
 
-<library path="lib/libMrsUavTrackers_SpeedTracker">
-  <class name="mrs_uav_trackers/SpeedTracker" type="mrs_uav_trackers::speed_tracker::SpeedTracker" base_class_type="mrs_uav_managers::Tracker">
+<library path="lib/libMrsUavTrackers_PassthroughTracker">
+  <class name="mrs_uav_trackers/PassthroughTracker" type="mrs_uav_trackers::passthrough_tracker::PassthroughTracker" base_class_type="mrs_uav_managers::Tracker">
     <description>This is the Speed Tracker.</description>
   </class>
 </library>
