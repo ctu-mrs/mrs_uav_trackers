@@ -232,15 +232,9 @@ std::tuple<bool, std::string> PassthroughTracker::activate([[maybe_unused]] cons
     command_.header.stamp    = ros::Time(0);
     command_.header.frame_id = last_tracker_cmd->header.frame_id;
 
-    command_.use_velocity     = true;
-    command_.use_acceleration = false;
-    command_.use_force        = false;
-    command_.use_z            = false;
-    command_.use_heading_rate = false;
-
-    command_.velocity.x = 0;
-    command_.velocity.y = 0;
-    command_.velocity.z = 0;
+    // stay at the current position
+    command_.use_position = true;
+    command_.position     = last_tracker_cmd->position;
 
     if (last_tracker_cmd->use_heading) {
       command_.heading     = last_tracker_cmd->heading;
@@ -579,7 +573,7 @@ const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr PassthroughTracker::set
 
 /* callbackCommand() //{ */
 
-void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerCommand::ConstPtr msg) {
+void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerCommand::ConstPtr external_command) {
 
   if (!is_initialized_)
     return;
@@ -589,10 +583,6 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("callbackCommand");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer("PassthroughTracker::callbackCommand", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
-
-  mrs_msgs::PassthroughTrackerCommandConstPtr external_command = msg;
-
-  double dt;
 
   if (first_iteration_) {
 
@@ -607,23 +597,24 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
     return;
 
-  } else {
-    dt                 = (ros::Time::now() - last_command_time_).toSec();
-    last_command_time_ = ros::Time::now();
-
-    if (dt <= 1e-4) {
-      ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: the command dt is %.5f, returning", dt);
-      return;
-    }
   }
+
+  const auto now = ros::Time::now();
+  const double dt    = (now - last_command_time_).toSec();
+  last_command_time_ = now;
+
+  if (dt <= 1e-4) {
+    ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: the command dt is %.5f, returning", dt);
+    return;
+    }
 
   getting_cmd_ = true;
 
-  mrs_msgs::PassthroughTrackerCommand transformed_command = *external_command;
+  const mrs_msgs::PassthroughTrackerCommand transformed_command = *external_command;
 
-  auto old_command = mrs_lib::get_mutexed(mutex_command_, command_);
-  auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
-  auto uav_state   = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+  const auto old_command = mrs_lib::get_mutexed(mutex_command_, command_);
+  const auto constraints = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
+  const auto uav_state   = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   double uav_heading;
 
@@ -637,19 +628,81 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
   // transform the command
 
-  // transform velocity
+  /* transform and constrain position //{ */
+  
+  if (transformed_command.use_position) {
+  
+    geometry_msgs::PointStamped point3;
+    point3.header = transformed_command.header;
+  
+    point3.point.x = transformed_command.position.x;
+    point3.point.y = transformed_command.position.y;
+    point3.point.z = transformed_command.position.z;
+  
+    const auto ret = common_handlers_->transformer->transformSingle(point3, "");
+  
+    if (ret) {
+      transformed_command.position.x = ret.value().point.x;
+      transformed_command.position.y = ret.value().point.y;
+      transformed_command.position.z = ret.value().point.z;
+    } else {
+      return;
+    }
+  
+    /* horizontal position change rate limit //{ */
+  
+    {
+      const vec2_t hor_position_derivative = vec2_t(transformed_command.velocity.x - old_command.velocity.x, transformed_command.velocity.y - old_command.velocity.y) / dt;
+  
+      // exceeding the maximum speed
+      if (hor_position_derivative.norm() > constraints.horizontal_speed) {
+  
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting position change rate");
+        const double direction = atan2(hor_position_derivative.y(), hor_position_derivative.x());
+  
+        transformed_command.velocity.x = old_command.velocity.x + cos(direction) * constraints.horizontal_speed * dt;
+        transformed_command.velocity.y = old_command.velocity.y + sin(direction) * constraints.horizontal_speed * dt;
+      }
+    }
+  
+    //}
+  
+    /* vertical position change rate //{ */
+  
+    {
+  
+      const double vert_position_derivative = (transformed_command.velocity.z - old_command.velocity.z) / dt;
+  
+      if (vert_position_derivative > constraints.vertical_ascending_speed) {
+  
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical ascending position change rate");
+        transformed_command.velocity.z = old_command.velocity.z + constraints.vertical_ascending_speed * dt;
+  
+      } else if (vert_position_derivative < -constraints.vertical_descending_speed) {
+  
+        ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical descending position change rate");
+        transformed_command.velocity.z = old_command.velocity.z - constraints.vertical_descending_speed * dt;
+      }
+    }
+  
+    //}
+  }
+  
+  //}
 
+  /* transform and constrain velocity //{ */
+  
   if (transformed_command.use_velocity) {
-
+  
     geometry_msgs::Vector3Stamped vector3;
     vector3.header = transformed_command.header;
-
+  
     vector3.vector.x = transformed_command.velocity.x;
     vector3.vector.y = transformed_command.velocity.y;
     vector3.vector.z = transformed_command.velocity.z;
-
-    auto ret = common_handlers_->transformer->transformSingle(vector3, "");
-
+  
+    const auto ret = common_handlers_->transformer->transformSingle(vector3, "");
+  
     if (ret) {
       transformed_command.velocity.x = ret.value().vector.x;
       transformed_command.velocity.y = ret.value().vector.y;
@@ -657,80 +710,69 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
     } else {
       return;
     }
-
+  
     /* horizontal speed limit //{ */
-
+  
     {
-      double des_horizontal_speed = sqrt(pow(transformed_command.velocity.x, 2) + pow(transformed_command.velocity.y, 2));
-
+      const double des_horizontal_speed = sqrt(pow(transformed_command.velocity.x, 2) + pow(transformed_command.velocity.y, 2));
+  
       if (des_horizontal_speed > constraints.horizontal_speed) {
-
-        double des_speed_heading = atan2(transformed_command.velocity.y, transformed_command.velocity.x);
-
+  
+        const double des_speed_heading = atan2(transformed_command.velocity.y, transformed_command.velocity.x);
+  
         transformed_command.velocity.x = cos(des_speed_heading) * constraints.horizontal_speed;
         transformed_command.velocity.y = sin(des_speed_heading) * constraints.horizontal_speed;
       }
     }
-
+  
     //}
-
+  
     /* horizontal speed change rate limit //{ */
-
+  
     {
-      Eigen::Vector2d hor_speed_derivative =
-          Eigen::Vector2d(transformed_command.velocity.x - old_command.velocity.x, transformed_command.velocity.y - old_command.velocity.y) / dt;
-
+      const vec2_t hor_speed_derivative = vec2_t(transformed_command.velocity.x - old_command.velocity.x, transformed_command.velocity.y - old_command.velocity.y) / dt;
+  
       // exceeding the maximum acceleration
       if (hor_speed_derivative.norm() > constraints.horizontal_acceleration) {
-
+  
         ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting speed change rate");
-        double direction = atan2(hor_speed_derivative[1], hor_speed_derivative[0]);
-
+        const double direction = atan2(hor_speed_derivative.y(), hor_speed_derivative.x());
+  
         transformed_command.velocity.x = old_command.velocity.x + cos(direction) * constraints.horizontal_acceleration * dt;
         transformed_command.velocity.y = old_command.velocity.y + sin(direction) * constraints.horizontal_acceleration * dt;
       }
     }
-
+  
     //}
-
+  
     /* vertical speed limit //{ */
-
-    {
-      // if ascending
-      if (transformed_command.velocity.z > constraints.vertical_ascending_speed) {
-
-        transformed_command.velocity.z = constraints.vertical_ascending_speed;
-      }
-
-      // if descending
-      if (transformed_command.velocity.z < -constraints.vertical_descending_speed) {
-
-        transformed_command.velocity.z = -constraints.vertical_descending_speed;
-      }
-    }
-
+  
+    transformed_command.velocity.z = std::clamp(transformed_command.velocity.z, -constraints.vertical_ascending_speed, constraints.vertical_ascending_speed);
+  
     //}
-
+  
     /* vertical speed change rate //{ */
-
+  
     {
-
-      double vert_speed_derivative = (transformed_command.velocity.z - old_command.velocity.z) / dt;
-
+  
+      const double vert_speed_derivative = (transformed_command.velocity.z - old_command.velocity.z) / dt;
+  
       if (vert_speed_derivative > constraints.vertical_ascending_acceleration) {
-
+  
         ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical ascending speed change rate");
         transformed_command.velocity.z = old_command.velocity.z + constraints.vertical_ascending_acceleration * dt;
-
+  
       } else if (vert_speed_derivative < -constraints.vertical_descending_acceleration) {
-
+  
         ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting vertical descending speed change rate");
         transformed_command.velocity.z = old_command.velocity.z - constraints.vertical_descending_acceleration * dt;
       }
     }
-
+  
     //}
   }
+  
+  //}
 
   /* transform and constrain heading //{ */
 
@@ -741,12 +783,12 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
     temp_ref.reference.heading = transformed_command.heading;
 
-    auto ret = common_handlers_->transformer->transformSingle(temp_ref, "");
+    const auto ret = common_handlers_->transformer->transformSingle(temp_ref, "");
 
     if (ret) {
 
       // calculate the produced heading rate
-      double des_hdg_rate = sradians::diff(ret.value().reference.heading, old_command.heading) / dt;
+      const double des_hdg_rate = sradians::diff(ret.value().reference.heading, old_command.heading) / dt;
 
       // saturate the change in the desired heading
       if (des_hdg_rate > constraints.heading_speed) {
@@ -774,26 +816,29 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
   //}
 
+  /* constrain heading rate //{ */
+  
   if (transformed_command.use_heading_rate) {
 
-    if (transformed_command.heading_rate > constraints.heading_speed) {
-      transformed_command.heading_rate = constraints.heading_speed;
-    } else if (transformed_command.heading_rate < -constraints.heading_speed) {
-      transformed_command.heading_rate = -constraints.heading_speed;
-    }
+    transformed_command.heading_rate = std::clamp(transformed_command.heading_rate, -constraints.heading_speed, constraints.heading_speed);
+  
   }
+  
+  //}
 
+  /* transform acceleration //{ */
+  
   if (transformed_command.use_acceleration) {
-
+  
     geometry_msgs::Vector3Stamped vector3;
     vector3.header = transformed_command.header;
-
+  
     vector3.vector.x = transformed_command.acceleration.x;
     vector3.vector.y = transformed_command.acceleration.y;
     vector3.vector.z = transformed_command.acceleration.z;
-
-    auto ret = common_handlers_->transformer->transformSingle(vector3, "");
-
+  
+    const auto ret = common_handlers_->transformer->transformSingle(vector3, "");
+  
     if (ret) {
       transformed_command.acceleration.x = ret.value().vector.x;
       transformed_command.acceleration.y = ret.value().vector.y;
@@ -801,35 +846,35 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
     } else {
       return;
     }
-
+  
     /* horizontal acceleration limit //{ */
-
+  
     {
-      double des_horizontal_acceleration = sqrt(pow(transformed_command.acceleration.x, 2) + pow(transformed_command.acceleration.y, 2));
-
+      const double des_horizontal_acceleration = sqrt(pow(transformed_command.acceleration.x, 2) + pow(transformed_command.acceleration.y, 2));
+  
       if (des_horizontal_acceleration > constraints.horizontal_acceleration) {
-
-        double des_acc_heading = atan2(transformed_command.acceleration.y, transformed_command.acceleration.x);
-
+  
+        const double des_acc_heading = atan2(transformed_command.acceleration.y, transformed_command.acceleration.x);
+  
         transformed_command.acceleration.x = cos(des_acc_heading) * constraints.horizontal_acceleration;
         transformed_command.acceleration.y = sin(des_acc_heading) * constraints.horizontal_acceleration;
       }
     }
+  
+  //}
 
     //}
 
     /* horizontal acceleration change rate limit //{ */
 
     {
-      Eigen::Vector2d hor_acc_derivative =
-          Eigen::Vector2d(transformed_command.acceleration.x - old_command.acceleration.x, transformed_command.acceleration.y - old_command.acceleration.y) /
-          (dt);
+      const vec2_t hor_acc_derivative = vec2_t(transformed_command.acceleration.x - old_command.acceleration.x, transformed_command.acceleration.y - old_command.acceleration.y) / dt;
 
       // exceeding the maximum acceleration
       if (hor_acc_derivative.norm() > constraints.horizontal_jerk) {
 
         ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting acceleration change rate");
-        double direction = atan2(hor_acc_derivative[1], hor_acc_derivative[0]);
+        const double direction = atan2(hor_acc_derivative.y(), hor_acc_derivative.x());
 
         transformed_command.acceleration.x = old_command.acceleration.x + cos(direction) * constraints.horizontal_jerk * dt;
         transformed_command.acceleration.y = old_command.acceleration.y + sin(direction) * constraints.horizontal_jerk * dt;
