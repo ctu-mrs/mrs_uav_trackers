@@ -308,10 +308,11 @@ std::optional<mrs_msgs::TrackerCommand> PassthroughTracker::update(const mrs_msg
     return {};
   }
 
-  ros::Time external_command_time = sh_command_.lastMsgTime();
+  const auto now = ros::Time::now();
+  const ros::Time external_command_time = sh_command_.lastMsgTime();
 
   // timeout the external command
-  if (getting_cmd_ && (ros::Time::now() - external_command_time).toSec() > _external_command_timeout_) {
+  if (getting_cmd_ && (now - external_command_time).toSec() > _external_command_timeout_) {
 
     ROS_WARN("[PassthroughTracker]: command timeouted");
     getting_cmd_ = false;
@@ -336,7 +337,7 @@ std::optional<mrs_msgs::TrackerCommand> PassthroughTracker::update(const mrs_msg
     switch_tracker_future_ = std::future<mrs_msgs::String>();
   }
 
-  auto command = mrs_lib::get_mutexed(mutex_command_, command_);
+  const auto command = mrs_lib::get_mutexed(mutex_command_, command_);
 
   mrs_msgs::TrackerCommand tracker_cmd;
 
@@ -345,6 +346,16 @@ std::optional<mrs_msgs::TrackerCommand> PassthroughTracker::update(const mrs_msg
 
   tracker_cmd.position.x = uav_state.pose.position.x;
   tracker_cmd.position.y = uav_state.pose.position.y;
+
+  if (command.use_position) {
+    tracker_cmd.position                = command.position;
+    tracker_cmd.use_position_horizontal = true;
+    tracker_cmd.use_position_vertical   = true;
+  } else {
+    tracker_cmd.position                = uav_state.position;
+    tracker_cmd.use_velocity_horizontal = false;
+    tracker_cmd.use_velocity_vertical   = false;
+  }
 
   if (command.use_velocity) {
     tracker_cmd.velocity.x              = command.velocity.x;
@@ -826,9 +837,13 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
 
     if (ret) {
 
+      mrs_lib::geometry::sradians hdg(ret.value().reference.heading);
+
       // yaw change limit
-      if (constrainAngleDerivative(ret.value().reference.heading, dt, old_command.heading, -constraints.heading_speed, constraints.heading_speed))
+      if (constrainAngleDerivative(hdg, dt, old_command.heading, -constraints.heading_speed, constraints.heading_speed))
         ROS_WARN_THROTTLE(1.0, "[PassthroughTracker]: limitting heading change");
+
+      transformed_command.heading = hdg.value();
 
     } else {
       return;
@@ -921,7 +936,7 @@ void PassthroughTracker::callbackCommand(const mrs_msgs::PassthroughTrackerComma
     auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
     transformed_command.position = uav_state_.pose.position;
-    transformed_command.use_position = true
+    transformed_command.use_position = true;
 
     try {
       transformed_command.heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
