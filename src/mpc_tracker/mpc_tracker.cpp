@@ -497,6 +497,28 @@ bool MpcTracker::initialize(const ros::NodeHandle& nh, std::shared_ptr<mrs_uav_m
   private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/max_n_iterations", _max_iters_heading_);
   private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/Q", heading_Q);
 
+  costs_.resize(NY);
+  costs(0) = xy_Q[0];       // pos x
+  costs(1) = xy_Q[0];       // pos y
+  costs(2) = z_Q[0];        // pos z
+  costs(3) = heading_Q[0];  // heading
+  costs(4) = xy_Q[1];       // vel x
+  costs(5) = xy_Q[1];       // vel y
+  costs(6) = z_Q[1];        // vel z
+  costs(7) = heading_Q[1];  // vel heading
+  costs(8) = xy_Q[2];       // acc x
+  costs(9) = xy_Q[2];       // acc y
+  costs(10) = z_Q[2];       // acc z
+  costs(11) = heading_Q[2]; // acc heading
+  costs(12) = xy_Q[3];      // jerk x
+  costs(13) = xy_Q[3];      // jerk y
+  costs(14) = z_Q[3];       // jerk z
+  costs(15) = heading_Q[3]; // jerk heading
+  costs(16) = xy_Q[4];      // snap x
+  costs(17) = xy_Q[4];      // snap y
+  costs(18) = z_Q[4];       // snap z
+  costs(19) = heading_Q[4]; // snap heading
+
   private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/enabled", drs_params_.wiggle_enabled);
   private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/amplitude", drs_params_.wiggle_amplitude);
   private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/frequency", drs_params_.wiggle_frequency);
@@ -2100,6 +2122,45 @@ void MpcTracker::calculateMPC() {
   double max_jerk_z = constraints.vertical_ascending_jerk;
   double min_jerk_z = constraints.vertical_descending_jerk;
 
+  lower_bounds_.resize(NBX + NU);
+  lower_bounds_(0) = -constraints.horizontal_speed;          // velocity x
+  lower_bounds_(1) = -constraints.horizontal_speed;          // velocity y
+  lower_bounds_(2) = -constraints.vertical_descending_speed; // velocity z
+  lower_bound_(3) = -constraints.heading_speed;              // velocity heading
+  lower_bounds_(4) = -constraints.horizontal_acceleration;   // acceleration x
+  lower_bounds_(5) = -constraints.horizontal_acceleration;   // acceleration y
+  lower_bounds_(6) =
+      -constraints.vertical_descending_acceleration;    // acceleration z
+  lower_bounds_(7) = -constraints.heading_acceleration; // acceleration heading
+  lower_bounds_(8) = -constraints.horizontal_jerk;      // jerk x
+  lower_bounds_(9) = -constraints.horizontal_jerk;      // jerk y
+  lower_bounds_(10) = -constraints.vertical_descending_jerk; // jerk z
+  lower_bounds_(11) = -constraints.heading_jerk;             // jerk heading
+  lower_bounds_(12) = -constraints.horizontal_snap;          // snap x
+  lower_bounds_(13) = -constraints.horizontal_snap;          // snap y
+  lower_bounds_(14) = -constraints.vertical_descending_snap; // snap z
+  lower_bounds_(15) = -constraints.heading_snap;             // snap heading
+
+
+  upper_bounds_.resize(NBX + NU);
+  upper_bounds_(0) = constraints.horizontal_speed;          // velocity x
+  upper_bounds_(1) = constraints.horizontal_speed;          // velocity y
+  upper_bounds_(2) = constraints.vertical_ascending_speed;  // velocity z
+  upper_bounds_(3) = constraints.heading_speed;             // velocity heading
+  upper_bounds_(4) = constraints.horizontal_acceleration;   // acceleration x
+  upper_bounds_(5) = constraints.horizontal_acceleration;   // acceleration y
+  upper_bounds_(6) =
+      constraints.vertical_ascending_acceleration;     // acceleration z
+  upper_bounds_(7) = constraints.heading_acceleration; // acceleration heading
+  upper_bounds_(8) = constraints.horizontal_jerk;      // jerk x
+  upper_bounds_(9) = constraints.horizontal_jerk;      // jerk y
+  upper_bounds_(10) = constraints.vertical_ascending_jerk; // jerk z
+  upper_bounds_(11) = constraints.heading_jerk;            // jerk heading
+  upper_bounds_(12) = constraints.horizontal_snap;         // snap x
+  upper_bounds_(13) = constraints.horizontal_snap;         // snap y
+  upper_bounds_(14) = constraints.vertical_ascending_snap; // snap z
+  upper_bounds_(15) = constraints.heading_snap;            // snap heading
+
   collision_avoidance_affecting_me_ = false;
 
   if (first_collision_index < MPC_HORIZON_LENGTH) {
@@ -2166,6 +2227,24 @@ void MpcTracker::calculateMPC() {
       des_z_filtered_offset_(i, 0) = des_z_filtered(i, 0);
     }
   }
+  ac = acados_drone(MPC_HORIZON_LENGTH, dt1);
+  initial_state_.resize(NX);
+  initial_state_(0) = mpc_x(0, 0);
+  initial_state_(1) = mpc_x(4, 0);
+  initial_state_(2) = mpc_x(8, 0);
+  initial_state_(3) = mpc_x_heading(0, 0);
+  initial_state_(4) = mpc_x(1, 0);
+  initial_state_(5) = mpc_x(5, 0);
+  initial_state_(6) = mpc_x(9, 0);
+  initial_state_(7) = mpc_x_heading(1, 0);
+  initial_state_(8) = mpc_x(2, 0);
+  initial_state_(9) = mpc_x(6, 0);
+  initial_state_(10) = mpc_x(10, 0);
+  initial_state_(11) = mpc_x_heading(2, 0);
+  initial_state_(12) = mpc_x(3, 0);
+  initial_state_(13) = mpc_x(7, 0);
+  initial_state_(14) = mpc_x(11, 0);
+  initial_state_(15) = mpc_x_heading(3, 0);
 
   // | ----------------- prepare the references ----------------- |
 
@@ -2184,10 +2263,10 @@ void MpcTracker::calculateMPC() {
   initial_z(2, 0) = mpc_x(10, 0);
   initial_z(3, 0) = mpc_x(11, 0);
 
-  mpc_solver_z_->setDt(dt1);
-  mpc_solver_z_->setInitialState(initial_z);
-  mpc_solver_z_->loadReference(des_z_filtered_offset_);
-  mpc_solver_z_->setLimits(max_speed_z, min_speed_z, max_acc_z, min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
+  ac.set_init_state(uav_state);
+  ac.setNewCosts(costs_);
+  ac.set_constraints(lower_bounds_, upper_bounds_);
+  ac.set_ref(des_x_filtered, des_y_filtered, des_z_filtered_offset_, des_heading_trajectory);
   iters_z += mpc_solver_z_->solveMPC();
 
   {
@@ -2212,6 +2291,8 @@ void MpcTracker::calculateMPC() {
   }
 
   auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
+  lower_bounds_(0) = -max_speed_x;
+  upper_bounds_(0) = max_speed_x;
 
   // | -------------------- MPC solver x-axis ------------------- |
 
@@ -2228,11 +2309,7 @@ void MpcTracker::calculateMPC() {
   initial_x(2, 0) = mpc_x(2, 0);
   initial_x(3, 0) = mpc_x(3, 0);
 
-  mpc_solver_x_->setDt(dt1);
-  mpc_solver_x_->setInitialState(initial_x);
-  mpc_solver_x_->loadReference(des_x_filtered);
 
-  mpc_solver_x_->setLimits(max_speed_x, max_speed_x, max_acc_x, max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
   iters_x += mpc_solver_x_->solveMPC();
 
   {
@@ -2258,10 +2335,6 @@ void MpcTracker::calculateMPC() {
   initial_y(2, 0) = mpc_x(6, 0);
   initial_y(3, 0) = mpc_x(7, 0);
 
-  mpc_solver_y_->setDt(dt1);
-  mpc_solver_y_->setInitialState(initial_y);
-  mpc_solver_y_->loadReference(des_y_filtered);
-  mpc_solver_y_->setLimits(max_speed_y, max_speed_y, max_acc_y, max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
   iters_y += mpc_solver_y_->solveMPC();
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
@@ -2286,11 +2359,6 @@ void MpcTracker::calculateMPC() {
     mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
   }
 
-  mpc_solver_heading_->setDt(dt1);
-  mpc_solver_heading_->setInitialState(mpc_x_heading);
-  mpc_solver_heading_->loadReference(des_heading_trajectory);
-  mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
-                                 constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
   iters_heading += mpc_solver_heading_->solveMPC();
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);

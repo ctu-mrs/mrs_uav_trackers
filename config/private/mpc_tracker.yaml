@@ -83,14 +83,14 @@ mrs_uav_trackers:
       xy:
         verbose: false
         max_n_iterations: 40
-        Q: [5000, 0, 150, 150]
+        Q: [100, 20, 1, 1, 1]
 
       z:
         verbose: false
         max_n_iterations: 40
-        Q: [5000, 0, 150, 150]
+        Q: [100, 20, 1, 1, 1]
 
       heading:
         verbose: false
         max_n_iterations: 40
-        Q: [5000, 0, 150, 150]
+        Q: [100, 20, 1, 1, 1]

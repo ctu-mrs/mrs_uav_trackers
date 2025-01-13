@@ -31,7 +31,14 @@ private:
   std::string      _name_;
 
   std::vector<double> myQ_;
+  Eigen::VectorXd lower_bounds_;
+  Eigen::VectorXd upper_bounds_;
+  Eigen::VectorXd costs_;
+  Eigen::VectorXd initial_state_;
+
+  acados_drone ac_;
 };
+
 
 }  // namespace mpc_tracker
 
