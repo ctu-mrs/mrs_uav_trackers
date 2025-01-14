@@ -3,6 +3,7 @@ project(mrs_uav_trackers)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_definitions(-Wall)
 add_definitions(-Wextra)
@@ -41,6 +42,19 @@ find_package(Eigen3 REQUIRED)
 set(Eigen_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 set(Eigen_LIBRARIES ${EIGEN3_LIBRARIES})
 
+file(REMOVE_RECURSE src/mpc_tracker/acados_mpc/c_generated_code/)
+execute_process(COMMAND python src/mpc_tracker/acados_mpc/main_build.py 
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
+file(GLOB_RECURSE DOT_O_FILES src/mpc_tracker/acados_mpc/c_generated_code/*.o)
+file (REMOVE
+    ${DOT_O_FILES}
+)
+file(GLOB_RECURSE DOT_SO_FILES src/mpc_tracker/acados_mpc/c_generated_code/*.so)
+file (REMOVE
+  ${DOT_SO_FILES}
+)
+
+
 set(LIBRARIES
   MrsUavTrackers_MpcTracker
   MrsUavTrackers_LineTracker
@@ -53,10 +67,19 @@ set(LIBRARIES
 
 catkin_package(
   INCLUDE_DIRS include
+  INCLUDE_DIRS src/mpc_tracker/acados_mpc/include
   CATKIN_DEPENDS ${CATKIN_DEPENDENCIES}
   LIBRARIES ${LIBRARIES}
   DEPENDS Eigen
   )
+set(ACADOS_INCLUDE_DIR $ENV{ACADOS_SOURCE_DIR}/include)
+set(ACADOS_LIB_DIR $ENV{ACADOS_SOURCE_DIR}/lib)
+
+FILE(GLOB model_src src/mpc_tracker/acados_mpc/c_generated_code/quadrotor_ode_model/*.c)
+FILE(GLOB ocp_src src/mpc_tracker/acados_mpc/c_generated_code/quadrotor_ode_cost/*.c)
+find_library(ACADOS ${ACADOS_LIB_DIR}/libacados.so)
+
+
 
 ## --------------------------------------------------------------
 ## |                            Build                           |
@@ -64,10 +87,52 @@ catkin_package(
 
 include_directories(
   include
-  ${EIGEN_INCLUDE_DIR}
+        ${ACADOS_INCLUDE_DIR}
+  src/mpc_tracker/acados_mpc/include
+  src/propulsion_module/include
+  ${ACADOS_INCLUDE_DIR}/blasfeo/include
+  ${ACADOS_INCLUDE_DIR}/hpipm/include
+
   ${catkin_INCLUDE_DIRS}
   ${dynamic_reconfigure_PACKAGE_PATH}/cmake/cfgbuild.cmake
+
+
+  ${EIGEN_INCLUDE_DIR}
+  ${catkin_INCLUDE_DIRS}
   )
+
+# wrapper
+add_library(ModelObj ${model_src})
+add_dependencies(ModelObj ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(ModelObj
+  ${catkin_LIBRARIES}
+)
+
+add_library(OcpObj ${ocp_src})
+add_dependencies(OcpObj ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(OcpObj
+  ${catkin_LIBRARIES}
+)
+
+add_library(AcadosSim src/mpc_tracker/acados_mpc/c_generated_code/acados_sim_solver_quadrotor_ode.c)
+add_dependencies(AcadosSim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(AcadosSim
+  ${catkin_LIBRARIES}
+)
+
+
+add_library(TargetExample src/mpc_tracker/acados_mpc/c_generated_code/main_quadrotor_ode.c src/mpc_tracker/acados_mpc/c_generated_code/acados_solver_quadrotor_ode.c)
+add_dependencies(TargetExample ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(TargetExample
+OcpObj
+ModelObj
+  ${catkin_LIBRARIES}
+)
+add_library(TargetExampleSim src/mpc_tracker/acados_mpc/c_generated_code/main_sim_quadrotor_ode.c)
+add_dependencies(TargetExampleSim ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(TargetExampleSim
+  ${catkin_LIBRARIES}
+)
 
 # Mpc Solver Library
 
@@ -100,6 +165,8 @@ endif()
 
 add_library(MrsUavTrackers_MpcTracker
   src/mpc_tracker/mpc_tracker.cpp
+  src/mpc_tracker/acados_mpc/src/acados_wrapper.cpp
+
   )
 
 add_dependencies(MrsUavTrackers_MpcTracker
@@ -110,6 +177,14 @@ add_dependencies(MrsUavTrackers_MpcTracker
 target_link_libraries(MrsUavTrackers_MpcTracker
   ${catkin_LIBRARIES}
   ${MPC_CONTROLLER_SOLVER_BIN}
+   ${ACADOS_LIB_DIR}/libacados.so
+ yaml-cpp 
+ ModelObj
+ OcpObj
+ AcadosSim
+ TargetExample
+ TargetExampleSim
+
   )
 
 # Line Tracker

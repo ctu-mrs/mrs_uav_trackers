@@ -1,0 +1,3 @@
+[submodule "src/mpc_tracker/acados_mpc"]
+	path = src/mpc_tracker/acados_mpc
+	url = git@github.com:ctu-mrs/acados_mpc.git
