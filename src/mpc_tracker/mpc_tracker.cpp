@@ -36,6 +36,7 @@
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <acados_wrapper.hpp>
 
 //}
 
@@ -2227,7 +2228,7 @@ void MpcTracker::calculateMPC() {
       des_z_filtered_offset_(i, 0) = des_z_filtered(i, 0);
     }
   }
-  ac = acados_drone(MPC_HORIZON_LENGTH, dt1);
+  acados_mpc = acados_drone(MPC_HORIZON_LENGTH, dt1);
   initial_state_.resize(NX);
   initial_state_(0) = mpc_x(0, 0);
   initial_state_(1) = mpc_x(4, 0);
@@ -2263,109 +2264,118 @@ void MpcTracker::calculateMPC() {
   initial_z(2, 0) = mpc_x(10, 0);
   initial_z(3, 0) = mpc_x(11, 0);
 
-  ac.set_init_state(uav_state);
-  ac.setNewCosts(costs_);
-  ac.set_constraints(lower_bounds_, upper_bounds_);
-  ac.set_ref(des_x_filtered, des_y_filtered, des_z_filtered_offset_, des_heading_trajectory);
-  iters_z += mpc_solver_z_->solveMPC();
+  des_heading_trajectory(0, 0) =
+      sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading(0));
+
+  for (int i = 1; i < MPC_HORIZON_LENGTH; i++) {
+    des_heading_trajectory(i, 0) = sradians::unwrap(
+        des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
+  }
+  acados_mpc.set_init_state(uav_state);
+  acados_mpc.setNewCosts(costs_);
+  acados_mpc.set_constraints(lower_bounds_, upper_bounds_);
+  acados_mpc.set_ref(des_x_filtered, des_y_filtered, des_z_filtered_offset_, des_heading_trajectory);
+  acados_mpc.compute_control();
+  // iters_z += mpc_solver_z_->solveMPC();
 
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
 
-    mpc_solver_z_->getStates(predicted_trajectory_);
+    // mpc_solver_z_->getStates(predicted_trajectory_);
+    predicted_trajectory_ = acados_mpc.get_all_computed_states();
   }
 
-  mpc_u(2) = mpc_solver_z_->getFirstControlInput();
+  // mpc_u(2) = mpc_solver_z_->getFirstControlInput();
+  Eigen::VectorXd first_control_input = acados_mpc.get_first_control_action();
+  mpc_u(0) = first_control_input(0);
+  mpc_u(1) = first_control_input(1);
+  mpc_u(2) = first_control_input(2);
+  mpc_u_heading = first_control_input(3);
 
   // if we are climbing to avoid a collision, reduce or arrest our horizontal velocity
-  double ascend;
-  {
-    std::scoped_lock lock(mutex_predicted_trajectory_);
+  // double ascend;
+  // {
+  //   std::scoped_lock lock(mutex_predicted_trajectory_);
+  //
+  //   ascend = (predicted_trajectory_(10, 0) / max_speed_z);
+  // }
+  //
+  // if (ascend > 0 && collision_free_altitude_ > lowest_z) {
+  //   max_speed_y = max_speed_y * (1.0 - ascend);
+  //   max_speed_x = max_speed_x * (1.0 - ascend);
+  // }
+  //
+  // auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
+  // lower_bounds_(0) = -max_speed_x;
+  // upper_bounds_(0) = max_speed_x;
+  //
+  // // | -------------------- MPC solver x-axis ------------------- |
+  //
+  // if (brake_ && !trajectory_tracking_in_progress_) {
+  //   mpc_solver_x_->setVelQ(drs_params.q_vel_braking);
+  // } else {
+  //   mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
+  // }
+  //
+  // MatrixXd initial_x = MatrixXd::Zero(4, 1);
 
-    ascend = (predicted_trajectory_(10, 0) / max_speed_z);
-  }
-
-  if (ascend > 0 && collision_free_altitude_ > lowest_z) {
-    max_speed_y = max_speed_y * (1.0 - ascend);
-    max_speed_x = max_speed_x * (1.0 - ascend);
-  }
-
-  auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
-  lower_bounds_(0) = -max_speed_x;
-  upper_bounds_(0) = max_speed_x;
-
-  // | -------------------- MPC solver x-axis ------------------- |
-
-  if (brake_ && !trajectory_tracking_in_progress_) {
-    mpc_solver_x_->setVelQ(drs_params.q_vel_braking);
-  } else {
-    mpc_solver_x_->setVelQ(drs_params.q_vel_no_braking);
-  }
-
-  MatrixXd initial_x = MatrixXd::Zero(4, 1);
-
-  initial_x(0, 0) = mpc_x(0, 0);
-  initial_x(1, 0) = mpc_x(1, 0);
-  initial_x(2, 0) = mpc_x(2, 0);
-  initial_x(3, 0) = mpc_x(3, 0);
-
-
-  iters_x += mpc_solver_x_->solveMPC();
-
-  {
-    std::scoped_lock lock(mutex_predicted_trajectory_);
-
-    mpc_solver_x_->getStates(predicted_trajectory_);
-  }
-
-  mpc_u(0) = mpc_solver_x_->getFirstControlInput();
+  // initial_x(0, 0) = mpc_x(0, 0);
+  // initial_x(1, 0) = mpc_x(1, 0);
+  // initial_x(2, 0) = mpc_x(2, 0);
+  // initial_x(3, 0) = mpc_x(3, 0);
+  //
+  //
+  // iters_x += mpc_solver_x_->solveMPC();
+  //
+  // {
+  //   std::scoped_lock lock(mutex_predicted_trajectory_);
+  //
+  //   mpc_solver_x_->getStates(predicted_trajectory_);
+  // }
+  //
+  // mpc_u(0) = mpc_solver_x_->getFirstControlInput();
 
   // | -------------------- MPC solver y-axis ------------------- |
 
-  if (brake_ && !trajectory_tracking_in_progress_) {
-    mpc_solver_y_->setVelQ(drs_params.q_vel_braking);
-  } else {
-    mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
-  }
-
-  MatrixXd initial_y = MatrixXd::Zero(4, 1);
-
-  initial_y(0, 0) = mpc_x(4, 0);
-  initial_y(1, 0) = mpc_x(5, 0);
-  initial_y(2, 0) = mpc_x(6, 0);
-  initial_y(3, 0) = mpc_x(7, 0);
-
-  iters_y += mpc_solver_y_->solveMPC();
-  {
-    std::scoped_lock lock(mutex_predicted_trajectory_);
-
-    mpc_solver_y_->getStates(predicted_trajectory_);
-  }
-  mpc_u(1) = mpc_solver_y_->getFirstControlInput();
+  // if (brake_ && !trajectory_tracking_in_progress_) {
+  //   mpc_solver_y_->setVelQ(drs_params.q_vel_braking);
+  // } else {
+  //   mpc_solver_y_->setVelQ(drs_params.q_vel_no_braking);
+  // }
+  //
+  // MatrixXd initial_y = MatrixXd::Zero(4, 1);
+  //
+  // initial_y(0, 0) = mpc_x(4, 0);
+  // initial_y(1, 0) = mpc_x(5, 0);
+  // initial_y(2, 0) = mpc_x(6, 0);
+  // initial_y(3, 0) = mpc_x(7, 0);
+  //
+  // iters_y += mpc_solver_y_->solveMPC();
+  // {
+  //   std::scoped_lock lock(mutex_predicted_trajectory_);
+  //
+  //   mpc_solver_y_->getStates(predicted_trajectory_);
+  // }
+  // mpc_u(1) = mpc_solver_y_->getFirstControlInput();
 
   // | ------------------- MPC solver heading ------------------- |
 
   // unwrap the heading reference
 
-  des_heading_trajectory(0, 0) = sradians::unwrap(des_heading_trajectory(0, 0), mpc_x_heading(0));
 
-  for (int i = 1; i < MPC_HORIZON_LENGTH; i++) {
-    des_heading_trajectory(i, 0) = sradians::unwrap(des_heading_trajectory(i, 0), des_heading_trajectory(i - 1, 0));
-  }
-
-  if (brake_ && !trajectory_tracking_in_progress_) {
-    mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
-  } else {
-    mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
-  }
-
-  iters_heading += mpc_solver_heading_->solveMPC();
-  {
-    std::scoped_lock lock(mutex_predicted_trajectory_);
-
-    mpc_solver_heading_->getStates(predicted_heading_trajectory_);
-  }
-  mpc_u_heading = mpc_solver_heading_->getFirstControlInput();
+  // if (brake_ && !trajectory_tracking_in_progress_) {
+  //   mpc_solver_heading_->setVelQ(drs_params.q_vel_braking);
+  // } else {
+  //   mpc_solver_heading_->setVelQ(drs_params.q_vel_no_braking);
+  // }
+  //
+  // iters_heading += mpc_solver_heading_->solveMPC();
+  // {
+  //   std::scoped_lock lock(mutex_predicted_trajectory_);
+  //
+  //   mpc_solver_heading_->getStates(predicted_heading_trajectory_);
+  // }
+  // mpc_u_heading = mpc_solver_heading_->getFirstControlInput();
 
   {
     geometry_msgs::PoseStamped point;
@@ -2429,12 +2439,12 @@ void MpcTracker::calculateMPC() {
   }
 
   double mpc_solver_time = (ros::Time::now() - time_begin).toSec();
-  if (mpc_solver_time > dt1 || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
-    ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_
-                                                                           << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z
-                                                                           << "/" << _max_iters_z_ << " iters heading: " << iters_heading << "/"
-                                                                           << _max_iters_heading_);
-  }
+  // if (mpc_solver_time > dt1 || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
+  //   ROS_DEBUG_STREAM_THROTTLE(1.0, "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_
+  //                                                                          << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z
+  //                                                                          << "/" << _max_iters_z_ << " iters heading: " << iters_heading << "/"
+  //                                                                          << _max_iters_heading_);
+  // }
 
   future_was_predicted_ = true;
 
