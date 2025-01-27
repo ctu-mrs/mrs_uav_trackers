@@ -2282,9 +2282,14 @@ void MpcTracker::calculateMPC() {
   acados_mpc_.set_constraints(lower_bounds_, upper_bounds_);
   auto [des_x_filtered, des_y_filtered] = filterReferenceXY(des_x_trajectory, des_y_trajectory, max_speed_x, max_speed_y);
   acados_mpc_.set_ref(des_x_filtered, des_y_filtered, des_z_filtered_offset_, des_heading_trajectory);
-  std::cout << "des: " << des_x_filtered(0) << " " << des_y_filtered(0) << " " << des_z_filtered_offset_(0) << " " << des_heading_trajectory(0) << std::endl;
-  std::cout << "init: " << initial_state_(0) << " " << initial_state_(1) << " " << initial_state_(2) << " " << initial_state_(3) << std::endl;
+  auto start = std::chrono::high_resolution_clock::
+      now(); // TODO: does not use rostime... (if is not running in real time)
   acados_mpc_.compute_control();
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto chronoDurationAcadosComputeTime =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  std::cout << "Time in uS " << chronoDurationAcadosComputeTime.count() << "\n";
+
   // iters_z += mpc_solver_z_->solveMPC();
 
   {
