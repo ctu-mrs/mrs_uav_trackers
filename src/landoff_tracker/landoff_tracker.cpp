@@ -318,9 +318,9 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 
   // | ------------------------ services ------------------------ |
 
-  service_takeoff_ = node_->create_service<mrs_msgs::srv::Vec1>("takeoff", std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2));
-  service_land_    = node_->create_service<std_srvs::srv::Trigger>("land", std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2));
-  service_eland_   = node_->create_service<std_srvs::srv::Trigger>("eland", std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2));
+  service_takeoff_ = node_->create_service<mrs_msgs::srv::Vec1>("~/" + private_handlers_->name_space + "/takeoff", std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2));
+  service_land_    = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/land", std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2));
+  service_eland_   = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/eland", std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2));
 
   // | ------------------------- timers ------------------------- |
 
