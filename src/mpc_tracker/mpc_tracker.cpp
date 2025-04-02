@@ -597,15 +597,15 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   // create publishers for predicted trajectory
 
-  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "predicted_trajectory");
-  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "predicted_trajectory_debugging");
+  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "~/predicted_trajectory");
+  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/predicted_trajectory_debugging");
 
   // TODO make these topics latching
-  ph_mpc_reference_debugging_             = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "mpc_reference_debugging");
-  ph_current_trajectory_point_            = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "current_trajectory_point");
-  ph_first_reference_point_               = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "first_reference_point");
-  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "trajectory_processed/poses");
-  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "trajectory_processed/markers");
+  ph_mpc_reference_debugging_             = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/mpc_reference_debugging");
+  ph_current_trajectory_point_            = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/current_trajectory_point");
+  ph_first_reference_point_               = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/first_reference_point");
+  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/trajectory_processed/poses");
+  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "~/trajectory_processed/markers");
 
   // preallocate predicted trajectory
   predicted_trajectory_         = MatrixXd::Zero(MPC_HORIZON_LENGTH * MPC_N_STATES, 1);
