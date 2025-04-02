@@ -9,3 +9,9 @@
     <description>LineTracker</description>
   </class>
 </library>
+
+<library path="MrsUavTrackers_MpcTracker">
+  <class type="mrs_uav_trackers::mpc_tracker::MpcTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>MpcTracker</description>
+  </class>
+</library>

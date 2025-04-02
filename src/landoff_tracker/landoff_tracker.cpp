@@ -237,7 +237,7 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 
   // | ---------- loading params using the parent's nh ---------- |
 
-  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_node, "ControlManager");
+  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_node, "LandoffTracker");
 
   param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
 

@@ -41,11 +41,13 @@ set(DEPENDENCIES
   sensor_msgs
   mrs_uav_managers
   Eigen3
+  mrs_mpc_solvers
 )
 
 set(LIBRARIES
   MrsUavTrackers_LandoffTracker
   MrsUavTrackers_LineTracker
+  MrsUavTrackers_MpcTracker
   )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -57,6 +59,7 @@ include_directories(
   ${rclcpp_INCLUDE_DIRS}
   ${mrs_lib_INCLUDE_DIRS}
   ${mrs_uav_managers_INCLUDE_DIRS}
+  ${mrs_mpc_solvers_INCLUDE_DIRS}
 )
 
 # Landoff Tracker
@@ -90,6 +93,22 @@ target_link_libraries(MrsUavTrackers_LineTracker
   )
 
 target_compile_definitions(MrsUavTrackers_LineTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+# MPC Tracker
+
+add_library(MrsUavTrackers_MpcTracker SHARED
+  src/mpc_tracker/mpc_tracker.cpp
+  )
+
+ament_target_dependencies(MrsUavTrackers_MpcTracker
+  ${DEPENDENCIES}
+  )
+
+target_link_libraries(MrsUavTrackers_MpcTracker
+  ${MPC_CONTROLLER_SOLVER_BIN}
+  )
+
+target_compile_definitions(MrsUavTrackers_MpcTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                       export plugins                       |
