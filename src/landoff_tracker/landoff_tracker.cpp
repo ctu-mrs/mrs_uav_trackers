@@ -699,6 +699,7 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::switchOd
 //}
 
 /* //{ hover() */
+
 const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::hover([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   std::scoped_lock lock(mutex_main_timer_);

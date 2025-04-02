@@ -45,6 +45,7 @@ set(DEPENDENCIES
 
 set(LIBRARIES
   MrsUavTrackers_LandoffTracker
+  MrsUavTrackers_LineTracker
   )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -57,33 +58,6 @@ include_directories(
   ${mrs_lib_INCLUDE_DIRS}
   ${mrs_uav_managers_INCLUDE_DIRS}
 )
-
-# Mpc Solver Library
-
-# Store in CMAKE_DEB_HOST_ARCH var the current build architecture
-execute_process(COMMAND
-  dpkg-architecture
-  -qDEB_HOST_ARCH
-  OUTPUT_VARIABLE
-  CMAKE_DEB_HOST_ARCH
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  )
-
-# deduce the library path based on the system architecture
-if(${CMAKE_DEB_HOST_ARCH} MATCHES "armhf")
-  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for armhf")
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "i386")
-  MESSAGE(FATAL_ERROR "Mising MpcTrackerSolver.so for i386")
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "x64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "amd64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/x64/libMpcTrackerSolver.so)
-elseif(${CMAKE_DEB_HOST_ARCH} MATCHES "arm64")
-  set(MPC_CONTROLLER_SOLVER_BIN ${PROJECT_SOURCE_DIR}/lib/MpcTrackerSolver/arm64/libMpcTrackerSolver.so)
-else()
-  MESSAGE(FATAL_ERROR ${CMAKE_DEB_HOST_ARCH})
-  MESSAGE(FATAL_ERROR "MpcTrackerSolver.so has not been selected, check CMakeLists.txt.")
-endif()
 
 # Landoff Tracker
 
@@ -100,6 +74,22 @@ target_link_libraries(MrsUavTrackers_LandoffTracker
   )
 
 target_compile_definitions(MrsUavTrackers_LandoffTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+# Line Tracker
+
+add_library(MrsUavTrackers_LineTracker SHARED
+  src/line_tracker/line_tracker.cpp
+  )
+
+ament_target_dependencies(MrsUavTrackers_LineTracker
+  ${DEPENDENCIES}
+  )
+
+target_link_libraries(MrsUavTrackers_LineTracker
+  ${MPC_CONTROLLER_SOLVER_BIN}
+  )
+
+target_compile_definitions(MrsUavTrackers_LineTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                       export plugins                       |

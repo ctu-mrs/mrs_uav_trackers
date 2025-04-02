@@ -3,3 +3,9 @@
     <description>LandoffTracker</description>
   </class>
 </library>
+
+<library path="MrsUavTrackers_LineTracker">
+  <class type="mrs_uav_trackers::line_tracker::LineTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>LineTracker</description>
+  </class>
+</library>
