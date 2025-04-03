@@ -563,10 +563,10 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   des_z_filtered_offset_  = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
   des_heading_trajectory_ = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
 
-  service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>("~/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2));
+  service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>("~/" + private_handlers_->name_space + "/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2));
 
-  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/diagnostics");
-  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "~/string");
+  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
+  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "~/" + private_handlers_->name_space + "/string");
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
@@ -597,15 +597,15 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   // create publishers for predicted trajectory
 
-  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "~/predicted_trajectory");
-  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/predicted_trajectory_debugging");
+  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory");
+  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory_debugging");
 
   // TODO make these topics latching
-  ph_mpc_reference_debugging_             = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/mpc_reference_debugging");
-  ph_current_trajectory_point_            = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/current_trajectory_point");
-  ph_first_reference_point_               = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/first_reference_point");
-  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/trajectory_processed/poses");
-  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "~/trajectory_processed/markers");
+  ph_mpc_reference_debugging_             = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/mpc_reference_debugging");
+  ph_current_trajectory_point_            = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/current_trajectory_point");
+  ph_first_reference_point_               = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/first_reference_point");
+  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/poses");
+  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/markers");
 
   // preallocate predicted trajectory
   predicted_trajectory_         = MatrixXd::Zero(MPC_HORIZON_LENGTH * MPC_N_STATES, 1);
@@ -614,7 +614,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   collision_free_altitude_ = std::numeric_limits<float>::lowest();
 
   // collision avoidance toggle service
-  service_server_toggle_avoidance_ = node_->create_service<std_srvs::srv::SetBool>("~/collision_avoidance", std::bind(&MpcTracker::callbackToggleCollisionAvoidance, this, std::placeholders::_1, std::placeholders::_2));
+  service_server_toggle_avoidance_ = node_->create_service<std_srvs::srv::SetBool>("~/" + private_handlers_->name_space + "/collision_avoidance", std::bind(&MpcTracker::callbackToggleCollisionAvoidance, this, std::placeholders::_1, std::placeholders::_2));
 
   mrs_lib::SubscriberHandlerOptions shopts;
   shopts.node               = node_;
