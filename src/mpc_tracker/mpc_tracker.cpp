@@ -555,7 +555,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   mpc_u_ = VectorXd::Zero(MPC_N_INPUTS);
 
-  coef_time = rclcpp::Time(0);
+  coef_time = rclcpp::Time(0, 0, clock_->get_clock_type());
 
   des_x_trajectory_       = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
   des_y_trajectory_       = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
@@ -593,7 +593,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   // initialize velocity tracker
 
-  velocity_reference_time_ = rclcpp::Time(0);
+  velocity_reference_time_ = rclcpp::Time(0, 0, clock_->get_clock_type());
 
   // create publishers for predicted trajectory
 
@@ -890,7 +890,7 @@ void MpcTracker::deactivate(void) {
   trajectory_tracking_in_progress_ = false;
   model_first_iteration_           = true;
 
-  time_last_update_ = rclcpp::Time(0);
+  time_last_update_ = rclcpp::Time(0, 0, clock_->get_clock_type());
 
   {
     std::scoped_lock lock(mutex_trajectory_tracking_states_);
@@ -2693,7 +2693,7 @@ std::tuple<bool, std::string, bool> MpcTracker::loadTrajectory(const mrs_msgs::m
 
     // the desired time is 0 => the current time
     // the trajecoty is a single point => the current time
-    if (trajectory_time == rclcpp::Time(0) || int(msg.points.size()) == 1) {
+    if (trajectory_time.seconds() == 0 || int(msg.points.size()) == 1) {
 
       trajectory_time_offset = 0.0;
 
