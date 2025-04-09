@@ -216,7 +216,8 @@ bool FlipTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/flip_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/flip_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/flip_tracker/";
+  /* const std::string yaml_prefix = "mrs_uav_trackers/flip_tracker/"; */
+  const std::string yaml_prefix = "";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "activation_limits/max_velocity", _activation_max_velocity_);
   private_handlers->param_loader->loadParam(yaml_prefix + "activation_limits/max_acceleration", _activation_max_acceleration_);

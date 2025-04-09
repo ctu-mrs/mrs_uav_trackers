@@ -106,7 +106,8 @@ bool MidairActivationTracker::initialize(const ros::NodeHandle &nh, std::shared_
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/midair_activation_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/midair_activation_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/midair_activation_tracker/";
+  /* const std::string yaml_prefix = "mrs_uav_trackers/midair_activation_tracker/"; */
+  const std::string yaml_prefix = "";
 
   if (!private_handlers->param_loader->loadedSuccessfully()) {
     ROS_ERROR("[MidairActivationTracker]: could not load all parameters!");

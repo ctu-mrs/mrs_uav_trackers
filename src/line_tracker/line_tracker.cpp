@@ -225,7 +225,8 @@ bool LineTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_pt
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/line_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/line_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/line_tracker/";
+  /* const std::string yaml_prefix = "mrs_uav_trackers/line_tracker/"; */
+  const std::string yaml_prefix = "";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
   private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);

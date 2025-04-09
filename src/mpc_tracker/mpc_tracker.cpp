@@ -451,11 +451,11 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   // | ---------- loading params using the parent's nh ---------- |
 
-  mrs_lib::ParamLoader param_loader_parent(common_handlers->parent_node, "MpcTracker");
+  private_handlers->parent_param_loader->loadParamReusable("enable_profiler", _profiler_enabled_);
 
-  param_loader_parent.loadParam("enable_profiler", _profiler_enabled_);
+  private_handlers->parent_param_loader->loadParamReusable("network/robot_names", _avoidance_other_uav_names_);
 
-  if (!param_loader_parent.loadedSuccessfully()) {
+  if (!private_handlers->parent_param_loader->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "[MpcTracker]: Could not load all parameters!");
     return false;
   }
@@ -465,9 +465,8 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/mpc_tracker/";
-
-  private_handlers->param_loader->loadParam("network/robot_names", _avoidance_other_uav_names_);
+  /* const std::string yaml_prefix = "mrs_uav_trackers/mpc_tracker/"; */
+  const std::string yaml_prefix = "";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
   private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);

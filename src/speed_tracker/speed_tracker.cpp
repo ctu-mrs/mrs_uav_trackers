@@ -168,7 +168,8 @@ bool SpeedTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/speed_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/speed_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/speed_tracker/";
+  /* const std::string yaml_prefix = "mrs_uav_trackers/speed_tracker/"; */
+  const std::string yaml_prefix = "";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "command_timeout", _external_command_timeout_);
 

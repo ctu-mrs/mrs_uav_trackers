@@ -161,7 +161,8 @@ bool JoyTracker::initialize(const ros::NodeHandle &nh, std::shared_ptr<mrs_uav_m
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/private/joy_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ros::package::getPath("mrs_uav_trackers") + "/config/public/joy_tracker.yaml");
 
-  const std::string yaml_prefix = "mrs_uav_trackers/joy_tracker/";
+  /* const std::string yaml_prefix = "mrs_uav_trackers/joy_tracker/"; */
+  const std::string yaml_prefix = "";
 
   private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
 
