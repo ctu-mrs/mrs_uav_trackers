@@ -15,3 +15,9 @@
     <description>MpcTracker</description>
   </class>
 </library>
+
+<library path="MrsUavTrackers_MidairActivationTracker">
+  <class type="mrs_uav_trackers::midair_activation_tracker::MidairActivationTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>MidairActivationTracker</description>
+  </class>
+</library>
