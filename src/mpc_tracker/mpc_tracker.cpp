@@ -3499,7 +3499,7 @@ void MpcTracker::timerMPC() {
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
-    const double dt_from_last_update = (time_last_mpc_calculation_ - clock_->now()).seconds();
+    const double dt_from_last_update = (clock_->now() - time_last_mpc_calculation_).seconds();
     time_last_mpc_calculation_ = clock_->now();
 
     if (dt_from_last_update > 0.0 && dt_from_last_update < 1.0) {
