@@ -1251,12 +1251,12 @@ const std::shared_ptr<std_srvs::srv::SetBool::Response> MpcTracker::enableCallba
 
     callbacks_enabled_ = request->data;
 
-    ss << "callbacks %s" << (callbacks_enabled_ ? "enabled" : "disabled");
+    ss << "callbacks " << (callbacks_enabled_ ? "enabled" : "disabled");
     RCLCPP_INFO_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: " << ss.str());
 
   } else {
 
-    ss << "callbacks were already %s" << (callbacks_enabled_ ? "enabled" : "disabled");
+    ss << "callbacks were already " << (callbacks_enabled_ ? "enabled" : "disabled");
     RCLCPP_WARN_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: " << ss.str());
   }
 
