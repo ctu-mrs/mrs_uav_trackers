@@ -26,6 +26,8 @@ class MidairActivationTracker : public mrs_uav_managers::Tracker {
 public:
   bool initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers, std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
 
+  void destroy(void);
+
   std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::msg::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
@@ -124,6 +126,14 @@ bool MidairActivationTracker::initialize(const rclcpp::Node::SharedPtr &node, st
   RCLCPP_INFO(node_->get_logger(), "[MidairActivationTracker]: initialized");
 
   return true;
+}
+
+//}
+
+/* destroy() //{ */
+
+void MidairActivationTracker::destroy(void) {
+
 }
 
 //}
