@@ -121,6 +121,16 @@ target_compile_definitions(MrsUavTrackers_MidairActivationTracker PRIVATE USE_RO
 pluginlib_export_plugin_description_file(mrs_uav_managers plugins.xml)
 
 ## --------------------------------------------------------------
+## |                           testing                          |
+## --------------------------------------------------------------
+
+if(ENABLE_TESTS)
+
+  add_subdirectory(test)
+
+endif()
+
+## --------------------------------------------------------------
 ## |                           install                          |
 ## --------------------------------------------------------------
 
