@@ -7,6 +7,8 @@ uav_names: [
   "uav2",
 ]
 
+realtime_factor: 0.5 # [-]
+
 uav1:
   type: "x500"
   spawn:

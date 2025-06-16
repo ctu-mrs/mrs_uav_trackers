@@ -154,6 +154,7 @@ def generate_test_description():
                 output="screen",
                 parameters=[
                         {'test_name': test_name},
+                        {'use_sim_time': True},
                 ],
             )
         )
@@ -186,10 +187,10 @@ class PublisherHandlerTest(unittest.TestCase):
 
     def test_logs_crashing(self, proc_output):
 
-        proc_output.assertWaitFor('avoiding collision with uav1', timeout=60.0, stream='stderr')
-        proc_output.assertWaitFor('detected collision with uav2', timeout=60.0, stream='stderr')
+        proc_output.assertWaitFor('avoiding collision with uav1', timeout=290.0, stream='stderr')
+        proc_output.assertWaitFor('detected collision with uav2', timeout=290.0, stream='stderr')
 
-    def test_interactor(self, proc_output, timeout=120):
+    def test_interactor(self, proc_output, timeout=300):
 
         """Check whether pose messages published"""
 

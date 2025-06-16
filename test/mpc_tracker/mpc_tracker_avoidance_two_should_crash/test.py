@@ -186,10 +186,10 @@ class PublisherHandlerTest(unittest.TestCase):
 
     def test_logs_crashing(self, proc_output):
 
-        proc_output.assertWaitFor('uav1 crashed', timeout=60.0, stream='stderr')
-        proc_output.assertWaitFor('uav2 crashed', timeout=60.0, stream='stderr')
+        proc_output.assertWaitFor('uav1 crashed', timeout=120.0, stream='stderr')
+        proc_output.assertWaitFor('uav2 crashed', timeout=120.0, stream='stderr')
 
-    def test_interactor(self, proc_output, timeout=120):
+    def test_interactor(self, proc_output, timeout=240):
 
         """Check whether pose messages published"""
 

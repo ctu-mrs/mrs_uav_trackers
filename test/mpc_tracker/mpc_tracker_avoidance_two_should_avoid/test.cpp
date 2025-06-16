@@ -78,12 +78,19 @@ bool Tester::test(void) {
     }
   }
 
+  RCLCPP_INFO(node_->get_logger(), "goto finished");
+
   this->sleep(5.0);
 
   if (uh1->isFlyingNormally() && uh2->isFlyingNormally()) {
+
+    RCLCPP_INFO(node_->get_logger(), "flying normally");
+
     return true;
   } else {
+
     RCLCPP_ERROR(node_->get_logger(), "not flying normally");
+
     return false;
   }
 }

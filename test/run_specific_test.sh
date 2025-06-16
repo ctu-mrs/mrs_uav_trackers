@@ -11,6 +11,6 @@ done
 
 colcon test-result --delete-yes
 
-colcon test --packages-select mrs_uav_trackers --ctest-args -R 'mpc_tracker_avoidance_two_uav2_passive' --event-handlers console_direct+ console_stderr- console_start_end-
+colcon test --packages-select mrs_uav_trackers --ctest-args -R 'mpc_tracker' --event-handlers console_direct+ console_stderr- console_start_end-
 
 colcon test-result --all --verbose
