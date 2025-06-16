@@ -1,9 +1,0 @@
-add_subdirectory(mpc_goto)
-
-add_subdirectory(mpc_avoidance_two_should_avoid)
-
-add_subdirectory(mpc_avoidance_two_should_crash)
-
-add_subdirectory(mpc_avoidance_two_uav1_passive)
-
-add_subdirectory(mpc_avoidance_two_uav2_passive)
