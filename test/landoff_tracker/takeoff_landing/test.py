@@ -110,6 +110,7 @@ def generate_test_description():
                 output="screen",
                 parameters=[
                         {'test_name': test_name},
+                        {'use_sim_time': True},
                 ],
             )
         )
