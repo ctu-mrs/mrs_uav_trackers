@@ -567,7 +567,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>("~/" + private_handlers_->name_space + "/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2));
 
   pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
-  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "~/" + private_handlers_->name_space + "/string");
+  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "/" + common_handlers_->uav_name + "/uav_status_acquisition/display_string");
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
