@@ -227,19 +227,16 @@ bool LineTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_pt
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/line_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/line_tracker.yaml");
 
-  /* const std::string yaml_prefix = "mrs_uav_trackers/line_tracker/"; */
-  const std::string yaml_prefix = "";
+  private_handlers->param_loader->loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  private_handlers->param_loader->loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  private_handlers->param_loader->loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
+  private_handlers->param_loader->loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  private_handlers->param_loader->loadParam("heading_tracker/heading_rate", _heading_rate_);
+  private_handlers->param_loader->loadParam("heading_tracker/heading_gain", _heading_gain_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
-
-  private_handlers->param_loader->loadParam(yaml_prefix + "tracker_loop_rate", _tracker_loop_rate_);
+  private_handlers->param_loader->loadParam("tracker_loop_rate", _tracker_loop_rate_);
 
   if (!private_handlers->param_loader->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "[LineTracker]: could not load all parameters!");

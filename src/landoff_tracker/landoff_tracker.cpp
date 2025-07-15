@@ -253,35 +253,32 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/landoff_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/landoff_tracker.yaml");
 
-  /* const std::string yaml_prefix = "mrs_uav_trackers/landoff_tracker/"; */
-  const std::string yaml_prefix = "";
+  private_handlers->param_loader->loadParam("horizontal_tracker/horizontal_speed", _horizontal_speed_);
+  private_handlers->param_loader->loadParam("horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_speed", _horizontal_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "horizontal_tracker/horizontal_acceleration", _horizontal_acceleration_);
+  private_handlers->param_loader->loadParam("vertical_tracker/vertical_speed", _vertical_speed_);
+  private_handlers->param_loader->loadParam("vertical_tracker/vertical_acceleration", _vertical_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_speed", _vertical_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/vertical_acceleration", _vertical_acceleration_);
+  private_handlers->param_loader->loadParam("vertical_tracker/takeoff_speed", _takeoff_speed_);
+  private_handlers->param_loader->loadParam("vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/takeoff_speed", _takeoff_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/takeoff_acceleration", _takeoff_acceleration_);
+  private_handlers->param_loader->loadParam("vertical_tracker/landing_speed", _landing_speed_);
+  private_handlers->param_loader->loadParam("vertical_tracker/landing_acceleration", _landing_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/landing_speed", _landing_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/landing_acceleration", _landing_acceleration_);
+  private_handlers->param_loader->loadParam("vertical_tracker/elanding_speed", _elanding_speed_);
+  private_handlers->param_loader->loadParam("vertical_tracker/elanding_acceleration", _elanding_acceleration_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/elanding_speed", _elanding_speed_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "vertical_tracker/elanding_acceleration", _elanding_acceleration_);
+  private_handlers->param_loader->loadParam("heading_tracker/heading_rate", _heading_rate_);
+  private_handlers->param_loader->loadParam("heading_tracker/heading_gain", _heading_gain_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_rate", _heading_rate_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "heading_tracker/heading_gain", _heading_gain_);
+  private_handlers->param_loader->loadParam("main_timer_rate", _main_timer_rate_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "main_timer_rate", _main_timer_rate_);
+  private_handlers->param_loader->loadParam("landing_reference", _landing_reference_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "landing_reference", _landing_reference_);
+  private_handlers->param_loader->loadParam("max_position_difference", _max_position_difference_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "max_position_difference", _max_position_difference_);
-
-  private_handlers->param_loader->loadParam(yaml_prefix + "takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
+  private_handlers->param_loader->loadParam("takeoff_disable_lateral_gains", _takeoff_disable_lateral_gains_);
+  private_handlers->param_loader->loadParam("takeoff_disable_lateral_gains_z", _takeoff_disable_lateral_gains_z_);
 
   if (!private_handlers->param_loader->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "[LandoffTracker]: Could not load all parameters!");

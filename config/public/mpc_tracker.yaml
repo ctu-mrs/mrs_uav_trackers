@@ -2,10 +2,12 @@ mrs_uav_trackers:
 
   mpc_tracker:
 
-    wiggle:
-      enabled: false
-      amplitude: 0.5 # [m]
-      frequency: 0.2 # [Hz]
+    dynamic:
+
+      wiggle:
+        enabled: false
+        amplitude: 0.5 # [m]
+        frequency: 0.3 # [Hz]
 
     # mrs collision avoidance
     collision_avoidance:

@@ -27,6 +27,7 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/scope_timer.h>
+#include <mrs_lib/dynparam_mgr.h>
 
 #include <mrs_mpc_solvers/mpc_tracker.h>
 
@@ -403,16 +404,7 @@ private:
 
   // | --------------- dynamic reconfigure server --------------- |
 
-  // old DRS from ROS1
-  /* void dynamicReconfigureCallback(mrs_uav_trackers::mpc_trackerConfig& config, uint32_t level); */
-  /* boost::recursive_mutex                      config_mutex_; */
-  /* typedef mrs_uav_trackers::mpc_trackerConfig Config; */
-  /* typedef dynamic_reconfigure::Server<Config> ReconfigureServer; */
-  /* boost::shared_ptr<ReconfigureServer>        reconfigure_server_; */
-  /* mrs_uav_trackers::mpc_trackerConfig         drs_params_; */
-  /* std::mutex                                  mutex_drs_params_; */
-
-  rcl_interfaces::msg::SetParametersResult callbackParameters(std::vector<rclcpp::Parameter> parameters);
+  std::shared_ptr<mrs_lib::DynparamMgr> dynparam_mgr_;
 
   struct drs_params
   {
@@ -451,6 +443,8 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   // |                     loading parameters                     |
   // --------------------------------------------------------------
 
+  dynparam_mgr_ = std::make_shared<mrs_lib::DynparamMgr>(node_, mutex_drs_params_);
+
   // | ---------- loading params using the parent's nh ---------- |
 
   private_handlers->parent_param_loader->loadParamReusable("enable_profiler", _profiler_enabled_);
@@ -467,11 +461,11 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
 
-  /* const std::string yaml_prefix = "mrs_uav_trackers/mpc_tracker/"; */
-  const std::string yaml_prefix = "";
+  dynparam_mgr_->get_param_provider().addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
+  dynparam_mgr_->get_param_provider().addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
+  private_handlers->param_loader->loadParam("mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
+  private_handlers->param_loader->loadParam("mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
 
   if (_mpc_asynchronous_rate_ < 15) {
     RCLCPP_ERROR(node_->get_logger(), "[MpcTracker]: the asynchronous_loop_rate must be > 15 Hz");
@@ -480,28 +474,30 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   dt1_ = 1.0 / _mpc_asynchronous_rate_;
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "braking/enabled", drs_params_.braking_enabled);
-  private_handlers->param_loader->loadParam(yaml_prefix + "braking/q_vel_braking", drs_params_.q_vel_braking);
-  private_handlers->param_loader->loadParam(yaml_prefix + "braking/q_vel_no_braking", drs_params_.q_vel_no_braking);
+  dynparam_mgr_->register_param("dynamic/braking/enabled", &drs_params_.braking_enabled, false);
 
-  private_handlers->param_loader->loadMatrixKnown(yaml_prefix + "model/translation/A", _mat_A_, MPC_N_STATES, MPC_N_STATES);
-  private_handlers->param_loader->loadMatrixKnown(yaml_prefix + "model/translation/B", _mat_B_, MPC_N_STATES, MPC_N_INPUTS);
+  dynparam_mgr_->register_param("dynamic/braking/q_vel_braking", &drs_params_.q_vel_braking, 2000.0, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
+
+  dynparam_mgr_->register_param("dynamic/braking/q_vel_no_braking", &drs_params_.q_vel_no_braking, 0.0, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
+
+  private_handlers->param_loader->loadMatrixKnown("model/translation/A", _mat_A_, MPC_N_STATES, MPC_N_STATES);
+  private_handlers->param_loader->loadMatrixKnown("model/translation/B", _mat_B_, MPC_N_STATES, MPC_N_INPUTS);
 
   A_ = _mat_A_;
   B_ = _mat_B_;
 
-  private_handlers->param_loader->loadMatrixKnown(yaml_prefix + "model/heading/A", _mat_A_heading_, MPC_HEADING_N_STATES, MPC_HEADING_N_STATES);
-  private_handlers->param_loader->loadMatrixKnown(yaml_prefix + "model/heading/B", _mat_B_heading_, MPC_HEADING_N_STATES, MPC_HEADING_N_INPUTS);
+  private_handlers->param_loader->loadMatrixKnown("model/heading/A", _mat_A_heading_, MPC_HEADING_N_STATES, MPC_HEADING_N_STATES);
+  private_handlers->param_loader->loadMatrixKnown("model/heading/B", _mat_B_heading_, MPC_HEADING_N_STATES, MPC_HEADING_N_INPUTS);
 
   A_heading_ = _mat_A_heading_;
   B_heading_ = _mat_B_heading_;
 
   // load the MPC parameters
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/dt2", _dt2_);
+  private_handlers->param_loader->loadParam("mpc_solver/dt2", _dt2_);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/rate", _diagnostics_rate_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
+  private_handlers->param_loader->loadParam("diagnostics/rate", _diagnostics_rate_);
+  private_handlers->param_loader->loadParam("diagnostics/position_tracking_threshold", _diag_pos_tracking_thr_);
+  private_handlers->param_loader->loadParam("diagnostics/orientation_tracking_threshold", _diag_heading_tracking_thr_);
 
   bool verbose_xy      = false;
   bool verbose_z       = false;
@@ -511,35 +507,37 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   std::vector<double> z_Q;
   std::vector<double> heading_Q;
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/verbose", verbose_xy);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/max_n_iterations", _max_iters_xy_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/xy/Q", xy_Q);
+  private_handlers->param_loader->loadParam("mpc_solver/xy/verbose", verbose_xy);
+  private_handlers->param_loader->loadParam("mpc_solver/xy/max_n_iterations", _max_iters_xy_);
+  private_handlers->param_loader->loadParam("mpc_solver/xy/Q", xy_Q);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/verbose", verbose_z);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/max_n_iterations", _max_iters_z_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/z/Q", z_Q);
+  private_handlers->param_loader->loadParam("mpc_solver/z/verbose", verbose_z);
+  private_handlers->param_loader->loadParam("mpc_solver/z/max_n_iterations", _max_iters_z_);
+  private_handlers->param_loader->loadParam("mpc_solver/z/Q", z_Q);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/verbose", verbose_heading);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/max_n_iterations", _max_iters_heading_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "mpc_solver/heading/Q", heading_Q);
+  private_handlers->param_loader->loadParam("mpc_solver/heading/verbose", verbose_heading);
+  private_handlers->param_loader->loadParam("mpc_solver/heading/max_n_iterations", _max_iters_heading_);
+  private_handlers->param_loader->loadParam("mpc_solver/heading/Q", heading_Q);
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/enabled", drs_params_.wiggle_enabled);
-  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/amplitude", drs_params_.wiggle_amplitude);
-  private_handlers->param_loader->loadParam(yaml_prefix + "wiggle/frequency", drs_params_.wiggle_frequency);
+  RCLCPP_INFO(node_->get_logger(), "subnamespace: %s", node_->get_sub_namespace().c_str());
 
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/enabled", collision_avoidance_enabled_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/correction", _avoidance_z_correction_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/radius", _avoidance_radius_threshold_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
-  private_handlers->param_loader->loadParam(yaml_prefix + "collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
+  dynparam_mgr_->register_param("dynamic/wiggle/enabled", &drs_params_.wiggle_enabled);
+  dynparam_mgr_->register_param("dynamic/wiggle/amplitude", &drs_params_.wiggle_amplitude, mrs_lib::DynparamMgr::range_t<double>(0.0, 2.0));
+  dynparam_mgr_->register_param("dynamic/wiggle/frequency", &drs_params_.wiggle_frequency, mrs_lib::DynparamMgr::range_t<double>(0.0, 2.0));
 
-  if (!private_handlers->param_loader->loadedSuccessfully()) {
+  private_handlers->param_loader->loadParam("collision_avoidance/enabled", collision_avoidance_enabled_);
+  private_handlers->param_loader->loadParam("collision_avoidance/enabled_passively", collision_avoidance_enabled_passively_);
+  private_handlers->param_loader->loadParam("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
+  private_handlers->param_loader->loadParam("collision_avoidance/correction", _avoidance_z_correction_);
+  private_handlers->param_loader->loadParam("collision_avoidance/radius", _avoidance_radius_threshold_);
+  private_handlers->param_loader->loadParam("collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
+  private_handlers->param_loader->loadParam("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
+  private_handlers->param_loader->loadParam("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
+  private_handlers->param_loader->loadParam("collision_avoidance/collision_slow_down_start", _avoidance_collision_slow_down_);
+  private_handlers->param_loader->loadParam("collision_avoidance/collision_start_climbing", _avoidance_collision_start_climbing_);
+  private_handlers->param_loader->loadParam("collision_avoidance/trajectory_timeout", _collision_trajectory_timeout_);
+
+  if (!private_handlers->param_loader->loadedSuccessfully() || !dynparam_mgr_->loaded_successfully()) {
     RCLCPP_ERROR(node_->get_logger(), "[MpcTracker]: could not load all parameters!");
     return false;
   }
@@ -642,16 +640,6 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   }
 
   sh_estimation_diag_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, std::string("/") + _uav_name_ + "/estimation_manager/diagnostics");
-
-  // | --------------- dynamic reconfigure server --------------- |
-
-  // old ROS1 drs
-  /* reconfigure_server_.reset(new ReconfigureServer(config_mutex_, nh_)); */
-  /* reconfigure_server_->updateConfig(drs_params_); */
-  /* ReconfigureServer::CallbackType f = boost::bind(&MpcTracker::dynamicReconfigureCallback, this, _1, _2); */
-  /* reconfigure_server_->setCallback(f); */
-
-  // | ------------------------ profiler ------------------------ |
 
   profiler = mrs_lib::Profiler(common_handlers->parent_node, "MpcTracker", _profiler_enabled_);
 
@@ -1750,13 +1738,9 @@ bool MpcTracker::callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Re
     return true;
   }
 
-  {
-    std::scoped_lock lock(mutex_drs_params_);
+  mrs_lib::set_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, request->data);
 
-    drs_params_.wiggle_enabled = request->data;
-
-    // TODO update params to DRS
-  }
+  dynparam_mgr_->update_to_ros();
 
   response->success = true;
   response->message = "wiggle updated";
@@ -1892,6 +1876,8 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
+  auto [wiggle_enabled, wiggle_amplitude, wiggle_frequency_] = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, drs_params_.wiggle_amplitude, drs_params_.wiggle_frequency);
+
   auto mpc_x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto trajectory_dt = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_dt_);
 
@@ -1903,7 +1889,7 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
   double max_sample_x;
   double max_sample_y;
 
-  if (std::hypot(mpc_x(0, 0) - des_x_trajectory(0, 0), mpc_x(4, 0) - des_y_trajectory(0, 0)) < 2.0) {
+  if (!wiggle_enabled && std::hypot(mpc_x(0, 0) - des_x_trajectory(0, 0), mpc_x(4, 0) - des_y_trajectory(0, 0)) < 2.0) {
     return {des_x_trajectory, des_y_trajectory};
   }
 
@@ -1957,11 +1943,11 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
 
   // | ----------------------- add wiggle ----------------------- |
 
-  auto [wiggle_enabled, wiggle_amplitude, wiggle_frequency_] = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, drs_params_.wiggle_amplitude, drs_params_.wiggle_frequency);
-
   if (wiggle_enabled) {
 
-    for (int i = 0; i < MPC_HORIZON_LENGTH; i++) {
+    RCLCPP_INFO_THROTTLE(node_->get_logger(), *clock_, 1000, "wiggle enabled");
+
+    for (int i = 1; i < MPC_HORIZON_LENGTH; i++) {
       filtered_x_trajectory(i, 0) += wiggle_amplitude * cos(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
       filtered_y_trajectory(i, 0) += wiggle_amplitude * sin(wiggle_frequency_ * 2 * M_PI * i * trajectory_dt + wiggle_phase_);
     }
