@@ -461,8 +461,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
   private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
 
-  dynparam_mgr_->get_param_provider().addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
-  dynparam_mgr_->get_param_provider().addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
+  dynparam_mgr_->get_param_provider().copyYamls(private_handlers->param_loader->getParamProvider());
 
   private_handlers->param_loader->loadParam("mpc_loop/synchronous_rate_limit", _mpc_synchronous_rate_limit_);
   private_handlers->param_loader->loadParam("mpc_loop/asynchronous_loop_rate", _mpc_asynchronous_rate_);
@@ -476,9 +475,9 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   dynparam_mgr_->register_param("dynamic/braking/enabled", &drs_params_.braking_enabled, false);
 
-  dynparam_mgr_->register_param("dynamic/braking/q_vel_braking", &drs_params_.q_vel_braking, 2000.0, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
+  dynparam_mgr_->register_param("dynamic/braking/q_vel_braking", &drs_params_.q_vel_braking, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
 
-  dynparam_mgr_->register_param("dynamic/braking/q_vel_no_braking", &drs_params_.q_vel_no_braking, 0.0, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
+  dynparam_mgr_->register_param("dynamic/braking/q_vel_no_braking", &drs_params_.q_vel_no_braking, mrs_lib::DynparamMgr::range_t<double>(0.0, 10000.0));
 
   private_handlers->param_loader->loadMatrixKnown("model/translation/A", _mat_A_, MPC_N_STATES, MPC_N_STATES);
   private_handlers->param_loader->loadMatrixKnown("model/translation/B", _mat_B_, MPC_N_STATES, MPC_N_INPUTS);
