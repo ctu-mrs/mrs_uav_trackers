@@ -86,7 +86,8 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_managers::Tracker {
 public:
-  bool initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers, std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+  bool initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
 
   void destroy(void);
 
@@ -94,14 +95,17 @@ public:
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState& uav_state, const mrs_uav_managers::Controller::ControlOutput& last_control_output);
+  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState&                     uav_state,
+                                                                 const mrs_uav_managers::Controller::ControlOutput& last_control_output);
   const mrs_msgs::msg::TrackerStatus                      getStatus();
   const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState& new_uav_state);
 
-  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>           setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>   setVelocityReference(const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>         setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> setVelocityReference(
+      const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(
+      const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request);
 
   const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
@@ -109,11 +113,16 @@ public:
   const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
 
-  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(
+      const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request);
 
 private:
   rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
+
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_subs_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;
 
   std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t>  common_handlers_;
   std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers_;
@@ -320,7 +329,8 @@ private:
   mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory> ph_avoidance_trajectory_;
 
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_server_toggle_avoidance_;
-  bool                                               callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  bool                                               callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
+                                                                                      const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics> sh_estimation_diag_;
 
@@ -398,7 +408,7 @@ private:
   // | ------------------------- wiggle ------------------------- |
 
   rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_server_wiggle_;
-  bool                                               callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  bool callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   double wiggle_phase_ = 0;
 
@@ -426,7 +436,8 @@ private:
 
 /* //{ initialize() */
 
-bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers, std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
+bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                            std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
   this->common_handlers_  = common_handlers;
   this->private_handlers_ = private_handlers;
@@ -435,6 +446,10 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   node_  = node;
   clock_ = node->get_clock();
+
+  cbkgrp_subs_   = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_timers_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_ss_     = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   time_last_update_          = rclcpp::Time(0, 0, clock_->get_clock_type());
   time_last_mpc_calculation_ = rclcpp::Time(0, 0, clock_->get_clock_type());
@@ -543,10 +558,11 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   RCLCPP_INFO_STREAM(node_->get_logger(), "[MpcTracker]: initializing solvers with dt1 = " << dt1_);
 
-  mpc_solver_y_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_y", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 1);
-  mpc_solver_x_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_x", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 0);
-  mpc_solver_z_       = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_z", verbose_z, _max_iters_z_, z_Q, dt1_, _dt2_, 2);
-  mpc_solver_heading_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_hdg", verbose_heading, _max_iters_heading_, heading_Q, dt1_, _dt2_, 0);
+  mpc_solver_y_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_y", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 1);
+  mpc_solver_x_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_x", verbose_xy, _max_iters_xy_, xy_Q, dt1_, _dt2_, 0);
+  mpc_solver_z_ = std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_z", verbose_z, _max_iters_z_, z_Q, dt1_, _dt2_, 2);
+  mpc_solver_heading_ =
+      std::make_shared<mrs_mpc_solvers::mpc_tracker::Solver>("MpcTracker_hdg", verbose_heading, _max_iters_heading_, heading_Q, dt1_, _dt2_, 0);
 
   mpc_x_         = MatrixXd::Zero(MPC_N_STATES, 1);
   mpc_x_heading_ = MatrixXd::Zero(MPC_HEADING_N_STATES, 1);
@@ -561,7 +577,9 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   des_z_filtered_offset_  = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
   des_heading_trajectory_ = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
 
-  service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>("~/" + private_handlers_->name_space + "/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2));
+  service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>(
+      "~/" + private_handlers_->name_space + "/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2),
+      rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
   pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "/" + common_handlers_->uav_name + "/uav_status_acquisition/display_string");
@@ -595,15 +613,21 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   // create publishers for predicted trajectory
 
-  ph_avoidance_trajectory_           = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory");
-  ph_predicted_trajectory_debugging_ = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory_debugging");
+  ph_avoidance_trajectory_ = mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory");
+  ph_predicted_trajectory_debugging_ =
+      mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/predicted_trajectory_debugging");
 
   // TODO make these topics latching
-  ph_mpc_reference_debugging_             = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/mpc_reference_debugging");
-  ph_current_trajectory_point_            = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/current_trajectory_point");
-  ph_first_reference_point_               = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/first_reference_point");
-  pub_debug_processed_trajectory_poses_   = mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/poses");
-  pub_debug_processed_trajectory_markers_ = mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/markers");
+  ph_mpc_reference_debugging_ =
+      mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/mpc_reference_debugging");
+  ph_current_trajectory_point_ =
+      mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/current_trajectory_point");
+  ph_first_reference_point_ =
+      mrs_lib::PublisherHandler<geometry_msgs::msg::PoseStamped>(node_, "~/" + private_handlers_->name_space + "/first_reference_point");
+  pub_debug_processed_trajectory_poses_ =
+      mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/poses");
+  pub_debug_processed_trajectory_markers_ =
+      mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray>(node_, "~/" + private_handlers_->name_space + "/trajectory_processed/markers");
 
   // preallocate predicted trajectory
   predicted_trajectory_         = MatrixXd::Zero(MPC_HORIZON_LENGTH * MPC_N_STATES, 1);
@@ -612,13 +636,16 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   collision_free_altitude_ = std::numeric_limits<float>::lowest();
 
   // collision avoidance toggle service
-  service_server_toggle_avoidance_ = node_->create_service<std_srvs::srv::SetBool>("~/" + private_handlers_->name_space + "/collision_avoidance", std::bind(&MpcTracker::callbackToggleCollisionAvoidance, this, std::placeholders::_1, std::placeholders::_2));
+  service_server_toggle_avoidance_ = node_->create_service<std_srvs::srv::SetBool>(
+      "~/" + private_handlers_->name_space + "/collision_avoidance",
+      std::bind(&MpcTracker::callbackToggleCollisionAvoidance, this, std::placeholders::_1, std::placeholders::_2), rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   mrs_lib::SubscriberHandlerOptions shopts;
-  shopts.node               = node_;
-  shopts.no_message_timeout = mrs_lib::no_timeout;
-  shopts.threadsafe         = true;
-  shopts.autostart          = true;
+  shopts.node                                = node_;
+  shopts.no_message_timeout                  = mrs_lib::no_timeout;
+  shopts.threadsafe                          = true;
+  shopts.autostart                           = true;
+  shopts.subscription_options.callback_group = cbkgrp_subs_;
 
   // create subscribers on other drones diagnostics
   if (collision_avoidance_enabled_ || collision_avoidance_enabled_passively_) {
@@ -630,15 +657,18 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
       RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: subscribing to %s", prediction_topic_name.c_str());
 
-      other_uav_trajectory_subscribers_.push_back(std::make_shared<mrs_lib::SubscriberHandler<mrs_msgs::msg::FutureTrajectory>>(shopts, prediction_topic_name, &MpcTracker::callbackOtherMavTrajectory, this));
+      other_uav_trajectory_subscribers_.push_back(std::make_shared<mrs_lib::SubscriberHandler<mrs_msgs::msg::FutureTrajectory>>(
+          shopts, prediction_topic_name, &MpcTracker::callbackOtherMavTrajectory, this));
 
       RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: subscribing to %s", diag_topic_name.c_str());
 
-      other_uav_diag_subscribers_.push_back(std::make_shared<mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>>(shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
+      other_uav_diag_subscribers_.push_back(std::make_shared<mrs_lib::SubscriberHandler<mrs_msgs::msg::MpcTrackerDiagnostics>>(
+          shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
     }
   }
 
-  sh_estimation_diag_ = mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, std::string("/") + _uav_name_ + "/estimation_manager/diagnostics");
+  sh_estimation_diag_ =
+      mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, std::string("/") + _uav_name_ + "/estimation_manager/diagnostics");
 
   profiler = mrs_lib::Profiler(common_handlers->parent_node, "MpcTracker", _profiler_enabled_);
 
@@ -646,21 +676,24 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
 
   mrs_lib::TimerHandlerOptions timer_opts_start;
 
-  timer_opts_start.node      = node_;
-  timer_opts_start.autostart = true;
+  timer_opts_start.node           = node_;
+  timer_opts_start.autostart      = true;
+  timer_opts_start.callback_group = cbkgrp_timers_;
 
   mrs_lib::TimerHandlerOptions timer_opts_no_start;
 
-  timer_opts_no_start.node      = node_;
-  timer_opts_no_start.autostart = false;
+  timer_opts_no_start.node           = node_;
+  timer_opts_no_start.autostart      = false;
+  timer_opts_no_start.callback_group = cbkgrp_timers_;
 
   {
     std::function<void()> callback_fcn = std::bind(&MpcTracker::timerAvoidanceTrajectory, this);
 
     mrs_lib::TimerHandlerOptions opts;
 
-    opts.node      = node_;
-    opts.autostart = collision_avoidance_enabled_ || collision_avoidance_enabled_passively_;
+    opts.node           = node_;
+    opts.autostart      = collision_avoidance_enabled_ || collision_avoidance_enabled_passively_;
+    opts.callback_group = cbkgrp_timers_;
 
     timer_avoidance_trajectory_ = std::make_shared<TimerType>(opts, rclcpp::Rate(_avoidance_trajectory_rate_, clock_), callback_fcn);
   }
@@ -978,10 +1011,11 @@ bool MpcTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::msg::UavState& uav_state, [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
+std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::msg::UavState&                                      uav_state,
+                                                                [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer(node_, "MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer(node_, "MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   auto old_uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -1005,13 +1039,15 @@ std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::
 
     if (mpc_synchronous_ && (update_rate_ > _mpc_synchronous_rate_limit_)) {
       mpc_synchronous_ = false;
-      RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: detecting high update date (%.1f Hz > %.1f Hz), switching to asynchronous mode.", rate, _mpc_synchronous_rate_limit_);
+      RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: detecting high update date (%.1f Hz > %.1f Hz), switching to asynchronous mode.", rate,
+                  _mpc_synchronous_rate_limit_);
       if (is_active_) {
         timer_mpc_iteration_->start();
       }
     } else if (!mpc_synchronous_ && (update_rate_ <= _mpc_synchronous_rate_limit_)) {
       mpc_synchronous_ = true;
-      RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: detecting low update rate (%.1f Hz < %.1f Hz), switching to synchronous mode.", rate, _mpc_synchronous_rate_limit_);
+      RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: detecting low update rate (%.1f Hz < %.1f Hz), switching to synchronous mode.", rate,
+                  _mpc_synchronous_rate_limit_);
       timer_mpc_iteration_->stop();
     }
   }
@@ -1280,11 +1316,14 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdomet
   auto x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  RCLCPP_INFO(node_->get_logger(),
-              "[MpcTracker]: start of odometry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: "
-              "%.2f], "
-              "new odom [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
-              x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), new_uav_state.pose.position.x, new_uav_state.pose.position.y, new_uav_state.pose.position.z, new_uav_state.velocity.linear.x, new_uav_state.velocity.linear.y, new_uav_state.velocity.linear.z, new_uav_state.acceleration.linear.x, new_uav_state.acceleration.linear.y, new_uav_state.acceleration.linear.z);
+  RCLCPP_INFO(
+      node_->get_logger(),
+      "[MpcTracker]: start of odometry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: "
+      "%.2f], "
+      "new odom [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: %.2f]",
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0), new_uav_state.pose.position.x, new_uav_state.pose.position.y,
+      new_uav_state.pose.position.z, new_uav_state.velocity.linear.x, new_uav_state.velocity.linear.y, new_uav_state.velocity.linear.z,
+      new_uav_state.acceleration.linear.x, new_uav_state.acceleration.linear.y, new_uav_state.acceleration.linear.z);
 
   timer_mpc_iteration_->stop();
   RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: mpc timer stopped");
@@ -1396,10 +1435,11 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdomet
     mpc_x_heading_(1, 0) = new_uav_state.velocity.angular.x;
   }
 
-  RCLCPP_INFO(node_->get_logger(),
-              "[MpcTracker]: start of odometry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: "
-              "%.2f]",
-              x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0));
+  RCLCPP_INFO(
+      node_->get_logger(),
+      "[MpcTracker]: start of odometry reset, curent state [x: %.2f, y: %.2f, z: %.2f] [x_d: %.2f, y_d: %.2f, z_d: %.2f] [x_dd: %.2f, y_dd: %.2f, z_dd: "
+      "%.2f]",
+      x(0, 0), x(4, 0), x(8, 0), x(1, 0), x(5, 0), x(9, 0), x(2, 0), x(6, 0), x(10, 0));
 
   RCLCPP_INFO(node_->get_logger(), "[MpcTracker]: starting the MPC timer");
 
@@ -1435,7 +1475,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::hover([[mayb
 
 /* //{ startTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::startTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::startTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   std::stringstream ss;
 
@@ -1453,7 +1494,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::startTraject
 
 /* //{ stopTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::stopTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::stopTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   auto [success, message] = stopTrajectoryTrackingImpl();
 
@@ -1469,7 +1511,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::stopTrajecto
 
 /* //{ resumeTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::resumeTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::resumeTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   auto [success, message] = resumeTrajectoryTrackingImpl();
 
@@ -1486,7 +1529,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::resumeTrajec
 
 /* //{ gotoTrajectoryStart() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::gotoTrajectoryStart([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::gotoTrajectoryStart(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   auto [success, message] = gotoTrajectoryStartImpl();
 
@@ -1502,7 +1546,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::gotoTrajecto
 
 /* //{ setConstraints() */
 
-const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> MpcTracker::setConstraints([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> MpcTracker::setConstraints(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request) {
 
   if (!is_initialized_) {
     return nullptr;
@@ -1547,7 +1592,8 @@ const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> MpcTracke
 
 /* //{ setReference() */
 
-const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> MpcTracker::setReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> MpcTracker::setReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request) {
 
   toggleHover(false);
 
@@ -1565,7 +1611,8 @@ const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> MpcTracker::setRefe
 
 /* //{ setVelocityReference() */
 
-const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> MpcTracker::setVelocityReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> MpcTracker::setVelocityReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request) {
 
   if (!is_initialized_) {
     return nullptr;
@@ -1601,7 +1648,8 @@ const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> MpcTracker:
 
 /* //{ setTrajectoryReference() */
 
-const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> MpcTracker::setTrajectoryReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> MpcTracker::setTrajectoryReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request) {
 
   std::stringstream ss;
 
@@ -1629,7 +1677,8 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::msg::FutureTrajector
   }
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("callbackOtherMavTrajectory");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer(node_, "MpcTracker::callbackOtherMavTrajectory", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer(node_, "MpcTracker::callbackOtherMavTrajectory", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
@@ -1693,7 +1742,8 @@ void MpcTracker::callbackOtherMavTrajectory(const mrs_msgs::msg::FutureTrajector
 void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::msg::MpcTrackerDiagnostics::ConstSharedPtr msg) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("callbackOtherMavDiagnostics");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer(node_, "MpcTracker::callbackOtherMavDiagnostics", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer =
+      mrs_lib::ScopeTimer(node_, "MpcTracker::callbackOtherMavDiagnostics", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   mrs_msgs::msg::MpcTrackerDiagnostics diagnostics = *msg;
 
@@ -1712,7 +1762,8 @@ void MpcTracker::callbackOtherMavDiagnostics(const mrs_msgs::msg::MpcTrackerDiag
 
 /* //{ callbackToggleCollisionAvoidance() */
 
-bool MpcTracker::callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
+bool MpcTracker::callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
+                                                  const std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
 
   collision_avoidance_enabled_ = request->data;
 
@@ -1728,7 +1779,8 @@ bool MpcTracker::callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs
 
 /* callbackWiggle() //{ */
 
-bool MpcTracker::callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
+bool MpcTracker::callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
+                                const std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
 
   if (!is_initialized_) {
 
@@ -1807,7 +1859,8 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
       for (int v = 0; v < MPC_HORIZON_LENGTH; v++) {
 
         // check all points of the trajectory for possible collisions
-        if (checkCollision(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0), predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y, u->second.points.at(v).z)) {
+        if (checkCollision(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0),
+                           predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y, u->second.points.at(v).z)) {
 
           // collision is detected
           int other_uav_priority = INT_MAX;
@@ -1830,11 +1883,14 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
           } else {
             // the other uav should avoid us
-            RCLCPP_WARN_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: detected collision with uav" << other_uav_priority << ", not avoiding (my priority is higher)");
+            RCLCPP_WARN_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000,
+                                        "[MpcTracker]: detected collision with uav" << other_uav_priority << ", not avoiding (my priority is higher)");
           }
         }
 
-        if (checkCollisionInflated(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0), predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y, u->second.points.at(v).z)) {
+        if (checkCollisionInflated(predicted_trajectory_(v * MPC_N_STATES, 0), predicted_trajectory_(v * MPC_N_STATES + 4, 0),
+                                   predicted_trajectory_(v * MPC_N_STATES + 8, 0), u->second.points.at(v).x, u->second.points.at(v).y,
+                                   u->second.points.at(v).z)) {
 
           // collision is detected
           if (first_collision_index > v) {
@@ -1871,11 +1927,13 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
 /* //{ filterReferenceXY() */
 
-std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x, double max_speed_y) {
+std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x,
+                                                             double max_speed_y) {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
-  auto [wiggle_enabled, wiggle_amplitude, wiggle_frequency_] = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, drs_params_.wiggle_amplitude, drs_params_.wiggle_frequency);
+  auto [wiggle_enabled, wiggle_amplitude, wiggle_frequency_] =
+      mrs_lib::get_mutexed(mutex_drs_params_, drs_params_.wiggle_enabled, drs_params_.wiggle_amplitude, drs_params_.wiggle_frequency);
 
   auto mpc_x         = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
   auto trajectory_dt = mrs_lib::get_mutexed(mutex_des_trajectory_, trajectory_dt_);
@@ -2037,8 +2095,14 @@ void MpcTracker::manageConstraints() {
   auto constraints            = mrs_lib::get_mutexed(mutex_constraints_, constraints_);
   auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
 
-  bool can_change = (fabs(mpc_x(1, 0)) < constraints.horizontal_speed) && (fabs(mpc_x(2, 0)) < constraints.horizontal_acceleration) && (fabs(mpc_x(3, 0)) < constraints.horizontal_jerk) && (fabs(mpc_x(5, 0)) < constraints.horizontal_speed) && (fabs(mpc_x(6, 0)) < constraints.horizontal_acceleration) && (fabs(mpc_x(7, 0)) < constraints.horizontal_jerk) && (mpc_x(9, 0) < constraints.vertical_ascending_speed) && (mpc_x(9, 0) > -constraints.vertical_descending_speed) &&
-                    (mpc_x(10, 0) < constraints.vertical_ascending_acceleration) && (mpc_x(10, 0) > -constraints.vertical_descending_acceleration) && (mpc_x(11, 0) < constraints.vertical_ascending_jerk) && (mpc_x(11, 0) > -constraints.vertical_descending_jerk) && (fabs(mpc_x_heading(1, 0)) < constraints.heading_speed) && (fabs(mpc_x_heading(2, 0)) < constraints.heading_acceleration) && (fabs(mpc_x_heading(3, 0)) < constraints.heading_jerk);
+  bool can_change = (fabs(mpc_x(1, 0)) < constraints.horizontal_speed) && (fabs(mpc_x(2, 0)) < constraints.horizontal_acceleration) &&
+                    (fabs(mpc_x(3, 0)) < constraints.horizontal_jerk) && (fabs(mpc_x(5, 0)) < constraints.horizontal_speed) &&
+                    (fabs(mpc_x(6, 0)) < constraints.horizontal_acceleration) && (fabs(mpc_x(7, 0)) < constraints.horizontal_jerk) &&
+                    (mpc_x(9, 0) < constraints.vertical_ascending_speed) && (mpc_x(9, 0) > -constraints.vertical_descending_speed) &&
+                    (mpc_x(10, 0) < constraints.vertical_ascending_acceleration) && (mpc_x(10, 0) > -constraints.vertical_descending_acceleration) &&
+                    (mpc_x(11, 0) < constraints.vertical_ascending_jerk) && (mpc_x(11, 0) > -constraints.vertical_descending_jerk) &&
+                    (fabs(mpc_x_heading(1, 0)) < constraints.heading_speed) && (fabs(mpc_x_heading(2, 0)) < constraints.heading_acceleration) &&
+                    (fabs(mpc_x_heading(3, 0)) < constraints.heading_jerk);
 
   if (can_change) {
 
@@ -2148,7 +2212,8 @@ void MpcTracker::calculateMPC() {
     if (first_collision_index <= _avoidance_collision_slow_down_fully_) {
       tmp = 1;
     } else if (first_collision_index <= _avoidance_collision_slow_down_) {
-      tmp = 1.0 - ((double)(first_collision_index - _avoidance_collision_slow_down_fully_)) / (double)(_avoidance_collision_slow_down_ - _avoidance_collision_slow_down_fully_);
+      tmp = 1.0 - ((double)(first_collision_index - _avoidance_collision_slow_down_fully_)) /
+                      (double)(_avoidance_collision_slow_down_ - _avoidance_collision_slow_down_fully_);
       tmp = tmp * tmp;
     }
 
@@ -2325,7 +2390,8 @@ void MpcTracker::calculateMPC() {
   mpc_solver_heading_->setDt(dt1);
   mpc_solver_heading_->setInitialState(mpc_x_heading);
   mpc_solver_heading_->loadReference(des_heading_trajectory);
-  mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration, constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
+  mpc_solver_heading_->setLimits(constraints.heading_speed, constraints.heading_speed, constraints.heading_acceleration, constraints.heading_acceleration,
+                                 constraints.heading_jerk, constraints.heading_jerk, constraints.heading_snap, constraints.heading_snap);
   iters_heading += mpc_solver_heading_->solveMPC();
   {
     std::scoped_lock lock(mutex_predicted_trajectory_);
@@ -2397,14 +2463,20 @@ void MpcTracker::calculateMPC() {
 
   double mpc_solver_time = (clock_->now() - time_begin).seconds();
   if (mpc_solver_time > dt1 || iters_x > _max_iters_xy_ || iters_y > _max_iters_xy_ || iters_z > _max_iters_z_ || iters_heading > _max_iters_heading_) {
-    RCLCPP_DEBUG_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_ << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z << "/" << _max_iters_z_ << " iters heading: " << iters_heading << "/" << _max_iters_heading_);
+    RCLCPP_DEBUG_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000,
+                                 "[MpcTracker]: Total MPC solver time: " << mpc_solver_time << " iters X: " << iters_x << "/" << _max_iters_xy_
+                                                                         << " iters Y:  " << iters_y << "/" << _max_iters_xy_ << " iters Z: " << iters_z << "/"
+                                                                         << _max_iters_z_ << " iters heading: " << iters_heading << "/" << _max_iters_heading_);
   }
 
   future_was_predicted_ = true;
 
   // | ------------- breaking for the next iteration ------------ |
 
-  if (drs_params.braking_enabled && (std::abs(des_x_filtered(MPC_HORIZON_LENGTH - 6) - des_x_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) && (std::abs(des_y_filtered(MPC_HORIZON_LENGTH - 6) - des_y_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) && (std::abs(des_z_filtered(MPC_HORIZON_LENGTH - 6) - des_z_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) && (std::abs(radians::diff(des_heading_trajectory(MPC_HORIZON_LENGTH - 6), des_heading_trajectory(MPC_HORIZON_LENGTH - 1))) <= 0.1)) {
+  if (drs_params.braking_enabled && (std::abs(des_x_filtered(MPC_HORIZON_LENGTH - 6) - des_x_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(des_y_filtered(MPC_HORIZON_LENGTH - 6) - des_y_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(des_z_filtered(MPC_HORIZON_LENGTH - 6) - des_z_filtered(MPC_HORIZON_LENGTH - 1)) <= 0.1) &&
+      (std::abs(radians::diff(des_heading_trajectory(MPC_HORIZON_LENGTH - 6), des_heading_trajectory(MPC_HORIZON_LENGTH - 1))) <= 0.1)) {
 
     brake_ = true;
     RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: braking");

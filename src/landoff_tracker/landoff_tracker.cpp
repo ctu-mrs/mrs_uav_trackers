@@ -72,7 +72,8 @@ const std::array<const char*, 7> state_names = {
 
 class LandoffTracker : public mrs_uav_managers::Tracker {
 public:
-  bool initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers, std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
+  bool initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                  std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
 
   void destroy(void);
 
@@ -80,14 +81,17 @@ public:
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState& uav_state, const mrs_uav_managers::Controller::ControlOutput& last_control_output);
+  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState&                     uav_state,
+                                                                 const mrs_uav_managers::Controller::ControlOutput& last_control_output);
   const mrs_msgs::msg::TrackerStatus                      getStatus();
   const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState& new_uav_state);
 
-  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>           setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>   setVelocityReference(const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>         setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> setVelocityReference(
+      const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(
+      const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request);
 
   const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
@@ -95,7 +99,8 @@ public:
   const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
 
-  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(
+      const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request);
 
 private:
   bool callbacks_enabled_ = true;
@@ -105,6 +110,9 @@ private:
 
   rclcpp::Node::SharedPtr  node_;
   rclcpp::Clock::SharedPtr clock_;
+
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_timers_;
+  rclcpp::CallbackGroup::SharedPtr cbkgrp_ss_;
 
   std::string _uav_name_;
 
@@ -223,7 +231,8 @@ private:
 
 /* //{ initialize() */
 
-bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers, std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
+bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+                                std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
   this->common_handlers_  = common_handlers;
   this->private_handlers_ = private_handlers;
@@ -232,6 +241,9 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 
   node_  = node;
   clock_ = node->get_clock();
+
+  cbkgrp_timers_ = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+  cbkgrp_ss_     = node_->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
 
   // --------------------------------------------------------------
   // |                     loading parameters                     |
@@ -318,16 +330,23 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 
   // | ------------------------ services ------------------------ |
 
-  service_takeoff_ = node_->create_service<mrs_msgs::srv::Vec1>("~/" + private_handlers_->name_space + "/takeoff", std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2));
-  service_land_    = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/land", std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2));
-  service_eland_   = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/eland", std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2));
+  service_takeoff_ = node_->create_service<mrs_msgs::srv::Vec1>("~/" + private_handlers_->name_space + "/takeoff",
+                                                                std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2),
+                                                                rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+  service_land_    = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/land",
+                                                                   std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2),
+                                                                   rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+  service_eland_   = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/eland",
+                                                                   std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2),
+                                                                   rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   // | ------------------------- timers ------------------------- |
 
   mrs_lib::TimerHandlerOptions timer_opts_start;
 
-  timer_opts_start.node      = node_;
-  timer_opts_start.autostart = true;
+  timer_opts_start.node           = node_;
+  timer_opts_start.autostart      = true;
+  timer_opts_start.callback_group = cbkgrp_timers_;
 
   {
     std::function<void()> callback_fcn = std::bind(&LandoffTracker::timerMain, this);
@@ -351,7 +370,6 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 void LandoffTracker::destroy(void) {
 
   timer_main_->stop();
-
 }
 
 //}
@@ -413,7 +431,8 @@ std::tuple<bool, std::string> LandoffTracker::activate([[maybe_unused]] const st
 
     goal_heading_ = uav_heading;
 
-    RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: initial condition: x: %.2f, y: %.2f, z: %.2f, heading: %.2f", state_x_, state_y_, state_z_, state_heading_);
+    RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: initial condition: x: %.2f, y: %.2f, z: %.2f, heading: %.2f", state_x_, state_y_, state_z_,
+                state_heading_);
   }
 
   // --------------------------------------------------------------
@@ -508,10 +527,11 @@ bool LandoffTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::msg::TrackerCommand> LandoffTracker::update(const mrs_msgs::msg::UavState& uav_state, [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
+std::optional<mrs_msgs::msg::TrackerCommand> LandoffTracker::update(const mrs_msgs::msg::UavState&                                      uav_state,
+                                                                    [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer(node_, "LandoffTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer(node_, "LandoffTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   {
     std::scoped_lock lock(mutex_uav_state_);
@@ -710,14 +730,16 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::switchOd
 
 /* //{ hover() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::hover([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::hover(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   std::scoped_lock lock(mutex_main_timer_);
 
   // copy member variables
   auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
-  auto [current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(mutex_state_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
+  auto [current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] =
+      mrs_lib::get_mutexed(mutex_state_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
 
   std::shared_ptr<std_srvs::srv::Trigger::Response> response = std::make_shared<std_srvs::srv::Trigger::Response>();
 
@@ -770,7 +792,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::hover([[
 
 /* //{ startTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::startTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::startTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   return nullptr;
 }
@@ -779,7 +802,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::startTra
 
 /* //{ stopTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::stopTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::stopTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   return nullptr;
 }
@@ -788,7 +812,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::stopTraj
 
 /* //{ resumeTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::resumeTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::resumeTrajectoryTracking(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   return nullptr;
 }
@@ -797,7 +822,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::resumeTr
 
 /* //{ gotoTrajectoryStart() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::gotoTrajectoryStart([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::gotoTrajectoryStart(
+    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
 
   return nullptr;
 }
@@ -806,7 +832,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LandoffTracker::gotoTraj
 
 /* //{ setConstraints() */
 
-const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> LandoffTracker::setConstraints([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> LandoffTracker::setConstraints(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request) {
 
   mrs_lib::set_mutexed(mutex_constraints_, request->constraints, constraints_);
 
@@ -824,7 +851,8 @@ const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> LandoffTr
 
 /* //{ setReference() */
 
-const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> LandoffTracker::setReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> LandoffTracker::setReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request) {
 
   return nullptr;
 }
@@ -833,7 +861,8 @@ const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> LandoffTracker::set
 
 /* //{ setVelocityReference() */
 
-const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> LandoffTracker::setVelocityReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> LandoffTracker::setVelocityReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request) {
 
   return nullptr;
 }
@@ -842,7 +871,8 @@ const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> LandoffTrac
 
 /* //{ setTrajectoryReference() */
 
-const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> LandoffTracker::setTrajectoryReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> LandoffTracker::setTrajectoryReference(
+    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request) {
 
   return nullptr;
 }
@@ -874,7 +904,8 @@ void LandoffTracker::changeStateHorizontal(States_t new_state) {
     }
   }
 
-  RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: Switching horizontal state %s -> %s", state_names.at(previous_state_horizontal_), state_names.at(current_state_horizontal_));
+  RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: Switching horizontal state %s -> %s", state_names.at(previous_state_horizontal_),
+              state_names.at(current_state_horizontal_));
 }
 
 //}
@@ -898,7 +929,8 @@ void LandoffTracker::changeStateVertical(States_t new_state) {
     }
   }
 
-  RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: Switching vertical state %s -> %s", state_names.at(previous_state_vertical_), state_names.at(current_state_vertical_));
+  RCLCPP_INFO(node_->get_logger(), "[LandoffTracker]: Switching vertical state %s -> %s", state_names.at(previous_state_vertical_),
+              state_names.at(current_state_vertical_));
 }
 
 //}
@@ -1186,10 +1218,11 @@ void LandoffTracker::timerMain() {
   }
 
   // copy member variables
-  auto uav_state                                                                                                                  = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
-  auto [state_x, state_y, state_z, current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(mutex_state_, state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
-  auto [goal_x, goal_y, goal_z]                                                                                                   = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
-  auto last_control_output                                                                                                        = mrs_lib::get_mutexed(mutex_last_control_output_, last_control_output_);
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+  auto [state_x, state_y, state_z, current_horizontal_speed, current_vertical_speed, current_heading, current_vertical_direction] = mrs_lib::get_mutexed(
+      mutex_state_, state_x_, state_y_, state_z_, current_horizontal_speed_, current_vertical_speed_, current_heading_, current_vertical_direction_);
+  auto [goal_x, goal_y, goal_z] = mrs_lib::get_mutexed(mutex_goal_, goal_x_, goal_y_, goal_z_);
+  auto last_control_output      = mrs_lib::get_mutexed(mutex_last_control_output_, last_control_output_);
 
   double uav_x, uav_y, uav_z;
   uav_x = uav_state.pose.position.x;
@@ -1197,7 +1230,7 @@ void LandoffTracker::timerMain() {
   uav_z = uav_state.pose.position.z;
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("main");
-  mrs_lib::ScopeTimer timer            = mrs_lib::ScopeTimer(node_, "LandoffTracker::main", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
+  mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer(node_, "LandoffTracker::main", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   bool takeoff_saturated = false;
 
@@ -1223,7 +1256,10 @@ void LandoffTracker::timerMain() {
         // => the tracker will wait for the controller
         takeoff_saturated = true;
 
-        RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 100, "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f", error_size, _max_position_difference_, future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z);
+        RCLCPP_WARN_THROTTLE(
+            node_->get_logger(), *clock_, 100,
+            "[LandoffTracker]: position difference %.3f > %.3f, saturating the motion. Reference: x=%.2f, y=%.2f, z=%.2f, Odometry: %.2f, %.2f, %.2f",
+            error_size, _max_position_difference_, future_state_x, future_state_y, future_state_z, uav_x, uav_y, uav_z);
       }
     }
 
@@ -1506,7 +1542,8 @@ void LandoffTracker::callbackTakeoff(const std::shared_ptr<mrs_msgs::srv::Vec1::
 
 /* //{ callbackLand() */
 
-void LandoffTracker::callbackLand([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+void LandoffTracker::callbackLand([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+                                  std::shared_ptr<std_srvs::srv::Trigger::Response>                       response) {
 
   std::scoped_lock lock(mutex_main_timer_);
 
@@ -1546,7 +1583,8 @@ void LandoffTracker::callbackLand([[maybe_unused]] const std::shared_ptr<std_srv
 
 /* //{ callbackELand() */
 
-void LandoffTracker::callbackELand([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+void LandoffTracker::callbackELand([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+                                   std::shared_ptr<std_srvs::srv::Trigger::Response>                       response) {
 
   std::scoped_lock lock(mutex_main_timer_);
 
