@@ -3571,7 +3571,17 @@ void MpcTracker::timerMPC() {
 
     /* interpolate the trajectory points and fill in the desired_trajectory vector //{ */
 
-    const double dt_from_last_update = (clock_->now() - time_last_mpc_calculation_).seconds();
+    double dt_from_last_update = 0.0;
+
+    if (time_last_mpc_calculation_.seconds() == 0) {
+
+      dt_from_last_update = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
+
+    } else {
+
+      dt_from_last_update = (clock_->now() - time_last_mpc_calculation_).seconds();
+    }
+
     time_last_mpc_calculation_ = clock_->now();
 
     if (dt_from_last_update > 0.0 && dt_from_last_update < 1.0) {
