@@ -1350,7 +1350,7 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdomet
     old_heading = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[LineTracker]: could not calculate the old UAV heading");
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: could not calculate the old UAV heading");
     got_headings = false;
   }
 
@@ -1358,7 +1358,7 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdomet
     new_heading = mrs_lib::AttitudeConverter(new_uav_state.pose.orientation).getHeading();
   }
   catch (...) {
-    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[LineTracker]: could not calculate the new UAV heading");
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: could not calculate the new UAV heading");
     got_headings = false;
   }
 
