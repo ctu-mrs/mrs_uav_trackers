@@ -21,3 +21,9 @@
     <description>MidairActivationTracker</description>
   </class>
 </library>
+
+<library path="MrsUavTrackers_FlipTracker">
+  <class type="mrs_uav_trackers::flip_tracker::FlipTracker" base_class_type="mrs_uav_managers::Tracker">
+    <description>FlipTracker</description>
+  </class>
+</library>

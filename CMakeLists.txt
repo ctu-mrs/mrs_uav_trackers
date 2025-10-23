@@ -47,6 +47,7 @@ set(LIBRARIES
   MrsUavTrackers_LineTracker
   MrsUavTrackers_MpcTracker
   MrsUavTrackers_MidairActivationTracker
+  MrsUavTrackers_FlipTracker
   )
 
 foreach(DEP IN LISTS DEPENDENCIES)
@@ -64,7 +65,7 @@ include_directories(
 # Landoff Tracker
 
 add_library(MrsUavTrackers_LandoffTracker SHARED
-  src/landoff_tracker/landoff_tracker.cpp
+  src/landoff_tracker.cpp
   )
 
 ament_target_dependencies(MrsUavTrackers_LandoffTracker
@@ -76,7 +77,7 @@ target_compile_definitions(MrsUavTrackers_LandoffTracker PRIVATE USE_ROS_TIMER=$
 # Line Tracker
 
 add_library(MrsUavTrackers_LineTracker SHARED
-  src/line_tracker/line_tracker.cpp
+  src/line_tracker.cpp
   )
 
 ament_target_dependencies(MrsUavTrackers_LineTracker
@@ -88,7 +89,7 @@ target_compile_definitions(MrsUavTrackers_LineTracker PRIVATE USE_ROS_TIMER=${US
 # MPC Tracker
 
 add_library(MrsUavTrackers_MpcTracker SHARED
-  src/mpc_tracker/mpc_tracker.cpp
+  src/mpc_tracker.cpp
   )
 
 ament_target_dependencies(MrsUavTrackers_MpcTracker
@@ -104,7 +105,7 @@ target_compile_definitions(MrsUavTrackers_MpcTracker PRIVATE USE_ROS_TIMER=${USE
 # Midair Activation Tracker
 
 add_library(MrsUavTrackers_MidairActivationTracker SHARED
-  src/midair_activation_tracker/midair_activation_tracker.cpp
+  src/midair_activation_tracker.cpp
   )
 
 ament_target_dependencies(MrsUavTrackers_MidairActivationTracker
@@ -112,6 +113,18 @@ ament_target_dependencies(MrsUavTrackers_MidairActivationTracker
   )
 
 target_compile_definitions(MrsUavTrackers_MidairActivationTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
+
+# Flip Tracker
+
+add_library(MrsUavTrackers_FlipTracker SHARED
+  src/flip_tracker.cpp
+  )
+
+ament_target_dependencies(MrsUavTrackers_FlipTracker
+  ${DEPENDENCIES}
+  )
+
+target_compile_definitions(MrsUavTrackers_FlipTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
 
 ## --------------------------------------------------------------
 ## |                       export plugins                       |

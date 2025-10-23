@@ -13,6 +13,7 @@
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/timer_handler.h>
+#include <mrs_lib/service_server_handler.h>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
 
@@ -169,9 +170,9 @@ private:
 
   // | --------------- takeoff / landing services --------------- |
 
-  rclcpp::Service<mrs_msgs::srv::Vec1>::SharedPtr    service_takeoff_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_land_;
-  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_eland_;
+  mrs_lib::ServiceServerHandler<mrs_msgs::srv::Vec1>    ss_takeoff_;
+  mrs_lib::ServiceServerHandler<std_srvs::srv::Trigger> ss_land_;
+  mrs_lib::ServiceServerHandler<std_srvs::srv::Trigger> ss_eland_;
 
   void callbackTakeoff(const std::shared_ptr<mrs_msgs::srv::Vec1::Request> request, std::shared_ptr<mrs_msgs::srv::Vec1::Response> response);
   void callbackLand(const std::shared_ptr<std_srvs::srv::Trigger::Request> request, std::shared_ptr<std_srvs::srv::Trigger::Response> response);
@@ -330,15 +331,16 @@ bool LandoffTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared
 
   // | ------------------------ services ------------------------ |
 
-  service_takeoff_ = node_->create_service<mrs_msgs::srv::Vec1>("~/" + private_handlers_->name_space + "/takeoff",
-                                                                std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2),
-                                                                rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
-  service_land_    = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/land",
-                                                                   std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2),
-                                                                   rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
-  service_eland_   = node_->create_service<std_srvs::srv::Trigger>("~/" + private_handlers_->name_space + "/eland",
-                                                                   std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2),
-                                                                   rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+  ss_takeoff_ = mrs_lib::ServiceServerHandler<mrs_msgs::srv::Vec1>(
+      node_, "~/" + private_handlers_->name_space + "/takeoff", std::bind(&LandoffTracker::callbackTakeoff, this, std::placeholders::_1, std::placeholders::_2),
+      rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+
+  ss_land_  = mrs_lib::ServiceServerHandler<std_srvs::srv::Trigger>(node_, "~/" + private_handlers_->name_space + "/land",
+                                                                    std::bind(&LandoffTracker::callbackLand, this, std::placeholders::_1, std::placeholders::_2),
+                                                                    rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+  ss_eland_ = mrs_lib::ServiceServerHandler<std_srvs::srv::Trigger>(
+      node_, "~/" + private_handlers_->name_space + "/eland", std::bind(&LandoffTracker::callbackELand, this, std::placeholders::_1, std::placeholders::_2),
+      rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   // | ------------------------- timers ------------------------- |
 

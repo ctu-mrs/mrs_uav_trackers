@@ -24,6 +24,7 @@
 #include <mrs_lib/attitude_converter.h>
 #include <mrs_lib/subscriber_handler.h>
 #include <mrs_lib/publisher_handler.h>
+#include <mrs_lib/service_server_handler.h>
 #include <mrs_lib/geometry/cyclic.h>
 #include <mrs_lib/geometry/misc.h>
 #include <mrs_lib/scope_timer.h>
@@ -328,9 +329,9 @@ private:
 
   mrs_lib::PublisherHandler<mrs_msgs::msg::FutureTrajectory> ph_avoidance_trajectory_;
 
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_server_toggle_avoidance_;
-  bool                                               callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
-                                                                                      const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  mrs_lib::ServiceServerHandler<std_srvs::srv::SetBool> ss_toggle_avoidance_;
+  bool                                                  callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
+                                                                                         const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics> sh_estimation_diag_;
 
@@ -407,7 +408,7 @@ private:
 
   // | ------------------------- wiggle ------------------------- |
 
-  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr service_server_wiggle_;
+  mrs_lib::ServiceServerHandler<std_srvs::srv::SetBool> ss_wiggle_;
   bool callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Request> request, const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
 
   double wiggle_phase_ = 0;
@@ -577,9 +578,9 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   des_z_filtered_offset_  = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
   des_heading_trajectory_ = MatrixXd::Zero(MPC_HORIZON_LENGTH, 1);
 
-  service_server_wiggle_ = node_->create_service<std_srvs::srv::SetBool>(
-      "~/" + private_handlers_->name_space + "/wiggle", std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2),
-      rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
+  ss_wiggle_ = mrs_lib::ServiceServerHandler<std_srvs::srv::SetBool>(node_, "~/" + private_handlers_->name_space + "/wiggle",
+                                                                     std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2),
+                                                                     rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
   pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "/" + common_handlers_->uav_name + "/uav_status_acquisition/display_string");
@@ -636,8 +637,8 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr
   collision_free_altitude_ = std::numeric_limits<float>::lowest();
 
   // collision avoidance toggle service
-  service_server_toggle_avoidance_ = node_->create_service<std_srvs::srv::SetBool>(
-      "~/" + private_handlers_->name_space + "/collision_avoidance",
+  ss_toggle_avoidance_ = mrs_lib::ServiceServerHandler<std_srvs::srv::SetBool>(
+      node_, "~/" + private_handlers_->name_space + "/collision_avoidance",
       std::bind(&MpcTracker::callbackToggleCollisionAvoidance, this, std::placeholders::_1, std::placeholders::_2), rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
   mrs_lib::SubscriberHandlerOptions shopts;

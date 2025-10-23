@@ -1,0 +1,150 @@
+# GET ALL PARAMETERS USABLE FOR CUSTOM CONFIG BY RUNNING:
+## --------------------------------------------------------------
+## |          rosrun mrs_uav_core get_public_params.py          #
+## --------------------------------------------------------------
+
+mrs_uav_managers:
+
+  estimation_manager:
+
+    # loaded state estimator plugins
+    state_estimators: [
+      "gps_baro",
+      "gps_garmin",
+    ]
+
+    initial_state_estimator: "gps_baro" # will be used as the first state estimator
+    agl_height_estimator: "garmin_agl" # only slightly filtered height for checking min height (not used in control feedback)
+
+  control_manager:
+
+    Se3Controller:
+      eland_threshold: 5.0 # [m], position error triggering eland
+      failsafe_threshold: 7.0 # [m], position error triggering failsafe land
+      odometry_innovation_threshold: 1.5 # [m], position odometry innovation threshold
+
+    trackers: [
+      "FlipTracker",
+    ]
+
+    safety:
+
+      tilt_limit:
+
+        eland:
+          enabled: false
+
+        disarm:
+          enabled: false
+
+      tilt_error_disarm:
+        enabled: false
+
+      yaw_error_eland:
+        enabled: false
+
+  constraint_manager:
+
+    constraints: [
+      "slow",
+      "medium",
+      "fast",
+      "flip",
+    ]
+
+    # list of allowed constraints per odometry mode
+    allowed_constraints:
+      gps_baro: ["slow", "medium", "fast", "flip"]
+
+    default_constraints:
+      gps_baro: "flip"
+
+    flip:
+
+      horizontal:
+        speed: 8.0        # [m/s]
+        acceleration: 4.0 # [m/s^2]
+        jerk: 60.0        # [m/s^3]
+        snap: 60.0        # [m/s^4]
+
+      vertical:
+
+        ascending:
+          speed: 8.0        # [m/s]
+          acceleration: 5.0 # [m/s^2]
+          jerk: 60.0        # [m/s^3]
+          snap: 60.0        # [m/s^4]
+
+        descending:
+          speed: 4.0        # [m/s]
+          acceleration: 2.0 # [m/s^2]
+          jerk: 60.0        # [m/s^3]
+          snap: 60.0        # [m/s^4]
+
+      heading:
+        speed: 2.0        # [rad/s]
+        acceleration: 2.0 # [rad/s^2]
+        jerk: 40.0        # [rad/s^3]
+        snap: 40.0        # [rad/s^4]
+
+      angular_speed:
+        roll: 60.0  # [rad/s]
+        pitch: 60.0 # [rad/s]
+        yaw: 10.0   # [rad/s]
+
+      tilt: 60.0 # [deg]
+
+  gain_manager:
+
+    gains: [
+      "supersoft",
+      "soft",
+      "flip",
+    ]
+
+    # list of allowed gains per odometry mode
+    allowed_gains:
+      gps_baro: ["supersoft", "soft", "flip"]
+
+    default_gains:
+      gps_baro: "flip"
+
+    flip:
+
+      horizontal:
+        kp: 6.0
+        kv: 3.0
+        ka: 1.0
+
+        kib: 0.1
+        kib_lim: 10.0
+
+        kiw: 0.1
+        kiw_lim: 10.0
+
+      vertical:
+        kp: 15.0
+        kv: 8.0
+        ka: 1.0
+
+      attitude:
+        kq_roll_pitch: 8.0
+        kq_yaw: 5.0
+
+      mass_estimator:
+        km: 0.5
+
+        # the maximum estimated uav mass difference
+        km_lim: 20.0 # [kg, at least 1/2 of the UAVs mass to allow landing detection]
+
+  uav_manager:
+
+    takeoff:
+
+      during_takeoff:
+        controller: "MpcController"
+        tracker: "LandoffTracker"
+
+      after_takeoff:
+        controller: "Se3Controller"
+        tracker: "MpcTracker"

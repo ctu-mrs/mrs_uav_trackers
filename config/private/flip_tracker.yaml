@@ -4,9 +4,9 @@ mrs_uav_trackers:
 
     activation_limits:
 
-      max_velocity: 0.7 # [m/s], per axis
+      max_velocity: 1.0 # [m/s], per axis
       max_acceleration: 1.0 # [m/s^2], per axis
-      max_heading_rate: 0.3 # [rad/s]
+      max_heading_rate: 1.0 # [rad/s]
 
     phases:
 
