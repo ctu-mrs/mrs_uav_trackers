@@ -85,11 +85,11 @@ public:
   const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState &new_uav_state);
 
-  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>         setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request);
-  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> setVelocityReference(
-      const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request);
-  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(
-      const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+  setVelocityReference(const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+  setTrajectoryReference(const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request);
 
   const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
@@ -97,8 +97,8 @@ public:
   const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
 
-  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(
-      const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+  setConstraints(const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request);
 
 private:
   rclcpp::Node::SharedPtr  node_;
@@ -789,8 +789,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::hover([[may
 
 /* //{ startTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::startTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+LineTracker::startTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   return nullptr;
 }
@@ -799,8 +799,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::startTrajec
 
 /* //{ stopTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::stopTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+LineTracker::stopTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   return nullptr;
 }
@@ -809,8 +809,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::stopTraject
 
 /* //{ resumeTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::resumeTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+LineTracker::resumeTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   return nullptr;
 }
@@ -819,8 +819,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::resumeTraje
 
 /* //{ gotoTrajectoryStart() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::gotoTrajectoryStart(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+LineTracker::gotoTrajectoryStart([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   return nullptr;
 }
@@ -829,8 +829,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> LineTracker::gotoTraject
 
 /* //{ setConstraints() */
 
-const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> LineTracker::setConstraints(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+LineTracker::setConstraints([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request) {
 
   std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> response = std::make_shared<mrs_msgs::srv::DynamicsConstraintsSrv::Response>();
 
@@ -857,8 +857,8 @@ const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> LineTrack
 
 /* //{ setReference() */
 
-const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> LineTracker::setReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>
+LineTracker::setReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request) {
 
   std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> response = std::make_shared<mrs_msgs::srv::ReferenceSrv::Response>();
 
@@ -889,8 +889,8 @@ const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> LineTracker::setRef
 
 /* //{ setVelocityReference() */
 
-const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> LineTracker::setVelocityReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+LineTracker::setVelocityReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request) {
 
   return nullptr;
 }
@@ -899,8 +899,8 @@ const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> LineTracker
 
 /* //{ setTrajectoryReference() */
 
-const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> LineTracker::setTrajectoryReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+LineTracker::setTrajectoryReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request) {
 
   return nullptr;
 }
@@ -1195,64 +1195,64 @@ void LineTracker::timerMain() {
 
   switch (current_state_horizontal_) {
 
-    case IDLE_STATE:
+  case IDLE_STATE:
 
-      break;
+    break;
 
-    case STOP_MOTION_STATE:
+  case STOP_MOTION_STATE:
 
-      stopHorizontalMotion();
+    stopHorizontalMotion();
 
-      break;
+    break;
 
-    case ACCELERATING_STATE:
+  case ACCELERATING_STATE:
 
-      accelerateHorizontal();
+    accelerateHorizontal();
 
-      break;
+    break;
 
-    case DECELERATING_STATE:
+  case DECELERATING_STATE:
 
-      decelerateHorizontal();
+    decelerateHorizontal();
 
-      break;
+    break;
 
-    case STOPPING_STATE:
+  case STOPPING_STATE:
 
-      stopHorizontal();
+    stopHorizontal();
 
-      break;
+    break;
   }
 
   switch (current_state_vertical_) {
 
-    case IDLE_STATE:
+  case IDLE_STATE:
 
-      break;
+    break;
 
-    case STOP_MOTION_STATE:
+  case STOP_MOTION_STATE:
 
-      stopVerticalMotion();
+    stopVerticalMotion();
 
-      break;
+    break;
 
-    case ACCELERATING_STATE:
+  case ACCELERATING_STATE:
 
-      accelerateVertical();
+    accelerateVertical();
 
-      break;
+    break;
 
-    case DECELERATING_STATE:
+  case DECELERATING_STATE:
 
-      decelerateVertical();
+    decelerateVertical();
 
-      break;
+    break;
 
-    case STOPPING_STATE:
+  case STOPPING_STATE:
 
-      stopVertical();
+    stopVertical();
 
-      break;
+    break;
   }
 
   if (current_state_horizontal_ == STOP_MOTION_STATE && current_state_vertical_ == STOP_MOTION_STATE) {
@@ -1321,9 +1321,9 @@ void LineTracker::timerMain() {
 
 //}
 
-}  // namespace line_tracker
+} // namespace line_tracker
 
-}  // namespace mrs_uav_trackers
+} // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::line_tracker::LineTracker, mrs_uav_managers::Tracker)

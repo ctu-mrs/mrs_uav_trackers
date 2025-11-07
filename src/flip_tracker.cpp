@@ -74,11 +74,11 @@ public:
   const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState &new_uav_state);
 
-  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>         setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request);
-  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> setVelocityReference(
-      const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request);
-  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(
-      const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+  setVelocityReference(const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+  setTrajectoryReference(const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request);
 
   const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
@@ -86,8 +86,8 @@ public:
   const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
   const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
 
-  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(
-      const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+  setConstraints(const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request);
 
 private:
   rclcpp::Node::SharedPtr  node_;
@@ -414,244 +414,244 @@ std::optional<mrs_msgs::msg::TrackerCommand> FlipTracker::update(const mrs_msgs:
 
   switch (current_state) {
 
-    case STATE_IDLE: {
+  case STATE_IDLE: {
 
-      tracker_cmd.use_position_vertical   = true;
-      tracker_cmd.use_position_horizontal = true;
+    tracker_cmd.use_position_vertical   = true;
+    tracker_cmd.use_position_horizontal = true;
 
-      tracker_cmd.use_velocity_vertical   = true;
-      tracker_cmd.use_velocity_horizontal = true;
+    tracker_cmd.use_velocity_vertical   = true;
+    tracker_cmd.use_velocity_horizontal = true;
 
-      tracker_cmd.use_acceleration = false;
-      tracker_cmd.use_jerk         = false;
-      tracker_cmd.use_snap         = false;
+    tracker_cmd.use_acceleration = false;
+    tracker_cmd.use_jerk         = false;
+    tracker_cmd.use_snap         = false;
 
-      tracker_cmd.use_heading              = true;
-      tracker_cmd.use_heading_rate         = false;
-      tracker_cmd.use_heading_acceleration = false;
-      tracker_cmd.use_heading_jerk         = false;
+    tracker_cmd.use_heading              = true;
+    tracker_cmd.use_heading_rate         = false;
+    tracker_cmd.use_heading_acceleration = false;
+    tracker_cmd.use_heading_jerk         = false;
 
-      tracker_cmd.use_orientation = false;
+    tracker_cmd.use_orientation = false;
 
-      tracker_cmd.use_attitude_rate = false;
+    tracker_cmd.use_attitude_rate = false;
 
-      break;
-    }
+    break;
+  }
 
-    case STATE_ACCELERATION: {
+  case STATE_ACCELERATION: {
 
-      tracker_cmd.use_position_vertical   = false;
-      tracker_cmd.use_position_horizontal = true;
+    tracker_cmd.use_position_vertical   = false;
+    tracker_cmd.use_position_horizontal = true;
 
-      tracker_cmd.use_velocity_vertical   = true;
-      tracker_cmd.use_velocity_horizontal = true;
+    tracker_cmd.use_velocity_vertical   = true;
+    tracker_cmd.use_velocity_horizontal = true;
 
-      tracker_cmd.use_acceleration = true;
+    tracker_cmd.use_acceleration = true;
 
-      tracker_cmd.use_jerk = false;
+    tracker_cmd.use_jerk = false;
 
-      tracker_cmd.use_snap = false;
+    tracker_cmd.use_snap = false;
 
-      tracker_cmd.use_heading              = true;
-      tracker_cmd.use_heading_rate         = false;
-      tracker_cmd.use_heading_acceleration = false;
-      tracker_cmd.use_heading_jerk         = false;
+    tracker_cmd.use_heading              = true;
+    tracker_cmd.use_heading_rate         = false;
+    tracker_cmd.use_heading_acceleration = false;
+    tracker_cmd.use_heading_jerk         = false;
 
-      tracker_cmd.use_orientation = false;
+    tracker_cmd.use_orientation = false;
 
-      tracker_cmd.use_attitude_rate = false;
+    tracker_cmd.use_attitude_rate = false;
 
-      if (rampup_active_) {
+    if (rampup_active_) {
 
-        // deactivate the rampup when the times up
-        if (std::abs((clock_->now() - rampup_start_time_).seconds()) >= rampup_duration_) {
+      // deactivate the rampup when the times up
+      if (std::abs((clock_->now() - rampup_start_time_).seconds()) >= rampup_duration_) {
 
-          rampup_active_             = false;
-          tracker_cmd.acceleration.z = z_acceleration_acc_;
-
-          RCLCPP_INFO(node_->get_logger(), "rampup finished");
-
-        } else {
-
-          double rampup_dt = (clock_->now() - rampup_last_time_).seconds();
-
-          rampup_acc_ += _rampup_speed_ * rampup_dt;
-
-          rampup_last_time_ = clock_->now();
-
-          tracker_cmd.acceleration.z = rampup_acc_;
-
-          RCLCPP_INFO_THROTTLE(node_->get_logger(), *clock_, 100, "ramping up acceleration, %.4f", rampup_acc_);
-        }
-
-      } else {
+        rampup_active_             = false;
         tracker_cmd.acceleration.z = z_acceleration_acc_;
-      }
 
-      tracker_cmd.acceleration.z = z_acceleration_acc_;
+        RCLCPP_INFO(node_->get_logger(), "rampup finished");
 
-      tracker_cmd.velocity.z = z_vel_gained_by_flipping_;
-
-      if ((clock_->now() - state_change_time_).seconds() >= 2 * z_acceleration_duration_) {
-        RCLCPP_INFO(node_->get_logger(), "acceleration timeouted, recovering");
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
-        state_change_time_ = clock_->now();
-      }
-
-      if (uav_state.velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
-        RCLCPP_INFO(node_->get_logger(), "z vel exceeded %.2f, flipping", z_vel_gained_by_flipping_);
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_PULSE, current_state_);
-        state_change_time_ = clock_->now();
-      }
-
-      break;
-    }
-
-    case STATE_FLIPPING_PULSE: {
-
-      tracker_cmd.use_position_vertical   = false;
-      tracker_cmd.use_position_horizontal = false;
-
-      tracker_cmd.use_velocity_vertical   = false;
-      tracker_cmd.use_velocity_horizontal = false;
-
-      tracker_cmd.use_acceleration = false;
-
-      tracker_cmd.use_jerk = false;
-
-      tracker_cmd.use_snap = false;
-
-      tracker_cmd.use_heading              = false;
-      tracker_cmd.use_heading_rate         = false;
-      tracker_cmd.use_heading_acceleration = false;
-      tracker_cmd.use_heading_jerk         = false;
-
-      tracker_cmd.use_orientation = false;
-
-      double direction = drs_params.direction == 0 ? 1.0 : -1.0;
-
-      if (drs_params.axis == 0) {
-        tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
-      } else if (drs_params.axis == 1) {
-        tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
-      }
-
-      tracker_cmd.use_attitude_rate = true;
-
-      if (tilt_angle <= M_PI / 2.0) {
-        tracker_cmd.throttle = hover_throttle * cos(tilt_angle);
       } else {
-        tracker_cmd.throttle = 0;
-      }
-      tracker_cmd.use_throttle = true;
 
-      if ((clock_->now() - state_change_time_).seconds() >= _pulse_timeout_) {
+        double rampup_dt = (clock_->now() - rampup_last_time_).seconds();
 
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+        rampup_acc_ += _rampup_speed_ * rampup_dt;
 
-        RCLCPP_ERROR(node_->get_logger(), "pulse phase took too long (%.4f s, timeout %.4f s), startin recovery",
-                     (clock_->now() - state_change_time_).seconds(), _pulse_timeout_);
+        rampup_last_time_ = clock_->now();
 
-        state_change_time_ = clock_->now();
+        tracker_cmd.acceleration.z = rampup_acc_;
 
-      } else if (tilt_angle > FLIPPING_PULSE_STOP_TILT) {
-
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_INTERTIA, current_state_);
-
-        RCLCPP_INFO(node_->get_logger(), "pulse phase took %.4f s, (timeout %.4f s)", (clock_->now() - state_change_time_).seconds(), _pulse_timeout_);
-
-        state_change_time_ = clock_->now();
+        RCLCPP_INFO_THROTTLE(node_->get_logger(), *clock_, 100, "ramping up acceleration, %.4f", rampup_acc_);
       }
 
-      break;
+    } else {
+      tracker_cmd.acceleration.z = z_acceleration_acc_;
     }
 
-    case STATE_FLIPPING_INTERTIA: {
+    tracker_cmd.acceleration.z = z_acceleration_acc_;
 
-      tracker_cmd.use_position_vertical   = false;
-      tracker_cmd.use_position_horizontal = false;
+    tracker_cmd.velocity.z = z_vel_gained_by_flipping_;
 
-      tracker_cmd.use_velocity_vertical   = false;
-      tracker_cmd.use_velocity_horizontal = false;
-
-      tracker_cmd.use_acceleration = false;
-
-      tracker_cmd.use_jerk = false;
-
-      tracker_cmd.use_snap = false;
-
-      tracker_cmd.use_heading              = false;
-      tracker_cmd.use_heading_rate         = false;
-      tracker_cmd.use_heading_acceleration = false;
-      tracker_cmd.use_heading_jerk         = false;
-
-      tracker_cmd.use_orientation = false;
-
-      tracker_cmd.use_attitude_rate = true;
-
-      double direction = drs_params.direction == 0 ? 1.0 : -1.0;
-
-      if (drs_params.axis == 0) {
-        tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
-      } else if (drs_params.axis == 1) {
-        tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
-      }
-
-      tracker_cmd.throttle     = hover_throttle;
-      tracker_cmd.use_throttle = true;
-
-      if ((clock_->now() - state_change_time_).seconds() >= _innertia_timeout_) {
-
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
-
-        RCLCPP_ERROR(node_->get_logger(), "inertia phase took too long (%.4f s, timeout %.4f s), startin recovery",
-                     (clock_->now() - state_change_time_).seconds(), _innertia_timeout_);
-
-        state_change_time_ = clock_->now();
-
-      } else if (tilt_angle <= INNERTIA_PULSE_STOP_TILT) {
-
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
-
-        RCLCPP_INFO(node_->get_logger(), "inertia phase took %.4f s, (timeout %.4f s)", (clock_->now() - state_change_time_).seconds(), _innertia_timeout_);
-
-        state_change_time_ = clock_->now();
-      }
-
-      break;
+    if ((clock_->now() - state_change_time_).seconds() >= 2 * z_acceleration_duration_) {
+      RCLCPP_INFO(node_->get_logger(), "acceleration timeouted, recovering");
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+      state_change_time_ = clock_->now();
     }
 
-    case STATE_RECOVERY: {
-
-      activation_cmd_.position.z = uav_state.pose.position.z;
-
-      tracker_cmd.use_position_vertical   = false;
-      tracker_cmd.use_position_horizontal = true;
-
-      tracker_cmd.use_velocity_vertical   = true;
-      tracker_cmd.use_velocity_horizontal = true;
-
-      tracker_cmd.use_acceleration = false;
-      tracker_cmd.use_jerk         = false;
-      tracker_cmd.use_snap         = false;
-
-      tracker_cmd.use_heading              = true;
-      tracker_cmd.use_heading_rate         = false;
-      tracker_cmd.use_heading_acceleration = false;
-      tracker_cmd.use_heading_jerk         = false;
-
-      tracker_cmd.use_orientation = false;
-
-      tracker_cmd.use_attitude_rate = false;
-
-      if ((clock_->now() - state_change_time_).seconds() >= _recovery_duration_) {
-
-        mrs_lib::set_mutexed(mutex_current_state_, STATE_IDLE, current_state_);
-        state_change_time_ = clock_->now();
-      }
-
-      break;
+    if (uav_state.velocity.linear.z > 0.95 * z_vel_gained_by_flipping_) {
+      RCLCPP_INFO(node_->get_logger(), "z vel exceeded %.2f, flipping", z_vel_gained_by_flipping_);
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_PULSE, current_state_);
+      state_change_time_ = clock_->now();
     }
+
+    break;
+  }
+
+  case STATE_FLIPPING_PULSE: {
+
+    tracker_cmd.use_position_vertical   = false;
+    tracker_cmd.use_position_horizontal = false;
+
+    tracker_cmd.use_velocity_vertical   = false;
+    tracker_cmd.use_velocity_horizontal = false;
+
+    tracker_cmd.use_acceleration = false;
+
+    tracker_cmd.use_jerk = false;
+
+    tracker_cmd.use_snap = false;
+
+    tracker_cmd.use_heading              = false;
+    tracker_cmd.use_heading_rate         = false;
+    tracker_cmd.use_heading_acceleration = false;
+    tracker_cmd.use_heading_jerk         = false;
+
+    tracker_cmd.use_orientation = false;
+
+    double direction = drs_params.direction == 0 ? 1.0 : -1.0;
+
+    if (drs_params.axis == 0) {
+      tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+    } else if (drs_params.axis == 1) {
+      tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+    }
+
+    tracker_cmd.use_attitude_rate = true;
+
+    if (tilt_angle <= M_PI / 2.0) {
+      tracker_cmd.throttle = hover_throttle * cos(tilt_angle);
+    } else {
+      tracker_cmd.throttle = 0;
+    }
+    tracker_cmd.use_throttle = true;
+
+    if ((clock_->now() - state_change_time_).seconds() >= _pulse_timeout_) {
+
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+      RCLCPP_ERROR(node_->get_logger(), "pulse phase took too long (%.4f s, timeout %.4f s), startin recovery", (clock_->now() - state_change_time_).seconds(),
+                   _pulse_timeout_);
+
+      state_change_time_ = clock_->now();
+
+    } else if (tilt_angle > FLIPPING_PULSE_STOP_TILT) {
+
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_FLIPPING_INTERTIA, current_state_);
+
+      RCLCPP_INFO(node_->get_logger(), "pulse phase took %.4f s, (timeout %.4f s)", (clock_->now() - state_change_time_).seconds(), _pulse_timeout_);
+
+      state_change_time_ = clock_->now();
+    }
+
+    break;
+  }
+
+  case STATE_FLIPPING_INTERTIA: {
+
+    tracker_cmd.use_position_vertical   = false;
+    tracker_cmd.use_position_horizontal = false;
+
+    tracker_cmd.use_velocity_vertical   = false;
+    tracker_cmd.use_velocity_horizontal = false;
+
+    tracker_cmd.use_acceleration = false;
+
+    tracker_cmd.use_jerk = false;
+
+    tracker_cmd.use_snap = false;
+
+    tracker_cmd.use_heading              = false;
+    tracker_cmd.use_heading_rate         = false;
+    tracker_cmd.use_heading_acceleration = false;
+    tracker_cmd.use_heading_jerk         = false;
+
+    tracker_cmd.use_orientation = false;
+
+    tracker_cmd.use_attitude_rate = true;
+
+    double direction = drs_params.direction == 0 ? 1.0 : -1.0;
+
+    if (drs_params.axis == 0) {
+      tracker_cmd.attitude_rate.x = direction * drs_params.attitude_rate;
+    } else if (drs_params.axis == 1) {
+      tracker_cmd.attitude_rate.y = direction * drs_params.attitude_rate;
+    }
+
+    tracker_cmd.throttle     = hover_throttle;
+    tracker_cmd.use_throttle = true;
+
+    if ((clock_->now() - state_change_time_).seconds() >= _innertia_timeout_) {
+
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+      RCLCPP_ERROR(node_->get_logger(), "inertia phase took too long (%.4f s, timeout %.4f s), startin recovery",
+                   (clock_->now() - state_change_time_).seconds(), _innertia_timeout_);
+
+      state_change_time_ = clock_->now();
+
+    } else if (tilt_angle <= INNERTIA_PULSE_STOP_TILT) {
+
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_RECOVERY, current_state_);
+
+      RCLCPP_INFO(node_->get_logger(), "inertia phase took %.4f s, (timeout %.4f s)", (clock_->now() - state_change_time_).seconds(), _innertia_timeout_);
+
+      state_change_time_ = clock_->now();
+    }
+
+    break;
+  }
+
+  case STATE_RECOVERY: {
+
+    activation_cmd_.position.z = uav_state.pose.position.z;
+
+    tracker_cmd.use_position_vertical   = false;
+    tracker_cmd.use_position_horizontal = true;
+
+    tracker_cmd.use_velocity_vertical   = true;
+    tracker_cmd.use_velocity_horizontal = true;
+
+    tracker_cmd.use_acceleration = false;
+    tracker_cmd.use_jerk         = false;
+    tracker_cmd.use_snap         = false;
+
+    tracker_cmd.use_heading              = true;
+    tracker_cmd.use_heading_rate         = false;
+    tracker_cmd.use_heading_acceleration = false;
+    tracker_cmd.use_heading_jerk         = false;
+
+    tracker_cmd.use_orientation = false;
+
+    tracker_cmd.use_attitude_rate = false;
+
+    if ((clock_->now() - state_change_time_).seconds() >= _recovery_duration_) {
+
+      mrs_lib::set_mutexed(mutex_current_state_, STATE_IDLE, current_state_);
+      state_change_time_ = clock_->now();
+    }
+
+    break;
+  }
   }
 
   return {tracker_cmd};
@@ -722,8 +722,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::hover([[may
 
 /* //{ startTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::startTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+FlipTracker::startTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
   return nullptr;
 }
 
@@ -731,8 +731,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::startTrajec
 
 /* //{ stopTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::stopTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+FlipTracker::stopTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
   return nullptr;
 }
 
@@ -740,8 +740,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::stopTraject
 
 /* //{ resumeTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::resumeTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+FlipTracker::resumeTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
   return nullptr;
 }
 
@@ -749,8 +749,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::resumeTraje
 
 /* //{ gotoTrajectoryStart() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::gotoTrajectoryStart(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+FlipTracker::gotoTrajectoryStart([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
   return nullptr;
 }
 
@@ -758,8 +758,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> FlipTracker::gotoTraject
 
 /* //{ setConstraints() */
 
-const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> FlipTracker::setConstraints(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+FlipTracker::setConstraints([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request) {
 
   {
     std::scoped_lock lock(mutex_constraints_);
@@ -779,8 +779,8 @@ const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> FlipTrack
 
 /* //{ setReference() */
 
-const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> FlipTracker::setReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>
+FlipTracker::setReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request) {
 
   return nullptr;
 }
@@ -789,8 +789,8 @@ const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> FlipTracker::setRef
 
 /* //{ setVelocityReference() */
 
-const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> FlipTracker::setVelocityReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+FlipTracker::setVelocityReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request) {
 
   return nullptr;
 }
@@ -799,8 +799,8 @@ const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> FlipTracker
 
 /* //{ setTrajectoryReference() */
 
-const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> FlipTracker::setTrajectoryReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request) {
+const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+FlipTracker::setTrajectoryReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request) {
 
   return nullptr;
 }
@@ -995,9 +995,9 @@ bool FlipTracker::checkState(void) {
 
 //}
 
-}  // namespace flip_tracker
+} // namespace flip_tracker
 
-}  // namespace mrs_uav_trackers
+} // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.hpp>
 PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::flip_tracker::FlipTracker, mrs_uav_managers::Tracker)

@@ -87,35 +87,35 @@ namespace mpc_tracker
 
 class MpcTracker : public mrs_uav_managers::Tracker {
 public:
-  bool initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+  bool initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
                   std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers);
 
   void destroy(void);
 
-  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::msg::TrackerCommand>& last_tracker_cmd);
+  std::tuple<bool, std::string> activate(const std::optional<mrs_msgs::msg::TrackerCommand> &last_tracker_cmd);
   void                          deactivate(void);
   bool                          resetStatic(void);
 
-  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState&                     uav_state,
-                                                                 const mrs_uav_managers::Controller::ControlOutput& last_control_output);
+  std::optional<mrs_msgs::msg::TrackerCommand>            update(const mrs_msgs::msg::UavState                     &uav_state,
+                                                                 const mrs_uav_managers::Controller::ControlOutput &last_control_output);
   const mrs_msgs::msg::TrackerStatus                      getStatus();
-  const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request);
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState& new_uav_state);
+  const std::shared_ptr<std_srvs::srv::SetBool::Response> enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request> &request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> switchOdometrySource(const mrs_msgs::msg::UavState &new_uav_state);
 
-  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>         setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> setVelocityReference(
-      const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request);
-  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> setTrajectoryReference(
-      const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> setReference(const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+  setVelocityReference(const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request);
+  const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+  setTrajectoryReference(const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request);
 
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> stopTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
-  const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request>& request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> hover(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> startTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> stopTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> resumeTrajectoryTracking(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
+  const std::shared_ptr<std_srvs::srv::Trigger::Response> gotoTrajectoryStart(const std::shared_ptr<std_srvs::srv::Trigger::Request> &request);
 
-  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> setConstraints(
-      const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request);
+  const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+  setConstraints(const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request);
 
 private:
   rclcpp::Node::SharedPtr  node_;
@@ -171,17 +171,17 @@ private:
 
   double _dt2_;
 
-  MatrixXd          _mat_A_;  // system matrix for virtual UAV
-  MatrixXd          _mat_B_;  // input matrix for virtual UAV
-  MatrixXd          A_;       // system matrix for virtual UAV
-  MatrixXd          B_;       // input matrix for virtual UAV
+  MatrixXd          _mat_A_; // system matrix for virtual UAV
+  MatrixXd          _mat_B_; // input matrix for virtual UAV
+  MatrixXd          A_;      // system matrix for virtual UAV
+  MatrixXd          B_;      // input matrix for virtual UAV
   std::atomic<bool> model_first_iteration_ = true;
   rclcpp::Time      model_iteration_last_time_;
 
-  MatrixXd _mat_A_heading_;  // system matrix for heading
-  MatrixXd _mat_B_heading_;  // input matrix for heading
-  MatrixXd A_heading_;       // system matrix for heading
-  MatrixXd B_heading_;       // input matrix for heading
+  MatrixXd _mat_A_heading_; // system matrix for heading
+  MatrixXd _mat_B_heading_; // input matrix for heading
+  MatrixXd A_heading_;      // system matrix for heading
+  MatrixXd B_heading_;      // input matrix for heading
 
   // the reference over the prediction horizon per axis
   MatrixXd   des_x_trajectory_;
@@ -215,7 +215,7 @@ private:
   bool   trajectory_track_heading_ = false;
   bool   trajectory_tracking_loop_ = false;
   bool   trajectory_set_           = false;
-  int    trajectory_count_         = 0;  // counts how many trajectories we have received
+  int    trajectory_count_         = 0; // counts how many trajectories we have received
 
   // mpc output
   VectorXd   mpc_u_;
@@ -223,8 +223,8 @@ private:
   std::mutex mutex_mpc_u_;
 
   // current state of the dynamical system
-  MatrixXd   mpc_x_;          // translation state
-  MatrixXd   mpc_x_heading_;  // heading state
+  MatrixXd   mpc_x_;         // translation state
+  MatrixXd   mpc_x_heading_; // heading state
   std::mutex mutex_mpc_x_;
 
   // odometry reset
@@ -392,14 +392,14 @@ private:
 
   std::tuple<bool, std::string, bool> loadTrajectory(const mrs_msgs::msg::TrajectoryReference msg);
 
-  MatrixXd                       filterReferenceZ(const VectorXd& des_z_trajectory, const double max_ascending_speed, const double max_descending_speed);
-  std::tuple<MatrixXd, MatrixXd> filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x, double max_speed_y);
+  MatrixXd                       filterReferenceZ(const VectorXd &des_z_trajectory, const double max_ascending_speed, const double max_descending_speed);
+  std::tuple<MatrixXd, MatrixXd> filterReferenceXY(const VectorXd &des_x_trajectory, const VectorXd &des_y_trajectory, double max_speed_x, double max_speed_y);
 
-  double checkTrajectoryForCollisions(int& first_collision_index);
+  double checkTrajectoryForCollisions(int &first_collision_index);
 
   void manageConstraints(void);
   void calculateMPC(void);
-  void iterateModel(const double& dt);
+  void iterateModel(const double &dt);
 
   // | ------------------------ profiler ------------------------ |
 
@@ -437,7 +437,7 @@ private:
 
 /* //{ initialize() */
 
-bool MpcTracker::initialize(const rclcpp::Node::SharedPtr& node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
+bool MpcTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr<mrs_uav_managers::control_manager::CommonHandlers_t> common_handlers,
                             std::shared_ptr<mrs_uav_managers::control_manager::PrivateHandlers_t> private_handlers) {
 
   this->common_handlers_  = common_handlers;
@@ -751,7 +751,7 @@ void MpcTracker::destroy(void) {
 
 /* //{ activate() */
 
-std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs::msg::TrackerCommand>& last_tracker_cmd) {
+std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs::msg::TrackerCommand> &last_tracker_cmd) {
 
   std::stringstream ss;
 
@@ -892,7 +892,7 @@ std::tuple<bool, std::string> MpcTracker::activate(const std::optional<mrs_msgs:
   // this is here to initialize the desired_trajectory vector
   // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
+  setRelativeGoal(0, 0, 0, 0, false); // do not delete
 
   toggleHover(true);
 
@@ -1003,7 +1003,7 @@ bool MpcTracker::resetStatic(void) {
   // this is here to initialize the desired_trajectory vector
   // if deleted (and I tried) the UAV will briefly fly to the
   // origin after activation
-  setRelativeGoal(0, 0, 0, 0, false);  // do not delete
+  setRelativeGoal(0, 0, 0, 0, false); // do not delete
 
   return true;
 }
@@ -1012,8 +1012,8 @@ bool MpcTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::msg::UavState&                                      uav_state,
-                                                                [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput& last_control_output) {
+std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::msg::UavState                                      &uav_state,
+                                                                [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("update");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer(node_, "MpcTracker::update", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
@@ -1209,7 +1209,7 @@ std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::
   // u have to return a position command
   // can set the jerk to 0
   return {tracker_cmd};
-}  // namespace mpc_tracker
+} // namespace mpc_tracker
 
 //}
 
@@ -1280,7 +1280,7 @@ const mrs_msgs::msg::TrackerStatus MpcTracker::getStatus() {
 
 /* //{ enableCallbacks() */
 
-const std::shared_ptr<std_srvs::srv::SetBool::Response> MpcTracker::enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request>& request) {
+const std::shared_ptr<std_srvs::srv::SetBool::Response> MpcTracker::enableCallbacks(const std::shared_ptr<std_srvs::srv::SetBool::Request> &request) {
 
   std::shared_ptr<std_srvs::srv::SetBool::Response> response = std::make_shared<std_srvs::srv::SetBool::Response>();
 
@@ -1309,7 +1309,7 @@ const std::shared_ptr<std_srvs::srv::SetBool::Response> MpcTracker::enableCallba
 
 /* switchOdometrySource() //{ */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::msg::UavState& new_uav_state) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdometrySource([[maybe_unused]] const mrs_msgs::msg::UavState &new_uav_state) {
 
   odometry_reset_in_progress_ = true;
   mpc_result_invalid_         = true;
@@ -1457,7 +1457,7 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::switchOdomet
 
 /* //{ hover() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::hover([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::hover([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   toggleHover(true);
 
@@ -1476,8 +1476,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::hover([[mayb
 
 /* //{ startTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::startTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+MpcTracker::startTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   std::stringstream ss;
 
@@ -1495,8 +1495,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::startTraject
 
 /* //{ stopTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::stopTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+MpcTracker::stopTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   auto [success, message] = stopTrajectoryTrackingImpl();
 
@@ -1512,8 +1512,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::stopTrajecto
 
 /* //{ resumeTrajectoryTracking() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::resumeTrajectoryTracking(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+MpcTracker::resumeTrajectoryTracking([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   auto [success, message] = resumeTrajectoryTrackingImpl();
 
@@ -1530,8 +1530,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::resumeTrajec
 
 /* //{ gotoTrajectoryStart() */
 
-const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::gotoTrajectoryStart(
-    [[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request>& request) {
+const std::shared_ptr<std_srvs::srv::Trigger::Response>
+MpcTracker::gotoTrajectoryStart([[maybe_unused]] const std::shared_ptr<std_srvs::srv::Trigger::Request> &request) {
 
   auto [success, message] = gotoTrajectoryStartImpl();
 
@@ -1547,8 +1547,8 @@ const std::shared_ptr<std_srvs::srv::Trigger::Response> MpcTracker::gotoTrajecto
 
 /* //{ setConstraints() */
 
-const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> MpcTracker::setConstraints(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response>
+MpcTracker::setConstraints([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Request> &request) {
 
   if (!is_initialized_) {
     return nullptr;
@@ -1593,8 +1593,8 @@ const std::shared_ptr<mrs_msgs::srv::DynamicsConstraintsSrv::Response> MpcTracke
 
 /* //{ setReference() */
 
-const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> MpcTracker::setReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response>
+MpcTracker::setReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Request> &request) {
 
   toggleHover(false);
 
@@ -1612,8 +1612,8 @@ const std::shared_ptr<mrs_msgs::srv::ReferenceSrv::Response> MpcTracker::setRefe
 
 /* //{ setVelocityReference() */
 
-const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> MpcTracker::setVelocityReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response>
+MpcTracker::setVelocityReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Request> &request) {
 
   if (!is_initialized_) {
     return nullptr;
@@ -1649,8 +1649,8 @@ const std::shared_ptr<mrs_msgs::srv::VelocityReferenceSrv::Response> MpcTracker:
 
 /* //{ setTrajectoryReference() */
 
-const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response> MpcTracker::setTrajectoryReference(
-    [[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request>& request) {
+const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Response>
+MpcTracker::setTrajectoryReference([[maybe_unused]] const std::shared_ptr<mrs_msgs::srv::TrajectoryReferenceSrv::Request> &request) {
 
   std::stringstream ss;
 
@@ -1843,7 +1843,7 @@ bool MpcTracker::checkCollisionInflated(const double ax, const double ay, const 
 /* //{ checkTrajectoryForCollisions() */
 
 // Check for potential collisions and return the needed altitude offset to avoid other drones
-double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
+double MpcTracker::checkTrajectoryForCollisions(int &first_collision_index) {
 
   std::scoped_lock lock(mutex_predicted_trajectory_, mutex_des_trajectory_, mutex_other_uav_avoidance_trajectories_);
 
@@ -1928,7 +1928,7 @@ double MpcTracker::checkTrajectoryForCollisions(int& first_collision_index) {
 
 /* //{ filterReferenceXY() */
 
-std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des_x_trajectory, const VectorXd& des_y_trajectory, double max_speed_x,
+std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd &des_x_trajectory, const VectorXd &des_y_trajectory, double max_speed_x,
                                                              double max_speed_y) {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
@@ -2024,7 +2024,7 @@ std::tuple<MatrixXd, MatrixXd> MpcTracker::filterReferenceXY(const VectorXd& des
 
 /* //{ filterReferenceZ() */
 
-MatrixXd MpcTracker::filterReferenceZ(const VectorXd& des_z_trajectory, const double max_ascending_speed, const double max_descending_speed) {
+MatrixXd MpcTracker::filterReferenceZ(const VectorXd &des_z_trajectory, const double max_ascending_speed, const double max_descending_speed) {
 
   auto mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
 
@@ -2520,7 +2520,7 @@ void MpcTracker::calculateMPC() {
 
 /* iterateModel() //{ */
 
-void MpcTracker::iterateModel(const double& dt) {
+void MpcTracker::iterateModel(const double &dt) {
 
   auto dt1 = mrs_lib::get_mutexed(mutex_dt1_, dt1_);
 
