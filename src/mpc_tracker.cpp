@@ -1173,7 +1173,56 @@ std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::
 
     RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: MPC translation outputs are not finite!");
 
-    return {};
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: fix: filling in odometry as a backup");
+
+    mpc_result_invalid_ = true;
+    mpc_computed_       = false;
+
+    // set the header
+    tracker_cmd.header.stamp    = uav_state.header.stamp;
+    tracker_cmd.header.frame_id = uav_state.header.frame_id;
+
+    // set positions from odom
+    tracker_cmd.position.x              = uav_state.pose.position.x;
+    tracker_cmd.position.y              = uav_state.pose.position.y;
+    tracker_cmd.position.z              = uav_state.pose.position.z;
+    tracker_cmd.use_position_vertical   = 1;
+    tracker_cmd.use_position_horizontal = 1;
+
+    // set velocities from odom
+    tracker_cmd.velocity.x              = uav_state.velocity.linear.x;
+    tracker_cmd.velocity.y              = uav_state.velocity.linear.y;
+    tracker_cmd.velocity.z              = uav_state.velocity.linear.z;
+    tracker_cmd.use_velocity_vertical   = 1;
+    tracker_cmd.use_velocity_horizontal = 1;
+
+    // set zero accelerations
+    tracker_cmd.acceleration.x   = 0;
+    tracker_cmd.acceleration.y   = 0;
+    tracker_cmd.acceleration.z   = 0;
+    tracker_cmd.use_acceleration = 1;
+
+    // set zero jerk
+    tracker_cmd.jerk.x = 0;
+    tracker_cmd.jerk.y = 0;
+    tracker_cmd.jerk.z = 0;
+
+    // set the initial condition completely from the uav_state
+
+    mpc_x(0, 0) = uav_state.pose.position.x;
+    mpc_x(1, 0) = uav_state.velocity.linear.x;
+    mpc_x(2, 0) = 0;
+    mpc_x(3, 0) = 0;
+
+    mpc_x(4, 0) = uav_state.pose.position.y;
+    mpc_x(5, 0) = uav_state.velocity.linear.y;
+    mpc_x(6, 0) = 0;
+    mpc_x(7, 0) = 0;
+
+    mpc_x(8, 0)  = uav_state.pose.position.z;
+    mpc_x(9, 0)  = uav_state.velocity.linear.z;
+    mpc_x(10, 0) = 0;
+    mpc_x(11, 0) = 0;
   }
 
   bool heading_finite = true;
@@ -1199,7 +1248,28 @@ std::optional<mrs_msgs::msg::TrackerCommand> MpcTracker::update(const mrs_msgs::
 
     RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: MPC heading output is not finite!");
 
-    return {};
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: fix: filling in odometry as a backup");
+
+    mpc_result_invalid_ = true;
+    mpc_computed_       = false;
+
+    try {
+      tracker_cmd.heading     = mrs_lib::AttitudeConverter(uav_state.pose.orientation).getHeading();
+      tracker_cmd.use_heading = 1;
+    }
+    catch (...) {
+      tracker_cmd.use_heading = 0;
+      RCLCPP_WARN_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: could not calculate the current UAV heading");
+    }
+
+    mpc_x_heading(0, 0) = tracker_cmd.heading;
+    mpc_x_heading(1, 0) = 0;
+    mpc_x_heading(2, 0) = 0;
+    mpc_x_heading(3, 0) = 0;
+
+    tracker_cmd.use_heading_rate         = 0;
+    tracker_cmd.use_heading_acceleration = 0;
+    tracker_cmd.use_heading_jerk         = 0;
   }
 
   // set the header
@@ -2152,6 +2222,19 @@ void MpcTracker::calculateMPC() {
   auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
   auto drs_params             = mrs_lib::get_mutexed(mutex_drs_params_, drs_params_);
 
+  {
+    bool arefinite = true;
+    for (int i = 0; i < 12; i++) {
+      if (!std::isfinite(mpc_x(i, 0))) {
+        arefinite = false;
+      }
+    }
+
+    if (!arefinite) {
+      RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): mpc_x is not finite before MPC iteration");
+    }
+  }
+
   MatrixXd des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory;
   {
     std::scoped_lock lock(mutex_des_trajectory_);
@@ -2300,6 +2383,13 @@ void MpcTracker::calculateMPC() {
 
   mpc_u(2) = mpc_solver_z_->getFirstControlInput();
 
+  if (!std::isfinite(mpc_u(2))) {
+    RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): mpc_u(2) is not finite");
+
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): %f %f %f %f %f %f %f %f", max_speed_z, min_speed_z, max_acc_z,
+                          min_acc_z, max_jerk_z, min_jerk_z, max_snap_z, min_snap_z);
+  }
+
   // if we are climbing to avoid a collision, reduce or arrest our horizontal velocity
   double ascend;
   {
@@ -2345,6 +2435,13 @@ void MpcTracker::calculateMPC() {
 
   mpc_u(0) = mpc_solver_x_->getFirstControlInput();
 
+  if (!std::isfinite(mpc_u(0))) {
+    RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): mpc_u(0) is not finite");
+
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): %f %f %f %f %f %f %f %f", max_speed_x, max_speed_x, max_acc_x,
+                          max_acc_x, max_jerk_x, max_jerk_x, max_snap_x, max_snap_x);
+  }
+
   // | -------------------- MPC solver y-axis ------------------- |
 
   if (brake_ && !trajectory_tracking_in_progress_) {
@@ -2371,6 +2468,13 @@ void MpcTracker::calculateMPC() {
     mpc_solver_y_->getStates(predicted_trajectory_);
   }
   mpc_u(1) = mpc_solver_y_->getFirstControlInput();
+
+  if (!std::isfinite(mpc_u(1))) {
+    RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): mpc_u(1) is not finite");
+
+    RCLCPP_ERROR_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: calculateMPC(): %f %f %f %f %f %f %f %f", max_speed_y, max_speed_y, max_acc_y,
+                          max_acc_y, max_jerk_y, max_jerk_y, max_snap_y, max_snap_y);
+  }
 
   // | ------------------- MPC solver heading ------------------- |
 
@@ -2580,8 +2684,34 @@ void MpcTracker::iterateModel(const double &dt) {
     auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
     auto [mpc_u, mpc_u_heading] = mrs_lib::get_mutexed(mutex_mpc_u_, mpc_u_, mpc_u_heading_);
 
+    {
+      bool arefinite = true;
+      for (int i = 0; i < 12; i++) {
+        if (!std::isfinite(mpc_x(i, 0))) {
+          arefinite = false;
+        }
+      }
+
+      if (!arefinite) {
+        RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: iterateModel(): mpc_x is not finite before model iteration");
+      }
+    }
+
     MatrixXd new_mpc_x         = A_ * mpc_x + B_ * mpc_u;
     MatrixXd new_mpc_x_heading = A_heading_ * mpc_x_heading + B_heading_ * mpc_u_heading;
+
+    {
+      bool arefinite = true;
+      for (int i = 0; i < 12; i++) {
+        if (!std::isfinite(mpc_x(i, 0))) {
+          arefinite = false;
+        }
+      }
+
+      if (!arefinite) {
+        RCLCPP_ERROR_STREAM_THROTTLE(node_->get_logger(), *clock_, 1000, "[MpcTracker]: iterateModel(): mpc_x is not finite after model iteration");
+      }
+    }
 
     // | --------------- check the state difference --------------- |
     {
