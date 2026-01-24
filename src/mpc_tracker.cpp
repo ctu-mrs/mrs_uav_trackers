@@ -206,7 +206,7 @@ private:
 
   // trajectory tracking
   std::atomic<bool> trajectory_tracking_in_progress_ = false;
-  double            trajectory_current_time_;
+  double            trajectory_current_time_         = 0;
   std::mutex        mutex_trajectory_tracking_states_;
 
   // params of the loaded trajectory
