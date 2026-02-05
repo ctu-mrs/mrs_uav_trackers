@@ -12,12 +12,12 @@ public:
   }
 
   bool test(void);
+
+  std::shared_ptr<mrs_uav_testing::UAVHandler> uh1_;
+  std::shared_ptr<mrs_uav_testing::UAVHandler> uh2_;
 };
 
 bool Tester::test(void) {
-
-  std::shared_ptr<mrs_uav_testing::UAVHandler> uh1;
-  std::shared_ptr<mrs_uav_testing::UAVHandler> uh2;
 
   {
     auto [uhopt, message] = getUAVHandler("uav1");
@@ -27,7 +27,7 @@ bool Tester::test(void) {
       return false;
     }
 
-    uh1 = uhopt.value();
+    uh1_ = uhopt.value();
   }
 
   {
@@ -38,11 +38,11 @@ bool Tester::test(void) {
       return false;
     }
 
-    uh2 = uhopt.value();
+    uh2_ = uhopt.value();
   }
 
   {
-    auto [success, message] = uh1->activateMidAir();
+    auto [success, message] = uh1_->activateMidAir();
 
     if (!success) {
       RCLCPP_ERROR(node_->get_logger(), "uav1 midair activation failed with message: '%s'", message.c_str());
@@ -51,7 +51,7 @@ bool Tester::test(void) {
   }
 
   {
-    auto [success, message] = uh2->activateMidAir();
+    auto [success, message] = uh2_->activateMidAir();
 
     if (!success) {
       RCLCPP_ERROR(node_->get_logger(), "uav2 midair activation failed with message: '%s'", message.c_str());
@@ -59,18 +59,18 @@ bool Tester::test(void) {
     }
   }
 
-  if (uh1->getActiveTracker() != "MpcTracker") {
+  if (uh1_->getActiveTracker() != "MpcTracker") {
     RCLCPP_ERROR(node_->get_logger(), "uav1: MpcTracker is not active");
     return false;
   }
 
-  if (uh2->getActiveTracker() != "MpcTracker") {
+  if (uh2_->getActiveTracker() != "MpcTracker") {
     RCLCPP_ERROR(node_->get_logger(), "uav2: MpcTracker is not active");
     return false;
   }
 
   {
-    auto [success, message] = uh1->gotoRel(20, 0, 0, 0);
+    auto [success, message] = uh1_->gotoRel(20, 0, 0, 0);
 
     if (!success) {
       RCLCPP_ERROR(node_->get_logger(), "goto relative failed: '%s'", message.c_str());
@@ -80,7 +80,7 @@ bool Tester::test(void) {
 
   this->sleep(5.0);
 
-  if (uh1->isFlyingNormally() && uh2->isFlyingNormally()) {
+  if (uh1_->isFlyingNormally() && uh2_->isFlyingNormally()) {
     return true;
   } else {
     RCLCPP_ERROR(node_->get_logger(), "not flying normally");
