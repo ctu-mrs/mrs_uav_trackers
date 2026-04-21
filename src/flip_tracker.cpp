@@ -410,7 +410,7 @@ std::optional<mrs_msgs::msg::TrackerCommand> FlipTracker::update(const mrs_msgs:
   double g    = common_handlers_->g;
 
   // calculate the z acceleration
-  double hover_throttle = mrs_lib::quadratic_throttle_model::forceToThrottle(common_handlers_->throttle_model, mass * g);
+  double hover_throttle = mrs_lib::quadratic_throttle_model::forceToThrottle(common_handlers_->throttle_model, mass * g, *node_);
 
   switch (current_state) {
 
