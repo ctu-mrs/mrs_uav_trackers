@@ -71,11 +71,11 @@ add_library(MrsUavTrackers_LandoffTracker SHARED
 target_link_libraries(MrsUavTrackers_LandoffTracker
   rclcpp::rclcpp
   rclcpp_components::component
-  mrs_msgs::mrs_msgs
+  ${mrs_msgs_TARGETS}
   mrs_lib::mrs_lib
   pluginlib::pluginlib
-  geometry_msgs::geometry_msgs
-  sensor_msgs::sensor_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   mrs_uav_managers::mrs_uav_managers
   Eigen3::Eigen
   ${mrs_mpc_solvers_TARGETS}
@@ -92,11 +92,11 @@ add_library(MrsUavTrackers_LineTracker SHARED
 target_link_libraries(MrsUavTrackers_LineTracker
   rclcpp::rclcpp
   rclcpp_components::component
-  mrs_msgs::mrs_msgs
+  ${mrs_msgs_TARGETS}
   mrs_lib::mrs_lib
   pluginlib::pluginlib
-  geometry_msgs::geometry_msgs
-  sensor_msgs::sensor_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   mrs_uav_managers::mrs_uav_managers
   Eigen3::Eigen
   ${mrs_mpc_solvers_TARGETS}
@@ -113,11 +113,11 @@ add_library(MrsUavTrackers_MpcTracker SHARED
 target_link_libraries(MrsUavTrackers_MpcTracker
   rclcpp::rclcpp
   rclcpp_components::component
-  mrs_msgs::mrs_msgs
+  ${mrs_msgs_TARGETS}
   mrs_lib::mrs_lib
   pluginlib::pluginlib
-  geometry_msgs::geometry_msgs
-  sensor_msgs::sensor_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   mrs_uav_managers::mrs_uav_managers
   Eigen3::Eigen
   ${mrs_mpc_solvers_TARGETS}
@@ -138,11 +138,11 @@ add_library(MrsUavTrackers_MidairActivationTracker SHARED
 target_link_libraries(MrsUavTrackers_MidairActivationTracker
   rclcpp::rclcpp
   rclcpp_components::component
-  mrs_msgs::mrs_msgs
+  ${mrs_msgs_TARGETS}
   mrs_lib::mrs_lib
   pluginlib::pluginlib
-  geometry_msgs::geometry_msgs
-  sensor_msgs::sensor_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   mrs_uav_managers::mrs_uav_managers
   Eigen3::Eigen
   ${mrs_mpc_solvers_TARGETS}
@@ -159,11 +159,11 @@ add_library(MrsUavTrackers_FlipTracker SHARED
 target_link_libraries(MrsUavTrackers_FlipTracker
   rclcpp::rclcpp
   rclcpp_components::component
-  mrs_msgs::mrs_msgs
+  ${mrs_msgs_TARGETS}
   mrs_lib::mrs_lib
   pluginlib::pluginlib
-  geometry_msgs::geometry_msgs
-  sensor_msgs::sensor_msgs
+  ${geometry_msgs_TARGETS}
+  ${sensor_msgs_TARGETS}
   mrs_uav_managers::mrs_uav_managers
   Eigen3::Eigen
   ${mrs_mpc_solvers_TARGETS}
