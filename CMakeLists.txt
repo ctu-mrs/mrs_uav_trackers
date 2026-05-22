@@ -68,8 +68,17 @@ add_library(MrsUavTrackers_LandoffTracker SHARED
   src/landoff_tracker.cpp
   )
 
-ament_target_dependencies(MrsUavTrackers_LandoffTracker
-  ${DEPENDENCIES}
+target_link_libraries(MrsUavTrackers_LandoffTracker
+  rclcpp::rclcpp
+  rclcpp_components::component
+  mrs_msgs::mrs_msgs
+  mrs_lib::mrs_lib
+  pluginlib::pluginlib
+  geometry_msgs::geometry_msgs
+  sensor_msgs::sensor_msgs
+  mrs_uav_managers::mrs_uav_managers
+  Eigen3::Eigen
+  ${mrs_mpc_solvers_TARGETS}
   )
 
 target_compile_definitions(MrsUavTrackers_LandoffTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
@@ -80,8 +89,17 @@ add_library(MrsUavTrackers_LineTracker SHARED
   src/line_tracker.cpp
   )
 
-ament_target_dependencies(MrsUavTrackers_LineTracker
-  ${DEPENDENCIES}
+target_link_libraries(MrsUavTrackers_LineTracker
+  rclcpp::rclcpp
+  rclcpp_components::component
+  mrs_msgs::mrs_msgs
+  mrs_lib::mrs_lib
+  pluginlib::pluginlib
+  geometry_msgs::geometry_msgs
+  sensor_msgs::sensor_msgs
+  mrs_uav_managers::mrs_uav_managers
+  Eigen3::Eigen
+  ${mrs_mpc_solvers_TARGETS}
   )
 
 target_compile_definitions(MrsUavTrackers_LineTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
@@ -92,8 +110,17 @@ add_library(MrsUavTrackers_MpcTracker SHARED
   src/mpc_tracker.cpp
   )
 
-ament_target_dependencies(MrsUavTrackers_MpcTracker
-  ${DEPENDENCIES}
+target_link_libraries(MrsUavTrackers_MpcTracker
+  rclcpp::rclcpp
+  rclcpp_components::component
+  mrs_msgs::mrs_msgs
+  mrs_lib::mrs_lib
+  pluginlib::pluginlib
+  geometry_msgs::geometry_msgs
+  sensor_msgs::sensor_msgs
+  mrs_uav_managers::mrs_uav_managers
+  Eigen3::Eigen
+  ${mrs_mpc_solvers_TARGETS}
   )
 
 target_link_libraries(MrsUavTrackers_MpcTracker
@@ -108,8 +135,17 @@ add_library(MrsUavTrackers_MidairActivationTracker SHARED
   src/midair_activation_tracker.cpp
   )
 
-ament_target_dependencies(MrsUavTrackers_MidairActivationTracker
-  ${DEPENDENCIES}
+target_link_libraries(MrsUavTrackers_MidairActivationTracker
+  rclcpp::rclcpp
+  rclcpp_components::component
+  mrs_msgs::mrs_msgs
+  mrs_lib::mrs_lib
+  pluginlib::pluginlib
+  geometry_msgs::geometry_msgs
+  sensor_msgs::sensor_msgs
+  mrs_uav_managers::mrs_uav_managers
+  Eigen3::Eigen
+  ${mrs_mpc_solvers_TARGETS}
   )
 
 target_compile_definitions(MrsUavTrackers_MidairActivationTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
@@ -120,8 +156,17 @@ add_library(MrsUavTrackers_FlipTracker SHARED
   src/flip_tracker.cpp
   )
 
-ament_target_dependencies(MrsUavTrackers_FlipTracker
-  ${DEPENDENCIES}
+target_link_libraries(MrsUavTrackers_FlipTracker
+  rclcpp::rclcpp
+  rclcpp_components::component
+  mrs_msgs::mrs_msgs
+  mrs_lib::mrs_lib
+  pluginlib::pluginlib
+  geometry_msgs::geometry_msgs
+  sensor_msgs::sensor_msgs
+  mrs_uav_managers::mrs_uav_managers
+  Eigen3::Eigen
+  ${mrs_mpc_solvers_TARGETS}
   )
 
 target_compile_definitions(MrsUavTrackers_FlipTracker PRIVATE USE_ROS_TIMER=${USE_ROS_TIMER})
