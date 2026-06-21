@@ -294,7 +294,7 @@ bool JoyTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::TrackerCommand> JoyTracker::update(const mrs_msgs::UavState &                                          uav_state,
+std::optional<mrs_msgs::TrackerCommand> JoyTracker::update(const mrs_msgs::UavState                                           &uav_state,
                                                            [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
@@ -462,8 +462,8 @@ const std_srvs::TriggerResponse::ConstPtr JoyTracker::gotoTrajectoryStart([[mayb
 
 /* //{ setConstraints() */
 
-const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr JoyTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr
+JoyTracker::setConstraints([[maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
 
   return mrs_msgs::DynamicsConstraintsSrvResponse::Ptr();
 }
@@ -481,8 +481,8 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr JoyTracker::setReference([[maybe_
 
 /* //{ setVelocityReference() */
 
-const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr JoyTracker::setVelocityReference([
-    [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr
+JoyTracker::setVelocityReference([[maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
 }
 
@@ -490,16 +490,16 @@ const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr JoyTracker::setVelocityRe
 
 /* //{ setTrajectoryReference() */
 
-const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr JoyTracker::setTrajectoryReference([
-    [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr
+JoyTracker::setTrajectoryReference([[maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
 }
 
 //}
 
-}  // namespace joy_tracker
+} // namespace joy_tracker
 
-}  // namespace mrs_uav_trackers
+} // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::joy_tracker::JoyTracker, mrs_uav_managers::Tracker)

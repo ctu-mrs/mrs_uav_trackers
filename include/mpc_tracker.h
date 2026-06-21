@@ -33,8 +33,8 @@ private:
   std::vector<double> myQ_;
 };
 
-}  // namespace mpc_tracker
+} // namespace mpc_tracker
 
-}  // namespace mrs_mpc_solvers
+} // namespace mrs_mpc_solvers
 
 #endif

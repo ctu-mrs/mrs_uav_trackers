@@ -285,7 +285,7 @@ bool SpeedTracker::resetStatic(void) {
 
 /* //{ update() */
 
-std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::UavState &                                          uav_state,
+std::optional<mrs_msgs::TrackerCommand> SpeedTracker::update(const mrs_msgs::UavState                                           &uav_state,
                                                              [[maybe_unused]] const mrs_uav_managers::Controller::ControlOutput &last_control_output) {
 
   mrs_lib::Routine    profiler_routine = profiler_.createRoutine("update");
@@ -530,8 +530,8 @@ const std_srvs::TriggerResponse::ConstPtr SpeedTracker::gotoTrajectoryStart([[ma
 
 /* //{ setConstraints() */
 
-const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr SpeedTracker::setConstraints([
-    [maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::DynamicsConstraintsSrvResponse::ConstPtr
+SpeedTracker::setConstraints([[maybe_unused]] const mrs_msgs::DynamicsConstraintsSrvRequest::ConstPtr &cmd) {
 
   {
     std::scoped_lock lock(mutex_constraints_);
@@ -560,8 +560,8 @@ const mrs_msgs::ReferenceSrvResponse::ConstPtr SpeedTracker::setReference([[mayb
 
 /* //{ setVelocityReference() */
 
-const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr SpeedTracker::setVelocityReference([
-    [maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr
+SpeedTracker::setVelocityReference([[maybe_unused]] const mrs_msgs::VelocityReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::VelocityReferenceSrvResponse::Ptr();
 }
 
@@ -569,8 +569,8 @@ const mrs_msgs::VelocityReferenceSrvResponse::ConstPtr SpeedTracker::setVelocity
 
 /* //{ setTrajectoryReference() */
 
-const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr SpeedTracker::setTrajectoryReference([
-    [maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
+const mrs_msgs::TrajectoryReferenceSrvResponse::ConstPtr
+SpeedTracker::setTrajectoryReference([[maybe_unused]] const mrs_msgs::TrajectoryReferenceSrvRequest::ConstPtr &cmd) {
   return mrs_msgs::TrajectoryReferenceSrvResponse::Ptr();
 }
 
@@ -1168,9 +1168,9 @@ void SpeedTracker::callbackCommand(const mrs_msgs::SpeedTrackerCommand::ConstPtr
 
 //}
 
-}  // namespace speed_tracker
+} // namespace speed_tracker
 
-}  // namespace mrs_uav_trackers
+} // namespace mrs_uav_trackers
 
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(mrs_uav_trackers::speed_tracker::SpeedTracker, mrs_uav_managers::Tracker)
