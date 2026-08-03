@@ -18,9 +18,9 @@ from std_msgs.msg import Bool
 
 def generate_test_description():
 
-    SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp')
-
     ld = launch.LaunchDescription()
+
+    ld.add_action(SetEnvironmentVariable('RMW_IMPLEMENTATION', 'rmw_fastrtps_cpp'))
 
     uav_type="x500"
     uav_name="uav1"
