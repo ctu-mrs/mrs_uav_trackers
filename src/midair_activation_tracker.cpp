@@ -111,10 +111,17 @@ bool MidairActivationTracker::initialize(const rclcpp::Node::SharedPtr          
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") +
-                                              "/config/private/midair_activation_tracker.yaml");
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") +
-                                              "/config/public/midair_activation_tracker.yaml");
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") +
+                                                   "/config/private/midair_activation_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[MidairActivationTracker]: failed to load the private config file");
+    return false;
+  }
+
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") +
+                                                   "/config/public/midair_activation_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[MidairActivationTracker]: failed to load the public config file");
+    return false;
+  }
 
   if (!private_handlers->param_loader->loadedSuccessfully()) {
     RCLCPP_ERROR(node_->get_logger(), "[MidairActivationTracker]: could not load all parameters!");

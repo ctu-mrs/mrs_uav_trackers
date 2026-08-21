@@ -232,8 +232,15 @@ bool FlipTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_pt
 
   // | ---------------- load plugin's parameters ---------------- |
 
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/flip_tracker.yaml");
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/flip_tracker.yaml");
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/flip_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[FlipTracker]: failed to load the private config file");
+    return false;
+  }
+
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/flip_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[FlipTracker]: failed to load the public config file");
+    return false;
+  }
 
   dynparam_mgr_->get_param_provider().copyYamls(private_handlers->param_loader->getParamProvider());
 

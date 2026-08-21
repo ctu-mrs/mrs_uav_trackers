@@ -474,8 +474,15 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr
 
   // | --------------- loading plugin's parameters -------------- |
 
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml");
-  private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml");
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/private/mpc_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[MpcTracker]: failed to load the private config file");
+    return false;
+  }
+
+  if (!private_handlers->param_loader->addYamlFile(ament_index_cpp::get_package_share_directory("mrs_uav_trackers") + "/config/public/mpc_tracker.yaml")) {
+    RCLCPP_ERROR(node_->get_logger(), "[MpcTracker]: failed to load the public config file");
+    return false;
+  }
 
   dynparam_mgr_->get_param_provider().copyYamls(private_handlers->param_loader->getParamProvider());
 

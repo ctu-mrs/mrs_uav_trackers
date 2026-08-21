@@ -1,6 +1,10 @@
-collisions:
-  enabled: false
-  crash: true
+dynamic:
+
+  collisions:
+    enabled: false
+    crash: true
+
+  realtime_factor: 0.5 # [-]
 
 uav_names: [
   "uav1",
