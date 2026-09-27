@@ -284,6 +284,7 @@ private:
   std::string              _avoidance_diagnostics_topic_name_;
   std::vector<std::string> _avoidance_other_uav_names_;
   double                   _avoidance_z_threshold_;
+  std::vector<std::string> _avoidance_lat_estimators_;
 
   // how old can the other UAV trajectory be (since receive time)
   double _collision_trajectory_timeout_;
@@ -332,8 +333,6 @@ private:
   mrs_lib::ServiceServerHandler<std_srvs::srv::SetBool> ss_toggle_avoidance_;
   bool                                                  callbackToggleCollisionAvoidance(const std::shared_ptr<std_srvs::srv::SetBool::Request>  request,
                                                                                          const std::shared_ptr<std_srvs::srv::SetBool::Response> response);
-
-  mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics> sh_estimation_diag_;
 
   // | --------------------- MPC calculation -------------------- |
 
@@ -552,6 +551,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr
   private_handlers->param_loader->loadParam("collision_avoidance/predicted_trajectory_publish_rate", _avoidance_trajectory_rate_);
   private_handlers->param_loader->loadParam("collision_avoidance/correction", _avoidance_z_correction_);
   private_handlers->param_loader->loadParam("collision_avoidance/radius", _avoidance_radius_threshold_);
+  private_handlers->param_loader->loadParam("collision_avoidance/horizontal_estimators", _avoidance_lat_estimators_);
   private_handlers->param_loader->loadParam("collision_avoidance/altitude_threshold", _avoidance_z_threshold_);
   private_handlers->param_loader->loadParam("collision_avoidance/collision_horizontal_speed_coef", _avoidance_collision_horizontal_speed_coef_);
   private_handlers->param_loader->loadParam("collision_avoidance/collision_slow_down_fully", _avoidance_collision_slow_down_fully_);
@@ -674,9 +674,6 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr
           shopts, diag_topic_name, &MpcTracker::callbackOtherMavDiagnostics, this));
     }
   }
-
-  sh_estimation_diag_ =
-      mrs_lib::SubscriberHandler<mrs_msgs::msg::EstimationDiagnostics>(shopts, std::string("/") + _uav_name_ + "/estimation_manager/diagnostics");
 
   profiler = mrs_lib::Profiler(common_handlers->parent_node, "MpcTracker", _profiler_enabled_);
 
@@ -2171,8 +2168,8 @@ void MpcTracker::calculateMPC() {
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
-
-  if (collision_avoidance_enabled_ && (uav_state.estimator_horizontal == "lat_gps" || uav_state.estimator_horizontal == "lat_rtk")) {
+  
+  if (collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
 
     // determine the lowest point in our trajectory
     for (int i = 0; i < MPC_HORIZON_LENGTH; i++) {
@@ -3336,7 +3333,8 @@ void MpcTracker::publishDiagnostics(void) {
   auto des_y_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_y_trajectory_);
   auto des_z_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_z_trajectory_);
   auto des_heading_trajectory = mrs_lib::get_mutexed(mutex_des_trajectory_, des_heading_trajectory_);
-
+  auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+  
   mrs_msgs::msg::MpcTrackerDiagnostics diagnostics;
 
   diagnostics.header.stamp    = clock_->now();
@@ -3346,7 +3344,7 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.uav_name = _uav_name_;
 
-  diagnostics.collision_avoidance_active = collision_avoidance_enabled_;
+  diagnostics.collision_avoidance_active = collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end());
   diagnostics.avoiding_collision         = collision_avoidance_affecting_me_;
 
   diagnostics.setpoint.position.x = des_x_trajectory(0, 0);
@@ -3378,12 +3376,11 @@ void MpcTracker::publishDiagnostics(void) {
     }
   }
 
-  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
 
   if (ss.str().length() > 0) {
     RCLCPP_DEBUG_STREAM_THROTTLE(node_->get_logger(), *clock_, 5000, "[MpcTracker]: getting avoidance trajectories: " << ss.str());
   } else if (collision_avoidance_enabled_ &&
-      (uav_state.estimator_horizontal == "lat_gps" || uav_state.estimator_horizontal == "lat_rtk")) {
+      (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
     RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *clock_, 10000, "[MpcTracker]: missing avoidance trajectories!");
   }
 
@@ -3909,22 +3906,6 @@ void MpcTracker::timerAvoidanceTrajectory() {
     return;
   }
 
-  if (!sh_estimation_diag_.hasMsg()) {
-    return;
-  } else {
-    // we won't try to transform and publish the avoidance prediction if we cannot transform it
-
-    auto                     estimation_diag      = sh_estimation_diag_.getMsg();
-    std::vector<std::string> state_estimators = estimation_diag.get()->switchable_state_estimators;
-
-    bool got_gps_est = std::find(state_estimators.begin(), state_estimators.end(), "gps_garmin") != state_estimators.end() || std::find(state_estimators.begin(), state_estimators.end(), "gps_baro") != state_estimators.end();
-    bool got_rtk_est = std::find(state_estimators.begin(), state_estimators.end(), "rtk") != state_estimators.end();
-
-    if (!got_gps_est && !got_rtk_est) {
-      return;
-    }
-  }
-
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerAvoidanceTrajectory");
   mrs_lib::ScopeTimer timer =
       mrs_lib::ScopeTimer(node_, "MpcTracker::timerAvoidanceTrajectory", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
@@ -3940,12 +3921,11 @@ void MpcTracker::timerAvoidanceTrajectory() {
     avoidance_trajectory.stamp               = clock_->now();
     avoidance_trajectory.uav_name            = _uav_name_;
     avoidance_trajectory.priority            = avoidance_this_uav_priority_;
-    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (uav_state.estimator_horizontal == "lat_gps" || uav_state.estimator_horizontal == "lat_rtk");
+    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end());
     avoidance_trajectory.points.clear();
     avoidance_trajectory.stamp               = clock_->now();
     avoidance_trajectory.uav_name            = _uav_name_;
     avoidance_trajectory.priority            = avoidance_this_uav_priority_;
-    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_;
 
     auto res = common_handlers_->transformer->getTransform(uav_state.header.frame_id, "utm_origin", clock_->now());
 
