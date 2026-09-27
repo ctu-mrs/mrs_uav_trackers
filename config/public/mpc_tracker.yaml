@@ -16,3 +16,10 @@ mrs_uav_trackers:
       enabled_passively: true # disabling this will stop this uav to even transmit its data to others (only if enabled: false)
       radius: 5.0 # [m]
       correction: 3.0 # [m]
+
+      # collision avoidance will work only when these estimators are used
+      horizontal_estimators: [
+        "lat_gps",
+        "lat_rtk",
+        "lat_f9p"
+      ]
