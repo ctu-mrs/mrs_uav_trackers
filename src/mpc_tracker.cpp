@@ -1824,7 +1824,6 @@ bool MpcTracker::isCollisionAvoidanceActive(const mrs_msgs::msg::UavState uav_st
   } else {
 
     return false;
-
   }
 }
 
@@ -3347,11 +3346,15 @@ std::tuple<bool, std::string> MpcTracker::gotoTrajectoryStartImpl(void) {
 
 void MpcTracker::publishDiagnostics(void) {
 
-  auto des_x_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_x_trajectory_);
-  auto des_y_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_y_trajectory_);
-  auto des_z_trajectory       = mrs_lib::get_mutexed(mutex_des_trajectory_, des_z_trajectory_);
-  auto des_heading_trajectory = mrs_lib::get_mutexed(mutex_des_trajectory_, des_heading_trajectory_);
-  auto uav_state              = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
+  const auto [des_x_trajectory, des_y_trajectory, des_z_trajectory, des_heading_trajectory] =
+    mrs_lib::get_mutexed(
+      mutex_des_trajectory_,
+      des_x_trajectory_,
+      des_y_trajectory_,
+      des_z_trajectory_,
+      des_heading_trajectory_);
+  
+  auto uav_state = mrs_lib::get_mutexed(mutex_uav_state_, uav_state_);
   
   mrs_msgs::msg::MpcTrackerDiagnostics diagnostics;
 
@@ -3940,9 +3943,6 @@ void MpcTracker::timerAvoidanceTrajectory() {
     avoidance_trajectory.priority            = avoidance_this_uav_priority_;
     avoidance_trajectory.collision_avoidance = isCollisionAvoidanceActive(uav_state);
     avoidance_trajectory.points.clear();
-    avoidance_trajectory.stamp               = clock_->now();
-    avoidance_trajectory.uav_name            = _uav_name_;
-    avoidance_trajectory.priority            = avoidance_this_uav_priority_;
 
     auto res = common_handlers_->transformer->getTransform(uav_state.header.frame_id, "utm_origin", clock_->now());
 
