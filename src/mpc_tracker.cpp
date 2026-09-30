@@ -325,6 +325,7 @@ private:
   std::map<std::string, mrs_msgs::msg::MpcTrackerDiagnostics>                                    other_uav_diagnostics_;
   std::mutex                                                                                     mutex_other_uav_diagnostics_;
 
+  bool isCollisionAvoidanceActive(const mrs_msgs::msg::UavState uav_state);
   bool checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
   bool checkCollisionInflated(const double ax, const double ay, const double az, const double bx, const double by, const double bz);
 
@@ -1812,6 +1813,23 @@ bool MpcTracker::callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Re
 
 // | --------------- mutual collision avoidance --------------- |
 
+/* //{ isCollisionAvoidanceActive() */
+
+bool MpcTracker::isCollisionAvoidanceActive(const mrs_msgs::msg::UavState uav_state) {
+
+  if (collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
+    
+    return true;
+
+  } else {
+
+    return false;
+
+  }
+}
+
+//}
+
 /* //{ checkCollision() */
 
 bool MpcTracker::checkCollision(const double ax, const double ay, const double az, const double bx, const double by, const double bz) {
@@ -2169,7 +2187,7 @@ void MpcTracker::calculateMPC() {
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
   
-  if (collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
+  if (isCollisionAvoidanceActive(uav_state)) {
 
     // determine the lowest point in our trajectory
     for (int i = 0; i < MPC_HORIZON_LENGTH; i++) {
@@ -3344,7 +3362,7 @@ void MpcTracker::publishDiagnostics(void) {
 
   diagnostics.uav_name = _uav_name_;
 
-  diagnostics.collision_avoidance_active = collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end());
+  diagnostics.collision_avoidance_active = isCollisionAvoidanceActive(uav_state);
   diagnostics.avoiding_collision         = collision_avoidance_affecting_me_;
 
   diagnostics.setpoint.position.x = des_x_trajectory(0, 0);
@@ -3379,8 +3397,7 @@ void MpcTracker::publishDiagnostics(void) {
 
   if (ss.str().length() > 0) {
     RCLCPP_DEBUG_STREAM_THROTTLE(node_->get_logger(), *clock_, 5000, "[MpcTracker]: getting avoidance trajectories: " << ss.str());
-  } else if (collision_avoidance_enabled_ &&
-      (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
+  } else if (isCollisionAvoidanceActive(uav_state)) {
     RCLCPP_DEBUG_THROTTLE(node_->get_logger(), *clock_, 10000, "[MpcTracker]: missing avoidance trajectories!");
   }
 
@@ -3921,7 +3938,7 @@ void MpcTracker::timerAvoidanceTrajectory() {
     avoidance_trajectory.stamp               = clock_->now();
     avoidance_trajectory.uav_name            = _uav_name_;
     avoidance_trajectory.priority            = avoidance_this_uav_priority_;
-    avoidance_trajectory.collision_avoidance = collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end());
+    avoidance_trajectory.collision_avoidance = isCollisionAvoidanceActive(uav_state);
     avoidance_trajectory.points.clear();
     avoidance_trajectory.stamp               = clock_->now();
     avoidance_trajectory.uav_name            = _uav_name_;
