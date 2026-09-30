@@ -114,7 +114,6 @@ def generate_test_description():
                         'world_config': launch_dir+"/config/world_config.yaml",
                         'custom_config': launch_dir+"/config/custom_config_uav1.yaml",
                         'network_config': launch_dir+"/config/network_config.yaml",
-                        # 'automatic_start_config': launch_dir+"/config/automatic_start.yaml",
                     }.items()
                 )
             ]
@@ -138,7 +137,6 @@ def generate_test_description():
                         'world_config': launch_dir+"/config/world_config.yaml",
                         'custom_config': launch_dir+"/config/custom_config_uav2.yaml",
                         'network_config': launch_dir+"/config/network_config.yaml",
-                        # 'automatic_start_config': launch_dir+"/config/automatic_start.yaml",
                     }.items()
                 )
             ]
