@@ -148,3 +148,8 @@ mrs_uav_managers:
       after_takeoff:
         controller: "Se3Controller"
         tracker: "MpcTracker"
+
+mrs_uav_autostart:
+
+  # countdown between entering offboard and the takeoff (default 5 s)
+  takeoff_countdown: 1.0 # [s]
