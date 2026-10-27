@@ -70,7 +70,7 @@ def generate_test_description():
                         ])
                     ]),
                     launch_arguments={
-                        'custom_config': launch_dir+"/config/hw_api.yaml",
+                        'custom_config': launch_dir+"/config/custom_config_uav1.yaml",
                         'uav_name': "uav1",
                     }.items()
                 )
@@ -89,7 +89,7 @@ def generate_test_description():
                         ])
                     ]),
                     launch_arguments={
-                        'custom_config': launch_dir+"/config/hw_api.yaml",
+                        'custom_config': launch_dir+"/config/custom_config_uav2.yaml",
                         'uav_name': "uav2",
                     }.items()
                 )
