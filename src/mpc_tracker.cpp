@@ -4005,14 +4005,14 @@ void MpcTracker::timerAvoidanceTrajectory() {
 
 void MpcTracker::timerHover() {
 
-  MatrixXd mpc_x = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_);
+  auto [mpc_x, mpc_x_heading] = mrs_lib::get_mutexed(mutex_mpc_x_, mpc_x_, mpc_x_heading_);
 
   mrs_lib::Routine    profiler_routine = profiler.createRoutine("timerHover");
   mrs_lib::ScopeTimer timer = mrs_lib::ScopeTimer(node_, "MpcTracker::timerHover", common_handlers_->scope_timer.logger, common_handlers_->scope_timer.enabled);
 
   setRelativeGoal(0, 0, 0, 0, false);
 
-  if (fabs(mpc_x(1, 0)) < 0.1 && fabs(mpc_x(5, 0)) < 0.1 && fabs(mpc_x(9, 0)) < 0.1) {
+  if (fabs(mpc_x(1, 0)) < 0.1 && fabs(mpc_x(5, 0)) < 0.1 && fabs(mpc_x(9, 0)) < 0.1 && fabs(mpc_x_heading(1, 0)) < 0.1) {
 
     toggleHover(false);
 
