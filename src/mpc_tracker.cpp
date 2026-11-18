@@ -1817,8 +1817,9 @@ bool MpcTracker::callbackWiggle(const std::shared_ptr<std_srvs::srv::SetBool::Re
 
 bool MpcTracker::isCollisionAvoidanceActive(const mrs_msgs::msg::UavState uav_state) {
 
-  if (collision_avoidance_enabled_ && (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
-    
+  if (collision_avoidance_enabled_ &&
+      (std::find(_avoidance_lat_estimators_.begin(), _avoidance_lat_estimators_.end(), uav_state.estimator_horizontal) != _avoidance_lat_estimators_.end())) {
+
     return true;
 
   } else {
@@ -2185,7 +2186,7 @@ void MpcTracker::calculateMPC() {
 
   int    first_collision_index = INT_MAX;
   double lowest_z              = std::numeric_limits<double>::max();
-  
+
   if (isCollisionAvoidanceActive(uav_state)) {
 
     // determine the lowest point in our trajectory
