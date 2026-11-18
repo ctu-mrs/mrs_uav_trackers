@@ -1252,6 +1252,8 @@ const mrs_msgs::msg::TrackerStatus MpcTracker::getStatus() {
     tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_IDLE;
   else if (tracker_status.tracking_trajectory)
     tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_TRAJECTORY;
+  else if (hovering_in_progress_)
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_HOVER;
   else if (tracker_status.have_goal)
     tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_REFERENCE;
   else
