@@ -246,6 +246,12 @@ const mrs_msgs::msg::TrackerStatus MidairActivationTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
+  if (is_active_) {
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_MIDAIR_ACTIVATION;
+  } else {
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_IDLE;
+  }
+
   return tracker_status;
 }
 

@@ -675,6 +675,17 @@ const mrs_msgs::msg::TrackerStatus FlipTracker::getStatus() {
   tracker_status.active            = is_active_;
   tracker_status.callbacks_enabled = callbacks_enabled_;
 
+  // the flip's own idle state holds the position the tracker was activated at
+  const auto current_state = mrs_lib::get_mutexed(mutex_current_state_, current_state_);
+
+  if (!is_active_) {
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_IDLE;
+  } else if (current_state == STATE_IDLE) {
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_HOVER;
+  } else {
+    tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_FLIP;
+  }
+
   return tracker_status;
 }
 

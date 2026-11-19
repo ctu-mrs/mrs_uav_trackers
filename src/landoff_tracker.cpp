@@ -631,6 +631,11 @@ const mrs_msgs::msg::TrackerStatus LandoffTracker::getStatus() {
   } else if (landing_) {
 
     tracker_status.state = mrs_msgs::msg::TrackerStatus::STATE_LAND;
+
+  } else {
+
+    // just activated, stopping the motion: on the ground before a takeoff, or holding in the air
+    tracker_status.state = activate_as_the_first_tracker ? mrs_msgs::msg::TrackerStatus::STATE_IDLE : mrs_msgs::msg::TrackerStatus::STATE_HOVER;
   }
 
   tracker_status.have_goal = landing_ || taking_off_ || !(hovering || idling);
