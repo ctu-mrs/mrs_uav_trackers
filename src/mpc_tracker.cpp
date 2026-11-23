@@ -16,8 +16,6 @@
 #include <mrs_msgs/msg/velocity_reference.hpp>
 #include <mrs_msgs/msg/velocity_reference_stamped.hpp>
 
-#include <std_msgs/msg/string.hpp>
-
 #include <mrs_lib/profiler.h>
 #include <mrs_lib/utils.h>
 #include <mrs_lib/mutex.h>
@@ -134,7 +132,6 @@ private:
 
   // debugging publishers
   mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics> pub_diagnostics_;
-  mrs_lib::PublisherHandler<std_msgs::msg::String>                pub_status_string_;
 
   mrs_lib::PublisherHandler<geometry_msgs::msg::PoseArray>        pub_debug_processed_trajectory_poses_;
   mrs_lib::PublisherHandler<visualization_msgs::msg::MarkerArray> pub_debug_processed_trajectory_markers_;
@@ -590,8 +587,7 @@ bool MpcTracker::initialize(const rclcpp::Node::SharedPtr &node, std::shared_ptr
                                                                      std::bind(&MpcTracker::callbackWiggle, this, std::placeholders::_1, std::placeholders::_2),
                                                                      rclcpp::SystemDefaultsQoS(), cbkgrp_ss_);
 
-  pub_diagnostics_   = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
-  pub_status_string_ = mrs_lib::PublisherHandler<std_msgs::msg::String>(node_, "/" + common_handlers_->uav_name + "/uav_status_acquisition/display_string");
+  pub_diagnostics_ = mrs_lib::PublisherHandler<mrs_msgs::msg::MpcTrackerDiagnostics>(node_, "~/" + private_handlers_->name_space + "/diagnostics");
 
   // extract the numerical name
   sscanf(_uav_name_.c_str(), "uav%d", &avoidance_this_uav_number_);
@@ -3406,37 +3402,6 @@ void MpcTracker::publishDiagnostics(void) {
   }
 
   pub_diagnostics_.publish(diagnostics);
-
-  std_msgs::msg::String string_msg;
-
-  if (diagnostics.avoidance_active_uavs.empty()) {
-
-    string_msg.data = "-id col_avoid I see: NOTHING";
-
-  } else {
-
-    string_msg.data = "-id col_avoid I see: ";
-  }
-
-  if (diagnostics.avoidance_active_uavs.size() <= 3) {
-
-    for (size_t i = 0; i < diagnostics.avoidance_active_uavs.size(); i++) {
-      if (i == 0) {
-        string_msg.data += diagnostics.avoidance_active_uavs.at(i);
-      } else {
-        string_msg.data += ", " + diagnostics.avoidance_active_uavs.at(i);
-      }
-    }
-
-  } else {
-
-    std::stringstream ss;
-    ss << diagnostics.avoidance_active_uavs.size();
-
-    string_msg.data += ss.str() + " UAVs";
-  }
-
-  pub_status_string_.publish(string_msg);
 }
 
 //}
